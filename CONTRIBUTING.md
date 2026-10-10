@@ -97,7 +97,8 @@ flowchart LR
   configuration owns those roots, including unexecuted namespace modules;
   one root's coverage cannot compensate for another. Branchless roots require
   statement evidence without inventing a branch denominator.
-- Use `type(scope): imperative subject`; `.config/quality/policy/commits.toml` is the machine-enforced grammar.
+- Use `type(scope): imperative subject`; the `[commit_policy]` table in
+  `.ethos/workspace.toml` owns the machine-enforced grammar.
 - Preserve released history in Git, signed Forge records, the Changelog,
   completed OpenSpec lifecycle records, and admitted evidence. Keep historical
   carriers outside current mutation authority; remove only redundant current
