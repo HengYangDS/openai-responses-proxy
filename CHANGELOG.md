@@ -24,6 +24,9 @@ publication authority.
   owned legacy GUI registration only after exact process exit and service removal.
 - Preserve launch-agent carrier ownership and preimages during installation
   and removal, and observe registered services even when their carrier is missing.
+- Treat a macOS process whose argv psutil cannot read (an errno-0
+  `sysctl(KERN_PROCARGS2)` denial raised as `SystemError`) as inaccessible, so
+  one exiting host process no longer aborts lifecycle process discovery.
 
 ### Changed
 
