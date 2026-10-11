@@ -148,6 +148,16 @@ client configuration, credentials or conversation storage.
 - **AND** output cannot be relabeled as plaintext or retried with its message
   removed; unproved selected output fails locally.
 
+#### Scenario: Live validation fails after downstream content
+
+- **WHEN** malformed SSE data or unproved selected agent arguments follow
+  downstream content
+- **THEN** the relay preserves emitted bytes, closes the incomplete connection
+  and does not reopen the committed request
+- **AND** operational evidence identifies the validator-owned fixed reason
+  without message arguments, ciphertext, query values or exception prose
+- **AND** an unclassified validation exception remains `unknown`.
+
 #### Scenario: The client continues an admitted agent conversation
 
 - **WHEN** the client's own configuration aligns its native namespace and model

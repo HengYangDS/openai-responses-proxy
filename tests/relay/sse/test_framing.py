@@ -14,9 +14,11 @@ import pytest
 from openai_responses_proxy.protocol import response as response_projection
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
+from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
+from tests.protocol.test_agent_delivery import _call
 from tests.relay.exchange_fixture import DirectResponse
 from tests.relay.exchange_fixture import InputTransportFixture
 from tests.relay.exchange_fixture import MemoryHandler
@@ -265,6 +267,60 @@ class TestSseFraming(InputTransportFixture):
         assert result["result"] is not None
         assert result["result"]["detail"] == "projection_failed"
         assert handler.output() == b""
+        counters = cast("dict[str, int]", self._status_snapshot()["counters"])
+        assert counters["stream_projection_failures"] == 1
+
+    @pytest.mark.parametrize("failure", ["event", "plaintext", "unknown"])
+    def test_committed_validation_failure_reports_owned_reason_without_replay(
+        self, failure: str, *, mocker
+    ) -> None:
+        content = b'data: {"type":"response.output_text.delta","delta":"visible"}\n\n'
+        if failure == "plaintext":
+            call = _call(message="gAAAA-private-message")
+            rejected = (
+                b"data: "
+                + json.dumps({"type": "response.output_item.done", "item": call}).encode()
+                + b"\n\n"
+            )
+            expected_reason = "agent_delivery_plaintext_unproved"
+        else:
+            rejected = b'data: {"type":"private-invalid-json"\n\n'
+            expected_reason = "invalid_responses_event"
+        if failure == "unknown":
+            restore = response_projection.sse_event_data
+
+            def unclassified_event(raw: bytes) -> object:
+                if raw == rejected:
+                    raise ValueError("private-unclassified-error")
+                return restore(raw)
+
+            mocker.patch.object(response_projection, "sse_event_data", unclassified_event)
+            expected_reason = "unknown"
+        logger = mocker.patch.object(operational_log, "log")
+        reopen = mocker.Mock()
+        handler = MemoryHandler()
+        result = sse.relay(
+            handler,
+            DirectResponse(content + rejected),
+            "/ucloud/v1/responses?prompt=private-query",
+            40032,
+            send_headers=lambda: None,
+            reopen=reopen,
+            plaintext_agent_delivery=failure == "plaintext",
+        )
+
+        assert result["attempts"] == 1
+        assert result["result"] is not None
+        assert result["result"]["detail"] == "projection_failed"
+        assert result["result"]["failure_code"] == expected_reason
+        assert not result["pre_content_exhausted"]
+        assert handler.output() == b"%X\r\n%s\r\n" % (len(content), content)
+        assert handler.close_connection
+        reopen.assert_not_called()
+        message = logger.call_args.args[0]
+        assert f"reason={expected_reason}" in message
+        assert "path=/ucloud/v1/responses" in message
+        assert "private" not in message
         counters = cast("dict[str, int]", self._status_snapshot()["counters"])
         assert counters["stream_projection_failures"] == 1
 

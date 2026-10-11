@@ -167,6 +167,7 @@ def _read_one_stream(
         except ValueError as error:
             upstream_detail = "projection_failed"
             upstream_error = error
+            failure_code = live_response.validation_reason(error)
             return
         event_count += 1
         event_type = payload.get("type") if isinstance(payload, dict) else None
@@ -332,6 +333,7 @@ def relay(
         operational_log.log(
             f"req={request_id} event=sse_end_without_terminal detail={detail} "
             f"exception={operational_log.safe_exception_label(error) if error else 'none'} "
+            f"reason={result.get('failure_code', 'unknown')} "
             f"events={result['events']} path={safe_path}"
         )
     return {

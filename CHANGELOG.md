@@ -8,6 +8,14 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-10-11
+
+### Fixed
+
+- Identify live SSE format and selected collaboration validation failures by
+  fixed protocol reason codes without logging private arguments or replaying
+  committed output.
+
 ## [5.0.1] - 2026-10-10
 
 ### Fixed

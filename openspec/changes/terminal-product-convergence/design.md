@@ -520,6 +520,23 @@ first-class task, not deferred housekeeping.
 
 ## Risks / Trade-offs
 
+### Bounded live-validation diagnosis
+
+Request40032 exposed an evidence gap in the existing SSE boundary: response
+parsing and selected plaintext restoration both raised ValueError, so the
+operational outcome retained only an exception class. The retained log does not
+prove which validation failed or whether the original decryption incident
+returned. Live response validation now owns a fixed reason type consumed by the
+relay; arbitrary exceptions remain unknown and no exception prose is logged.
+The committed-response regression covers malformed events, rejected ciphertext
+and unknown validation failures while preserving emitted bytes, exact connection
+closure, no reopen and privacy. This repairs diagnostic fidelity without
+changing admission, readable-message requirements, retry policy or client state.
+Focused predecessor RED and successor GREEN, affected protocol/relay acceptance
+and current-source native proof remain separate from published/installed
+acceptance. The existing5.0.1 service stays the accepted serving generation
+until this increment completes its declared release and native transition.
+
 - **The broad Change becomes an excuse for an unreviewable patch** → keep one
   Change but use ordered atomic commits, focused proofs, and task-level
   acceptance; never combine unrelated mutations in one commit.

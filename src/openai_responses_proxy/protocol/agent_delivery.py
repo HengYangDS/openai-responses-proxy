@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from typing import Literal
 from typing import cast
 
+from openai_responses_proxy.protocol.response import ResponseValidationError
+from openai_responses_proxy.protocol.response import ValidationReason
 from openai_responses_proxy.protocol.response import sse_event_data
 
 type DeliveryMode = Literal["native", "plaintext"]
@@ -131,11 +133,11 @@ def _restore_item(item: JsonObject) -> bool:
     ):
         arguments = item.get("arguments")
         if not isinstance(arguments, str):
-            raise ValueError("agent_delivery_plaintext_unproved")
+            raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
         try:
             parsed = json.loads(arguments)
         except (ValueError, RecursionError) as error:
-            raise ValueError("agent_delivery_plaintext_unproved") from error
+            raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT) from error
         message = parsed.get("message") if isinstance(parsed, dict) else None
         encrypted = item.get("encrypted_function_args")
         if (
@@ -144,7 +146,7 @@ def _restore_item(item: JsonObject) -> bool:
             or message.lstrip().startswith("gAAAA")
             or encrypted not in (None, [])
         ):
-            raise ValueError("agent_delivery_plaintext_unproved")
+            raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
         item["encrypted_function_args"] = []
     item["namespace"] = NATIVE_NAMESPACE
     return True

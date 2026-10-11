@@ -9,8 +9,30 @@ from __future__ import annotations
 
 import json
 import re
+from enum import StrEnum
 
 _JSON_TERMINALS = frozenset(("completed", "incomplete"))
+
+
+class ValidationReason(StrEnum):
+    """Fixed diagnostics owned by live response validation."""
+
+    INVALID_EVENT = "invalid_responses_event"
+    UNPROVED_AGENT_PLAINTEXT = "agent_delivery_plaintext_unproved"
+
+
+class ResponseValidationError(ValueError):
+    """A live response failed a named validation without carrying private data."""
+
+    def __init__(self, reason: ValidationReason) -> None:
+        """Bind one protocol-owned reason while retaining ValueError compatibility."""
+        self.reason = reason
+        super().__init__(reason.value)
+
+
+def validation_reason(error: BaseException) -> str:
+    """Report only a validation-owned fixed reason, never exception prose."""
+    return error.reason.value if isinstance(error, ResponseValidationError) else "unknown"
 
 
 def error_payload(
@@ -49,7 +71,7 @@ def sse_event_data(raw_event: bytes) -> object:
     try:
         return json.loads(data)
     except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
-        raise ValueError("invalid_responses_event") from exc
+        raise ResponseValidationError(ValidationReason.INVALID_EVENT) from exc
 
 
 def failure_diagnostic(error: object) -> tuple[str, str]:
