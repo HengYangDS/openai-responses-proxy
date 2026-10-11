@@ -332,16 +332,19 @@
       Its macOS `cmdline()` can raise `SystemError` chained from the intended
       `PermissionError` when errno is 0 after `sysctl(KERN_PROCARGS2)` fails;
       merged [psutil PR 2854](https://github.com/giampaolo/psutil/pull/2854)
-      targets unreleased 8.0.0. Source reading suggests that psutil's own
-      `is_zombie()` resets that errno when the process disappears during the
-      failure handling; this unreproduced analysis is reported as
-      [psutil issue 3024](https://github.com/giampaolo/psutil/issues/3024).
+      targets unreleased 8.0.0. On 2026-10-11 a local race reproduced it on
+      demand: while the target is being reaped, psutil's own `is_zombie()`
+      resets errno to 0, and `sysctl(KERN_PROCARGS2)` itself always set errno.
+      The reproduction is recorded in
+      [psutil issue 3024](https://github.com/giampaolo/psutil/issues/3024#issuecomment-6109684780).
       The process argv boundary converts exactly that chained denial to
       `psutil.AccessDenied`, so one unreadable host process no longer aborts
       process inventory; other `SystemError` values still propagate. After a
       stable release contains PR 2854, advance the lock, qualify its breaking
       changes against current psutil call sites, and remove that translation with
-      its regression test. Review by 2026-11-10 or at the next final-freeze
+      its regression test. Among those changes, 8.0.0 deprecates `Process.info`,
+      which `listener_pids()` reads, while its `StrEnum` status values still
+      satisfy `_status()`. Review by 2026-11-10 or at the next final-freeze
       decision, whichever is earlier.
 - [x] 8.5 Regenerate `mise.lock`, `uv.lock`, and `package-lock.json`
       deterministically; verify a second resolution is byte-clean and no duplicate
