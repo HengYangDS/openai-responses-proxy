@@ -269,17 +269,13 @@ class TestGovernanceMetadata:
     def test_forge_publication_has_no_implicit_actor_or_trust_source(self):
         context = ROOT / "tools" / "forge" / "context.py"
         assert context.is_file()
-        sources = [
-            context.read_text(encoding="utf-8"),
-            (ROOT / "tools" / "forge" / "tag_signature.py").read_text(encoding="utf-8"),
-            (ROOT / "tools" / "release" / "tag.py").read_text(encoding="utf-8"),
-        ]
-        for source in sources:
+        anchor = (ROOT / "tools" / "forge" / "tag_signature.py").read_text(encoding="utf-8")
+        for source in (context.read_text(encoding="utf-8"), anchor):
             assert "packaging/release" not in source
             assert "/Users/" not in source
             assert "$HOME/.ssh" not in source
-        assert "path: Path" in sources[0]
-        assert "anchor" in sources[1]
+        assert "path: Path" in context.read_text(encoding="utf-8")
+        assert "anchor" in anchor
 
     def test_semantic_packages_are_declarative_and_facade_free(self):
         package_root = ROOT / "src/openai_responses_proxy"

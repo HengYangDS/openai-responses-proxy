@@ -52,6 +52,34 @@ def test_identity_requires_complete_fields(field, value, tmp_path: Path, mocker)
         context.load(path)
 
 
+def test_load_accepts_one_complete_external_identity(tmp_path: Path) -> None:
+    """Return the one declared identity from a complete external context."""
+    path = tmp_path / "publication.toml"
+    path.write_text(
+        'schema-version = 1\n\n[product]\nactor-name = "Publisher"\n'
+        'actor-email = "publisher@example.test"\n'
+        'active-signing-fingerprint = "SHA256:selected"\n\n[other]\nvalue = 1\n',
+        encoding="utf-8",
+    )
+    assert context.load(path) == context.PublicationContext(
+        "Publisher", "publisher@example.test", "SHA256:selected"
+    )
+
+
+def test_load_reports_one_bounded_error_for_malformed_context(tmp_path: Path) -> None:
+    """Translate a malformed or unreadable context file into one refusal."""
+    malformed = tmp_path / "malformed.toml"
+    malformed.write_text("this is not a context =\n", encoding="utf-8")
+    with pytest.raises(
+        context.PublicationContextError, match="invalid product publication context"
+    ):
+        context.load(malformed)
+    with pytest.raises(
+        context.PublicationContextError, match="invalid product publication context"
+    ):
+        context.load(tmp_path / "absent.toml")
+
+
 @pytest.fixture
 def signing_inputs(tmp_path, monkeypatch, mocker):
     monkeypatch.setenv("SSH_AUTH_SOCK", "isolated-agent")

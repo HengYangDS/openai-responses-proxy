@@ -98,24 +98,29 @@ object.
 
 ## Tags and releases
 
-The first invocation creates and signs the local annotated tag. Each invocation
-then verifies and publishes that exact local tag object to one selected peer:
+ETHOS owns the local annotated release tag and its publication, exactly as it
+owns [branch publication](#branches). Tag creation and tag publication are two
+separate commands with separate evidence:
 
 ```bash
-mise exec --locked -- uv run --locked --no-sync python -m tools.release.tag \
-  --provider gitlab --tag v<VERSION> \
-  --publication-context "$PUBLICATION_CONTEXT" \
-  --anchor "$GITLAB_TAG_ALLOWED_SIGNERS"
-
-mise exec --locked -- uv run --locked --no-sync python -m tools.release.tag \
-  --provider github --tag v<VERSION> \
-  --publication-context "$PUBLICATION_CONTEXT" \
-  --anchor "$GITHUB_TAG_ALLOWED_SIGNERS"
+ethos land --release --expect-head <accepted-head> --release-head <main-head> \
+  --tag v<VERSION> --apply --authorize --root <accepted-root> --json
+ethos publish --ref refs/tags/v<VERSION> --probe-remote --expect-head <head> --json
+ethos publish --receipt <path> --receipt-sha256 <digest> --apply --authorize \
+  --expect-head <head> --json
 ```
 
-An existing remote tag with the same OID is idempotent. A different OID fails
-closed. Current runner placement may make one Forge the physical execution host
-for some native builds, but it does not make that Forge a product authority.
+`ethos land --release` selects the exact accepted source, creates the signed
+annotated tag once, and checks the accepted and release/tag refs in one native
+Git transaction. It uses the committed `VERSION` as the native release
+identity; a malformed or conflicting value fails closed. `ethos publish --ref`
+then verifies that exact tag object and projects it to each selected peer by
+explicit compare-and-swap. Repeat `--peer <id>` to select only some declared
+peers; an existing remote tag with the same OID is idempotent, and a different
+OID fails closed.
+
+Current runner placement may make one Forge the physical execution host for
+some native builds, but it does not make that Forge a product authority.
 Publication is a separate product operation, not a second provider-specific
 workflow. A publisher accepts only the complete pre-signed bundle and cannot
 build assets or regenerate its checksum inventory or signature.
@@ -128,12 +133,11 @@ Forge has its own semantic subpackage: `publish` owns remote release writes;
 `observe` owns read-only hosted identity and CI evidence. The verifier composes
 those observations without granting installation authority.
 
-[`tools/forge`](../../tools/forge/) owns tag trust, the external publication
-context, runner admission, and the read-only parity audit; ETHOS owns
-[branch publication](#branches). Release construction and signing
-remain under [`tools/release`](../../tools/release/); publishers only consume
-the resulting immutable bundle. These are different responsibilities, not
-alternative publication implementations.
+[`tools/forge`](../../tools/forge/) owns tag trust, runner admission, and the
+read-only parity audit; ETHOS owns branch and tag publication. Release
+construction and signing remain under [`tools/release`](../../tools/release/);
+publishers only consume the resulting immutable bundle. These are different
+responsibilities, not alternative publication implementations.
 
 Publication success covers both the verified bundle and its user-facing Release
 links. GitLab publication compares every link's name, URL, and type with the

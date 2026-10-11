@@ -888,7 +888,7 @@ def _assert_github_required_tokens(text: str) -> None:
         "python-quality:",
         "astral-sh/setup-uv@",
         "uv run --locked --group quality nox -s quality",
-        "python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/forge/test_tagging.py",
+        "python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py",
         "tests/release/publication",
         "native-assets:",
         "name: Native asset (${{ matrix.platform }})",

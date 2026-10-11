@@ -271,7 +271,6 @@ def check_governance_contract() -> None:
         ".ethos/release.toml",
         "tools/forge/context.py",
         "tools/forge/audit.py",
-        "tools/release/tag.py",
         "tools/forge/tag_signature.py",
         "tools/release/publication/__main__.py",
         "tools/release/publication/github/publish.py",

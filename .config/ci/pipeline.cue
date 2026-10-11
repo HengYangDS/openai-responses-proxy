@@ -500,7 +500,7 @@ githubVerify: {
 					"""
 			}, {
 				name: "Verify repository governance"
-				run:  "uv run --locked --no-sync python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/forge/test_tagging.py tests/release/publication"
+				run:  "uv run --locked --no-sync python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication"
 			}]
 		}
 		"python-quality": {

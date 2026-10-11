@@ -297,26 +297,6 @@ def test_release_metadata_command_has_no_forge_semantics() -> None:
     assert legacy.returncode != 0, "metadata retained a Forge-specific compatibility flag"
 
 
-def test_local_tag_owner_signs_once_then_publishes_the_exact_object() -> None:
-    """Require one local tag object with provider-parametric validation and push."""
-    source = (ROOT / "tools" / "release" / "tag.py").read_text(encoding="utf-8")
-    prepare = '_metadata(root, "--prepare-release")'
-    exact = '_metadata(root, "--tag", tag)'
-    signing = '"tag",\n                "-s",'
-    push = '"push", "--quiet", remote'
-    require_tokens(
-        source,
-        (prepare, exact, signing, push, '"ls-remote", "--tags", remote'),
-        "local tag owner",
-    )
-    assert (
-        source.index(prepare) < source.index(signing) < source.index(exact) < source.index(push)
-    ), "local tag validation order is unsafe"
-    assert "clone" not in source, (
-        "tag publication must not clone a peer or recreate a provider-native tag"
-    )
-
-
 def test_publication_context_is_external_and_host_neutral() -> None:
     """Keep publication identity outside source and free of workstation defaults."""
     git_environment = (ROOT / "tools" / "git_environment.py").read_text(encoding="utf-8")
@@ -349,12 +329,6 @@ def test_publication_context_is_external_and_host_neutral() -> None:
             "ssh-agent",
         )
     ), "provider publication must not hard-code a workstation or manage credentials"
-    tagger = (ROOT / "tools" / "release" / "tag.py").read_text(encoding="utf-8")
-    require_tokens(tagger, ("context.load", "context.select_signing_key"), "provider tagger")
-    assert all(
-        token not in tagger
-        for token in ("/Users/", "$HOME/.ssh", "id_" + "ed25519", "AUTHOR_EMAIL")
-    ), "provider tagger contains a personal or host-specific default"
 
 
 def test_prune_tags_removes_deleted_remote_tag() -> None:

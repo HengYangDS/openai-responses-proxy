@@ -216,7 +216,7 @@ jobs:
           uv run --locked --no-sync python -m tools.release.metadata --tag "$GITHUB_REF_NAME"
           uv run --locked --no-sync python -m tools.quality.repository
       - name: Verify repository governance
-        run: uv run --locked --no-sync python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/forge/test_tagging.py tests/release/publication
+        run: uv run --locked --no-sync python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication
   python-quality:
     name: Python quality
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
