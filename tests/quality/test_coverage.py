@@ -52,6 +52,29 @@ def test_empty_package_cannot_claim_observed_statements():
     ) == ["package_statement_coverage_requires_measured_statements:tools"]
 
 
+def test_malformed_package_counts_are_not_coverage_evidence():
+    assert branch_coverage.package_totals(
+        {
+            "tools/quality/observed.py": {
+                "summary": {
+                    "num_statements": 4,
+                    "covered_lines": True,
+                    "num_branches": 2,
+                    "covered_branches": -1,
+                }
+            }
+        },
+        "tools",
+    ) == {
+        "quality": {
+            "num_statements": 4,
+            "covered_lines": 0,
+            "num_branches": 2,
+            "covered_branches": 0,
+        }
+    }
+
+
 @pytest.mark.parametrize("source", [None, [1], ["tools"]])
 def test_cli_requires_native_source_inventory_and_returns_measured_success(source, mocker, capsys):
     path = branch_coverage.ROOT / ".config/quality/policy/coverage.toml"

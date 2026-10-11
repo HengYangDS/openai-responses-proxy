@@ -716,6 +716,30 @@ class TestQualityPolicyContracts:
                 "commit_subject_invalid:invalid root subject"
             ]
 
+    @pytest.mark.parametrize("policy", [{}, {"subject_pattern": " "}, {"subject_pattern": 7}])
+    def test_commit_policy_without_a_subject_grammar_is_refused(self, policy) -> None:
+        with pytest.raises(ValueError, match="commit_policy_subject_pattern_invalid"):
+            commits.commit_subject_pattern(policy)
+
+    def test_commit_subjects_report_an_unreadable_history(self, monkeypatch) -> None:
+        for suffix in ("BASE", "HEAD"):
+            monkeypatch.delenv(f"OPENAI_RESPONSES_PROXY_COMMIT_{suffix}", raising=False)
+        with _test_repository(("tracked.txt",)) as root:
+            gaps = commits.commit_subject_gaps(root)
+
+        assert len(gaps) == 1
+        assert gaps[0].startswith("commit_history_unavailable:")
+
+    @pytest.mark.parametrize("metadata", ["", "[project]\nname = 7\n", '[project]\nname = " "\n'])
+    def test_commit_event_namespace_requires_a_project_name(
+        self, tmp_path, monkeypatch, metadata
+    ) -> None:
+        project = tmp_path / "pyproject.toml"
+        project.write_text(metadata, encoding="utf-8")
+        monkeypatch.setattr(commits, "PROJECT", project)
+
+        assert commits.commit_subject_gaps(tmp_path) == ["project_name_invalid"]
+
     def test_readme_install_path_matches_product_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 

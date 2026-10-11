@@ -495,6 +495,54 @@ class TestStructuralQualityContracts:
             ROOT, missing
         )
 
+    @pytest.mark.parametrize(
+        ("override", "expected"),
+        [
+            ({"owner": " "}, ["architecture_policy_value:owner"]),
+            (
+                {"package_initializers": "implicit"},
+                ["architecture_policy_value:package_initializers"],
+            ),
+            ({"package_root": "src/absent"}, ["architecture_package_missing:src/absent"]),
+            ({"product_concepts": {}}, ["architecture_product_concepts_empty"]),
+            (
+                {"product_concepts": {"relay": "owner.txt"}},
+                ["architecture_concept_owner_outside_product:relay"],
+            ),
+            (
+                {"external_responsibilities": {}},
+                ["architecture_external_responsibilities_empty"],
+            ),
+        ],
+    )
+    def test_architecture_gate_rejects_an_incomplete_policy_or_product(
+        self, tmp_path: Path, override: dict[str, object], expected: list[str]
+    ) -> None:
+        owner = tmp_path / "src/openai_responses_proxy/relay/owner.py"
+        owner.parent.mkdir(parents=True)
+        owner.write_text("VALUE = 1\n", encoding="utf-8")
+        (tmp_path / "owner.txt").write_text("outside the product package\n", encoding="utf-8")
+        policy: dict[str, object] = {
+            "owner": "quality",
+            "risk_model": "an unowned or absent product escapes topology review",
+            "measurement": "evaluate the declared policy against the checkout",
+            "false_positive_cost": "a deliberate omission requires architecture review",
+            "remediation": "complete the declaration or restore the product owner",
+            "review_condition": "reassess when the product topology changes",
+            "source_roots": ["src/openai_responses_proxy"],
+            "test_roots": ["tests"],
+            "package_root": "src/openai_responses_proxy",
+            "package_root_modules": [],
+            "root_configuration_modules": [],
+            "package_initializers": "ordinary-modules",
+            "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
+            "external_responsibilities": {"credentials": "client-control-plane"},
+            "allowed_package_edges": {"relay": []},
+        }
+
+        assert architecture_gaps(tmp_path, policy) == []
+        assert architecture_gaps(tmp_path, {**policy, **override}) == expected
+
     def test_repository_has_standard_package_metadata_and_one_version_owner(
         self,
     ) -> None:
