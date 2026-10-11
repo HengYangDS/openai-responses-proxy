@@ -418,10 +418,8 @@ class TestStructuralQualityContracts:
         owner = ROOT / "tools/git_environment.py"
         isolated_config_consumers = (
             ROOT / "tools/forge/audit.py",
-            ROOT / "tools/forge/project.py",
             ROOT / "tools/release/tag.py",
             ROOT / "tests/forge/test_audit.py",
-            ROOT / "tests/forge/test_forward_only.py",
             ROOT / "tests/forge/test_tagging.py",
             ROOT / "tests/quality/fixtures.py",
         )

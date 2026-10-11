@@ -37,6 +37,24 @@ and make Python undiscoverable through the product `PATH`.
   passed through the built executable under the isolated native environment
 - **AND** the archive is bound to the release-owned manifest.
 
+### Requirement: Hosted fixtures are platform-default independent
+
+Repository tests SHALL reach the intended Forge and signing behavior without
+depending on a runner's Git default branch or text newline translation.
+
+#### Scenario: Clone already has `main`
+
+- **WHEN** a hosted Git configuration makes `main` the clone's current branch
+- **THEN** the tag-pruning fixture still publishes and clones its explicitly
+  named `main`
+- **AND** continues to test tag pruning rather than fixture setup
+
+#### Scenario: Windows writes a temporary OpenSSH key
+
+- **WHEN** release tests materialize an OpenSSH private key on Windows
+- **THEN** the serialized key bytes are preserved exactly
+- **AND** `ssh-keygen` can sign the checksum inventory
+
 ## ADDED Requirements
 
 ### Requirement: Clean-room verification follows the locked repository environment

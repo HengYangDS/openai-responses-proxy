@@ -54,42 +54,47 @@ no personal key, private credential, local checkout path, or Forge token.
 
 ## Branches
 
-Publishing local `main` atomically advances the selected peer's protected `main`
-and `dev` to the same commit. A `proposal/*` publication advances only that exact
-proposal. `dev`, `candidate/*`, `work/*`, and arbitrary feature refs are not
-publication sources.
+ETHOS owns branch publication. [`.ethos/release.toml`](../../.ethos/release.toml)
+declares the publication peers and the protected `main` and `dev` refs.
+Accepted `dev`, release `main`, and `proposal/*` are the only branch
+publication sources; `candidate/*` and `work/*` remain local. Each
+`ethos publish --ref` request verifies one exact local object, binds live
+observations of the selected peers into one immutable request, and updates
+each peer by exact compare-and-swap.
+
+Normal publication is fast-forward or idempotent: each peer ref is created,
+advanced, or already current. A non-fast-forward replacement requires native
+history-repair evidence, and publication never creates or rewrites an object.
+Each peer is observed, updated, and attested independently. ETHOS never claims
+cross-peer atomicity: a rejected or unavailable peer yields an attested
+`partial` or `unknown` result.
+
+A landed Work Lane reaches both peers in this order:
+
+1. Publish `refs/heads/proposal/<lane>` and open a GitHub pull request from it
+   to `dev`.
+2. Wait for that pull request's `Admission` check from
+   [Branch admission](../../.github/workflows/admission.yml). GitHub's
+   protected `dev` and `main` reject a commit without it (`GH006`). GitLab
+   accepts the same push, so a `dev` publication before this step ends
+   `partial`.
+3. Advance local `dev` and `main` with `ethos land --closeout` on the accepted
+   root, then publish `refs/heads/dev` and `refs/heads/main` as separate
+   requests.
+4. Retire the absorbed proposal.
 
 ```bash
-mise exec --locked -- uv run --locked --no-sync python -m tools.forge.project \
-  --provider gitlab \
-  --email "$PRODUCT_EMAIL" \
-  --allowed-signers "$GITLAB_COMMIT_ALLOWED_SIGNERS" \
-  --repository "$GITLAB_REPOSITORY" \
-  --runner-tag "$GITLAB_RUNNER_TAG"
-
-mise exec --locked -- uv run --locked --no-sync python -m tools.forge.project \
-  --provider github \
-  --email "$PRODUCT_EMAIL" \
-  --allowed-signers "$GITHUB_COMMIT_ALLOWED_SIGNERS" \
-  --repository "$GITHUB_REPOSITORY"
+ethos publish --ref refs/heads/proposal/<lane> --probe-remote --expect-head <head> --json
+ethos publish --ref refs/heads/dev --probe-remote --expect-head <head> --json
+ethos publish --ref refs/heads/main --probe-remote --expect-head <head> --json
+ethos publish --retire --ref refs/heads/proposal/<lane> --probe-remote --expect-head <head> --json
+ethos publish --receipt <path> --receipt-sha256 <digest> --apply --authorize --expect-head <head> --json
 ```
 
-Normal publication is fast-forward or idempotent. A one-time migration from an
-old provider-specific history requires exact observed tips for every divergent
-remote ref:
-
-```bash
-mise exec --locked -- uv run --locked --no-sync python -m tools.forge.project \
-  --provider <gitlab-or-github> \
-  --email "$PRODUCT_EMAIL" \
-  --allowed-signers <peer-commit-anchor> \
-  --expect-remote-tip main=<observed-main-oid> \
-  --expect-remote-tip dev=<observed-dev-oid>
-```
-
-The projector uses an atomic push and per-ref `--force-with-lease`. Any remote
-drift rejects the whole operation. It never creates a commit, maps histories,
-or reads the other peer.
+Each request reports an immutable receipt; apply it with the `--receipt` form
+exactly as ETHOS reports it. Repeat `--peer <id>` to select only some declared
+peers; a selected-peer result does not claim that another peer received the
+object.
 
 ## Tags and releases
 
@@ -123,8 +128,9 @@ Forge has its own semantic subpackage: `publish` owns remote release writes;
 `observe` owns read-only hosted identity and CI evidence. The verifier composes
 those observations without granting installation authority.
 
-[`tools/forge`](../../tools/forge/) owns Git-reference projection, tag trust,
-repository settings, and runner admission. Release construction and signing
+[`tools/forge`](../../tools/forge/) owns tag trust, the external publication
+context, runner admission, and the read-only parity audit; ETHOS owns
+[branch publication](#branches). Release construction and signing
 remain under [`tools/release`](../../tools/release/); publishers only consume
 the resulting immutable bundle. These are different responsibilities, not
 alternative publication implementations.

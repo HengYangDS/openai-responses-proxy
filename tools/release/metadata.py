@@ -268,7 +268,7 @@ def check_governance_contract() -> None:
         "docs/evidence/evidence-policy.md",
         "docs/operations/forge-operations.md",
         "LICENSE",
-        "tools/forge/project.py",
+        ".ethos/release.toml",
         "tools/forge/context.py",
         "tools/forge/audit.py",
         "tools/release/tag.py",
@@ -296,15 +296,19 @@ def check_governance_contract() -> None:
     operations = (ROOT / "docs" / "operations" / "forge-operations.md").read_text(encoding="utf-8")
     if "tools.forge.audit" not in operations or "--json" not in operations:
         raise ValueError("forge operations must document the read-only parity audit")
+    for token in ("signed once locally", "fast-forward or idempotent"):
+        if token not in operations:
+            raise ValueError(f"forge operations must document exact object publication: {token}")
+    release = tomllib.loads((ROOT / ".ethos" / "release.toml").read_text(encoding="utf-8"))
+    protected = release["protected_refs"]["branches"]
     for token in (
-        "GITLAB_COMMIT_ALLOWED_SIGNERS",
-        "GITHUB_COMMIT_ALLOWED_SIGNERS",
-        "signed once locally",
-        "fast-forward or idempotent",
-        "fast-forward",
+        *(f"ethos publish --ref refs/heads/{branch}" for branch in protected),
+        "ethos publish --ref refs/heads/proposal/",
+        "ethos publish --retire --ref refs/heads/proposal/",
+        "`Admission`",
     ):
         if token not in operations:
-            raise ValueError(f"forge operations must document provider commit trust: {token}")
+            raise ValueError(f"forge operations must document ETHOS branch publication: {token}")
     for token in ("commit-author-name", "commit-author-email"):
         if token in operations:
             raise ValueError(f"forge operations couple shared history to one actor: {token}")

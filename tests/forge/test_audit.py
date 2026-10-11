@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
-from tests.forge.test_forward_only import ForgeFixture
-from tests.forge.test_forward_only import forge_fixture
-from tests.forge.test_forward_only import run
 from tools.forge import audit
 from tools.forge.audit import branches_for_audit
 from tools.forge.audit import exact_branch_parity
@@ -18,15 +18,71 @@ from tools.forge.audit import remote_branch_oids
 from tools.git_environment import isolated_config_environment
 
 
-def _run(*args: str, cwd: Path) -> str:
-    return subprocess.run(
+class ForgeFixture(TypedDict):
+    """One signed local source and two independent bare peers."""
+
+    source: Path
+    gitlab: Path
+    github: Path
+    anchor: Path
+    email: str
+
+
+def run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run Git with isolated user configuration and reject a nonzero exit."""
+    result = subprocess.run(
         args,
         cwd=cwd,
         env=isolated_config_environment(),
-        check=True,
         text=True,
         capture_output=True,
-    ).stdout.strip()
+        check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(result.stderr or result.stdout)
+    return result
+
+
+@pytest.fixture
+def forge_fixture(tmp_path: Path) -> ForgeFixture:
+    """Create a portable signed source and two empty peer repositories."""
+    if shutil.which("ssh-keygen") is None:
+        pytest.skip("OpenSSH signing is unavailable")
+    source = tmp_path / "source"
+    gitlab = tmp_path / "gitlab.git"
+    github = tmp_path / "github.git"
+    key = tmp_path / "signing"
+    anchor = tmp_path / "allowed-signers"
+    email = "product@example.test"
+    run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key), cwd=tmp_path)
+    public = " ".join(key.with_suffix(".pub").read_text(encoding="ascii").split()[:2])
+    anchor.write_text(f'{email} namespaces="git" {public}\n', encoding="ascii")
+    for remote in (gitlab, github):
+        run("git", "init", "-q", "--bare", str(remote), cwd=tmp_path)
+    run("git", "init", "-q", "-b", "main", str(source), cwd=tmp_path)
+    for key_name, value in (
+        ("core.hooksPath", os.devnull),
+        ("user.name", "Product Publisher"),
+        ("user.email", email),
+        ("user.useConfigOnly", "true"),
+        ("gpg.format", "ssh"),
+        ("gpg.ssh.program", "ssh-keygen"),
+        ("user.signingkey", str(key)),
+    ):
+        run("git", "config", key_name, value, cwd=source)
+    (source / "README.md").write_text("one\n", encoding="utf-8")
+    run("git", "add", "README.md", cwd=source)
+    run("git", "commit", "-qS", "-m", "test: README.md", cwd=source)
+    run("git", "branch", "dev", cwd=source)
+    run("git", "remote", "add", "origin", str(gitlab), cwd=source)
+    run("git", "remote", "add", "github", str(github), cwd=source)
+    return {
+        "source": source,
+        "gitlab": gitlab,
+        "github": github,
+        "anchor": anchor,
+        "email": email,
+    }
 
 
 def _tags(oid: str) -> dict[str, dict[str, object]]:
@@ -78,28 +134,27 @@ proposal_branch_prefix = "proposal/"
     def test_remote_branch_reader_requires_main_and_dev(self, tmp_path: Path) -> None:
         remote = tmp_path / "remote.git"
         source = tmp_path / "source"
-        _run("git", "init", "--bare", str(remote), cwd=tmp_path)
-        _run("git", "init", "-b", "main", str(source), cwd=tmp_path)
-        _run("git", "config", "user.name", "Test", cwd=source)
-        _run("git", "config", "user.email", "test@example.test", cwd=source)
+        run("git", "init", "--bare", str(remote), cwd=tmp_path)
+        run("git", "init", "-b", "main", str(source), cwd=tmp_path)
+        run("git", "config", "user.name", "Test", cwd=source)
+        run("git", "config", "user.email", "test@example.test", cwd=source)
         (source / "README.md").write_text("test\n", encoding="utf-8")
-        _run("git", "add", "README.md", cwd=source)
-        _run("git", "commit", "-m", "test", cwd=source)
-        _run("git", "remote", "add", "peer", str(remote), cwd=source)
-        _run("git", "push", "peer", "main", cwd=source)
+        run("git", "add", "README.md", cwd=source)
+        run("git", "commit", "-m", "test", cwd=source)
+        run("git", "remote", "add", "peer", str(remote), cwd=source)
+        run("git", "push", "peer", "main", cwd=source)
 
         with pytest.raises(RuntimeError, match="declared persistent refs"):
             remote_branch_oids(source, "peer", frozenset(("main", "dev")))
 
-        _run("git", "push", "peer", "main:dev", cwd=source)
-        oid = _run("git", "rev-parse", "HEAD", cwd=source)
+        run("git", "push", "peer", "main:dev", cwd=source)
+        oid = run("git", "rev-parse", "HEAD", cwd=source).stdout.strip()
         assert remote_branch_oids(source, "peer", frozenset(("main", "dev"))) == {
             "main": oid,
             "dev": oid,
         }
 
 
-@pytest.mark.usefixtures(forge_fixture.__name__)
 @pytest.mark.parametrize("peers", [(), ("origin",), ("github",), ("origin", "github")])
 def test_selected_peers_are_optional_and_object_preserving(forge_fixture: ForgeFixture, peers):
     source = forge_fixture["source"]

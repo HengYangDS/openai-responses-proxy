@@ -311,17 +311,6 @@ class TestGovernanceMetadata:
         for owner in ("__main__", "verification", "github.publish", "gitlab.publish"):
             assert importlib.util.find_spec(f"tools.release.publication.{owner}") is not None
 
-    def test_collaboration_has_one_exact_object_projection_surface(self, subtests):
-        projector = ROOT / "tools" / "forge" / "project.py"
-        assert projector.is_file()
-        source = projector.read_text(encoding="utf-8")
-        for destructive in ("filter-branch", "filter-repo", "commit-tree", '"-S"'):
-            with subtests.test(destructive=destructive):
-                assert destructive not in source
-        assert '("main", source), ("dev", source)' in source
-        assert '"push", "--atomic"' in source
-        assert "--force-with-lease=refs/heads/" in source
-
     def test_governance_hooks_are_installed_runtime_state_not_product_source(self):
         assert not (ROOT / ".githooks").exists()
 

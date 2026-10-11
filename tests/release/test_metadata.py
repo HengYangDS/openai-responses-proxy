@@ -317,38 +317,16 @@ def test_local_tag_owner_signs_once_then_publishes_the_exact_object() -> None:
     )
 
 
-def test_exact_local_object_forge_publication_contract() -> None:
-    """Require one provider-parametric projector that never recreates Git objects."""
-    source = (ROOT / "tools" / "forge" / "project.py").read_text(encoding="utf-8")
+def test_publication_context_is_external_and_host_neutral() -> None:
+    """Keep publication identity outside source and free of workstation defaults."""
     git_environment = (ROOT / "tools" / "git_environment.py").read_text(encoding="utf-8")
-    require_tokens(
-        source,
-        (
-            "provider: str",
-            '("main", source), ("dev", source)',
-            "isolated_config_environment",
-            "verify-commit",
-            "runner_admission",
-            '"push", "--atomic"',
-            "--force-with-lease=refs/heads/",
-        ),
-        "exact local-object projector",
-    )
     require_tokens(
         git_environment,
         ('"GIT_CONFIG_GLOBAL": os.devnull', '"GIT_CONFIG_NOSYSTEM": "1"'),
         "canonical Git subprocess environment",
     )
-    assert "canonical GitLab" not in source
-    assert "GitLab receives" not in source
-    context_source = (ROOT / "tools" / "forge" / "context.py").read_text(encoding="utf-8")
-    assert "publication context" in context_source, (
-        "provider identity context is not externally supplied"
-    )
-    assert all(token not in source for token in ("filter-branch", "commit-tree", '"-S"')), (
-        "forge projector can recreate Git objects"
-    )
     context = (ROOT / "tools" / "forge" / "context.py").read_text(encoding="utf-8")
+    assert "publication context" in context, "provider identity context is not externally supplied"
     require_tokens(
         context,
         (
@@ -574,9 +552,33 @@ def test_missing_tag_is_a_release_identity_error(mocker):
         ),
         (
             "docs/operations/forge-operations.md",
-            "GITLAB_COMMIT_ALLOWED_SIGNERS",
+            "fast-forward or idempotent",
             "other",
-            "provider commit trust",
+            "exact object publication",
+        ),
+        (
+            "docs/operations/forge-operations.md",
+            "ethos publish --ref refs/heads/dev",
+            "ethos publish --ref refs/heads/other",
+            "ETHOS branch publication",
+        ),
+        (
+            ".ethos/release.toml",
+            'branches = ["main", "dev"]',
+            'branches = ["main", "dev", "next"]',
+            "ETHOS branch publication",
+        ),
+        (
+            "docs/operations/forge-operations.md",
+            "ethos publish --retire",
+            "ethos publish",
+            "ETHOS branch publication",
+        ),
+        (
+            "docs/operations/forge-operations.md",
+            "`Admission`",
+            "`Other`",
+            "ETHOS branch publication",
         ),
         (
             "docs/operations/forge-operations.md",
