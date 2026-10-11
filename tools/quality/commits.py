@@ -42,11 +42,13 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _base_ref(root: Path) -> str | None:
-    """Select the first available integration base for this checkout."""
+    """Select the first integration revision that bounds this checkout."""
     for ref in ("candidate/dev", "origin/dev", "origin/main", "dev", "main"):
-        result = _git(root, "merge-base", "--is-ancestor", ref, "HEAD")
-        if result.returncode == 0:
+        if _git(root, "rev-parse", "--verify", "--quiet", ref).returncode:
+            continue
+        if _git(root, "merge-base", "--is-ancestor", ref, "HEAD").returncode == 0:
             return ref
+        return _git(root, "merge-base", ref, "HEAD").stdout.strip() or None
     return None
 
 

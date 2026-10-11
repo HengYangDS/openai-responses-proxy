@@ -633,7 +633,55 @@ class TestQualityPolicyContracts:
                 "commit_subject_invalid:invalid root subject"
             ]
 
-    def test_commit_subjects_skip_an_integration_ref_ahead_of_head(self) -> None:
+    def test_commit_subjects_bound_a_moved_integration_ref_at_its_fork_point(self) -> None:
+        with _test_repository(("tracked.txt",)) as root:
+            _git(
+                root,
+                "-c",
+                "user.name=Test Author",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "invalid root subject",
+            )
+            (root / "tracked.txt").write_text("lane\n", encoding="utf-8")
+            _git(root, "add", "tracked.txt")
+            _git(
+                root,
+                "-c",
+                "user.name=Test Author",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "refactor(quality): keep lane work on the stale base",
+            )
+            lane = _git(root, "rev-parse", "HEAD").stdout.strip().decode()
+            _git(root, "checkout", "-q", "--detach", "HEAD~1")
+            (root / "tracked.txt").write_text("advanced\n", encoding="utf-8")
+            _git(root, "add", "tracked.txt")
+            _git(
+                root,
+                "-c",
+                "user.name=Test Author",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "test(quality): advance the integration base",
+            )
+            _git(root, "update-ref", "refs/heads/candidate/dev", "HEAD")
+            _git(root, "checkout", "-q", lane)
+
+            # The moved base is not an ancestor of HEAD, so the checker bounds
+            # the lane at the fork point instead of the whole reachable history.
+            assert commits.commit_subject_gaps(root) == []
+
+    def test_commit_subjects_validate_head_at_an_integration_ref(self) -> None:
         with _test_repository(("tracked.txt",)) as root:
             _git(
                 root,

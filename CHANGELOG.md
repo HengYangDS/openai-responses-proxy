@@ -107,6 +107,9 @@ publication authority.
   fail when those processes retain native modules from the retired generation.
 - Bind commit admission to the exact Forge event object and keep the commit
   policy in its declared ETHOS profile instead of a duplicate repository file.
+- Bound the local commit-subject range at the fork point when the integration
+  base has moved past a lane, so a lane behind its moved base reports its own
+  subjects instead of the whole reachable history.
 
 ## [4.0.2] - 2026-09-16
 
