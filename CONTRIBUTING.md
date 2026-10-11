@@ -92,9 +92,9 @@ flowchart LR
 
 - Add a failing regression before changing behavior.
 - Keep expected failures free of traceback and warning noise.
-- Keep statement and measured branch coverage at least 95% independently for
-  the product package, repository tools, and Nox orchestration. Native coverage
-  configuration owns those roots, including unexecuted namespace modules;
+- Keep statement and measured branch coverage strictly above 95% independently
+  for the product package, repository tools, and Nox orchestration. Native
+  coverage configuration owns those roots, including unexecuted namespace modules;
   one root's coverage cannot compensate for another. Branchless roots require
   statement evidence without inventing a branch denominator.
 - Use `type(scope): imperative subject`; the `[commit_policy]` table in

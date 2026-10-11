@@ -1,5 +1,5 @@
 minimum_percent = 95.0
-comparison = "at-least"
+comparison = "strictly-above"
 threshold_scopes = ["source-root"]
 package_observation = "required"
 metrics = ["statement", "branch"]

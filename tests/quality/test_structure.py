@@ -289,7 +289,7 @@ class TestStructuralQualityContracts:
             "review_condition",
         }
         assert policy["minimum_percent"] == 95.0
-        assert policy["comparison"] == "at-least"
+        assert policy["comparison"] == "strictly-above"
         assert policy["threshold_scopes"] == ["source-root"]
         assert policy["package_observation"] == "required"
 
@@ -326,8 +326,8 @@ class TestStructuralQualityContracts:
         )
 
         assert gaps == [
-            "source_statement_coverage_below_floor:tools:10.00<95.00",
-            "source_branch_coverage_below_floor:tools:10.00<95.00",
+            "source_statement_coverage_not_above_floor:tools:10.00<=95.00",
+            "source_branch_coverage_not_above_floor:tools:10.00<=95.00",
         ]
         assert sources["noxfile"]["num_statements"] == 10
         assert sources["tools"]["packages"] == {
@@ -338,6 +338,22 @@ class TestStructuralQualityContracts:
                 "covered_branches": 1,
             }
         }
+
+    def test_coverage_admission_rejects_a_source_root_exactly_at_the_floor(self) -> None:
+        files: dict[str, object] = {
+            "tools/release/publish.py": {
+                "summary": {
+                    "num_statements": 3330,
+                    "covered_lines": 3259,
+                    "num_branches": 1140,
+                    "covered_branches": 1083,
+                }
+            }
+        }
+
+        gaps, _ = branch_coverage.source_gaps(files, ("tools",), 95.0)
+
+        assert gaps == ["source_branch_coverage_not_above_floor:tools:95.00<=95.00"]
 
     def test_coverage_admission_requires_every_configured_source(self) -> None:
         gaps, _ = branch_coverage.source_gaps({}, ("tools",), 95.0)
@@ -685,13 +701,13 @@ class TestStructuralQualityContracts:
             (
                 {"num_branches": 20, "covered_branches": 19},
                 95,
-                [],
+                ["branch_coverage_not_above_floor:95.00<=95.00"],
             ),
             ({"num_branches": 200, "covered_branches": 191}, 95, []),
             (
                 {"num_branches": 21, "covered_branches": 20},
                 96,
-                ["branch_coverage_below_floor:95.24<96.00"],
+                ["branch_coverage_not_above_floor:95.24<=96.00"],
             ),
             (
                 {"num_branches": 0, "covered_branches": 0},
@@ -711,13 +727,13 @@ class TestStructuralQualityContracts:
             (
                 {"num_statements": 20, "covered_lines": 19},
                 95,
-                [],
+                ["statement_coverage_not_above_floor:95.00<=95.00"],
             ),
             ({"num_statements": 200, "covered_lines": 191}, 95, []),
             (
                 {"num_statements": 21, "covered_lines": 20},
                 96,
-                ["statement_coverage_below_floor:95.24<96.00"],
+                ["statement_coverage_not_above_floor:95.24<=96.00"],
             ),
             (
                 {"num_statements": 0, "covered_lines": 0},
@@ -730,6 +746,20 @@ class TestStructuralQualityContracts:
         self, totals: dict[str, int], floor: int, expected: list[str]
     ) -> None:
         assert branch_coverage.statement_gaps(totals, floor) == expected
+
+    @pytest.mark.parametrize(
+        ("covered", "expected"),
+        [
+            (1082, ["branch_coverage_not_above_floor:94.91<=95.00"]),
+            (1083, ["branch_coverage_not_above_floor:95.00<=95.00"]),
+            (1084, []),
+        ],
+    )
+    def test_coverage_floor_admits_only_ratios_strictly_above_it(
+        self, covered: int, expected: list[str]
+    ) -> None:
+        totals = {"num_branches": 1140, "covered_branches": covered}
+        assert branch_coverage.branch_gaps(totals, 95) == expected
 
     def test_each_semantic_package_must_have_execution_evidence(self) -> None:
         files = {

@@ -64,13 +64,13 @@ def _ratio_gaps(
         return [missing_gap]
     threshold = Decimal(str(floor))
     actual = Decimal(covered * 100) / Decimal(total)
-    if actual < threshold:
-        return [f"{label}_coverage_below_floor:{actual:.2f}<{threshold:.2f}"]
+    if actual <= threshold:
+        return [f"{label}_coverage_not_above_floor:{actual:.2f}<={threshold:.2f}"]
     return []
 
 
 def branch_gaps(totals: Mapping[str, object], floor: float) -> list[str]:
-    """Return a gap when exact branch coverage is absent or below ``floor``."""
+    """Return a gap when exact branch coverage is absent or not above ``floor``."""
     return _ratio_gaps(
         totals,
         floor,
@@ -82,7 +82,7 @@ def branch_gaps(totals: Mapping[str, object], floor: float) -> list[str]:
 
 
 def statement_gaps(totals: Mapping[str, object], floor: float) -> list[str]:
-    """Return a gap when exact statement coverage is absent or below ``floor``."""
+    """Return a gap when exact statement coverage is absent or not above ``floor``."""
     return _ratio_gaps(
         totals,
         floor,
@@ -191,10 +191,10 @@ def load_policy(path: Path) -> dict[str, object]:
     if set(policy) != _POLICY_KEYS:
         raise ValueError("coverage policy fields do not match the canonical schema")
     floor = policy["minimum_percent"]
-    if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor <= 100:
-        raise ValueError("minimum_percent must be within (0, 100]")
-    if policy["comparison"] != "at-least":
-        raise ValueError("comparison must be at-least")
+    if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor < 100:
+        raise ValueError("minimum_percent must be within (0, 100)")
+    if policy["comparison"] != "strictly-above":
+        raise ValueError("comparison must be strictly-above")
     if policy["threshold_scopes"] != ["source-root"]:
         raise ValueError("threshold_scopes must contain exactly source-root")
     if policy["package_observation"] != "required":
