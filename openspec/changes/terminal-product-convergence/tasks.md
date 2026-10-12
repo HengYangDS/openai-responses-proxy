@@ -275,6 +275,9 @@
       the original safe error or deleting the unproved payload or native root.
       Native acceptance, the original Windows cause, and the hosted Windows
       journey remain unproved; the state this records is source-level.
+      The mocked-launch contract no longer copies and prewarms a real native
+      bundle: it runs in the non-native suite with a synthetic manifest and a
+      bounded mock scope, keeping its assertions.
 - [x] 5.7 Verify active-target installation is a true no-op, failed successor transition restores the exact predecessor, repeated recovery is terminal, and uninstall preserves all unowned content.
 - [ ] 5.8 Remove legacy payload shapes, alternate launchers, obsolete journals, dead schema readers, compatibility branches, and fallback service identities after the terminal lifecycle proves no consumer.
 - [x] 5.9 Preserve request admission during capability-qualified upgrade and rollback handoff; prove concurrent new requests and in-flight responses complete without `proxy_draining`, while retaining the bounded legacy native-generation fallback.
@@ -423,19 +426,21 @@
       (`c1db1f03`, 64 non-merge commits, none patch-equivalent in `dev`) is
       being absorbed semantically, not merged. Absorbed so far: install and
       compensation failure causes (`f6ec8868`), contradictory lifecycle
-      outcomes (`d35f285f`), and a dated `Unreleased` changelog heading
-      (from `7f1f10de`). Not ported: work `dev` already delivered differently
+      outcomes (`d35f285f`), a dated `Unreleased` changelog heading (from
+      `7f1f10de`), unproved process-exit phases (`b92268c9`), and the
+      mocked-launch isolation (`0ff70f21`). Not ported: work `dev` already delivered differently
       or superseded (5.0 replay typing, macOS watchdog and carriers, gate
       verifiers, requirement-length repair, CI runner and event-range binding),
       lane-local evidence records, version pins that a fresh refresh owns, and
       the lane's Markdown/Vale prose stack, which conflicts with the
       Prettier-owned layout policy. The JSON format-scope extension
-      (`8d6f157a`) is deferred as a policy change with no current defect.
-      Still open: process-termination diagnostics (`b92268c9`), interrupted
-      first-install recovery (`61ac20dc`, `ff8f5f24`), Windows payload
-      disposal (`865681f7`), the mocked launch isolation (`0ff70f21`), and the
-      unqualified per-Forge history links (`f2c89295`, `b11aaad0`). The lane
-      itself is retired only after these are resolved.
+      (`8d6f157a`) is not ported: the locked Prettier collapses short arrays
+      that npm's own writer expands, so checking `package.json` and
+      `package-lock.json` would give npm-owned bytes a second formatter.
+      Still open: interrupted first-install recovery (`61ac20dc`,
+      `ff8f5f24`), Windows payload disposal (`865681f7`), and the unqualified
+      per-Forge history links (`f2c89295`, `b11aaad0`). The lane itself is
+      retired only after these are resolved.
 - [ ] 13.4 Remove failed unpublished tags, draft Releases, duplicate assets, and unreferenced records from both Forges and local storage while preserving formal immutable release history and required recovery evidence.
 - [ ] 13.5 Freeze the complete candidate and run strict OpenSpec validation, all focused gates, full quality, Python matrix, three-platform native acceptance, reproducible build, security, performance, documentation, and repository-residue audits exactly once at final scope.
 - [ ] 13.6 Complete every task from evidence, archive this Change through the current ETHOS public command, land the signed candidate, synchronize local `main/dev` and both Forge `main/dev`, and verify final tag CI and Releases are green and identical where required.

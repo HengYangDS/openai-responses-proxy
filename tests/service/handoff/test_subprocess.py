@@ -20,7 +20,6 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.release.fixtures import preserve_native_host_projection
-from tests.service.handoff import fixtures as handoff_fixtures
 from tests.service.handoff.fixtures import ScriptedUpstream
 from tests.service.handoff.fixtures import child_pid_observer
 from tests.service.handoff.fixtures import free_port
@@ -193,37 +192,6 @@ class TestRealSubprocessHandoffIntegration:
         assert not upstream.thread.is_alive()
         upstream.start()
         assert upstream.thread.is_alive()
-
-    def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(self, *, mocker) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            ctx = write_installed_payload(
-                root,
-                release="1.0.25",
-                port=free_port(),
-                upstream_url="http://127.0.0.1:43123",
-            )
-            mocker.patch.dict(
-                handoff_fixtures.os.environ,
-                {"OPENAI_RESPONSES_PROXY_EXECUTABLE": "/tmp/native-build-source"},
-            )
-            child = mocker.Mock()
-            child.poll.return_value = None
-            popen = mocker.patch.object(handoff_fixtures.subprocess, "Popen", return_value=child)
-            mocker.patch.object(handoff_fixtures, "proxy_is_up", return_value=True)
-            started = start_real_proxy(
-                ctx,
-                upstream_url="http://127.0.0.1:43123",
-                log_path=root / "proxy.log",
-            )
-
-        assert started is child
-        assert popen.call_args.kwargs.get("close_fds", True) is True
-        assert popen.call_args.kwargs["env"]["OPENAI_RESPONSES_PROXY_HOME"] == ctx.install_dir
-        assert popen.call_args.kwargs["env"]["OPENAI_RESPONSES_PROXY_STATE_HOME"] == str(
-            root / "state"
-        )
-        assert popen.call_args.kwargs["env"]["OPENAI_RESPONSES_PROXY_EXECUTABLE"] == ctx.executable
 
     def _installed_fixture(
         self, *, release: str, port: int, upstream_url: str

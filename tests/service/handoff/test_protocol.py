@@ -14,9 +14,12 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.service import inventory
 from openai_responses_proxy.service.handoff import protocol as handoff_protocol_module
+from tests.service.handoff import fixtures as handoff_fixtures
 from tests.service.handoff.fixtures import entrypoint_module
 from tests.service.handoff.fixtures import expected_metadata
 from tests.service.handoff.fixtures import handoff_module
@@ -518,3 +521,42 @@ class TestHandoffPlatformHelpers:
         assert result == 1
         failed.shutdown.assert_called_once()
         failed.server_close.assert_called_once()
+
+
+def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(tmp_path: Path, mocker) -> None:
+    """A mocked launch contract must not build or prewarm a real native payload."""
+    payload = tmp_path / "generation"
+    payload.mkdir()
+    upstream = "http://127.0.0.1:43123"
+    (payload / inventory.PROVIDER_MANIFEST).write_text(
+        f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream}"\npolicy = "dmxapi"\n',
+        encoding="utf-8",
+    )
+    ctx = runtime_context.RuntimeContext(
+        install_dir=str(tmp_path / "payload"),
+        executable=str(payload / "bin" / "proxy"),
+        command=str(tmp_path / "command"),
+        log_dir=str(tmp_path / "state"),
+        user_home=str(tmp_path),
+        port=43124,
+    )
+    build = mocker.patch.object(handoff_fixtures, "write_installed_payload")
+    mocker.patch.dict(handoff_fixtures.os.environ, {"OPENAI_RESPONSES_PROXY_EXECUTABLE": "foreign"})
+    child = mocker.Mock()
+    child.poll.return_value = None
+    mocker.patch.object(handoff_fixtures, "proxy_is_up", return_value=True)
+    popen = mocker.patch.object(handoff_fixtures.subprocess, "Popen", return_value=child)
+    try:
+        started = handoff_fixtures.start_real_proxy(
+            ctx, upstream_url=upstream, log_path=tmp_path / "proxy.log"
+        )
+    finally:
+        mocker.stop(popen)
+
+    assert started is child
+    build.assert_not_called()
+    assert popen.call_args.kwargs["close_fds"] is True
+    environment = popen.call_args.kwargs["env"]
+    assert environment["OPENAI_RESPONSES_PROXY_HOME"] == ctx.install_dir
+    assert environment["OPENAI_RESPONSES_PROXY_STATE_HOME"] == str(tmp_path / "state")
+    assert environment["OPENAI_RESPONSES_PROXY_EXECUTABLE"] == ctx.executable
