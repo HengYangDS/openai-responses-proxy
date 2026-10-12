@@ -88,6 +88,31 @@ def regular_file(root: Path, relative: str, label: str) -> Path:
     return target
 
 
+def read_bytes(target: Path, *, root: Path, label: str) -> bytes:
+    """Read an unchanged regular-file identity without following a substituted link."""
+    relative = target.relative_to(root).as_posix()
+    target = regular_file(root, relative, label)
+    try:
+        expected = target.lstat()
+        descriptor = os.open(
+            target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            observed = os.fstat(stream.fileno())
+            if not stat.S_ISREG(observed.st_mode) or (observed.st_dev, observed.st_ino) != (
+                expected.st_dev,
+                expected.st_ino,
+            ):
+                raise errors.InstallError(f"{label} file identity changed")
+            content = stream.read()
+            current = regular_file(root, relative, label).lstat()
+            if (current.st_dev, current.st_ino) != (observed.st_dev, observed.st_ino):
+                raise errors.InstallError(f"{label} file identity changed")
+            return content
+    except OSError as exc:
+        raise errors.InstallError(f"{label} file is unavailable or changed") from exc
+
+
 def write_bytes(
     target: Path, content: bytes, *, mode: int = 0o644, root: Path | None = None
 ) -> None:

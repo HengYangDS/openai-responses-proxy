@@ -184,6 +184,7 @@ class TestPayloadProjection:
         if native_code is not None:
             mocker.patch.object(failure, "winerror", native_code, create=True)
         mocker.patch.object(Path, "unlink", side_effect=failure)
+        mocker.patch("time.monotonic", side_effect=[0.0, 5.0])
 
         with pytest.raises(errors.InstallError) as stopped:
             payload_projection.purge_owned_files(
@@ -194,6 +195,220 @@ class TestPayloadProjection:
             f"installed payload purge failed: owned.pyd (OS error {native_code or 13})"
         )
         assert stopped.value.__cause__ is failure
+        assert target.read_bytes() == b"payload"
+
+    @pytest.mark.parametrize("native_code", [5, 32])
+    def test_purge_rechecks_owned_bytes_after_a_transient_windows_delete_failure(
+        self, tmp_path: Path, native_code: int, *, mocker
+    ) -> None:
+        """A released native lock permits disposal without changing permissions."""
+        target = tmp_path / "owned.dll"
+        target.write_bytes(b"payload")
+        expected = payload_digest.sha256_file(target)
+        failure = PermissionError(13, "private native detail")
+        mocker.patch.object(failure, "winerror", native_code, create=True)
+        original_unlink = Path.unlink
+        attempts = []
+
+        def unlink(path: Path, *args, **kwargs) -> None:
+            if path == target:
+                attempts.append(path)
+                if len(attempts) == 1:
+                    raise failure
+            original_unlink(path, *args, **kwargs)
+
+        mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
+        sleep = mocker.patch("time.sleep")
+        read = mocker.spy(payload_projection.owned_files, "read_bytes")
+        chmod = mocker.spy(Path, "chmod")
+
+        assert payload_projection.purge_owned_files(tmp_path, {target.name: expected}) == ()
+        assert len(attempts) == 2
+        assert read.call_count == 2
+        sleep.assert_called_once()
+        chmod.assert_not_called()
+
+    @pytest.mark.parametrize("replacement", ["bytes", "identity", "ancestor", "linked-ancestor"])
+    def test_windows_purge_retry_rejects_a_changed_file_or_ancestor(
+        self, tmp_path: Path, replacement: str, *, mocker
+    ) -> None:
+        """A retry never inherits disposal authority for replacement content."""
+        install = tmp_path / "install"
+        directory = install / "bin"
+        directory.mkdir(parents=True)
+        target = directory / "owned.dll"
+        target.write_bytes(b"payload")
+        expected = payload_digest.sha256_file(target)
+        failure = PermissionError(13, "private native detail")
+        mocker.patch.object(failure, "winerror", 5, create=True)
+        unlink = mocker.patch.object(Path, "unlink", side_effect=failure)
+
+        def substitute(_seconds: float) -> None:
+            if replacement == "bytes":
+                target.write_bytes(b"replacement")
+            elif replacement == "identity":
+                target.rename(directory / "captured.dll")
+                target.write_bytes(b"payload")
+            else:
+                directory.rename(install / "captured")
+                if replacement == "linked-ancestor":
+                    directory.symlink_to(install / "captured", target_is_directory=True)
+                else:
+                    directory.mkdir()
+                    target.hardlink_to(install / "captured" / target.name)
+
+        mocker.patch("time.sleep", side_effect=substitute)
+
+        with pytest.raises(errors.InstallError, match=r"identity changed|symlink ancestor"):
+            payload_projection.purge_owned_files(install, {"bin/owned.dll": expected})
+
+        unlink.assert_called_once()
+        assert target.read_bytes() == (b"replacement" if replacement == "bytes" else b"payload")
+
+    @pytest.mark.parametrize("native_code", [5, 32])
+    def test_windows_purge_retry_stops_at_the_disposal_deadline(
+        self, tmp_path: Path, native_code: int, *, mocker
+    ) -> None:
+        """Persistent native denial keeps both owned and unknown content intact."""
+        target = tmp_path / "owned.dll"
+        note = tmp_path / "operator-note.txt"
+        target.write_bytes(b"payload")
+        note.write_bytes(b"operator content")
+        failure = PermissionError(13, "private native detail")
+        mocker.patch.object(failure, "winerror", native_code, create=True)
+        unlink = mocker.patch.object(Path, "unlink", side_effect=failure)
+        mocker.patch("time.monotonic", side_effect=[0.0, 0.0, 0.0, 5.0])
+        sleep = mocker.patch("time.sleep")
+
+        with pytest.raises(errors.InstallError) as raised:
+            payload_projection.purge_owned_files(
+                tmp_path, {target.name: payload_digest.sha256_file(target)}
+            )
+
+        assert raised.value.__cause__ is failure
+        assert f"OS error {native_code}" in str(raised.value)
+        assert unlink.call_count == 2
+        sleep.assert_called_once()
+        assert target.read_bytes() == b"payload"
+        assert note.read_bytes() == b"operator content"
+
+    @pytest.mark.parametrize("native_code", [None, 87])
+    def test_nontransient_purge_failure_does_not_retry(
+        self, tmp_path: Path, native_code: int | None, *, mocker
+    ) -> None:
+        """A POSIX denial or unrelated Windows error is not a sharing retry."""
+        target = tmp_path / "owned.dll"
+        target.write_bytes(b"payload")
+        failure = PermissionError(13, "private native detail")
+        if native_code is not None:
+            mocker.patch.object(failure, "winerror", native_code, create=True)
+        unlink = mocker.patch.object(Path, "unlink", side_effect=failure)
+        sleep = mocker.patch("time.sleep")
+
+        with pytest.raises(errors.InstallError):
+            payload_projection.purge_owned_files(
+                tmp_path, {target.name: payload_digest.sha256_file(target)}
+            )
+
+        unlink.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_windows_purge_retry_cannot_renew_the_shared_deadline(
+        self, tmp_path: Path, *, mocker
+    ) -> None:
+        """A second obstructed file shares the first file's bounded wait."""
+        first = tmp_path / "first.dll"
+        second = tmp_path / "second.dll"
+        first.write_bytes(b"first")
+        second.write_bytes(b"second")
+        digests = {path.name: payload_digest.sha256_file(path) for path in (first, second)}
+        failure = PermissionError(13, "private native detail")
+        mocker.patch.object(failure, "winerror", 32, create=True)
+        original_unlink = Path.unlink
+        attempted = []
+
+        def unlink(path: Path, *args, **kwargs) -> None:
+            attempted.append(path.name)
+            if attempted != [first.name, first.name]:
+                raise failure
+            original_unlink(path, *args, **kwargs)
+
+        mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
+        mocker.patch("time.monotonic", side_effect=[0.0, 0.0, 0.0, 5.0])
+        sleep = mocker.patch("time.sleep")
+
+        with pytest.raises(errors.InstallError, match=r"second\.dll.*OS error 32"):
+            payload_projection.purge_owned_files(tmp_path, digests)
+
+        assert attempted == [first.name, first.name, second.name]
+        sleep.assert_called_once()
+        assert not first.exists()
+        assert second.read_bytes() == b"second"
+
+    @pytest.mark.parametrize("replacement", ["identity", "ancestor"])
+    def test_purge_rechecks_captured_identity_after_the_read_boundary(
+        self, tmp_path: Path, replacement: str, *, mocker
+    ) -> None:
+        """Equal replacement bytes cannot inherit the captured file authority."""
+        root = tmp_path / "payload"
+        directory = root / "bin"
+        directory.mkdir(parents=True)
+        target = directory / "owned.dll"
+        target.write_bytes(b"payload")
+        expected = payload_digest.sha256_file(target)
+        original_read = payload_projection.owned_files.read_bytes
+
+        def replace_before_read(path: Path, **kwargs) -> bytes:
+            if replacement == "identity":
+                path.rename(directory / "captured.dll")
+                path.write_bytes(b"payload")
+            else:
+                directory.rename(root / "captured")
+                directory.mkdir()
+                path.hardlink_to(root / "captured" / path.name)
+            return original_read(path, **kwargs)
+
+        mocker.patch.object(payload_projection.owned_files, "read_bytes", replace_before_read)
+        unlink = mocker.spy(Path, "unlink")
+
+        with pytest.raises(errors.InstallError, match="identity changed"):
+            payload_projection.purge_owned_files(root, {"bin/owned.dll": expected})
+
+        unlink.assert_not_called()
+        assert target.read_bytes() == b"payload"
+
+    @pytest.mark.parametrize("exhausted_at", ["retry-entry", "after-read"])
+    def test_purge_does_not_unlink_after_the_sharing_deadline(
+        self, tmp_path: Path, exhausted_at: str, *, mocker
+    ) -> None:
+        """Budget exhaustion refuses even a retry that could now succeed."""
+        target = tmp_path / "owned.dll"
+        target.write_bytes(b"payload")
+        failure = PermissionError(13, "private native detail")
+        mocker.patch.object(failure, "winerror", 32, create=True)
+        original_unlink = Path.unlink
+        attempts = []
+
+        def unlink(path: Path, *args, **kwargs) -> None:
+            attempts.append(path)
+            if len(attempts) == 1:
+                raise failure
+            original_unlink(path, *args, **kwargs)
+
+        mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
+        times = [0.0, 5.0] if exhausted_at == "retry-entry" else [0.0, 0.0, 5.0]
+        mocker.patch("time.monotonic", side_effect=times)
+        mocker.patch("time.sleep")
+        read = mocker.spy(payload_projection.owned_files, "read_bytes")
+
+        with pytest.raises(errors.InstallError, match="OS error 32") as raised:
+            payload_projection.purge_owned_files(
+                tmp_path, {target.name: payload_digest.sha256_file(target)}
+            )
+
+        assert raised.value.__cause__ is failure
+        assert attempts == [target]
+        assert read.call_count == (1 if exhausted_at == "retry-entry" else 2)
         assert target.read_bytes() == b"payload"
 
     def test_purge_and_residue_inventory_report_filesystem_failures(

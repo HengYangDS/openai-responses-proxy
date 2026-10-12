@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -16,6 +18,8 @@ from openai_responses_proxy.service import digest
 from openai_responses_proxy.service import inventory
 
 PAYLOAD_MANIFEST_SCHEMA_VERSION = 2
+_WINDOWS_DISPOSAL_ERRORS = frozenset({5, 32})
+_DISPOSAL_RETRY_SECONDS = 5.0
 
 
 def payload_manifest_path(ctx: runtime_context.RuntimeContext) -> Path:
@@ -48,25 +52,60 @@ def purge_owned_files(root: Path, files: Mapping[str, str]) -> tuple[str, ...]:
     """Resume exact byte removal, preserving replacements and undeclared content."""
     if root.is_symlink() or (root.exists() and not root.is_dir()):
         raise errors.InstallError("installed payload root is not a real directory")
-    remaining_files = []
+    remaining_files: dict[str, tuple[tuple[int, int], ...]] = {}
     for relative, expected in files.items():
         target = owned_files.path(root, owned_files.canonical_relative(relative, "payload purge"))
         if not target.exists() and not target.is_symlink():
             continue
         target = owned_files.regular_file(root, relative, "installed payload purge")
-        if digest.sha256_file(target) != expected:
+        captured = _disposal_identity(root, target)
+        if digest.sha256_file(target) != expected or _disposal_identity(root, target) != captured:
             raise errors.InstallError(f"installed payload purge identity changed: {relative}")
-        remaining_files.append(relative)
+        remaining_files[relative] = captured
+    retry_deadline = None
     for relative in sorted(
         remaining_files, key=lambda value: (-len(PurePosixPath(value).parts), value)
     ):
-        try:
-            owned_files.path(root, relative).unlink()
-        except OSError as exc:
-            code = getattr(exc, "winerror", None) or exc.errno
-            raise errors.InstallError(
-                f"installed payload purge failed: {relative} (OS error {code})"
-            ) from exc
+        last_error = None
+        while True:
+            if (
+                last_error is not None
+                and retry_deadline is not None
+                and time.monotonic() >= retry_deadline
+            ):
+                raise _disposal_failure(relative, last_error) from last_error
+            target = owned_files.regular_file(root, relative, "installed payload purge")
+            if (
+                _disposal_identity(root, target) != remaining_files[relative]
+                or hashlib.sha256(
+                    owned_files.read_bytes(target, root=root, label="installed payload purge")
+                ).hexdigest()
+                != files[relative]
+                or _disposal_identity(root, target) != remaining_files[relative]
+            ):
+                raise errors.InstallError(f"installed payload purge identity changed: {relative}")
+            if (
+                last_error is not None
+                and retry_deadline is not None
+                and time.monotonic() >= retry_deadline
+            ):
+                raise _disposal_failure(relative, last_error) from last_error
+            try:
+                target.unlink()
+                break
+            except OSError as exc:
+                # Windows can deny a delete while a native image or external
+                # handle is still mapped; only those codes share one bounded wait.
+                if getattr(exc, "winerror", None) in _WINDOWS_DISPOSAL_ERRORS:
+                    now = time.monotonic()
+                    if retry_deadline is None:
+                        retry_deadline = now + _DISPOSAL_RETRY_SECONDS
+                    remaining = retry_deadline - now
+                    if remaining > 0:
+                        last_error = exc
+                        time.sleep(min(0.05, remaining))
+                        continue
+                raise _disposal_failure(relative, exc) from exc
     remove_empty_owned_directories(root, set(files))
     if residual := [
         relative
@@ -76,6 +115,24 @@ def purge_owned_files(root: Path, files: Mapping[str, str]) -> tuple[str, ...]:
     ]:
         raise errors.InstallError("installed payload remains after purge: " + ", ".join(residual))
     return _remaining_paths(root)
+
+
+def _disposal_failure(relative: str, error: OSError) -> errors.InstallError:
+    """Preserve the last safe native denial when the retry budget is exhausted."""
+    code = getattr(error, "winerror", None) or error.errno
+    return errors.InstallError(f"installed payload purge failed: {relative} (OS error {code})")
+
+
+def _disposal_identity(root: Path, target: Path) -> tuple[tuple[int, int], ...]:
+    """Bind a deletion retry to its captured file and every owned ancestor."""
+    ancestors = (
+        root / parent for parent in target.relative_to(root).parents if parent != Path(".")
+    )
+    identities = []
+    for path in (root, *ancestors, target):
+        metadata = path.lstat()
+        identities.append((metadata.st_dev, metadata.st_ino))
+    return tuple(identities)
 
 
 def manifest_serving_payload_sha256(file_digests: Mapping[str, str]) -> str:

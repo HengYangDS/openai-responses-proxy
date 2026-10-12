@@ -285,6 +285,10 @@
       The mocked-launch contract no longer copies and prewarms a real native
       bundle: it runs in the non-native suite with a synthetic manifest and a
       bounded mock scope, keeping its assertions.
+      Payload purge allows Windows delete-access and sharing errors one shared
+      bounded retry that revalidates file, ancestor, and digest identity
+      (`865681f7`); a real delete-denying handle and the native task-absence
+      query are qualified only by hosted Windows execution.
 - [x] 5.7 Verify active-target installation is a true no-op, failed successor transition restores the exact predecessor, repeated recovery is terminal, and uninstall preserves all unowned content.
 - [ ] 5.8 Remove legacy payload shapes, alternate launchers, obsolete journals, dead schema readers, compatibility branches, and fallback service identities after the terminal lifecycle proves no consumer.
 - [x] 5.9 Preserve request admission during capability-qualified upgrade and rollback handoff; prove concurrent new requests and in-flight responses complete without `proxy_draining`, while retaining the bounded legacy native-generation fallback.
@@ -431,11 +435,13 @@
 - [ ] 13.3 Merge or discard every local and remote proposal according to semantic value, delete merged proposal and remote `work/*` refs, retire obsolete Worktrees and leases, and verify only canonical repository-family members remain. Supply-chain PR 46 and MR 64 are merged; both remote proposal refs are absent. The current public absorbed-ref retirement command removed the exact stale local proposal at 40039cf7 after ancestry and ownership admission against accepted f20c7e73. Subsequent stream/cache PR 47/MR 65 and release-preparation PR 48/MR 66 are merged; both peer proposals are absent at their published source. Temporary-resource and complexity closures are accepted at signed 654b4734 on local and both peer main/dev; PR 49/50 and MR 67/68 are merged and both proposal refs are absent. GitHub review/main/dev runs 35043445407/35044336713/35044436255 and GitLab 6814/6816/6815 pass. The active Work Lane remains required for unfinished Change obligations.
       The expired 4.0.5-era lane `work/20261002-repository-history-identity`
       (`c1db1f03`, 64 non-merge commits, none patch-equivalent in `dev`) is
-      being absorbed semantically, not merged. Absorbed so far: install and
-      compensation failure causes (`f6ec8868`), contradictory lifecycle
-      outcomes (`d35f285f`), a dated `Unreleased` changelog heading (from
-      `7f1f10de`), unproved process-exit phases (`b92268c9`), and the
-      mocked-launch isolation (`0ff70f21`). Not ported: work `dev` already delivered differently
+      absorbed semantically, not merged. Absorbed: install and compensation
+      failure causes (`f6ec8868`), contradictory lifecycle outcomes
+      (`d35f285f`), a dated `Unreleased` changelog heading (from `7f1f10de`),
+      unproved process-exit phases (`b92268c9`), the mocked-launch isolation
+      (`0ff70f21`), interrupted first-install recovery with exact Windows task
+      absence (`61ac20dc`, `ff8f5f24`), and the Windows payload sharing retry
+      (`865681f7`). Not ported: work `dev` already delivered differently
       or superseded (5.0 replay typing, macOS watchdog and carriers, gate
       verifiers, requirement-length repair, CI runner and event-range binding),
       lane-local evidence records, version pins that a fresh refresh owns, and
@@ -444,10 +450,13 @@
       (`8d6f157a`) is not ported: the locked Prettier collapses short arrays
       that npm's own writer expands, so checking `package.json` and
       `package-lock.json` would give npm-owned bytes a second formatter.
-      Still open: interrupted first-install recovery (`61ac20dc`,
-      `ff8f5f24`), Windows payload disposal (`865681f7`), and the unqualified
-      per-Forge history links (`f2c89295`, `b11aaad0`). The lane itself is
-      retired only after these are resolved.
+      The per-Forge history links (`f2c89295`, `b11aaad0`) are not ported: they
+      replace the validated bracketed release headings, carry pre-rename URLs,
+      would publish the private GitLab host in a public Changelog, and depend on
+      an ETHOS identity contract the lane never qualified. Nothing semantic
+      remains to absorb. Because the content differs from `dev`, ETHOS cannot
+      mark the lane absorbed; its holder retires it through native retention or
+      reviewed abandonment.
 - [ ] 13.4 Remove failed unpublished tags, draft Releases, duplicate assets, and unreferenced records from both Forges and local storage while preserving formal immutable release history and required recovery evidence.
 - [ ] 13.5 Freeze the complete candidate and run strict OpenSpec validation, all focused gates, full quality, Python matrix, three-platform native acceptance, reproducible build, security, performance, documentation, and repository-residue audits exactly once at final scope.
 - [ ] 13.6 Complete every task from evidence, archive this Change through the current ETHOS public command, land the signed candidate, synchronize local `main/dev` and both Forge `main/dev`, and verify final tag CI and Releases are green and identical where required.

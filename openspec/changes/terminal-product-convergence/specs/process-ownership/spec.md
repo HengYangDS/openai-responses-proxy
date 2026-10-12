@@ -53,3 +53,27 @@ extending deadlines or weakening identity admission.
   processes
 - **AND** it fails without deleting the corresponding payload or the outer
   native test root.
+
+### Requirement: Native payload disposal revalidates a bounded sharing retry
+
+After native-service absence and owned-process exit are proved, the existing
+purge owner SHALL allow a bounded retry for Windows delete access or sharing
+errors. Every attempt SHALL revalidate the exact regular-file identity,
+no-follow ancestry, and recorded payload digest. It SHALL NOT change
+permissions, terminate an unproved holder, or remove unknown content.
+Persistent failure SHALL retain the native error and recovery journal.
+
+#### Scenario: A transient Windows file mapping is released
+
+- **WHEN** deletion of one manifest-owned file fails with a native access or
+  sharing error and that obstruction clears within the disposal deadline
+- **THEN** the existing purge operation revalidates and removes only that file
+- **AND** it changes neither file permissions nor unrelated content.
+
+#### Scenario: A sharing retry outlives its authority
+
+- **WHEN** the file, its ancestor, or its recorded bytes are replaced, or the
+  native deletion failure persists until the deadline
+- **THEN** disposal fails with the applicable identity or native error
+- **AND** replacement content and the recovery journal remain protected
+- **AND** non-Windows or unrelated native errors are not retried.

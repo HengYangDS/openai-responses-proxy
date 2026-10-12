@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
+import time
+from collections.abc import Callable
 from contextlib import ExitStack
 from pathlib import Path
+from threading import Event
+from threading import Thread
+from typing import cast
 
 import pytest
 
@@ -14,6 +20,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.lifecycle.supervision import process
@@ -40,6 +47,119 @@ pytestmark = [
 
 class TestSignedNativeLifecycle:
     """Prove the public native lifecycle without touching the canonical service."""
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows native delete sharing")
+    def test_windows_purge_waits_for_an_owned_native_file_lock(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exercise a real delete-denying native handle, not a mocked OS error."""
+        import ctypes
+        from ctypes import wintypes
+
+        root = tmp_path / "payload"
+        root.mkdir()
+        target = root / "owned.dll"
+        note = root / "operator-note.txt"
+        content = b"owned native sharing fixture"
+        target.write_bytes(content)
+        note.write_bytes(b"preserve unknown content")
+        windows_library: object = getattr(ctypes, "WinDLL", None)
+        assert callable(windows_library), "native Windows library loading is unavailable"
+        native = cast(Callable[..., ctypes.CDLL], windows_library)("kernel32", use_last_error=True)
+        create_file = native.CreateFileW
+        create_file.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        create_file.restype = wintypes.HANDLE
+        close_handle = native.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+        # GENERIC_READ with FILE_SHARE_READ only: deletion is denied while open.
+        handle = create_file(str(target), 0x80000000, 0x00000001, None, 3, 0, None)
+        assert handle not in {None, ctypes.c_void_p(-1).value}
+        locked = True
+        try:
+            original_mode = target.stat().st_mode
+            original_unlink = Path.unlink
+            delete_denied = Event()
+            released = Event()
+            close_succeeded = []
+            native_denials = []
+
+            def observe_unlink(path: Path, *args, **kwargs) -> None:
+                try:
+                    original_unlink(path, *args, **kwargs)
+                except OSError as error:
+                    if path == target:
+                        native_denials.append(getattr(error, "winerror", None))
+                        assert target.stat().st_mode == original_mode
+                        delete_denied.set()
+                    raise
+
+            monkeypatch.setattr(Path, "unlink", observe_unlink)
+
+            def release_lock() -> None:
+                if not delete_denied.wait(timeout=2):
+                    return
+                time.sleep(0.1)
+                close_succeeded.append(bool(close_handle(handle)))
+                released.set()
+
+            release = Thread(target=release_lock)
+            release.start()
+            try:
+                remaining = payload_projection.purge_owned_files(
+                    root, {target.name: hashlib.sha256(content).hexdigest()}
+                )
+                assert remaining == (note.name,)
+            finally:
+                release.join(timeout=2)
+                assert not release.is_alive()
+                locked = close_succeeded != [True]
+                assert close_succeeded == [True]
+                assert released.is_set()
+            assert native_denials
+            assert set(native_denials).issubset({5, 32})
+            assert not target.exists()
+            assert note.read_bytes() == b"preserve unknown content"
+        finally:
+            if locked:
+                assert close_handle(handle)
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows scheduled-task boundary")
+    def test_missing_windows_task_has_native_absence_evidence(self, tmp_path: Path) -> None:
+        """A missing task or task path is absent, not an unreadable registration."""
+        home, install, state = (tmp_path / name for name in ("home", "payload", "state"))
+        home.mkdir()
+        port = free_port()
+        ctx = runtime_context_for(home, install, state, port)
+        observed = subprocess.run(
+            ["schtasks", "/query", "/tn", ctx.service_id, "/xml", "/hresult"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=5.0,
+        )
+        result = observed.returncode & 0xFFFFFFFF
+        assert result in {0x80070002, 0x80070003}, f"unexpected task HRESULT {result:#010x}"
+        environment = native_process_environment(
+            user_home=home, install_root=install, state_root=state
+        )
+        executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
+            strict=True
+        )
+        status = run_command(executable, environment, "status", "--port", str(port), "--json")
+        assert status["state"] == "not_installed"
+        assert status["service"] == "absent"
+        assert native_service_projection(ctx)["status"] == "absent"
+        assert not install.exists()
+        assert not state.exists()
 
     @pytest.mark.skipif(sys.platform != "linux", reason="Linux user-service boundary")
     def test_unavailable_user_bus_leaves_no_installation(self, tmp_path: Path) -> None:

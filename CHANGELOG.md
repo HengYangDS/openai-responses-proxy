@@ -10,6 +10,9 @@ publication authority.
 
 ### Fixed
 
+- Recheck the exact owned payload during a bounded Windows delete-sharing
+  retry. Replacement files stay protected, permissions stay unchanged, and a
+  persistent native error keeps recovery authority.
 - Stop and verify an interrupted first installation's native service and
   processes before recovery discards its payload or journal. A missing health
   response no longer permits a successful rollback with a service left behind,

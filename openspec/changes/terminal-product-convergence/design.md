@@ -454,6 +454,16 @@ Unknown content or a changed replacement keeps the journal open for deliberate
 resolution. Public recovery and repeated purge consume this one disposal owner;
 there is no separate uninstall log, retry engine, or inferred recursive deletion.
 
+Windows can reject a delete while a native image or external handle is still
+mapped after the process-exit barrier, and a later empty holder snapshot does
+not prove what held the file. The same purge owner therefore allows only native
+delete-access and sharing errors one shared five-second retry window. Each
+attempt revalidates the captured file and ancestor identities, no-follow
+regular-file access, and the journal digest; a replacement stops disposal even
+with equal bytes. No permission change, holder termination, background deletion,
+or error suppression is added, and persistent failure keeps the native cause and
+recovery authority.
+
 Process termination preserves its exact failure phase and a safe native reason.
 Capture denial, generation mismatch, unreadable status, signal failure, wait
 timeout, and unreadable timeout observation remain distinct unproved outcomes,
