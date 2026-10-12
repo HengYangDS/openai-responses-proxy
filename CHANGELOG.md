@@ -17,6 +17,15 @@ publication authority.
   results with invalid process counts instead of reporting false success.
 - Reject a dated `Unreleased` changelog heading instead of accepting
   manufactured release history.
+- Bound the local commit-subject range at the fork point when the integration
+  base has moved past a lane, so a lane behind its moved base reports its own
+  subjects instead of the whole reachable history.
+
+### Changed
+
+- Require statement and measured branch coverage strictly above 95 percent for
+  every source root, so a root measured exactly at the floor no longer passes
+  and the admission command reports that ratio as not above the floor.
 
 ## [5.0.2] - 2026-10-11
 
@@ -117,9 +126,6 @@ publication authority.
   fail when those processes retain native modules from the retired generation.
 - Bind commit admission to the exact Forge event object and keep the commit
   policy in its declared ETHOS profile instead of a duplicate repository file.
-- Bound the local commit-subject range at the fork point when the integration
-  base has moved past a lane, so a lane behind its moved base reports its own
-  subjects instead of the whole reachable history.
 
 ## [4.0.2] - 2026-09-16
 

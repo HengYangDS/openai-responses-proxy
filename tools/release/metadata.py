@@ -271,7 +271,6 @@ def check_governance_contract() -> None:
         "docs/operations/forge-operations.md",
         "LICENSE",
         ".ethos/release.toml",
-        "tools/forge/context.py",
         "tools/forge/audit.py",
         "tools/forge/tag_signature.py",
         "tools/release/publication/__main__.py",
@@ -310,6 +309,16 @@ def check_governance_contract() -> None:
     ):
         if token not in operations:
             raise ValueError(f"forge operations must document ETHOS branch publication: {token}")
+    for token in (
+        "python -m tools.release.metadata --prepare-release",
+        "ethos land --release",
+        *(
+            f"ethos publish --ref refs/tags/{pattern.removesuffix('*')}"
+            for pattern in release["protected_refs"]["tags"]
+        ),
+    ):
+        if token not in operations:
+            raise ValueError(f"forge operations must document ETHOS tag publication: {token}")
     for token in ("commit-author-name", "commit-author-email"):
         if token in operations:
             raise ValueError(f"forge operations couple shared history to one actor: {token}")
