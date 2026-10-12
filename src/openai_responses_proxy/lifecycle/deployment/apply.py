@@ -314,7 +314,15 @@ def _replace_native_generation(
     timeout_seconds: float,
 ) -> dict[str, object]:
     """Cross the exact predecessor exit barrier and prove its successor."""
-    if not process.terminate_owned_process(source_listener, timeout_seconds=timeout_seconds):
+    try:
+        source_exited = process.terminate_owned_process(
+            source_listener, timeout_seconds=timeout_seconds
+        )
+    except errors.InstallError as error:
+        raise UnknownDeploymentOutcome(
+            f"native generation replacement outcome is unconfirmed; {errors.failure_summary(error)}"
+        ) from error
+    if not source_exited:
         raise UnknownDeploymentOutcome("native generation replacement outcome is unconfirmed")
     try:
         _bind_control_supervisor(adapter, generation.control_context(ctx))

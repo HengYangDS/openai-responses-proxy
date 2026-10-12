@@ -430,7 +430,10 @@ class TestReleasedDeployment:
         assert payload.events == []
         service.install_mock.assert_not_called()
 
-    def test_generation_replacement_preserves_an_unconfirmed_source_exit(self, *, mocker) -> None:
+    @pytest.mark.parametrize("phase_failure", [False, True])
+    def test_generation_replacement_preserves_an_unconfirmed_source_exit(
+        self, phase_failure, *, mocker
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime(
             handoff_capabilities=["repeatable"],
@@ -441,7 +444,13 @@ class TestReleasedDeployment:
         source = process.OwnedProcess(111, self.ctx.executable, 1.0)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
         mocker.patch.object(process, "capture_executable", return_value=source)
-        mocker.patch.object(process, "terminate_owned_process", return_value=False)
+        failure = "native process termination wait: access denied; exit is unproved"
+        mocker.patch.object(
+            process,
+            "terminate_owned_process",
+            side_effect=errors.InstallError(failure) if phase_failure else None,
+            return_value=False,
+        )
         mocker.patch.object(apply.handoff, "drain_responses")
 
         with pytest.raises(apply.UnknownDeploymentOutcome, match="generation replacement"):
@@ -450,7 +459,11 @@ class TestReleasedDeployment:
         assert payload.events == [
             "commit",
             "activate",
-            ("preserve", "native generation replacement outcome is unconfirmed"),
+            (
+                "preserve",
+                "native generation replacement outcome is unconfirmed"
+                + (f"; {failure}" if phase_failure else ""),
+            ),
         ]
 
     def test_candidate_processes_exit_before_payload_rollback(self, *, mocker) -> None:

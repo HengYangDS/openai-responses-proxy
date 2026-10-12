@@ -440,6 +440,17 @@ Unknown content or a changed replacement keeps the journal open for deliberate
 resolution. Public recovery and repeated purge consume this one disposal owner;
 there is no separate uninstall log, retry engine, or inferred recursive deletion.
 
+Process termination preserves its exact failure phase and a safe native reason.
+Capture denial, generation mismatch, unreadable status, signal failure, wait
+timeout, and unreadable timeout observation remain distinct unproved outcomes,
+and none of them establishes that a process survived. Deployment preserves
+recovery authority after an unknown predecessor exit instead of rolling back
+or disposing the payload on a collapsed boolean. Existing success, proven
+disappearance, zombie handling, identity refusal, and deadlines are unchanged.
+Test teardown records the first safe failure while continuing independent,
+already-owned processes, and an unproved exit prevents the corresponding
+payload and outer native test root from being discarded.
+
 Fresh-install failure retains its initial boundary when native cleanup or
 payload rollback also fails. Public causes stay readable; other exceptions
 become bounded operation labels, never paths, types, or native output.

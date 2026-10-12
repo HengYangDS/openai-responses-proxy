@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -309,16 +310,31 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
             "native service executable is outside the owned installation"
         )
         process_contexts = (*process_contexts, replace(ctx, executable=configured))
+    failure: Exception | None = None
     try:
         service.uninstall(ctx)
         assert service.status(ctx) == "absent"
+    except Exception as error:
+        failure = error
     finally:
         if wrapper is not None:
             for pid in process.pids_naming_path(str(wrapper)):
-                process.terminate_pid(pid, expected_path=str(wrapper))
+                try:
+                    if not process.terminate_pid(pid, expected_path=str(wrapper)):
+                        raise errors.InstallError("test wrapper exit is unproved")
+                except errors.InstallError as error:
+                    failure = failure or error
         for owned_ctx in process_contexts:
             for pid in process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES):
-                process.terminate_executable(pid, owned_ctx.executable, roles=_SERVICE_ROLES)
+                try:
+                    if not process.terminate_executable(
+                        pid, owned_ctx.executable, roles=_SERVICE_ROLES
+                    ):
+                        raise errors.InstallError("test runtime process exit is unproved")
+                except errors.InstallError as error:
+                    failure = failure or error
+    if failure is not None:
+        raise failure
     assert service.status(ctx) == "absent"
     assert service.configured_executable(ctx) is None
     assert all(

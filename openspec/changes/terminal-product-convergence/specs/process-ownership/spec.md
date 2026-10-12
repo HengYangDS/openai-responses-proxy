@@ -22,3 +22,34 @@ created and SHALL preserve unrelated and canonical installations.
   historical convention
 - **THEN** cleanup preserves it and reports the missing identity proof
 - **AND** no broad prefix deletion or process-name termination is attempted.
+
+### Requirement: Unproved process exit retains its exact failure phase
+
+The process owner SHALL distinguish capture, generation, status, signal, wait,
+and post-timeout observation failures. It SHALL retain a safe native reason
+without emitting private exception text. A deadline or unreadable observation
+SHALL NOT establish a surviving process or authorize payload disposal. Unknown
+predecessor exit SHALL preserve the deployment transaction for recovery without
+extending deadlines or weakening identity admission.
+
+#### Scenario: Native observation or signalling fails
+
+- **WHEN** a captured process cannot be inspected or signalled
+- **THEN** the lifecycle error identifies its failing phase and safe reason
+- **AND** a generation mismatch or pre-signal denial sends no signal.
+
+#### Scenario: Exit remains unproved after the deadline
+
+- **WHEN** waiting expires and the same generation's disappearance or zombie
+  state cannot be proved
+- **THEN** the result reports wait or post-timeout observation as unproved
+- **AND** the deployment preserves its transaction and payload for recovery
+- **AND** it does not claim that the process is still executing.
+
+#### Scenario: The first test-owned process has an unproved exit
+
+- **WHEN** test teardown cannot prove the first captured process exited
+- **THEN** it retains that safe error and still handles independent owned
+  processes
+- **AND** it fails without deleting the corresponding payload or the outer
+  native test root.

@@ -142,10 +142,10 @@ def test_process_teardown_fails_closed_when_exit_is_unproved(
     ctx = install_context(tmp_path_factory.mktemp("case"))
     service = mocker.Mock()
     service.terminate_runtime.side_effect = errors.InstallError(
-        "verified runtime process 7 did not exit"
+        "verified runtime process 7 exit is unproved"
     )
 
-    with pytest.raises(errors.InstallError, match="did not exit"):
+    with pytest.raises(errors.InstallError, match="exit is unproved"):
         uninstall._stop_proxy(service, ctx)
     service.terminate_runtime.side_effect = None
     service.terminate_runtime.return_value = 0

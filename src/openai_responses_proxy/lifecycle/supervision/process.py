@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import psutil
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.context import RuntimeContext
 from openai_responses_proxy.service import runtime as service_runtime
 
@@ -107,22 +108,29 @@ def wait_for_exit(owned: OwnedProcess, *, timeout_seconds: float = 5.0) -> bool:
 def terminate_owned_process(owned: OwnedProcess, *, timeout_seconds: float = 5.0) -> bool:
     """Terminate a previously captured process without requiring later argv access."""
     candidate: psutil.Process | None = None
+    phase = "capture"
     try:
         candidate = psutil.Process(owned.pid)
+        phase = "generation"
         if _created_at(candidate) != owned.created_at:
-            return False
+            raise errors.InstallError(
+                "native process termination generation: captured identity changed; exit is unproved"
+            )
+        phase = "status"
         if _status(candidate) == psutil.STATUS_ZOMBIE:
             return True
+        phase = "signal"
         candidate.terminate()
+        phase = "wait"
         candidate.wait(timeout=timeout_seconds)
     except psutil.NoSuchProcess:
         return True
-    except psutil.TimeoutExpired:
-        if candidate is None:
-            return False
-        return _timed_out_process_is_gone(candidate, owned)
-    except (OSError, TypeError, psutil.Error):
-        return False
+    except psutil.TimeoutExpired as error:
+        if candidate is not None and _timed_out_process_is_gone(candidate, owned):
+            return True
+        raise _termination_error(phase, error) from None
+    except (OSError, TypeError, psutil.Error) as error:
+        raise _termination_error(phase, error) from None
     return True
 
 
@@ -311,8 +319,21 @@ def _timed_out_process_is_gone(candidate: psutil.Process, owned: OwnedProcess) -
         )
     except psutil.NoSuchProcess:
         return True
-    except (OSError, TypeError, psutil.Error):
-        return False
+    except (OSError, TypeError, psutil.Error) as error:
+        raise _termination_error("timeout observation", error) from None
+
+
+def _termination_error(phase: str, error: BaseException) -> errors.InstallError:
+    """Retain a closed failure vocabulary without exposing native exception text."""
+    if isinstance(error, psutil.AccessDenied):
+        reason = "access denied"
+    elif isinstance(error, psutil.TimeoutExpired):
+        reason = "deadline expired"
+    elif isinstance(error, TypeError):
+        reason = "invalid native observation"
+    else:
+        reason = errors.failure_summary(error)
+    return errors.InstallError(f"native process termination {phase}: {reason}; exit is unproved")
 
 
 def pids_naming_executable(
@@ -354,16 +375,19 @@ def terminate_executable(
     """Signal and prove exit of one exact native executable identity."""
     if not pid_names_executable(pid, expected_path, roles=roles):
         return False
+    phase = "capture"
     try:
         candidate = psutil.Process(pid)
         if not pid_names_executable(pid, expected_path, roles=roles):
             return False
+        phase = "signal"
         candidate.terminate()
+        phase = "wait"
         candidate.wait(timeout=timeout_seconds)
     except psutil.NoSuchProcess:
         return True
-    except (OSError, psutil.Error):
-        return False
+    except (OSError, TypeError, psutil.Error) as error:
+        raise _termination_error(phase, error) from None
     return True
 
 
@@ -376,14 +400,17 @@ def terminate_pid(pid: int, *, expected_path: str, timeout_seconds: float = 5.0)
     """
     if not pid_names_path(pid, expected_path):
         return False
+    phase = "capture"
     try:
         candidate = psutil.Process(pid)
         if not pid_names_path(pid, expected_path):
             return False
+        phase = "signal"
         candidate.terminate()
+        phase = "wait"
         candidate.wait(timeout=timeout_seconds)
     except psutil.NoSuchProcess:
         return True
-    except (OSError, psutil.Error):
-        return False
+    except (OSError, TypeError, psutil.Error) as error:
+        raise _termination_error(phase, error) from None
     return True

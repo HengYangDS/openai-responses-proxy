@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
@@ -434,3 +435,28 @@ def test_native_cleanup_separates_registration_and_process_ownership(
     cleanup_runtime(ctx)
 
     service.uninstall.assert_called_once_with(ctx)
+
+
+def test_native_cleanup_continues_independent_processes_after_unproved_exit(
+    tmp_path: Path, *, mocker
+) -> None:
+    """Retain the safe failure while still stopping the second owned generation."""
+    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    service = mocker.Mock()
+    service.status.return_value = "absent"
+    service.configured_executable.return_value = None
+    mocker.patch.object(release_fixtures.native_service, "adapter", return_value=service)
+    mocker.patch.object(release_fixtures, "_process_contexts", return_value=(ctx,))
+    mocker.patch.object(release_fixtures.process, "pids_naming_executable", return_value=[41, 73])
+    failure = errors.InstallError(
+        "native process termination wait: access denied; exit is unproved"
+    )
+    terminate = mocker.patch.object(
+        release_fixtures.process, "terminate_executable", side_effect=[failure, True]
+    )
+
+    with pytest.raises(errors.InstallError) as raised:
+        cleanup_runtime(ctx)
+
+    assert raised.value is failure
+    assert [call.args[0] for call in terminate.call_args_list] == [41, 73]

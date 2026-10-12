@@ -170,7 +170,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
         if not process.terminate_executable(
             pid, ctx.executable, roles={service_runtime.WATCHDOG_MODE}
         ):
-            raise errors.InstallError(f"verified watchdog {pid} did not exit")
+            raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
     if remaining := process.pids_naming_executable(
         ctx.executable, roles={service_runtime.WATCHDOG_MODE}
     ):

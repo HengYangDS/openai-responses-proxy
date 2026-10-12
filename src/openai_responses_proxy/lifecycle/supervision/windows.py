@@ -125,7 +125,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     for predecessor in predecessors:
         if not process.terminate_owned_process(predecessor):
             raise errors.InstallError(
-                f"scheduled predecessor watchdog {predecessor.pid} did not exit"
+                f"scheduled predecessor watchdog {predecessor.pid} exit is unproved"
             )
     with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as stream:
         xml_path = stream.name
@@ -207,7 +207,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
         if not process.terminate_executable(
             pid, ctx.executable, roles={service_runtime.WATCHDOG_MODE}
         ):
-            raise errors.InstallError(f"verified watchdog {pid} did not exit")
+            raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
     if remaining := _running_watchdog_pids(ctx):
         raise errors.InstallError(f"verified watchdogs remain: {remaining}")
 

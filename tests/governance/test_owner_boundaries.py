@@ -446,7 +446,7 @@ class ProxyOwnerBoundaryContracts:
 
         for terminated, inventories, expected, message in (
             (True, [[41, 73], []], 2, None),
-            (False, [[41]], None, "did not exit"),
+            (False, [[41]], None, "exit is unproved"),
             (True, [[41], [73]], None, "processes remain"),
         ):
             with subtests.test(message=message or "success"):

@@ -322,7 +322,7 @@ class TestLinuxLifecycle:
         mocker.patch.object(linux.process, "terminate_executable", return_value=False)
         with (
             subtests.test("termination"),
-            pytest.raises(errors.InstallError, match="17 did not exit"),
+            pytest.raises(errors.InstallError, match="17 exit is unproved"),
         ):
             linux.uninstall(ctx)
 

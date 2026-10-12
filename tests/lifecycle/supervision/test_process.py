@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.fixtures import platform_context
 
@@ -226,6 +227,62 @@ class TestProcessIdentity:
 
 
 class TestTermination:
+    @pytest.mark.parametrize(
+        ("phase", "failure", "reason"),
+        [
+            ("capture", process.psutil.AccessDenied(123), "access denied"),
+            ("generation", TypeError("private observation"), "invalid native observation"),
+            ("status", process.psutil.AccessDenied(123), "access denied"),
+            ("signal", PermissionError(5, "private path and token"), "OS error 5"),
+            ("wait", process.psutil.AccessDenied(123), "access denied"),
+        ],
+    )
+    def test_unproved_termination_preserves_safe_failure_phase(
+        self, phase, failure, reason, *, mocker
+    ) -> None:
+        candidate = mocker.Mock()
+        candidate.create_time.return_value = 42.0
+        candidate.status.return_value = process.psutil.STATUS_RUNNING
+        constructor = mocker.patch.object(process.psutil, "Process", return_value=candidate)
+        if phase == "capture":
+            constructor.side_effect = failure
+        else:
+            operation = {
+                "generation": candidate.create_time,
+                "status": candidate.status,
+                "signal": candidate.terminate,
+                "wait": candidate.wait,
+            }[phase]
+            operation.side_effect = failure
+
+        with pytest.raises(errors.InstallError, match=phase) as raised:
+            process.terminate_owned_process(
+                process.OwnedProcess(123, "/private/installed/proxy", 42.0),
+                timeout_seconds=1.0,
+            )
+
+        assert reason in str(raised.value)
+        assert "private" not in str(raised.value)
+        if phase in {"capture", "generation", "status"}:
+            candidate.terminate.assert_not_called()
+
+    def test_timeout_is_unproved_exit_not_a_claim_of_a_survivor(self, *, mocker) -> None:
+        candidate = mocker.Mock()
+        candidate.create_time.return_value = 42.0
+        candidate.status.return_value = process.psutil.STATUS_RUNNING
+        candidate.wait.side_effect = process.psutil.TimeoutExpired(1, 123)
+        mocker.patch.object(process.psutil, "Process", return_value=candidate)
+
+        with pytest.raises(errors.InstallError, match=r"wait.*deadline expired") as raised:
+            process.terminate_owned_process(
+                process.OwnedProcess(123, "/private/installed/proxy", 42.0),
+                timeout_seconds=1.0,
+            )
+
+        assert "exit is unproved" in str(raised.value)
+        assert "still alive" not in str(raised.value)
+        candidate.wait.assert_called_once_with(timeout=1.0)
+
     def test_captured_native_identity_survives_later_argv_denial(self, *, mocker):
         candidate = mocker.Mock()
         candidate.pid = 123
@@ -305,7 +362,8 @@ class TestTermination:
         mocker.patch.object(process.psutil, "Process", return_value=candidate)
         owned = process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0)
 
-        assert not process.terminate_owned_process(owned, timeout_seconds=1.0)
+        with pytest.raises(errors.InstallError, match="generation: captured identity changed"):
+            process.terminate_owned_process(owned, timeout_seconds=1.0)
         candidate.terminate.assert_not_called()
 
     def test_captured_native_identity_observation_is_fail_closed(self, subtests, *, mocker):
@@ -338,7 +396,8 @@ class TestTermination:
                 elif case == "alive":
                     assert not process.owned_process_alive(owned)
                 else:
-                    assert not process.terminate_owned_process(owned, timeout_seconds=1.0)
+                    with pytest.raises(errors.InstallError, match="wait: deadline expired"):
+                        process.terminate_owned_process(owned, timeout_seconds=1.0)
                     candidate.terminate.assert_called_once_with()
                 constructor.assert_called_once_with(123)
                 mocker.stopall()
@@ -414,10 +473,11 @@ class TestTermination:
         candidate.wait.side_effect = process.psutil.TimeoutExpired(123, 1)
         mocker.patch.object(process.psutil, "Process", return_value=candidate)
 
-        assert not process.terminate_owned_process(
-            process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0),
-            timeout_seconds=1.0,
-        )
+        with pytest.raises(errors.InstallError, match="timeout observation: access denied"):
+            process.terminate_owned_process(
+                process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0),
+                timeout_seconds=1.0,
+            )
 
     def test_script_termination_rechecks_identity_and_waits(self, *, mocker):
         mocker.patch.object(process, "pid_names_path", side_effect=[True, True])
@@ -441,9 +501,13 @@ class TestTermination:
                 if failure is not None:
                     candidate.wait.side_effect = failure
                 constructor = mocker.patch.object(process.psutil, "Process", return_value=candidate)
-                assert not process.terminate_pid(
-                    123, expected_path="/proxy.py", timeout_seconds=1.0
-                )
+                if failure is None:
+                    assert not process.terminate_pid(
+                        123, expected_path="/proxy.py", timeout_seconds=1.0
+                    )
+                else:
+                    with pytest.raises(errors.InstallError, match="wait: deadline expired"):
+                        process.terminate_pid(123, expected_path="/proxy.py", timeout_seconds=1.0)
                 constructor_calls = 0 if case == "identity" else 1
                 assert constructor.call_count == constructor_calls
                 mocker.stopall()
@@ -499,11 +563,20 @@ class TestTermination:
                     "Process",
                     side_effect=constructor_failure or [candidate],
                 )
-                assert not process.terminate_executable(
-                    123,
-                    "/installed/openai-responses-proxy",
-                    timeout_seconds=1.0,
-                )
+                if constructor_failure is None and wait_failure is None:
+                    assert not process.terminate_executable(
+                        123, "/installed/openai-responses-proxy", timeout_seconds=1.0
+                    )
+                else:
+                    expected = (
+                        "capture: access denied"
+                        if constructor_failure
+                        else "wait: deadline expired"
+                    )
+                    with pytest.raises(errors.InstallError, match=expected):
+                        process.terminate_executable(
+                            123, "/installed/openai-responses-proxy", timeout_seconds=1.0
+                        )
                 if case == "initial identity":
                     constructor.assert_not_called()
                 mocker.stopall()

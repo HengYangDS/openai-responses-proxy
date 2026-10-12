@@ -87,7 +87,7 @@ class _NativeRuntime:
                 roles=_RUNTIME_ROLES,
                 timeout_seconds=timeout_seconds,
             ):
-                raise errors.InstallError(f"verified runtime process {pid} did not exit")
+                raise errors.InstallError(f"verified runtime process {pid} exit is unproved")
         if remaining := self._runtime_pids(ctx):
             raise errors.InstallError(f"verified runtime processes remain: {remaining}")
         return len(pids)

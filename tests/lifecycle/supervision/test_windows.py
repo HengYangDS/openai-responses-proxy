@@ -152,7 +152,7 @@ class TestWindowsLifecycle:
             side_effect=[_completed(), _completed()],
         )
 
-        with pytest.raises(errors.InstallError, match="predecessor watchdog 41 did not exit"):
+        with pytest.raises(errors.InstallError, match="predecessor watchdog 41 exit is unproved"):
             windows.install(ctx)
 
         run.assert_not_called()
@@ -256,7 +256,7 @@ class TestWindowsLifecycle:
         mocker.patch.object(windows, "_running_watchdog_pids", return_value=[4242])
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=False)
 
-        with pytest.raises(errors.InstallError, match="verified watchdog 4242 did not exit"):
+        with pytest.raises(errors.InstallError, match="verified watchdog 4242 exit is unproved"):
             windows.uninstall(ctx)
         assert invoked.call_args_list[0].args[0][:2] == ["schtasks", "/delete"]
         terminate.assert_called_once_with(

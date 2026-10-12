@@ -268,6 +268,13 @@
 - [x] 5.4 Prove Linux systemd behavior on a real supported user service and in the declared container boundary, including explicit behavior when no user bus exists; remove session-only fallback processes.
 - [x] 5.5 Prove current-user Windows Task Scheduler install, status, handoff, recovery, rollback, uninstall, command projection, and process-generation ownership from the native artifact.
 - [ ] 5.6 Verify bounded teardown after success, assertion failure, exception, timeout, and interruption on every supported platform; compare exact owned services, processes, journals, payloads, commands, and temporary files before and after, preserving unrelated canonical installations. Replaced every unowned mkdtemp call in the current test inventory with pytest-owned temporary paths; the five affected modules previously left 76 directories after 120 passing tests and now leave zero. Native pytest retention is none/0, with a RED/GREEN configuration regression and zero retained runs after passing and assertion-failing focused suites. Platform service/process interruption proof remains separate and open.
+      Native failure-phase diagnostics now have distinguishing regressions for
+      capture, generation, status, signal, wait, and post-timeout observation.
+      Unknown predecessor exit preserves the transaction before compensation.
+      Failed test teardown continues independent owned processes without losing
+      the original safe error or deleting the unproved payload or native root.
+      Native acceptance, the original Windows cause, and the hosted Windows
+      journey remain unproved; the state this records is source-level.
 - [x] 5.7 Verify active-target installation is a true no-op, failed successor transition restores the exact predecessor, repeated recovery is terminal, and uninstall preserves all unowned content.
 - [ ] 5.8 Remove legacy payload shapes, alternate launchers, obsolete journals, dead schema readers, compatibility branches, and fallback service identities after the terminal lifecycle proves no consumer.
 - [x] 5.9 Preserve request admission during capability-qualified upgrade and rollback handoff; prove concurrent new requests and in-flight responses complete without `proxy_draining`, while retaining the bounded legacy native-generation fallback.

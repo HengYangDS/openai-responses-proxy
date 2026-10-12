@@ -10,6 +10,8 @@ publication authority.
 
 ### Fixed
 
+- Report the failing phase of an unproved native process exit instead of a
+  bare failure, and keep the surviving generations' teardown running.
 - Preserve the initial installation failure when native cleanup or payload
   rollback also fails, and report numeric generation-removal errors without
   exposing private paths.

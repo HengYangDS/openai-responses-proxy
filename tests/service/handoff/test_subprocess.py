@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
@@ -227,7 +228,7 @@ class TestRealSubprocessHandoffIntegration:
     def _installed_fixture(
         self, *, release: str, port: int, upstream_url: str
     ) -> tuple[Path, runtime_context.RuntimeContext, dict[int, process.OwnedProcess]]:
-        temporary = tempfile.TemporaryDirectory()
+        temporary = tempfile.TemporaryDirectory(delete=False)
         root = Path(temporary.name)
         ctx = write_installed_payload(root, release=release, port=port, upstream_url=upstream_url)
         owned_processes: dict[int, process.OwnedProcess] = {}
@@ -241,34 +242,41 @@ class TestRealSubprocessHandoffIntegration:
         owned_processes: dict[int, process.OwnedProcess],
     ) -> None:
         proxy_script = ctx.executable
+        failure: Exception | None = None
         try:
-            try:
-                service = native_service.adapter()
-                service.uninstall(ctx)
-                assert service.status(ctx) == "absent"
-            finally:
-                for pid in process.pids_naming_executable(proxy_script):
-                    owned = process.capture_executable(pid, proxy_script)
-                    if owned is not None:
-                        owned_processes[pid] = owned
-                for owned in owned_processes.values():
-                    process.terminate_owned_process(owned)
-                remaining = {
-                    owned.pid
-                    for owned in owned_processes.values()
-                    if process.owned_process_alive(owned)
-                }
-                assert not remaining, f"orphaned proxy children for {proxy_script}: {remaining}"
+            service = native_service.adapter()
+            service.uninstall(ctx)
+            assert service.status(ctx) == "absent"
+        except Exception as error:
+            failure = error
         finally:
-            deadline = time.monotonic() + PAYLOAD_UNLOCK_TIMEOUT_SECONDS
-            while True:
+            for pid in process.pids_naming_executable(proxy_script):
+                owned = process.capture_executable(pid, proxy_script)
+                if owned is None:
+                    failure = failure or errors.InstallError("test process identity is unproved")
+                else:
+                    owned_processes[pid] = owned
+            for owned in owned_processes.values():
                 try:
-                    temporary.cleanup()
-                    break
-                except PermissionError:
-                    if time.monotonic() >= deadline:
-                        raise
-                    time.sleep(0.05)
+                    if not process.terminate_owned_process(owned):
+                        raise errors.InstallError("test process exit is unproved")
+                except errors.InstallError as error:
+                    failure = failure or error
+        if failure is not None:
+            raise failure
+        remaining = {
+            owned.pid for owned in owned_processes.values() if process.owned_process_alive(owned)
+        }
+        assert not remaining, f"orphaned proxy children for {proxy_script}: {remaining}"
+        deadline = time.monotonic() + PAYLOAD_UNLOCK_TIMEOUT_SECONDS
+        while True:
+            try:
+                temporary.cleanup()
+                break
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
 
     def test_fixture_cleanup_terminates_before_removing_temporary_payload(self, *, mocker) -> None:
         events = []
