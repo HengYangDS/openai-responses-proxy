@@ -24,6 +24,7 @@ from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import running_supervisor
 
 
 def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
@@ -341,7 +342,7 @@ def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
     mocker.patch.object(control, "read_runtime", return_value=runtime)
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     capture = mocker.patch.object(control.process, "capture_executable", return_value=owned)
-    mocker.patch.object(control, "adapter").return_value.status.return_value = "running"
+    running_supervisor(ctx, mocker=mocker)
 
     evidence = control.status(ctx)
 
@@ -378,7 +379,7 @@ def test_status_rejects_a_listener_serving_a_different_payload(tmp_path: Path, *
     }
     mocker.patch.object(control, "read_runtime", return_value=foreign)
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[1])
-    mocker.patch.object(control, "adapter").return_value.status.return_value = "running"
+    running_supervisor(ctx, mocker=mocker)
 
     evidence = control.status(ctx)
 
@@ -409,7 +410,7 @@ def test_status_rejects_a_non_accepting_or_draining_runtime(
     }
     runtime = mocker.patch.object(control, "read_runtime")
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[1])
-    mocker.patch.object(control, "adapter").return_value.status.return_value = "running"
+    running_supervisor(ctx, mocker=mocker)
 
     for overrides in ({"accepting": False}, {"draining": True}):
         with subtests.test(overrides=overrides):
@@ -489,3 +490,37 @@ def test_control_status_json_reports_recovery_without_private_transaction_data(*
         ):
             assert forbidden not in rendered
         assert journal_path.read_bytes() == before
+
+
+def test_status_requires_a_current_supervisor_projection_bound_to_control(
+    tmp_path: Path, *, mocker, subtests
+) -> None:
+    ctx = install_context(tmp_path)
+    install_payload(ctx, mocker=mocker)
+    healthy_status_dependencies(ctx, mocker=mocker)
+    native = running_supervisor(ctx, mocker=mocker)
+    mocker.patch.object(
+        control.command,
+        "status",
+        return_value={"path": ctx.command, "state": "owned", "kind": "symlink"},
+    )
+    control_ctx = generation.control_context(ctx)
+    foreign = str(tmp_path / "foreign" / "openai-responses-proxy")
+    unbound = "native supervisor is not bound to the lifecycle control executable"
+    for case, configured, current, expected in (
+        ("current", control_ctx.executable, True, ("running", "running", "healthy")),
+        (
+            "outdated",
+            control_ctx.executable,
+            False,
+            ("degraded", "outdated", "native service is outdated"),
+        ),
+        ("missing", None, True, ("degraded", "running", unbound)),
+        ("foreign", foreign, True, ("degraded", "running", unbound)),
+    ):
+        with subtests.test(case=case):
+            native.configured_executable.return_value = configured
+            native.projection_is_current.return_value = current
+            observed = control.status(ctx)
+            assert (observed["state"], observed["service"], observed["detail"]) == expected
+    native.projection_is_current.assert_called_with(control_ctx)

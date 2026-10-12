@@ -211,10 +211,15 @@ returns `reloaded` after a same-payload handoff that also binds native
 supervision to the lifecycle control executable, as an upgrade does, and
 `started` after it binds that stopped installation's native supervisor and
 proves the serving listener. It refuses before any change when the owned
-supervisor declaration does not bind that executable. With a serving listener,
-`doctor` names `reload` when native supervision is declared but not running and
-`status --json` when supervision is absent or unknown. Without a verified
-runtime, any other state is not reloaded; `doctor` then names `status --json`.
+supervisor declaration does not bind that executable. `status` reports the
+service as `outdated` when a running supervisor's owned definition differs from
+the installed release's rendering, for example a launch agent that an older
+installer wrote; Windows compares only the scheduled task's action, because Task
+Scheduler normalizes the rest of an exported task. With a serving listener,
+`doctor` names `reload` when native supervision is declared but not running or
+outdated, and `status --json` when supervision is absent or unknown. Without a
+verified runtime, any other state is not reloaded; `doctor` then names
+`status --json`.
 `rollback` returns
 `unchanged` when the requested release is already the proven active
 installation, `unavailable` when no verified predecessor exists, and

@@ -109,6 +109,23 @@ class TestMacosBackgroundContract:
 
             assert macos.configured_executable(ctx) == ctx.executable
 
+    @pytest.mark.parametrize("sessions", [None, "Background"])
+    def test_projection_is_current_only_for_this_release_rendering(self, *, sessions) -> None:
+        with _temporary_context("log_dir") as ctx:
+            plist = Path(macos._plist_path(ctx))
+            assert macos.projection_is_current(ctx) is False
+            _set_file(plist, macos.render_plist(ctx))
+            assert macos.projection_is_current(ctx) is True
+            payload = plistlib.loads(macos.render_plist(ctx).encode())
+            if sessions is None:
+                payload.pop("LimitLoadToSessionType")
+            else:
+                payload["LimitLoadToSessionType"] = sessions
+            _set_file(plist, plistlib.dumps(payload).decode())
+
+            assert macos.configured_executable(ctx) == ctx.executable
+            assert macos.projection_is_current(ctx) is False
+
     @pytest.mark.parametrize(
         "sessions", ["Aqua", ["Background"], ["Aqua", "Background", "LoginWindow"]]
     )

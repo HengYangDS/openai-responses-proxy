@@ -147,6 +147,17 @@ class TestLinuxLifecycle:
             _set_file(unit, "[Service]\nExecStart=/one\nExecStart=/two\n")
             assert linux.configured_executable(ctx) is None
 
+    def test_projection_is_current_only_for_this_release_rendering(self):
+        with _temporary_context("log_dir") as ctx:
+            unit = Path(linux._unit_path(ctx))
+            assert linux.projection_is_current(ctx) is False
+            _set_file(unit, linux.render_unit(ctx))
+            assert linux.projection_is_current(ctx) is True
+            _set_file(unit, linux.render_unit(ctx).replace("KillMode=process\n", ""))
+
+            assert linux.configured_executable(ctx) == ctx.executable
+            assert linux.projection_is_current(ctx) is False
+
     def test_status_observes_registered_service_without_a_unit_file(self, *, mocker):
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")

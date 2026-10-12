@@ -124,6 +124,15 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return commands[0].text
 
 
+def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+    """Return whether the registered task action runs this release's watchdog.
+
+    Task Scheduler normalizes the rest of an exported definition, so only the
+    action is comparable with this release's rendering.
+    """
+    return configured_executable(ctx) == ctx.executable
+
+
 def install(ctx: runtime_spec.NativeServiceContext) -> None:
     """Replace and prove the Windows scheduled watchdog task."""
     previous_executable = configured_executable(ctx)

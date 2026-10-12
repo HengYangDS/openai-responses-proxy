@@ -65,9 +65,10 @@ def status(
     except errors.InstallError as exc:
         integrity_ok, integrity_detail = False, str(exc)
     try:
-        service = adapter().status(active)
-    except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
-        service = "unknown"
+        control_ctx = generation.control_context(ctx)
+    except errors.InstallError:
+        control_ctx = active
+    service, supervision_bound = _observe_supervision(active, control_ctx)
     listeners = process.verified_proxy_listener_pids(active)
     runtime = read_runtime(active)
     pid = runtime.get("pid") if isinstance(runtime, dict) else None
@@ -108,11 +109,7 @@ def status(
         if installed is not None
         else Path(active.command)
     )
-    try:
-        control_executable = generation.control_context(ctx).executable
-    except errors.InstallError:
-        control_executable = active.executable
-    command_state = command.status(installed_command, Path(control_executable))
+    command_state = command.status(installed_command, Path(control_ctx.executable))
     payload_transaction = payload_state.status(ctx)
     rollback_status = (
         (
@@ -158,6 +155,7 @@ def status(
         integrity_ok
         and installed_matches_payload
         and service == "running"
+        and supervision_bound
         and runtime is not None
         and command_state.get("state") == "owned"
         and payload_transaction is None
@@ -201,6 +199,8 @@ def status(
             detail = "installed release state does not match selected payload"
         elif service != "running":
             detail = f"native service is {service}"
+        elif not supervision_bound:
+            detail = "native supervisor is not bound to the lifecycle control executable"
         elif runtime is None:
             detail = "listener runtime identity is unavailable"
         elif command_state.get("state") != "owned":
@@ -230,6 +230,26 @@ def status(
             if value is not None
         }
     return evidence
+
+
+def _observe_supervision(
+    active: runtime_context.RuntimeContext, control_ctx: runtime_context.RuntimeContext
+) -> tuple[str, bool]:
+    """Classify native supervision and prove a running one binds the current control projection."""
+    try:
+        native = adapter()
+        service = native.status(active)
+        if service != "running":
+            return service, False
+        configured = native.configured_executable(control_ctx)
+        bound = configured is not None and runtime_spec.normalized_path(
+            configured
+        ) == runtime_spec.normalized_path(control_ctx.executable)
+        if bound and not native.projection_is_current(control_ctx):
+            return "outdated", True
+        return service, bound
+    except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
+        return "unknown", False
 
 
 def _stopped_supervisor_is_bound(active: runtime_context.RuntimeContext) -> bool:

@@ -140,6 +140,7 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
         (serving, "degraded", "openai-responses-proxy reload"),
         ({**serving, "service": "absent"}, "degraded", "openai-responses-proxy status --json"),
         ({**serving, "service": "unknown"}, "degraded", "openai-responses-proxy status --json"),
+        ({**serving, "service": "outdated"}, "degraded", "openai-responses-proxy reload"),
     ):
         with subtests.test(state=evidence["state"], service=evidence["service"]):
             status.return_value = evidence
@@ -153,6 +154,10 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
                 "passed" if evidence["runtime"] else "failed"
             )
             assert report["next"] == next_command
+            assert report["checks"]["service"] == {
+                "status": "passed" if evidence["service"] == "running" else "failed",
+                "detail": evidence["service"],
+            }
             assert "Traceback" not in stdout
             assert "Warning" not in stdout
 

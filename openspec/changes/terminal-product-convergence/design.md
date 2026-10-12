@@ -524,6 +524,23 @@ but not running, and read-only `status --json` when supervision is absent or
 unobservable: an absent declaration may remain from an interrupted removal, so
 recreating it is not reload's decision.
 
+A running supervisor can still carry a definition that another release
+rendered. An upgrade binds supervision with the invoking installer's adapter, so
+a 5.0.1 or 5.0.2 command that installs 5.0.3 keeps the Background-only launch
+agent, and same-release installation then reports `unchanged`. `status`
+therefore asks the native adapter for one read-only projection observation and
+reports the service as `outdated` when the owned declaration binds the
+lifecycle control executable but differs from the installed release's
+rendering; `doctor` names `reload`, whose rebind renders the current
+definition. macOS and Linux compare the owned carrier byte for byte. Windows
+compares the registered task action, because Task Scheduler normalizes the rest
+of an exported task, so an outdated Windows definition is observable only
+through its action. A running supervisor whose declaration does not bind the
+lifecycle control executable is `degraded` with that detail, and `doctor` names
+`status --json`, matching the refusal of both upgrade and reload. A carrier
+registered outside the selected launchd domain and an absent declaration remain
+recorded follow-ups.
+
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and

@@ -33,6 +33,10 @@ class NativeServiceAdapter(Protocol):
         """Return the executable configured by the host-native service."""
         ...
 
+    def projection_is_current(self, ctx: runtime_spec.NativeServiceContext) -> bool:
+        """Return whether the host-native service definition is this release's projection."""
+        ...
+
     def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
         """Remove the exact host-native service owned by this installation."""
         ...
@@ -63,6 +67,9 @@ class _NativeRuntime:
 
     def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str | None:
         return cast(str | None, self._implementation.configured_executable(ctx))
+
+    def projection_is_current(self, ctx: runtime_spec.NativeServiceContext) -> bool:
+        return cast(bool, self._implementation.projection_is_current(ctx))
 
     def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self._implementation.uninstall(ctx)

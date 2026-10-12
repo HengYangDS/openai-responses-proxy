@@ -138,6 +138,25 @@ class TestWindowsLifecycle:
                 "/hresult",
             ]
 
+    def test_projection_compares_only_the_registered_task_action(self, *, mocker):
+        ctx = platform_context(windows=True)
+        task = windows.render_task_xml(ctx).decode("utf-16")
+        exported = task.replace(
+            "<Description>", "<Author>Task Scheduler normalization</Author><Description>"
+        )
+        moved = task.replace(
+            f"<Command>{ctx.executable}</Command>",
+            "<Command>C:/elsewhere/openai-responses-proxy.exe</Command>",
+        )
+        for completed, expected in (
+            (_completed(returncode=0x80070002), False),
+            (_completed(stdout=task), True),
+            (_completed(stdout=exported), True),
+            (_completed(stdout=moved), False),
+        ):
+            mocker.patch.object(windows.subprocess, "run", return_value=completed)
+            assert windows.projection_is_current(ctx) is expected
+
     def test_install_success_and_failure_messages(self, *, mocker):
         with _temporary_context("install_dir", windows=True) as ctx:
             task = windows.render_task_xml(ctx).decode("utf-16")

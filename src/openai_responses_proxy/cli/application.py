@@ -242,7 +242,8 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
     service = evidence.get("service")
     service_detail = (
         service
-        if isinstance(service, str) and service in {"running", "installed", "absent", "unknown"}
+        if isinstance(service, str)
+        and service in {"running", "installed", "outdated", "absent", "unknown"}
         else "unknown"
     )
     runtime = evidence.get("runtime")
@@ -333,7 +334,7 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
         next_command = product_identity.command("reload")
     elif not listener_ok:
         next_command = product_identity.command("status", "--json")
-    elif service_detail == "installed":
+    elif service_detail in {"installed", "outdated"}:
         next_command = product_identity.command("reload")
     elif not checks_passed:
         next_command = product_identity.command("status", "--json")

@@ -23,6 +23,15 @@ publication authority.
   executable after every proven handoff, as an upgrade does, and refuses before
   any change when the owned declaration does not bind that executable. `doctor`
   names `status --json` instead when supervision is absent or unknown.
+- Report a native supervisor definition that another release rendered. An
+  upgrade run by an older installed command binds supervision with that
+  command's adapter, so a 5.0.1 or 5.0.2 command installing 5.0.3 kept the
+  Background-only launch agent while `status` reported `running`. `status` now
+  reports the service as `outdated` when the owned launch agent or systemd unit
+  differs from the installed release's rendering, or a Windows task's action
+  does, and `doctor` names `reload`, which renders the current definition. A
+  running supervisor whose definition does not name the lifecycle control
+  executable is reported as degraded.
 
 ## [5.0.3] - 2026-10-12
 

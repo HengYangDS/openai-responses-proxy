@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import platform
+import plistlib
 import re
 import subprocess
 import sys
@@ -316,6 +317,22 @@ def stop_native_supervision(
         return
     for owned_ctx in _process_contexts(ctx):
         service.terminate_runtime(owned_ctx, timeout_seconds=5.0)
+
+
+def write_predecessor_native_projection(ctx: runtime_context.RuntimeContext) -> None:
+    """Rewrite the running supervisor's owned definition as an older installer rendered it."""
+    control = generation.control_context(ctx)
+    if sys.platform == "darwin":
+        carrier = Path(macos._plist_path(control))
+        payload = plistlib.loads(carrier.read_bytes())
+        payload["LimitLoadToSessionType"] = "Background"
+        carrier.write_bytes(plistlib.dumps(payload))
+    else:
+        unit = Path(linux._unit_path(control))
+        unit.write_text(
+            "# Rendered by a predecessor installer\n" + unit.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
 
 
 def owned_runtime_contexts(

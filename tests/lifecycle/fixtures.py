@@ -168,6 +168,15 @@ def install_payload(
     return transaction
 
 
+def running_supervisor(ctx, *, mocker):
+    """Project a running supervisor whose current declaration binds lifecycle control."""
+    native = mocker.patch.object(control, "adapter").return_value
+    native.status.return_value = "running"
+    native.configured_executable.return_value = generation.control_context(ctx).executable
+    native.projection_is_current.return_value = True
+    return native
+
+
 def healthy_status_dependencies(ctx, *, mocker) -> None:
     """Project verified listener and supervisor evidence for one installed generation."""
     runtime = identity.committed_payload(Path(generation.selected_context(ctx).executable))
@@ -181,6 +190,6 @@ def healthy_status_dependencies(ctx, *, mocker) -> None:
         "accepting": True,
         "draining": False,
     }
-    mocker.patch.object(control, "adapter").return_value.status.return_value = "running"
+    running_supervisor(ctx, mocker=mocker)
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[321])
     mocker.patch.object(control, "read_runtime", return_value=runtime_evidence)

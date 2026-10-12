@@ -211,6 +211,12 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return carrier[1] if carrier is not None else None
 
 
+def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+    """Return whether this installation's valid carrier is this release's rendering."""
+    carrier = _carrier(ctx)
+    return carrier is not None and carrier[0] == render_plist(ctx).encode()
+
+
 def install(ctx: runtime_spec.NativeServiceContext) -> None:
     """Replace and prove one exact launchd watchdog process generation."""
     plist = _plist_path(ctx)

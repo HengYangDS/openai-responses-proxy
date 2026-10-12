@@ -35,6 +35,7 @@ from tests.release.fixtures import run_command
 from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
 from tests.release.fixtures import stop_native_supervision
+from tests.release.fixtures import write_predecessor_native_projection
 from tests.service.handoff.fixtures import ScriptedUpstream
 from tests.service.handoff.fixtures import free_port
 from tools.release.artifact import signing
@@ -403,6 +404,27 @@ class TestSignedNativeLifecycle:
             assert post_response(port, route="upstream") == (
                 b'{"id":"after-rebind","status":"completed"}'
             )
+            if sys.platform != "win32":
+                write_predecessor_native_projection(ctx)
+                outdated = run_command(
+                    executable, environment, "status", "--port", str(port), "--json"
+                )
+                assert outdated["state"] == "degraded"
+                assert outdated["service"] == "outdated"
+                diagnosed = run_command(
+                    executable, environment, "doctor", "--port", str(port), "--json", expected=1
+                )
+                assert diagnosed["next"] == "openai-responses-proxy reload"
+                assert (
+                    run_command(executable, environment, "reload", "--port", str(port), "--json")[
+                        "state"
+                    ]
+                    == "reloaded"
+                )
+                current = run_command(
+                    executable, environment, "status", "--port", str(port), "--json"
+                )
+                assert (current["state"], current["service"]) == ("running", "running")
             residue = install / "operator-note.txt"
             residue.write_text("preserve\n", encoding="utf-8")
             refused_purge = run_command(

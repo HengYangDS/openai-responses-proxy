@@ -156,7 +156,7 @@ SHALL otherwise name read-only `status --json`.
 ### Requirement: Diagnosis of a serving installation names a converging action
 
 With a verified serving runtime, `doctor` SHALL name `reload` only when native
-supervision is declared but not running, and SHALL name read-only
+supervision is declared but not running or outdated, and SHALL name read-only
 `status --json` when native supervision is absent or unknown.
 
 #### Scenario: The watchdog stopped while the listener serves
@@ -172,6 +172,37 @@ supervision is declared but not running, and SHALL name read-only
 - **WHEN** a verified listener serves while native supervision is absent or
   unknown
 - **THEN** `doctor` names `status --json` rather than `reload`.
+
+### Requirement: Status reports the native supervisor projection
+
+`status` SHALL report a running native service as `outdated` when its owned
+declaration binds the lifecycle control executable but differs from the
+installed release's projection, and SHALL report the installation as `degraded`
+when a running supervisor's declaration does not bind that executable. macOS
+and Linux SHALL compare the owned definition exactly; Windows SHALL compare the
+registered task action.
+
+#### Scenario: An older installer rendered the running supervisor's definition
+
+- **WHEN** a running supervisor's owned declaration binds the lifecycle control
+  executable but differs from the installed release's projection
+- **THEN** `status` reports `degraded` with service `outdated` and `doctor`
+  names `reload`
+- **AND** after the completed reload the declaration equals the installed
+  release's projection.
+
+#### Scenario: A running supervisor does not bind lifecycle control
+
+- **WHEN** a running supervisor's owned declaration is absent or names another
+  executable
+- **THEN** `status` reports `degraded` with service `running`
+- **AND** `doctor` names `status --json`.
+
+#### Scenario: Task Scheduler normalizes an exported task
+
+- **WHEN** an exported Windows task differs from the rendered task only outside
+  its action
+- **THEN** its projection remains current.
 
 ## MODIFIED Requirements
 

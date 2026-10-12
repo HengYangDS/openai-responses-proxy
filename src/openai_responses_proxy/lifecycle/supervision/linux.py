@@ -80,6 +80,15 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return arguments[0].replace("%%", "%")
 
 
+def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+    """Return whether the product systemd unit is this release's rendering."""
+    try:
+        content = Path(_unit_path(ctx)).read_bytes()
+    except OSError:
+        return False
+    return content == render_unit(ctx).encode("utf-8")
+
+
 def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
     unit = Path(_unit_path(ctx))
     service = f"{ctx.service_id}.service"
