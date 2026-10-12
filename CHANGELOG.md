@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.0.4] - 2026-10-12
+
 ### Fixed
 
 - Give a stopped installation one supported restart path. When a verified
