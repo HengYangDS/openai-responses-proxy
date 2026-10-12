@@ -135,6 +135,7 @@ credentials, host paths, or Forge identity.
 | `relay`     | HTTP/SSE exchange, admission, retry, and cooldown               |
 | `service`   | Listener process, health, logs, and handoff protocol            |
 | `lifecycle` | Artifact admission, install, supervision, reload, and uninstall |
+| `runtime`   | Process-local configuration, bounded logs, and loopback control |
 
 Tests mirror these semantic packages. New generic buckets, forwarding modules,
 compatibility aliases, and one-caller abstractions require an independently

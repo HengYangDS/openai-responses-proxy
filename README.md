@@ -124,21 +124,9 @@ The listener exposes one provider-scoped namespace per admitted provider:
 | UCloud   | `http://127.0.0.1:8792/ucloud/v1`   |
 | AIHubMix | `http://127.0.0.1:8792/aihubmix/v1` |
 
-Configure these URLs in the client control plane. For example:
-
-```toml
-[providers.dmxapi]
-base_url = "http://127.0.0.1:8792/dmxapi/v1"
-
-[providers.ucloud]
-base_url = "http://127.0.0.1:8792/ucloud/v1"
-
-[providers.aihubmix]
-base_url = "http://127.0.0.1:8792/aihubmix/v1"
-```
-
-The table names are illustrative; use the client's native configuration
-grammar. The proxy has no package or configuration dependency on that client.
+Configure these URLs in the client control plane, using that client's native
+configuration grammar. The proxy has no package or configuration dependency on
+that client.
 
 For another Responses endpoint, select its origin once during installation:
 
