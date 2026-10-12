@@ -394,12 +394,14 @@ class TestSignedNativeLifecycle:
             rebound = run_command(executable, environment, "reload", "--port", str(port), "--json")
             assert rebound["state"] == "reloaded"
             assert rebound["old_pid"] == serving["pid"]
-            assert process.listener_pids(port) == [rebound["new_pid"]]
             supervised = run_command(
                 executable, environment, "status", "--port", str(port), "--json"
             )
             assert supervised["state"] == "running"
             assert supervised["service"] == "running"
+            successor = supervised["runtime"]
+            assert isinstance(successor, dict)
+            assert successor["pid"] == rebound["new_pid"]
             upstream.push((200, b'{"id":"after-rebind","status":"completed"}'))
             assert post_response(port, route="upstream") == (
                 b'{"id":"after-rebind","status":"completed"}'

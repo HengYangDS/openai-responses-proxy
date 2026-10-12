@@ -28,13 +28,13 @@ def temporary_context(attribute, *, windows=False):
 
 
 def set_file(path, text=None):
-    """Create or remove a text fixture and return its path."""
+    """Create or remove an LF text fixture, as native adapters write it, and return its path."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if text is None:
         path.unlink(missing_ok=True)
     else:
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 

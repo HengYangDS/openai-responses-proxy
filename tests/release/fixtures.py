@@ -283,7 +283,8 @@ def stop_native_supervision(
     """Keep the owned service carrier while its supervisor stops, as after a restart.
 
     ``keep_runtime`` leaves the detached listener serving, as after an operator bootout
-    or a lost supervisor registration.
+    or a lost supervisor registration. Linux only stops the still-loaded unit: disabling,
+    removing and reloading it also ended the detached listener on the hosted runner.
     """
     service = native_service.adapter()
     if sys.platform == "win32":
@@ -304,6 +305,15 @@ def stop_native_supervision(
             watchdog = {service_runtime.WATCHDOG_MODE}
             for pid in process.pids_naming_executable(control.executable, roles=watchdog):
                 assert process.terminate_executable(pid, control.executable, roles=watchdog)
+    elif keep_runtime and sys.platform.startswith("linux"):
+        subprocess.run(
+            ["systemctl", "--user", "stop", f"{ctx.service_id}.service"],
+            check=True,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
     else:
         carrier = Path(
             macos._plist_path(ctx) if sys.platform == "darwin" else linux._unit_path(ctx)
