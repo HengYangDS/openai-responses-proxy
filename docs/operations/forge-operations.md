@@ -35,6 +35,8 @@ flowchart LR
 The commit and annotated tag are signed once locally. The public signing key and
 product email must be accepted by each selected Forge. SSH keys or tokens used to
 push may differ per Forge; transport authentication never changes a Git object.
+Each Forge supplies its own allowed-signers trust input. Product source contains
+no personal key, private credential, local checkout path, or Forge token.
 
 ## Branches
 
