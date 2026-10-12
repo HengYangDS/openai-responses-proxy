@@ -172,3 +172,34 @@ operator deadline. Every supported platform SHALL use this one path.
 - **THEN** reload fails with one bounded lifecycle error
 - **AND** the bound supervisor remains in place because no predecessor runtime
   exists to restore.
+
+### Requirement: Reload rebinds native supervision after a handoff
+
+`reload` SHALL hand off a serving installation only while its owned native
+supervisor declaration binds the lifecycle control executable, and SHALL then
+bind native supervision to that executable through the adapter's installation
+operation before reporting `reloaded`. Every supported platform SHALL use this
+one path.
+
+#### Scenario: A serving installation lost its native supervisor
+
+- **WHEN** a verified listener serves while its owned supervisor declaration
+  binds the lifecycle control executable but the supervisor does not run
+- **THEN** `reload` hands off to a successor that proves SERVING identity and
+  then binds native supervision
+- **AND** `status` afterwards reports `running` with a running native service.
+
+#### Scenario: The declaration does not bind lifecycle control
+
+- **WHEN** the owned supervisor declaration is absent or names another
+  executable
+- **THEN** `reload` refuses before any handoff or supervision change
+- **AND** it names read-only `status --json`.
+
+#### Scenario: Rebinding fails after the handoff
+
+- **WHEN** binding native supervision fails after the successor proved SERVING
+  identity
+- **THEN** `reload` fails with one bounded lifecycle error that names the
+  serving successor
+- **AND** the handoff is not reversed.

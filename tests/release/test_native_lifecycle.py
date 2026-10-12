@@ -377,6 +377,32 @@ class TestSignedNativeLifecycle:
             assert post_response(port, route="upstream") == (
                 b'{"id":"after-start","status":"completed"}'
             )
+            stop_native_supervision(ctx, keep_runtime=True)
+            unsupervised = run_command(
+                executable, environment, "status", "--port", str(port), "--json"
+            )
+            assert unsupervised["state"] == "degraded"
+            assert unsupervised["service"] == "installed"
+            serving = unsupervised["runtime"]
+            assert isinstance(serving, dict)
+            diagnosed = run_command(
+                executable, environment, "doctor", "--port", str(port), "--json", expected=1
+            )
+            assert diagnosed["state"] == "degraded"
+            assert diagnosed["next"] == "openai-responses-proxy reload"
+            rebound = run_command(executable, environment, "reload", "--port", str(port), "--json")
+            assert rebound["state"] == "reloaded"
+            assert rebound["old_pid"] == serving["pid"]
+            assert process.listener_pids(port) == [rebound["new_pid"]]
+            supervised = run_command(
+                executable, environment, "status", "--port", str(port), "--json"
+            )
+            assert supervised["state"] == "running"
+            assert supervised["service"] == "running"
+            upstream.push((200, b'{"id":"after-rebind","status":"completed"}'))
+            assert post_response(port, route="upstream") == (
+                b'{"id":"after-rebind","status":"completed"}'
+            )
             residue = install / "operator-note.txt"
             residue.write_text("preserve\n", encoding="utf-8")
             refused_purge = run_command(

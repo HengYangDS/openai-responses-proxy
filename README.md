@@ -184,7 +184,7 @@ openai-responses-proxy status --json
 # Read-only diagnosis
 openai-responses-proxy doctor
 
-# Same-payload handoff; start a stopped installation through its supervisor
+# Hand off and rebind native supervision; start a stopped installation
 openai-responses-proxy reload
 
 # Converge on the exact active release or verified retained predecessor
@@ -207,10 +207,14 @@ version with different artifact bytes is not the same installation.
 `status` reports `stopped` when a verified installation keeps its owned
 supervisor declaration but neither the supervisor nor a listener runs, for
 example after a restart, and names `reload` as the next action. `reload`
-returns `reloaded` after a same-payload handoff and `started` after it binds
-that stopped installation's native supervisor and proves the serving listener.
-Without a verified runtime, any other state is not reloaded; `doctor` then
-names `status --json`.
+returns `reloaded` after a same-payload handoff that also binds native
+supervision to the lifecycle control executable, as an upgrade does, and
+`started` after it binds that stopped installation's native supervisor and
+proves the serving listener. It refuses before any change when the owned
+supervisor declaration does not bind that executable. With a serving listener,
+`doctor` names `reload` when native supervision is declared but not running and
+`status --json` when supervision is absent or unknown. Without a verified
+runtime, any other state is not reloaded; `doctor` then names `status --json`.
 `rollback` returns
 `unchanged` when the requested release is already the proven active
 installation, `unavailable` when no verified predecessor exists, and

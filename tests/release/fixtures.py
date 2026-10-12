@@ -276,11 +276,20 @@ def native_service_projection(ctx: runtime_context.RuntimeContext) -> dict[str, 
     }
 
 
-def stop_native_supervision(ctx: runtime_context.RuntimeContext) -> None:
-    """Keep the owned service carrier while its supervisor and runtime stop, as after a restart."""
+def stop_native_supervision(
+    ctx: runtime_context.RuntimeContext, *, keep_runtime: bool = False
+) -> None:
+    """Keep the owned service carrier while its supervisor stops, as after a restart.
+
+    ``keep_runtime`` leaves the detached listener serving, as after an operator bootout
+    or a lost supervisor registration.
+    """
     service = native_service.adapter()
     if sys.platform == "win32":
-        for arguments in (("/change", "/disable"), ("/end",)):
+        operations = [("/change", "/disable")]
+        if not keep_runtime:
+            operations.append(("/end",))
+        for arguments in operations:
             subprocess.run(
                 ["schtasks", *arguments, "/tn", ctx.service_id],
                 check=True,
@@ -289,6 +298,11 @@ def stop_native_supervision(ctx: runtime_context.RuntimeContext) -> None:
                 stdin=subprocess.DEVNULL,
                 timeout=30,
             )
+        if keep_runtime:
+            control = generation.control_context(ctx)
+            watchdog = {service_runtime.WATCHDOG_MODE}
+            for pid in process.pids_naming_executable(control.executable, roles=watchdog):
+                assert process.terminate_executable(pid, control.executable, roles=watchdog)
     else:
         carrier = Path(
             macos._plist_path(ctx) if sys.platform == "darwin" else linux._unit_path(ctx)
@@ -298,6 +312,8 @@ def stop_native_supervision(ctx: runtime_context.RuntimeContext) -> None:
         service.uninstall(ctx)
         carrier.write_bytes(content)
         carrier.chmod(mode)
+    if keep_runtime:
+        return
     for owned_ctx in _process_contexts(ctx):
         service.terminate_runtime(owned_ctx, timeout_seconds=5.0)
 

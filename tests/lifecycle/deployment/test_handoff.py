@@ -1005,6 +1005,8 @@ class TestControllerHandoffWiring:
     def test_reload_uses_handoff_without_terminating_the_old_pid_when_supported(self, *, mocker):
         ctx = install_context(Path(self.tempdir.name))
         Path(ctx.install_dir).mkdir(parents=True)
+        native = mocker.patch.object(control, "adapter").return_value
+        native.configured_executable.return_value = ctx.executable
         mocker.patch.object(control, "read_runtime", return_value=idle_runtime())
         mocker.patch.object(handoff, "runtime_supports_handoff", return_value=True)
         mocker.patch.object(
@@ -1045,6 +1047,8 @@ class TestControllerHandoffWiring:
     def test_reload_recovers_a_finalized_result_after_controller_failure(self, *, mocker):
         ctx = install_context(Path(self.tempdir.name))
         Path(ctx.install_dir).mkdir(parents=True)
+        native = mocker.patch.object(control, "adapter").return_value
+        native.configured_executable.return_value = ctx.executable
         expected = expected_metadata()
         old = idle_runtime()
         finalized = matching_health(1000, expected, pid=1000, handoff_state="finalized")

@@ -509,6 +509,21 @@ exists, so diagnosis and reload cannot send an operator around a loop. The
 `stopped` state and `started` result replace the former blanket reload
 recommendation; `recover` remains bound to interrupted transactions.
 
+A serving installation whose native supervisor stopped converges through the
+same `reload`. A same-payload handoff alone never touched supervision, so after
+an operator bootout or a lost supervisor registration `doctor` kept naming
+`reload` while the watchdog stayed stopped. Reload therefore admits a live
+runtime only with the proof an upgrade requires, an owned declaration that binds
+the lifecycle control executable, and after the proven handoff binds supervision
+through the adapter's installation operation, as an upgrade's handoff does. It
+rebinds on every reload, so the installed command's adapter also replaces a
+definition that an older installer rendered. A rebind failure after the handoff
+is one bounded error that names the serving successor and reverses nothing.
+With a live runtime, `doctor` names `reload` only when supervision is declared
+but not running, and read-only `status --json` when supervision is absent or
+unobservable: an absent declaration may remain from an interrupted removal, so
+recreating it is not reload's decision.
+
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and

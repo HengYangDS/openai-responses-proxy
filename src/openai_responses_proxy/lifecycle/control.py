@@ -8,6 +8,7 @@ import urllib.request
 from pathlib import Path
 
 from openai_responses_proxy import errors
+from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
@@ -274,7 +275,7 @@ def _start_stopped(
 
 
 def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -> dict[str, object]:
-    """Reload the installed payload through live handoff, or start it when stopped."""
+    """Hand off the installed payload and rebind its supervisor, or start it when stopped."""
     installed = payload_state.read_installed(ctx)
     install_root = Path(ctx.install_dir)
     if installed is None and not install_root.exists() and not install_root.is_symlink():
@@ -297,9 +298,20 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
         raise errors.InstallError(
             f"payload integrity check failed before handoff reload: {integrity_detail}"
         )
+    native = adapter()
+    control_ctx = generation.control_context(ctx)
+    configured = native.configured_executable(control_ctx)
+    if configured is None or runtime_spec.normalized_path(
+        configured
+    ) != runtime_spec.normalized_path(control_ctx.executable):
+        raise errors.InstallError(
+            "native supervisor is not bound to the lifecycle control executable",
+            next_command=product_identity.command("status", "--json"),
+        )
     expected = handoff.expected_metadata(ctx.payload_dir)
     lease_seconds = max(1.0, timeout_seconds)
     source_listener = handoff.capture_source_listener(ctx, runtime)
+    reloaded: dict[str, object]
     try:
         result = handoff.request(
             ctx,
@@ -324,23 +336,33 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
         except (OSError, RuntimeError):
             resolution, resolved_runtime = "unknown", None
         if resolution == "finalized" and isinstance(resolved_runtime, dict):
-            return {
+            reloaded = {
                 "state": "reloaded",
                 "old_pid": runtime["pid"],
                 "new_pid": resolved_runtime["pid"],
                 "transaction_id": expected["transaction_id"],
                 "recovered_after_controller_failure": True,
             }
-        if resolution == "unknown":
+        elif resolution == "unknown":
             raise errors.InstallError(
                 "reload handoff outcome is unconfirmed; inspect transaction-bound listener health"
             ) from handoff_exc
-        raise
-    return {
-        "state": "reloaded",
-        "old_pid": result["old_pid"],
-        "new_pid": result["child_pid"],
-    }
+        else:
+            raise
+    else:
+        reloaded = {
+            "state": "reloaded",
+            "old_pid": result["old_pid"],
+            "new_pid": result["child_pid"],
+        }
+    try:
+        apply.bind_control_supervisor(native, control_ctx)
+    except Exception as bind_exc:
+        raise errors.InstallError(
+            f"listener {reloaded['new_pid']} serves after the handoff, but native supervisor "
+            f"rebind failed: {errors.failure_summary(bind_exc)}"
+        ) from bind_exc
+    return reloaded
 
 
 def recover(ctx: runtime_context.RuntimeContext) -> dict[str, object]:

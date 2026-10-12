@@ -123,6 +123,12 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
     }
     status = mocker.patch.object(application.control, "status")
     mocker.patch.object(application.runtime_context, "create", return_value="context")
+    serving = {
+        **stopped,
+        "state": "degraded",
+        "listener_pids": [321],
+        "runtime": {"pid": 321, "accepting": True},
+    }
     for evidence, state, next_command in (
         (stopped, "stopped", "openai-responses-proxy reload"),
         ({**stopped, "state": "degraded"}, "degraded", "openai-responses-proxy status --json"),
@@ -131,16 +137,9 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
             "degraded",
             "openai-responses-proxy status --json",
         ),
-        (
-            {
-                **stopped,
-                "state": "degraded",
-                "listener_pids": [321],
-                "runtime": {"pid": 321, "accepting": True},
-            },
-            "degraded",
-            "openai-responses-proxy reload",
-        ),
+        (serving, "degraded", "openai-responses-proxy reload"),
+        ({**serving, "service": "absent"}, "degraded", "openai-responses-proxy status --json"),
+        ({**serving, "service": "unknown"}, "degraded", "openai-responses-proxy status --json"),
     ):
         with subtests.test(state=evidence["state"], service=evidence["service"]):
             status.return_value = evidence

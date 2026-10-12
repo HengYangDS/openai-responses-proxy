@@ -209,7 +209,7 @@ alias or a second installer.
 | ------------------- | ---------------------------------------- | --------------------------------------- |
 | `status`            | None                                     | Installed payload and listener evidence |
 | `doctor`            | None                                     | Classified local lifecycle checks       |
-| `reload`            | Same-payload handoff or supervised start | Exact successor identity                |
+| `reload`            | Handoff with supervisor rebind, or start | Exact successor and supervisor identity |
 | `install`           | Payload replacement                      | Verified asset and successor            |
 | `rollback`          | Predecessor restore                      | Selected retained generation            |
 | `recover`           | Transaction resume                       | Active transaction and runtime evidence |

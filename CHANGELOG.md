@@ -16,6 +16,13 @@ publication authority.
   `doctor` report `stopped` and name `reload`, which binds the native supervisor
   and proves the serving listener before returning `started`. `doctor` no
   longer recommends a reload that cannot act on a runtime-less installation.
+- Restore native supervision through `reload` while the listener still serves.
+  After an operator bootout or a lost supervisor registration, `doctor` named
+  `reload`, whose same-payload handoff left the watchdog stopped, so diagnosis
+  repeated. `reload` now rebinds the native supervisor to the lifecycle control
+  executable after every proven handoff, as an upgrade does, and refuses before
+  any change when the owned declaration does not bind that executable. `doctor`
+  names `status --json` instead when supervision is absent or unknown.
 
 ## [5.0.3] - 2026-10-12
 

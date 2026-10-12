@@ -333,7 +333,7 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
         next_command = product_identity.command("reload")
     elif not listener_ok:
         next_command = product_identity.command("status", "--json")
-    elif service_detail != "running":
+    elif service_detail == "installed":
         next_command = product_identity.command("reload")
     elif not checks_passed:
         next_command = product_identity.command("status", "--json")

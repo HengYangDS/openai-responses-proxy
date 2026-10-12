@@ -36,6 +36,24 @@ def _stopped_installation(root: Path, *, mocker):
     return ctx, control_ctx, native
 
 
+def _serving_installation(root: Path, *, service: str, mocker):
+    """Install one verified payload whose listener serves under the observed supervisor."""
+    ctx = install_context(root)
+    install_payload(ctx, mocker=mocker)
+    control_ctx = generation.control_context(ctx)
+    native = mocker.patch.object(control, "adapter").return_value
+    native.status.return_value = service
+    native.configured_executable.return_value = control_ctx.executable
+    mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
+    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(
+        control.handoff,
+        "capture_source_listener",
+        return_value=control.process.OwnedProcess(7, ctx.executable, 1.0),
+    )
+    return ctx, control_ctx, native
+
+
 def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
     subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
 ):
@@ -69,6 +87,8 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
 
     runtime = {"pid": 7}
     expected = {"transaction_id": "tx"}
+    native = mocker.patch.object(control, "adapter").return_value
+    native.configured_executable.return_value = ctx.executable
     mocker.patch.object(control, "read_runtime", return_value=runtime)
     mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(control.projection, "verify_payload_manifest", return_value=(True, "ok"))
@@ -130,6 +150,8 @@ def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, moc
     ctx = generation.context(stable, "a" * 32)
     runtime = {"pid": 7}
     expected = {"transaction_id": "tx"}
+    native = mocker.patch.object(control, "adapter").return_value
+    native.configured_executable.return_value = ctx.executable
     mocker.patch.object(control.payload_state, "read_installed", return_value={})
     mocker.patch.object(control.payload_state, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=runtime)
@@ -187,6 +209,8 @@ def test_status_and_reload_bound_unobservable_failures(
     with pytest.raises(errors.ProductAssemblyError, match="product assembly incomplete"):
         control.status(ctx)
 
+    native = mocker.patch.object(control, "adapter").return_value
+    native.configured_executable.return_value = ctx.executable
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
     mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(control.projection, "verify_payload_manifest", return_value=(True, "ok"))
@@ -333,3 +357,82 @@ def test_reload_refuses_a_stopped_payload_that_changes_before_start(
         control.reload(ctx)
 
     native.install.assert_not_called()
+
+
+@pytest.mark.parametrize("service", ["installed", "running"])
+def test_reload_rebinds_native_supervision_after_a_proven_handoff(
+    tmp_path: Path, service: str, *, mocker
+) -> None:
+    ctx, control_ctx, native = _serving_installation(tmp_path, service=service, mocker=mocker)
+    effects: list[str] = []
+
+    def hand_off(*_args, **_kwargs) -> dict[str, int]:
+        effects.append("handoff")
+        return {"old_pid": 7, "child_pid": 8}
+
+    mocker.patch.object(control.handoff, "request", side_effect=hand_off)
+    native.install.side_effect = lambda _ctx: effects.append("bind")
+
+    assert control.reload(ctx) == {"state": "reloaded", "old_pid": 7, "new_pid": 8}
+    assert effects == ["handoff", "bind"]
+    native.install.assert_called_once_with(control_ctx)
+    native.uninstall.assert_not_called()
+
+
+def test_reload_rebinds_native_supervision_after_a_recovered_handoff(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
+    effects: list[str] = []
+
+    def resolve(*_args, **_kwargs) -> tuple[str, dict[str, int]]:
+        effects.append("resolve")
+        return "finalized", {"pid": 8}
+
+    mocker.patch.object(control.handoff, "request", side_effect=OSError("lost response"))
+    mocker.patch.object(control.handoff, "resolve_after_controller_failure", side_effect=resolve)
+    native.install.side_effect = lambda _ctx: effects.append("bind")
+
+    result = control.reload(ctx)
+
+    assert result["state"] == "reloaded"
+    assert (result["old_pid"], result["new_pid"]) == (7, 8)
+    assert result["recovered_after_controller_failure"] is True
+    assert effects == ["resolve", "bind"]
+    native.install.assert_called_once_with(control_ctx)
+
+
+@pytest.mark.parametrize("configured", ["missing", "foreign"])
+def test_reload_refuses_an_unbound_supervisor_before_the_handoff(
+    tmp_path: Path, configured: str, *, mocker
+) -> None:
+    ctx, _control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
+    native.configured_executable.return_value = (
+        None if configured == "missing" else str(tmp_path / "foreign" / "openai-responses-proxy")
+    )
+    request = mocker.patch.object(control.handoff, "request")
+
+    with pytest.raises(errors.InstallError, match="not bound to the lifecycle control") as refused:
+        control.reload(ctx)
+
+    assert refused.value.next_command == product_identity.command("status", "--json")
+    request.assert_not_called()
+    native.install.assert_not_called()
+
+
+def test_reload_reports_a_supervisor_rebind_failure_after_the_handoff(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
+    mocker.patch.object(control.handoff, "request", return_value={"old_pid": 7, "child_pid": 8})
+    native.install.side_effect = errors.InstallError("launchctl bootstrap failed (exit 5)")
+
+    with pytest.raises(errors.InstallError) as failed:
+        control.reload(ctx)
+
+    assert "listener 8" in str(failed.value)
+    assert "launchctl bootstrap failed (exit 5)" in str(failed.value)
+    assert failed.value.next_command == product_identity.command("doctor")
+    native.install.assert_called_once_with(control_ctx)
+    native.uninstall.assert_not_called()
+    native.terminate_runtime.assert_not_called()

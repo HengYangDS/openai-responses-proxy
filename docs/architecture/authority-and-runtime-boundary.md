@@ -287,9 +287,10 @@ finalization semantics that did not yet exist. This is an explicit bootstrap
 at the installer boundary, not a second carrier schema or a runtime migration
 path. Once established, the installed release owns adjacent upgrades normally.
 
-Reload is same-payload handoff; when a verified installation's supervisor is
-stopped and no runtime remains, reload binds that supervisor and proves the
-serving listener instead. Upgrade is install. Rollback is a new reverse
+Reload is a same-payload handoff that then binds native supervision to the
+lifecycle control executable, as an upgrade's handoff does; when a verified
+installation's supervisor is stopped and no runtime remains, reload binds that
+supervisor and proves the serving listener instead. Upgrade is install. Rollback is a new reverse
 transaction from the current successor to its sole retained predecessor.
 Recover resumes or resolves an already active transaction; it is not a synonym
 for rollback. Uninstall removes native supervision first, proves owned listener

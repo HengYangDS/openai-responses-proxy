@@ -153,6 +153,26 @@ SHALL otherwise name read-only `status --json`.
 - **THEN** `doctor` names `status --json` rather than `reload`
 - **AND** `reload` refuses without changing native supervision or processes.
 
+### Requirement: Diagnosis of a serving installation names a converging action
+
+With a verified serving runtime, `doctor` SHALL name `reload` only when native
+supervision is declared but not running, and SHALL name read-only
+`status --json` when native supervision is absent or unknown.
+
+#### Scenario: The watchdog stopped while the listener serves
+
+- **WHEN** a verified listener serves and its native supervisor is declared but
+  not running
+- **THEN** `status` reports `degraded` with service `installed` and `doctor`
+  names `reload`
+- **AND** after the completed reload `status` reports `running`.
+
+#### Scenario: Native supervision is absent or unobservable
+
+- **WHEN** a verified listener serves while native supervision is absent or
+  unknown
+- **THEN** `doctor` names `status --json` rather than `reload`.
+
 ## MODIFIED Requirements
 
 ### Requirement: Local product closure is Forge-free
