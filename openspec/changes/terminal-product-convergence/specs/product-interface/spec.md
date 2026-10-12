@@ -49,6 +49,15 @@ command.
 - **AND** emits no traceback, warning, internal type, private path, credential,
   request content, or unrelated usage dump.
 
+#### Scenario: Installation fails and compensation also fails
+
+- **WHEN** a fresh install fails and native cleanup or payload rollback cannot finish
+- **THEN** the public failure retains both the initial and compensation boundaries
+- **AND** native generation removal reports its numeric operating-system error
+  without private paths or arbitrary exception text
+- **AND** unavailable service admission does not trigger native cleanup
+- **AND** existing recovery authority remains intact until exact cleanup succeeds.
+
 ### Requirement: The macOS watchdog belongs to the user Background domain
 
 The macOS supervisor SHALL install one watchdog in the current user's reachable

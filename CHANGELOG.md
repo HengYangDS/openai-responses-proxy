@@ -8,6 +8,12 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve the initial installation failure when native cleanup or payload
+  rollback also fails, and report numeric generation-removal errors without
+  exposing private paths.
+
 ## [5.0.2] - 2026-10-11
 
 ### Fixed

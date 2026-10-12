@@ -439,6 +439,17 @@ Unknown content or a changed replacement keeps the journal open for deliberate
 resolution. Public recovery and repeated purge consume this one disposal owner;
 there is no separate uninstall log, retry engine, or inferred recursive deletion.
 
+Fresh-install failure retains its initial boundary when native cleanup or
+payload rollback also fails. Public causes stay readable; other exceptions
+become bounded operation labels, never paths, types, or native output.
+Unavailable service admission still triggers only payload rollback, never native
+cleanup, and unconfirmed runtime cleanup preserves the recovery journal.
+Generation removal reports the operating system's numeric error without its
+absolute path. A failed recovery-record write is reported as unconfirmed, never
+as a retained transaction. The outer install entrypoint keeps the original
+public code and next command when prepared cleanup fails. Both layers use the
+shared error owner; there is no second cause formatter.
+
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and

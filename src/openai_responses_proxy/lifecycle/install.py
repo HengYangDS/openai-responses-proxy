@@ -64,6 +64,21 @@ def install_asset(
             runtime_reader=control.read_runtime,
             timeout_seconds=timeout_seconds,
         )
-    except BaseException:
-        payload_transaction.rollback_if_prepared()
+    except BaseException as install_error:
+        try:
+            payload_transaction.rollback_if_prepared()
+        except BaseException as cleanup_error:
+            message = (
+                f"installation failed: {errors.failure_summary(install_error)}; "
+                f"prepared payload cleanup failed: {errors.failure_summary(cleanup_error)}"
+            )
+            failure = (
+                type(install_error)(message)
+                if isinstance(install_error, errors.InstallError)
+                else errors.InstallError(message)
+            )
+            if isinstance(install_error, errors.ProductError):
+                failure.code = install_error.code
+                failure.next_command = install_error.next_command
+            raise failure from cleanup_error
         raise
