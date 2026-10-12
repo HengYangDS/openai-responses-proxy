@@ -90,6 +90,8 @@ def changelog_releases(path: Path | None = None) -> list[tuple[str, str]]:
         raise ValueError("CHANGELOG.md must start its release sections with ## [Unreleased]")
     if sum(1 for _, version, _ in headings if version == "Unreleased") != 1:
         raise ValueError("CHANGELOG.md must contain exactly one Unreleased section")
+    if headings[0][2] is not None:
+        raise ValueError("CHANGELOG.md Unreleased section must not be dated")
     released = [(version, item_date) for _, version, item_date in headings[1:]]
     if any(version == "Unreleased" or item_date is None for version, item_date in released):
         raise ValueError("released CHANGELOG headings must be dated and follow Unreleased")

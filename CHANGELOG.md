@@ -15,6 +15,8 @@ publication authority.
   exposing private paths.
 - Reject reload results without distinct positive process IDs and cleanup
   results with invalid process counts instead of reporting false success.
+- Reject a dated `Unreleased` changelog heading instead of accepting
+  manufactured release history.
 
 ## [5.0.2] - 2026-10-11
 

@@ -174,6 +174,7 @@ def test_release_train_admission_uses_exact_local_chronology(
         ("# Changelog\n\n## [Unreleased]\n", "Keep a Changelog"),
         (changelog_document("## [1.0.0] - 2026-07-01\n"), "must start"),
         (changelog_document("## [Unreleased]\n## [Unreleased]\n"), "exactly one"),
+        (changelog_document("## [Unreleased] - 2026-07-01\n"), "must not be dated"),
         (changelog_document("## [Unreleased]\n## [1.0.0]\n"), "must be dated"),
         (
             changelog_document(

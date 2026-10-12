@@ -16,6 +16,12 @@ publication.
 - **THEN** user-visible work SHALL remain under `Unreleased`
 - **AND** ordinary development SHALL NOT manufacture dated release history.
 
+#### Scenario: Unreleased work claims a release date
+
+- **WHEN** the `Unreleased` heading carries a date
+- **THEN** changelog validation SHALL fail before release preparation or
+  admission.
+
 #### Scenario: Release history and Git disagree
 
 - **WHEN** a product tag lacks a released section, a historical released
