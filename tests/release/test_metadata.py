@@ -297,38 +297,14 @@ def test_release_metadata_command_has_no_forge_semantics() -> None:
     assert legacy.returncode != 0, "metadata retained a Forge-specific compatibility flag"
 
 
-def test_publication_context_is_external_and_host_neutral() -> None:
-    """Keep publication identity outside source and free of workstation defaults."""
+def test_canonical_git_environment_is_isolated_from_personal_config() -> None:
+    """Keep the shared Git subprocess environment free of personal config."""
     git_environment = (ROOT / "tools" / "git_environment.py").read_text(encoding="utf-8")
     require_tokens(
         git_environment,
         ('"GIT_CONFIG_GLOBAL": os.devnull', '"GIT_CONFIG_NOSYSTEM": "1"'),
         "canonical Git subprocess environment",
     )
-    context = (ROOT / "tools" / "forge" / "context.py").read_text(encoding="utf-8")
-    assert "publication context" in context, "provider identity context is not externally supplied"
-    require_tokens(
-        context,
-        (
-            "active-signing-fingerprint",
-            'shutil.which("ssh-add")',
-            'shutil.which("ssh-keygen")',
-            '(ssh_add, "-L")',
-            '(ssh_add, "-T", str(destination))',
-        ),
-        "provider publication context",
-    )
-    assert all(
-        token not in context
-        for token in (
-            "/Users/",
-            "$HOME/.ssh",
-            "security",
-            "SSH_ASKPASS",
-            "pty",
-            "ssh-agent",
-        )
-    ), "provider publication must not hard-code a workstation or manage credentials"
 
 
 def test_prune_tags_removes_deleted_remote_tag() -> None:

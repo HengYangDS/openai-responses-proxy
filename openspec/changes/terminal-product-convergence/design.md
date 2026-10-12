@@ -149,9 +149,10 @@ shared request encoding belongs to their fixture, not another test module.
 The release publication package owns one command tree and one subpackage per
 Forge. Within each Forge, publication writes and hosted observations are distinct
 operations. Cross-Forge verification consumes observations; artifact assembly
-and signing remain release-construction concerns. ETHOS publication owns Git
-branch projection; repository settings and runner admission remain Forge
-concerns rather than a second release publication mechanism.
+and signing remain release-construction concerns. ETHOS owns Git branch
+projection and release-tag selection and publication; repository settings,
+runner admission, and tag verification remain Forge concerns rather than a
+second release publication mechanism.
 
 Publication identity includes what users can download, not merely a matching
 asset-name inventory. The GitLab adapter compares the complete expected link

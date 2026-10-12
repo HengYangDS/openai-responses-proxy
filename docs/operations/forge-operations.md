@@ -36,22 +36,6 @@ The commit and annotated tag are signed once locally. The public signing key and
 product email must be accepted by each selected Forge. SSH keys or tokens used to
 push may differ per Forge; transport authentication never changes a Git object.
 
-## Product publication context
-
-The publication context is an explicit protected input, not repository source:
-
-```toml
-schema-version = 1
-
-[product]
-actor-name = "Product Publisher"
-actor-email = "publisher@example.com"
-active-signing-fingerprint = "SHA256:..."
-```
-
-Each Forge supplies its own allowed-signers trust input. Product source contains
-no personal key, private credential, local checkout path, or Forge token.
-
 ## Branches
 
 ETHOS owns branch publication. [`.ethos/release.toml`](../../.ethos/release.toml)
@@ -100,9 +84,12 @@ object.
 
 ETHOS owns the local annotated release tag and its publication, exactly as it
 owns [branch publication](#branches). Tag creation and tag publication are two
-separate commands with separate evidence:
+separate commands with separate evidence. Validate the release commit before the
+tag exists, then create it, then publish it:
 
 ```bash
+mise exec --locked -- uv run --locked --no-sync \
+  python -m tools.release.metadata --prepare-release
 ethos land --release --expect-head <accepted-head> --release-head <main-head> \
   --tag v<VERSION> --apply --authorize --root <accepted-root> --json
 ethos publish --ref refs/tags/v<VERSION> --probe-remote --expect-head <head> --json
@@ -110,14 +97,16 @@ ethos publish --receipt <path> --receipt-sha256 <digest> --apply --authorize \
   --expect-head <head> --json
 ```
 
-`ethos land --release` selects the exact accepted source, creates the signed
-annotated tag once, and checks the accepted and release/tag refs in one native
-Git transaction. It uses the committed `VERSION` as the native release
-identity; a malformed or conflicting value fails closed. `ethos publish --ref`
-then verifies that exact tag object and projects it to each selected peer by
-explicit compare-and-swap. Repeat `--peer <id>` to select only some declared
-peers; an existing remote tag with the same OID is idempotent, and a different
-OID fails closed.
+`python -m tools.release.metadata --prepare-release` validates the release
+commit while its tag is still absent, so a malformed Changelog, `VERSION`, or
+package identity fails before any tag object exists. `ethos land --release`
+then selects the exact accepted source, creates the signed annotated tag once,
+and checks the accepted and release/tag refs in one native Git transaction. It
+uses the committed `VERSION` as the native release identity; a malformed or
+conflicting value fails closed. `ethos publish --ref` then verifies that exact
+tag object and projects it to each selected peer by explicit compare-and-swap.
+Repeat `--peer <id>` to select only some declared peers; an existing remote tag
+with the same OID is idempotent, and a different OID fails closed.
 
 Current runner placement may make one Forge the physical execution host for
 some native builds, but it does not make that Forge a product authority.
