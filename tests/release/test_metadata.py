@@ -532,6 +532,24 @@ def test_missing_tag_is_a_release_identity_error(mocker):
         ),
         (
             "docs/operations/forge-operations.md",
+            "python -m tools.release.metadata --prepare-release",
+            "python -m tools.release.metadata",
+            "ETHOS tag publication",
+        ),
+        (
+            "docs/operations/forge-operations.md",
+            "ethos land --release",
+            "ethos land",
+            "ETHOS tag publication",
+        ),
+        (
+            ".ethos/release.toml",
+            'tags = ["v*"]',
+            'tags = ["release-*"]',
+            "ETHOS tag publication",
+        ),
+        (
+            "docs/operations/forge-operations.md",
             "",
             "\ncommit-author-name\n",
             "couple shared history",
