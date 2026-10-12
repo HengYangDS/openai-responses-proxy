@@ -89,13 +89,116 @@ class TestMacosBackgroundContract:
                 call.args[0][1] not in {"bootstrap", "kickstart"} for call in invoked.call_args_list
             )
 
-    def test_watchdog_uses_the_user_domain_and_background_session(self, *, mocker) -> None:
+    def test_carrier_admits_gui_login_and_background_sessions(self, *, mocker) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
 
-        assert macos._domain_target() == "user/501"
-        assert payload["LimitLoadToSessionType"] == "Background"
+        assert macos._user_domain() == "user/501"
+        assert payload["LimitLoadToSessionType"] == ["Aqua", "Background"]
+
+    @pytest.mark.parametrize("sessions", [None, "Background", ["Aqua", "Background"]])
+    def test_carrier_accepts_each_released_session_declaration(self, *, sessions) -> None:
+        with _temporary_context("log_dir") as ctx:
+            payload = plistlib.loads(macos.render_plist(ctx).encode())
+            if sessions is None:
+                payload.pop("LimitLoadToSessionType")
+            else:
+                payload["LimitLoadToSessionType"] = sessions
+            _set_file(macos._plist_path(ctx), plistlib.dumps(payload).decode())
+
+            assert macos.configured_executable(ctx) == ctx.executable
+
+    @pytest.mark.parametrize(
+        "sessions", ["Aqua", ["Background"], ["Aqua", "Background", "LoginWindow"]]
+    )
+    def test_carrier_rejects_an_unreleased_session_declaration(self, *, sessions) -> None:
+        with _temporary_context("log_dir") as ctx:
+            payload = plistlib.loads(macos.render_plist(ctx).encode())
+            payload["LimitLoadToSessionType"] = sessions
+            content = plistlib.dumps(payload).decode()
+            carrier = _set_file(macos._plist_path(ctx), content)
+
+            with pytest.raises(errors.InstallError, match="carrier ownership is unproved"):
+                macos.configured_executable(ctx)
+            assert carrier.read_text(encoding="utf-8") == content
+
+    def test_install_registers_in_the_gui_login_domain_restored_by_launchd(self, *, mocker) -> None:
+        mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
+        mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
+        with _temporary_context("log_dir") as ctx:
+            plist = macos._plist_path(ctx)
+            successor = macos.process.OwnedProcess(73, ctx.executable, 2.0)
+            mocker.patch.object(macos.process, "wait_for_executable", return_value=successor)
+            mocker.patch.object(macos.process, "owned_process_alive", return_value=True)
+            invoked = mocker.patch.object(
+                macos.subprocess,
+                "run",
+                side_effect=[
+                    _completed(returncode=113),
+                    _completed(returncode=113),
+                    _completed(),
+                    _completed(),
+                    _completed(stdout="73\n"),
+                    _completed(stdout=_service(73)),
+                ],
+            )
+
+            macos.install(ctx)
+
+            assert [call.args[0] for call in invoked.call_args_list] == [
+                ["launchctl", "print", f"user/501/{ctx.service_id}"],
+                ["launchctl", "print", f"gui/501/{ctx.service_id}"],
+                ["plutil", "-lint", plist],
+                ["launchctl", "bootstrap", "gui/501", plist],
+                ["launchctl", "kickstart", "-p", f"gui/501/{ctx.service_id}"],
+                ["launchctl", "print", f"gui/501/{ctx.service_id}"],
+            ]
+
+    def test_install_moves_a_background_only_watchdog_into_the_gui_login_domain(
+        self, *, mocker
+    ) -> None:
+        mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
+        mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
+        with _temporary_context("log_dir") as ctx:
+            carrier = Path(macos._plist_path(ctx))
+            background_only = plistlib.loads(macos.render_plist(ctx).encode())
+            background_only["LimitLoadToSessionType"] = "Background"
+            carrier.parent.mkdir(parents=True)
+            carrier.write_bytes(plistlib.dumps(background_only))
+            predecessor = macos.process.OwnedProcess(41, ctx.executable, 1.0)
+            successor = macos.process.OwnedProcess(73, ctx.executable, 2.0)
+            mocker.patch.object(macos.process, "capture_executable", return_value=predecessor)
+            wait_for_exit = mocker.patch.object(macos.process, "wait_for_exit", return_value=True)
+            mocker.patch.object(macos.process, "wait_for_executable", return_value=successor)
+            mocker.patch.object(macos.process, "owned_process_alive", return_value=True)
+            invoked = mocker.patch.object(
+                macos.subprocess,
+                "run",
+                side_effect=[
+                    _completed(stdout=_service(41)),
+                    _completed(returncode=113),
+                    _completed(),
+                    _completed(returncode=113),
+                    _completed(),
+                    _completed(),
+                    _completed(stdout="73\n"),
+                    _completed(stdout=_service(73)),
+                ],
+            )
+
+            macos.install(ctx)
+
+            commands = [call.args[0] for call in invoked.call_args_list]
+            assert commands[2] == ["launchctl", "bootout", f"user/501/{ctx.service_id}"]
+            assert commands[-3:] == [
+                ["launchctl", "bootstrap", "gui/501", str(carrier)],
+                ["launchctl", "kickstart", "-p", f"gui/501/{ctx.service_id}"],
+                ["launchctl", "print", f"gui/501/{ctx.service_id}"],
+            ]
+            wait_for_exit.assert_called_once_with(predecessor)
+            sessions = plistlib.loads(carrier.read_bytes())["LimitLoadToSessionType"]
+            assert sessions == ["Aqua", "Background"]
 
     def test_status_observes_a_registered_watchdog_without_its_carrier(self, *, mocker) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
@@ -194,7 +297,9 @@ class TestMacosBackgroundContract:
         assert foreign.read_bytes() == content
         invoked.assert_not_called()
 
-    def test_install_migrates_only_the_owned_legacy_gui_watchdog(self, *, mocker) -> None:
+    def test_install_replaces_the_owned_legacy_gui_watchdog_in_its_login_domain(
+        self, *, mocker
+    ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
@@ -229,8 +334,9 @@ class TestMacosBackgroundContract:
 
             commands = [call.args[0] for call in invoked.call_args_list]
             assert ["launchctl", "bootout", f"gui/501/{ctx.service_id}"] in commands
-            assert ["launchctl", "bootstrap", "user/501", str(carrier)] in commands
-            assert plistlib.loads(carrier.read_bytes())["LimitLoadToSessionType"] == "Background"
+            assert ["launchctl", "bootstrap", "gui/501", str(carrier)] in commands
+            sessions = plistlib.loads(carrier.read_bytes())["LimitLoadToSessionType"]
+            assert sessions == ["Aqua", "Background"]
 
 
 def _service(pid: int) -> str:

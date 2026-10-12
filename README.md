@@ -59,10 +59,14 @@ Boot-time startup and continued operation after logout depend on the host's
 The host administrator owns that user-wide policy. Proxy installs only its own
 user service; it does not change lingering or request administrative credentials.
 
-On macOS, the watchdog uses the current user's launchd domain with a Background
-session. Installation requires a reachable user domain and does not create a
-login session. An owned legacy GUI registration is migrated only after the exact
-watchdog generation exits; unknown or competing registrations are preserved.
+On macOS, the watchdog's launch agent admits the Aqua and Background sessions.
+Installation requires a reachable user domain and does not create a login
+session. With a GUI login, the watchdog is registered in that login's domain,
+and launchd restores it at each later GUI login, including after a restart.
+Without one, it runs in the user domain with a Background session, which launchd
+does not restore after a restart. An owned predecessor registration is replaced
+only after the exact watchdog generation exits; unknown or competing
+registrations are preserved.
 
 ## Install
 

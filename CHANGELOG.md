@@ -10,6 +10,11 @@ publication authority.
 
 ### Fixed
 
+- Restore the macOS watchdog after a restart. Its launch agent now admits the
+  Aqua session, and installation with a GUI login registers it in that login's
+  domain, which launchd reloads at every GUI login. A Background-only
+  user-domain registration from 5.0.1 or 5.0.2 is migrated; without a GUI login
+  the watchdog keeps the user-domain Background session.
 - Recheck the exact owned payload during a bounded Windows delete-sharing
   retry. Replacement files stay protected, permissions stay unchanged, and a
   persistent native error keeps recovery authority.

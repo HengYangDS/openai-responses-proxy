@@ -1,4 +1,4 @@
-"""Persist one Background watchdog in the current user's launchd domain."""
+"""Persist one watchdog in the user's GUI login or Background launchd domain."""
 
 from __future__ import annotations
 
@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 _SERVICE_ABSENT = 113
 _PID = re.compile(r"(?m)^\s*pid = (?P<pid>[1-9][0-9]*)\s*$")
 _GUI_ASID = re.compile(r"(?m)^\tgui asid = [1-9][0-9]*\s*$")
+_SESSION_TYPES = ("Aqua", "Background")
+# Released carriers: the GUI-only default, Background only, and the current pair.
+_RELEASED_SESSION_TYPES = (None, "Background", list(_SESSION_TYPES))
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +51,7 @@ def _plist_path(ctx: runtime_spec.NativeServiceContext) -> str:
     return str(Path(ctx.user_home, "Library", "LaunchAgents", f"{ctx.service_id}.plist"))
 
 
-def _domain_target() -> str:
+def _user_domain() -> str:
     getuid: object = getattr(os, "getuid", None)
     if not callable(getuid):
         raise errors.InstallError("macOS user identity is unavailable")
@@ -61,8 +64,8 @@ def _service_target(ctx: runtime_spec.NativeServiceContext, domain: str) -> str:
 
 
 def _domains() -> tuple[str, ...]:
-    """Prove the user domain and observe GUI services for its associated login."""
-    domain = _domain_target()
+    """Prove the user domain; list its GUI login domain last when one exists."""
+    domain = _user_domain()
     completed = subprocess.run(
         [_native_tool("launchctl"), "print", domain],
         capture_output=True,
@@ -99,9 +102,10 @@ def _service(ctx: runtime_spec.NativeServiceContext, domain: str) -> _Service:
     return _Service(True, int(match.group("pid")) if match else None)
 
 
-def _registered_service(ctx: runtime_spec.NativeServiceContext) -> tuple[str, _Service]:
-    """Observe applicable domains and reject competing registrations."""
-    domains = _domains()
+def _registered_service(
+    ctx: runtime_spec.NativeServiceContext, domains: tuple[str, ...]
+) -> tuple[str, _Service]:
+    """Observe the applicable domains and reject competing registrations."""
     registered = [
         (domain, current) for domain in domains if (current := _service(ctx, domain)).registered
     ]
@@ -121,7 +125,7 @@ def render_plist(ctx: runtime_spec.NativeServiceContext) -> str:
     payload = {
         "Label": ctx.service_id,
         "ProgramArguments": [ctx.executable, service_runtime.WATCHDOG_MODE],
-        "LimitLoadToSessionType": "Background",
+        "LimitLoadToSessionType": list(_SESSION_TYPES),
         "RunAtLoad": True,
         "KeepAlive": True,
         "ThrottleInterval": 5,
@@ -169,7 +173,7 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
         or not all(isinstance(value, str) for value in arguments)
         or arguments[1] != service_runtime.WATCHDOG_MODE
         or environment != {"HOME": ctx.user_home}
-        or payload.get("LimitLoadToSessionType", "Background") != "Background"
+        or payload.get("LimitLoadToSessionType") not in _RELEASED_SESSION_TYPES
     ):
         raise errors.InstallError("macOS launch-agent carrier ownership is unproved")
     executable = str(arguments[0])
@@ -212,7 +216,11 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     plist = _plist_path(ctx)
     previous_carrier = _carrier(ctx)
     previous_executable = previous_carrier[1] if previous_carrier is not None else None
-    previous_domain, previous = _registered_service(ctx)
+    domains = _domains()
+    previous_domain, previous = _registered_service(ctx, domains)
+    # launchd reloads Aqua carriers at every GUI login but never restores a user-domain
+    # registration after restart, so a GUI login's domain is preferred when one exists.
+    target = domains[-1]
     generation = None
     if previous.pid is not None:
         if previous_executable is None:
@@ -250,14 +258,14 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         stdout=subprocess.DEVNULL,
     )
     bootstrap = subprocess.run(
-        [_native_tool("launchctl"), "bootstrap", _domain_target(), plist],
+        [_native_tool("launchctl"), "bootstrap", target, plist],
         capture_output=True,
         check=False,
         text=True,
     )
     _require_success(bootstrap, "bootstrap")
     kickstart = subprocess.run(
-        [_native_tool("launchctl"), "kickstart", "-p", _service_target(ctx, _domain_target())],
+        [_native_tool("launchctl"), "kickstart", "-p", _service_target(ctx, target)],
         capture_output=True,
         check=False,
         text=True,
@@ -268,7 +276,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     except ValueError as error:
         msg = "launchctl kickstart returned no watchdog pid"
         raise errors.InstallError(msg) from error
-    observed = _service(ctx, _domain_target())
+    observed = _service(ctx, target)
     if observed.pid != successor_pid:
         msg = "launchd watchdog pid was not re-observed for the exact service"
         raise errors.InstallError(msg)
@@ -289,7 +297,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     """Boot out and remove only this installation's launchd service."""
     plist = _plist_path(ctx)
     previous_carrier = _carrier(ctx)
-    domain, current = _registered_service(ctx)
+    domain, current = _registered_service(ctx, _domains())
     generation = None
     if current.pid is not None:
         executable = previous_carrier[1] if previous_carrier is not None else None
@@ -326,7 +334,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
 def status(ctx: runtime_spec.NativeServiceContext) -> str:
     """Return the macOS launchd service's read-only status classification."""
     carrier = _carrier(ctx)
-    _domain, current = _registered_service(ctx)
+    _domain, current = _registered_service(ctx, _domains())
     if current.pid is not None:
         return "running"
     return "installed" if current.registered or carrier is not None else "absent"

@@ -71,24 +71,37 @@ command.
 - **AND** unavailable service admission does not trigger native cleanup
 - **AND** existing recovery authority remains intact until exact cleanup succeeds.
 
-### Requirement: The macOS watchdog belongs to the user Background domain
+### Requirement: The macOS watchdog survives restart in the user's login domain
 
-The macOS supervisor SHALL install one watchdog in the current user's reachable
-launchd domain with a Background session, without requiring a GUI login.
-Legacy GUI migration SHALL prove carrier ownership, exact predecessor exit,
-service absence and successor identity before reporting completion.
+The macOS supervisor SHALL install one watchdog whose carrier admits the Aqua and
+Background sessions, registered in the user's GUI login domain when one exists and
+otherwise in the reachable user domain with a Background session. Replacing a
+watchdog registered in either domain SHALL prove carrier ownership, exact
+predecessor exit, service absence and successor identity before reporting
+completion.
 
 #### Scenario: A reachable user domain has no GUI login
 
 - **WHEN** the operator invokes the native supervisor with a reachable user domain
+  and no GUI login
 - **THEN** installation uses that user domain and a Background session
 - **AND** no GUI domain, new login session or administrator credential is required.
 
-#### Scenario: An owned legacy GUI watchdog is replaced
+#### Scenario: A GUI login restores the watchdog after restart
 
-- **WHEN** the exact selected installation has one verified legacy GUI watchdog
+- **WHEN** the operator installs while the user has a GUI login
+- **THEN** the watchdog is registered in that login's GUI domain from a carrier
+  admitting the Aqua session
+- **AND** launchd restores it at the next GUI login after a restart without
+  operator action.
+
+#### Scenario: An owned predecessor watchdog is replaced
+
+- **WHEN** the exact selected installation has one verified watchdog in the user
+  or GUI domain, including a Background-only predecessor
 - **THEN** the predecessor exits before its carrier is replaced
-- **AND** the successor is re-observed in the user domain with its exact process identity.
+- **AND** the successor is re-observed in the selected domain with its exact
+  process identity.
 
 ### Requirement: macOS carrier mutations preserve ownership and preimages
 
