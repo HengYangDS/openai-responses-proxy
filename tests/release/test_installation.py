@@ -112,6 +112,9 @@ class FakeServiceAdapter:
         configured = ctx.executable if self.configured == "canonical" else self.configured
         return configured if isinstance(configured, str) else None
 
+    def status(self, ctx) -> str:
+        return "running" if ctx.executable in self.running_contexts else "absent"
+
 
 class OrderedServiceAdapter(FakeServiceAdapter):
     """Record the service rebind in the same event stream as the transaction."""

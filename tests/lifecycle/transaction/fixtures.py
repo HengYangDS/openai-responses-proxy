@@ -36,12 +36,14 @@ def recover_transaction(
     *,
     runtime: Mapping[str, object] | None,
     bind_terminal: Callable[[runtime_context.RuntimeContext], None] = lambda _ctx: None,
+    discard_native: Callable[[runtime_context.RuntimeContext], None] = lambda _ctx: None,
 ) -> dict[str, object]:
     """Exercise transaction recovery with an explicit terminal-binding boundary."""
     return payload_transaction.recover(
         ctx,
         runtime=runtime,
         bind_terminal=bind_terminal,
+        discard_native=discard_native,
     )
 
 

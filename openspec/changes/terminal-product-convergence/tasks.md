@@ -263,6 +263,13 @@
 ## 5. Native Lifecycle and Resource Ownership
 
 - [ ] 5.1 Converge install, upgrade, reload, rollback, recovery, and uninstall on one transaction state machine and mutation lock; verify preconditions, durable transitions, and terminal states through failure injection, including same-controller cleanup retry and cross-process recovery after partial directory removal.
+      Absorbed from `work/20261002-repository-history-identity`
+      (`61ac20dc`, `ff8f5f24`): recovery of an interrupted first installation
+      admits selector, snapshot, and command restoration, then stops only the
+      journal-bound candidate's native service and processes before discarding
+      its payload; Windows task queries treat only exact not-found results as
+      absence. Source regressions pass on macOS; the native Windows journey is
+      qualified only by hosted Windows execution.
 - [ ] 5.2 Make payload generation, manifest, command projection, transaction journal, rollback snapshot, service declaration, listener, watchdog, and handoff child each have exact ownership identity and one cleanup owner.
 - [x] 5.3 Prove macOS launchd creation and teardown share the exact label and plist path; remove every suffixed test service, process, and plist while preserving the canonical installed service.
 - [x] 5.4 Prove Linux systemd behavior on a real supported user service and in the declared container boundary, including explicit behavior when no user bus exists; remove session-only fallback processes.

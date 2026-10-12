@@ -303,10 +303,14 @@ def recover(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
                 "payload recovery cannot close before native supervisor identity is proved"
             )
 
+    def discard_native(candidate: runtime_context.RuntimeContext) -> None:
+        apply.discard_runtime(candidate, adapter=adapter(), timeout_seconds=5.0)
+
     return transaction.recover(
         ctx,
         runtime=read_runtime(ctx),
         bind_terminal=bind_terminal,
+        discard_native=discard_native,
     )
 
 

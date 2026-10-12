@@ -17,6 +17,74 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class TestWindowsLifecycle:
+    @pytest.mark.parametrize("code", [0x80070002, -2147024894, 0x80070003, -2147024893])
+    def test_exact_missing_task_hresult_proves_absence(self, code, *, mocker):
+        ctx = platform_context(windows=True)
+        run = mocker.patch.object(
+            windows.subprocess, "run", return_value=_completed(returncode=code)
+        )
+        assert windows.configured_executable(ctx) is None
+        assert windows.status(ctx) == "absent"
+        assert all("/hresult" in call.args[0] for call in run.call_args_list)
+        assert all(
+            call.kwargs["stdin"] == windows.subprocess.DEVNULL for call in run.call_args_list
+        )
+        assert all(call.kwargs["timeout"] == 5.0 for call in run.call_args_list)
+
+    @pytest.mark.parametrize(
+        "code", [1, 0x80070005, -2147024891, 0x800706BA, 0x80070035, 0x80070057, 0x8007007B]
+    )
+    @pytest.mark.parametrize("operation", ["configured_executable", "status"])
+    def test_failed_task_query_cannot_prove_absence(self, code, operation, *, mocker):
+        mocker.patch.object(
+            windows.subprocess,
+            "run",
+            return_value=_completed(returncode=code, stderr="private native output"),
+        )
+        with pytest.raises(errors.InstallError, match="task state is unproved") as raised:
+            getattr(windows, operation)(platform_context(windows=True))
+        assert "private native output" not in str(raised.value)
+
+    @pytest.mark.parametrize("operation", ["configured_executable", "status"])
+    @pytest.mark.parametrize("malformed", ["xml", "action"])
+    def test_successful_query_requires_an_owned_task_projection(
+        self, operation, malformed, *, mocker
+    ):
+        ctx = platform_context(windows=True)
+        xml = windows.render_task_xml(ctx).decode("utf-16")
+        if malformed == "xml":
+            xml = "not xml"
+        else:
+            xml = xml.replace(f"<Command>{ctx.executable}</Command>", "")
+        mocker.patch.object(windows.subprocess, "run", return_value=_completed(stdout=xml))
+        with pytest.raises(errors.InstallError, match=r"task.*unproved"):
+            getattr(windows, operation)(ctx)
+
+    @pytest.mark.parametrize("live", [False, True])
+    def test_task_status_uses_owned_processes_not_localized_output(self, live, *, mocker):
+        ctx = platform_context(windows=True)
+        xml = windows.render_task_xml(ctx).decode("utf-16")
+        run = mocker.patch.object(windows.subprocess, "run", return_value=_completed(stdout=xml))
+        inventory = mocker.patch.object(
+            windows.process, "pids_naming_executable", return_value=[41] if live else []
+        )
+        assert windows.status(ctx) == ("running" if live else "installed")
+        assert "/xml" in run.call_args.args[0]
+        inventory.assert_called_once_with(ctx.executable, roles={service_runtime.WATCHDOG_MODE})
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            OSError("private native error"),
+            UnicodeError("unreadable native output"),
+            windows.subprocess.TimeoutExpired("schtasks", 5.0),
+        ],
+    )
+    def test_task_query_failure_preserves_unknown_state(self, failure, *, mocker):
+        mocker.patch.object(windows.subprocess, "run", side_effect=failure)
+        with pytest.raises(errors.InstallError, match="task state is unproved"):
+            windows.status(platform_context(windows=True))
+
     def test_task_executes_the_installed_binary_in_private_watchdog_mode(self):
         ctx = platform_context(windows=True)
         rendered = windows.render_task_xml(ctx)
@@ -40,7 +108,7 @@ class TestWindowsLifecycle:
         def run(arguments, **_kwargs):
             if arguments[:2] == ["schtasks", "/create"]:
                 imported.append(Path(arguments[-1]).read_bytes())
-            if arguments[-1:] == ["/xml"]:
+            if arguments[:2] == ["schtasks", "/query"]:
                 return _completed(stdout=rendered.decode("utf-16"))
             return _completed()
 
@@ -53,19 +121,10 @@ class TestWindowsLifecycle:
     def test_configured_executable_reads_only_the_registered_task(self, *, mocker):
         ctx = platform_context(windows=True)
         for completed, expected in (
-            (_completed(returncode=1), None),
+            (_completed(returncode=0x80070002), None),
             (
                 _completed(stdout=windows.render_task_xml(ctx).decode("utf-16")),
                 ctx.executable,
-            ),
-            (_completed(stdout="not xml"), None),
-            (
-                _completed(
-                    stdout=windows.render_task_xml(ctx)
-                    .decode("utf-16")
-                    .replace(f"<Command>{ctx.executable}</Command>", "")
-                ),
-                None,
             ),
         ):
             invoked = mocker.patch.object(windows.subprocess, "run", return_value=completed)
@@ -76,6 +135,7 @@ class TestWindowsLifecycle:
                 "/tn",
                 ctx.service_id,
                 "/xml",
+                "/hresult",
             ]
 
     def test_install_success_and_failure_messages(self, *, mocker):
@@ -85,7 +145,7 @@ class TestWindowsLifecycle:
                 windows.subprocess,
                 "run",
                 side_effect=[
-                    _completed(returncode=1),
+                    _completed(returncode=0x80070002),
                     _completed(),
                     _completed(),
                     _completed(),
@@ -117,7 +177,7 @@ class TestWindowsLifecycle:
                 mocker.patch.object(
                     windows.subprocess,
                     "run",
-                    side_effect=[_completed(returncode=1), _completed(), completed],
+                    side_effect=[_completed(returncode=0x80070002), _completed(), completed],
                 )
                 with pytest.raises(errors.InstallError, match=error) as raised:
                     windows.install(ctx)
@@ -220,24 +280,13 @@ class TestWindowsLifecycle:
         assert root.findtext(".//task:Command", namespaces=namespace) == ctx.executable
         assert root.findtext(".//task:UserId", namespaces=namespace) == "ACME\\A&B"
 
-    def test_current_user_and_status(self, *, mocker):
+    def test_current_user(self, *, mocker):
         for env, expected in (
             ({"USERNAME": "tester"}, "tester"),
             ({"USERNAME": "tester", "USERDOMAIN": "ACME"}, r"ACME\tester"),
         ):
             mocker.patch.dict(windows.os.environ, env, clear=True)
             assert windows._current_user() == expected
-        for returncode, stdout, expected in (
-            (1, "", "absent"),
-            (0, "Ready", "installed"),
-            (0, "Status: Running", "running"),
-        ):
-            mocker.patch.object(
-                windows.subprocess,
-                "run",
-                return_value=_completed(returncode=returncode, stdout=stdout),
-            )
-            assert windows.status(platform_context(windows=True)) == expected
 
     def test_pid_discovery_and_uninstall(self, *, mocker):
         ctx = platform_context(windows=True)
@@ -248,11 +297,8 @@ class TestWindowsLifecycle:
         )
         assert windows._running_watchdog_pids(ctx) == [12, 15, 18]
         inventory.assert_called_once_with(ctx.executable, roles={service_runtime.WATCHDOG_MODE})
-        invoked = mocker.patch.object(
-            windows.subprocess,
-            "run",
-            side_effect=[_completed(), _completed(returncode=1)],
-        )
+        invoked = mocker.patch.object(windows.subprocess, "run", return_value=_completed())
+        mocker.patch.object(windows, "status", return_value="absent")
         mocker.patch.object(windows, "_running_watchdog_pids", return_value=[4242])
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=False)
 
@@ -263,11 +309,6 @@ class TestWindowsLifecycle:
             4242,
             ctx.executable,
             roles={service_runtime.WATCHDOG_MODE},
-        )
-        mocker.patch.object(
-            windows.subprocess,
-            "run",
-            side_effect=[_completed(), _completed(returncode=1)],
         )
         mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[4242], []])
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=True)
@@ -280,17 +321,15 @@ class TestWindowsLifecycle:
 
     def test_uninstall_requires_task_deletion_and_absence_proof(self, *, mocker):
         ctx = platform_context(windows=True)
-        for results, message in (
+        for deleted, message in (
             (
-                [
-                    _completed(returncode=1, stderr="denied at C:/Users/private/secret"),
-                    _completed(),
-                ],
+                _completed(returncode=1, stderr="denied at C:/Users/private/secret"),
                 "delete failed",
             ),
-            ([_completed(), _completed(stdout="Ready")], "remains registered"),
+            (_completed(), "remains registered"),
         ):
-            mocker.patch.object(windows.subprocess, "run", side_effect=results)
+            mocker.patch.object(windows.subprocess, "run", return_value=deleted)
+            mocker.patch.object(windows, "status", return_value="installed")
             inventory = mocker.patch.object(windows, "_running_watchdog_pids")
             with pytest.raises(errors.InstallError, match=message) as raised:
                 windows.uninstall(ctx)
@@ -299,11 +338,8 @@ class TestWindowsLifecycle:
 
     def test_uninstall_refuses_watchdog_residue_when_task_is_absent(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
-        mocker.patch.object(
-            windows.subprocess,
-            "run",
-            side_effect=[_completed(returncode=1), _completed(returncode=1)],
-        )
+        mocker.patch.object(windows.subprocess, "run", return_value=_completed(returncode=1))
+        mocker.patch.object(windows, "status", return_value="absent")
         mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[], [23]])
         with pytest.raises(errors.InstallError, match=r"watchdogs remain: \[23\]"):
             windows.uninstall(ctx)

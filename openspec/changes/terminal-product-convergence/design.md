@@ -421,6 +421,20 @@ or requires an identity already discarded during cleanup. Interrupted cleanup
 continues to block a new transaction. Unrecognized journals and unowned roots
 remain protected, not inferred into a cleanup permission.
 
+Recovery of an interrupted first installation stops candidate supervision and
+proves owned-process exit before discarding its payload. A missing health
+response cannot distinguish an absent service from a registered service still
+starting. The transaction admits the exact selector, rollback snapshot, and
+command restoration first, then hands its verified candidate context to the
+native teardown operation shared with installation compensation. That operation
+removes only a service whose configured executable is the candidate's; a missing
+configured identity is usable only with independently proved native absence.
+Mismatched or unproved supervision preserves recovery authority. Windows queries
+the exact local task with `schtasks /hresult`: only
+`HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)` and
+`HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND)` mean absent, while other errors,
+malformed XML, and timeouts preserve unknown state.
+
 Controller rollback, interrupted materialization, and serving-generation
 recovery share one prior-projection restoration operation. It admits only the
 transaction's exact before or after selection; serving-generation recovery also

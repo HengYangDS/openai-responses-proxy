@@ -19,6 +19,8 @@ from openai_responses_proxy.service import runtime as service_runtime
 # repetition, not this date, drives every self-heal relaunch.
 _SELF_HEAL_START_BOUNDARY = "2020-01-01T00:00:00"
 _TASK_NAMESPACE = "http://schemas.microsoft.com/windows/2004/02/mit/task"
+# Only an exact local schtasks query may interpret these task/path absence codes.
+_TASK_NOT_FOUND = frozenset((0x80070002, 0x80070003))
 ET.register_namespace("", _TASK_NAMESPACE)
 
 
@@ -79,30 +81,46 @@ def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
     return rendered
 
 
+def _task_xml(ctx: runtime_spec.NativeServiceContext) -> str | None:
+    """Read one exact task; only its native not-found code proves absence."""
+    try:
+        completed = subprocess.run(
+            ["schtasks", "/query", "/tn", ctx.service_id, "/xml", "/hresult"],
+            capture_output=True,
+            check=False,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=5.0,
+        )
+    except (OSError, UnicodeError, subprocess.TimeoutExpired):
+        raise errors.InstallError("scheduled task state is unproved") from None
+    result = completed.returncode & 0xFFFFFFFF
+    if result in _TASK_NOT_FOUND:
+        return None
+    if result != 0:
+        raise errors.InstallError(f"scheduled task state is unproved (HRESULT {result:#010x})")
+    return completed.stdout
+
+
 def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
-    """Return the executable declared by the registered scheduled task."""
-    completed = subprocess.run(
-        ["schtasks", "/query", "/tn", ctx.service_id, "/xml"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
-    if completed.returncode:
+    """Return one proved watchdog executable, or proved task absence."""
+    xml = _task_xml(ctx)
+    if xml is None:
         return None
     try:
-        root = ET.fromstring(completed.stdout)
+        root = ET.fromstring(xml)
     except ET.ParseError:
-        return None
-    namespace = {"task": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
+        raise errors.InstallError("scheduled task XML is unproved") from None
+    namespace = {"task": _TASK_NAMESPACE}
     commands = root.findall(".//task:Actions/task:Exec/task:Command", namespace)
     arguments = root.findall(".//task:Actions/task:Exec/task:Arguments", namespace)
     if (
         len(commands) != 1
         or len(arguments) != 1
-        or commands[0].text is None
+        or not commands[0].text
         or arguments[0].text != service_runtime.WATCHDOG_MODE
     ):
-        return None
+        raise errors.InstallError("scheduled task watchdog identity is unproved")
     return commands[0].text
 
 
@@ -214,14 +232,9 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
 
 def status(ctx: runtime_spec.NativeServiceContext) -> str:
     """Return the Windows scheduled task's read-only status classification."""
-    r = subprocess.run(
-        ["schtasks", "/query", "/tn", ctx.service_id, "/fo", "list"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
-    if r.returncode != 0:
+    configured = configured_executable(ctx)
+    if configured is None:
         return "absent"
-    if "Running" in r.stdout:
+    if process.pids_naming_executable(configured, roles={service_runtime.WATCHDOG_MODE}):
         return "running"
     return "installed"

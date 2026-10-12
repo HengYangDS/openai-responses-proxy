@@ -38,6 +38,7 @@ def recover(
     *,
     runtime: Mapping[str, object] | None,
     bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+    discard_native: Callable[[runtime_context.RuntimeContext], None],
 ) -> dict[str, object]:
     """Recover one transaction and bind its terminal runtime before closing it."""
     if state.status(ctx) is None:
@@ -58,6 +59,7 @@ def recover(
             journal=journal,
             runtime=runtime,
             bind_terminal=bind_terminal,
+            discard_native=discard_native,
         )
     installed = state.read_installed(ctx)
     if installed is not None and _installed_matches_transaction(
@@ -105,6 +107,7 @@ def recover(
             journal=journal,
             runtime=runtime,
             bind_terminal=bind_terminal,
+            discard_native=discard_native,
         )
     return _restore_prior_generation(
         ctx,
@@ -260,18 +263,37 @@ def _prior_selection(journal: Mapping[str, object]) -> generation.Selection | No
     )
 
 
-def _restore_prior_projection(
+def _admit_prior_projection(
     ctx: runtime_context.RuntimeContext,
     journal: Mapping[str, object],
     previous: generation.Selection | None,
-) -> None:
-    """Resume exact selector and command restoration as independent durable effects."""
+) -> tuple[generation.Selection | None, command.Snapshot]:
+    """Prove selector and command restoration before any native or file effect."""
     selection = generation.read(ctx)
     candidate = str(journal["transaction_id"])
     selected_candidate = generation.Selection(candidate, previous.active if previous else None)
     if selection not in {previous, selected_candidate}:
         raise errors.RecoveryStateError("payload transaction selection changed")
     snapshot = command.read_snapshot(state.transaction_root(ctx) / "rollback")
+    if selection != previous:
+        command.require_detachable(
+            Path(ctx.command), Path(generation.context(ctx, candidate).executable), snapshot
+        )
+    else:
+        command.require_restorable(
+            Path(ctx.command), Path(generation.control_context(ctx).executable), snapshot
+        )
+    return selection, snapshot
+
+
+def _restore_prior_projection(
+    ctx: runtime_context.RuntimeContext,
+    journal: Mapping[str, object],
+    previous: generation.Selection | None,
+) -> None:
+    """Resume exact selector and command restoration as independent durable effects."""
+    selection, snapshot = _admit_prior_projection(ctx, journal, previous)
+    candidate = str(journal["transaction_id"])
     if selection != previous:
         command.detach(
             Path(ctx.command), Path(generation.context(ctx, candidate).executable), snapshot
@@ -289,6 +311,7 @@ def _rollback_materialized(
     journal: Mapping[str, object],
     runtime: Mapping[str, object] | None,
     bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+    discard_native: Callable[[runtime_context.RuntimeContext], None],
 ) -> dict[str, object]:
     """Discard a candidate that never became the proven serving runtime."""
     previous = _prior_selection(journal)
@@ -301,6 +324,11 @@ def _rollback_materialized(
         return _restore_prior_generation(
             ctx, journal=journal, runtime=runtime, bind_terminal=bind_terminal
         )
+    if previous is None:
+        _admit_prior_projection(ctx, journal, previous)
+        # A missing health response does not prove no registered or starting
+        # native service. Stop it while journal and payload still prove ownership.
+        discard_native(generation.context(ctx, str(journal["transaction_id"])))
     _restore_prior_projection(ctx, journal, previous)
     if previous is not None:
         bind_terminal(generation.control_context(ctx))

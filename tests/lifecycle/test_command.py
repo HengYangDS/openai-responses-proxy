@@ -112,6 +112,32 @@ def test_restore_and_remove_preserve_a_path_that_changed_ownership(
     assert command_path.read_text(encoding="utf-8") == "foreign"
 
 
+def test_restore_rechecks_foreign_ownership_after_admission(tmp_path: Path, *, mocker) -> None:
+    target = tmp_path / "payload" / command.COMMAND_NAME
+    target.parent.mkdir()
+    target.write_bytes(b"runtime")
+    command_path = tmp_path / "commands" / command.COMMAND_NAME
+    previous = command.Snapshot(
+        state="owned",
+        path=str(command_path),
+        target=str(target),
+        kind="hardlink",
+        device=1,
+        inode=2,
+    )
+    classify = mocker.patch.object(
+        command, "_classify", side_effect=[("absent", ""), ("foreign", "")]
+    )
+    mocker.patch.object(command, "_matches_snapshot", return_value=False)
+    replacement = mocker.patch.object(command, "_restore_snapshot")
+
+    with pytest.raises(errors.InstallError, match="command path changed ownership"):
+        command.restore(command_path, target, previous)
+
+    assert classify.call_count == 2
+    replacement.assert_not_called()
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX symlink behavior")
 def test_status_reports_exact_owned_link(tmp_path: Path) -> None:
     target = tmp_path / "payload" / "openai-responses-proxy"

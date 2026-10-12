@@ -152,21 +152,36 @@ def project(command_path: Path, target: Path, previous: Snapshot | None = None) 
         raise errors.InstallError("native command projection ownership is unproved")
 
 
-def detach(command_path: Path, target: Path, previous: Snapshot) -> None:
-    """Remove only the current candidate link or the proved prior link."""
+def require_detachable(command_path: Path, target: Path, previous: Snapshot) -> str:
+    """Admit candidate removal without changing the command projection."""
     state, _kind = _classify(command_path, target)
-    if state == "absent":
-        return
     if state == "foreign" and not _matches_snapshot(command_path, previous):
         raise errors.InstallError("command path changed ownership")
+    return state
+
+
+def detach(command_path: Path, target: Path, previous: Snapshot) -> None:
+    """Remove only the current candidate link or the proved prior link."""
+    if require_detachable(command_path, target, previous) == "absent":
+        return
     try:
         command_path.unlink()
     except OSError as exc:
         raise errors.InstallError("native command removal failed") from exc
 
 
+def require_restorable(command_path: Path, target: Path, previous: Snapshot) -> None:
+    """Admit prior-link restoration without changing the command projection."""
+    previous_path = Path(previous.path)
+    if previous.state == "owned" and _matches_snapshot(previous_path, previous):
+        return
+    if _classify(command_path, target)[0] == "foreign":
+        raise errors.InstallError("command path changed ownership")
+
+
 def restore(command_path: Path, target: Path, previous: Snapshot) -> None:
     """Restore the exact prior link state after payload restoration."""
+    require_restorable(command_path, target, previous)
     previous_path = Path(previous.path)
     if previous.state == "owned" and _matches_snapshot(previous_path, previous):
         return

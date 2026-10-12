@@ -73,6 +73,33 @@ SHALL wait for that completion.
 - **AND** changed files, symbolic links, unknown files, and unknown empty
   directories remain untouched and prevent a successful purge result.
 
+#### Scenario: An interrupted first installation has a starting native service
+
+- **WHEN** a fresh installation committed a candidate and submitted native
+  supervision, but recovery cannot prove an accepting runtime
+- **THEN** recovery removes only the journal-bound candidate's exact native
+  registration and owned processes before discarding payload or recovery
+  authority
+- **AND** an absent health response does not establish service absence
+- **AND** selector, rollback snapshot, and command restoration are admitted
+  before native disposal; any drift preserves supervision and recovery input
+- **AND** a missing configured executable permits cleanup only after proved
+  native absence
+- **AND** unknown cleanup or mismatched supervision preserves the journal and
+  candidate without a successful rollback result.
+
+#### Scenario: Windows cannot observe the exact scheduled task
+
+- **WHEN** the exact local task query fails, times out, or returns malformed task
+  XML
+- **THEN** native status and recovery preserve unknown service state and refuse
+  native disposal
+- **AND** only `HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)` or
+  `HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND)` from that query establishes task
+  absence, independent of the display language
+- **AND** running classification uses owned watchdog processes, not localized
+  status text.
+
 ### Requirement: Capable handoff preserves request admission
 
 A runtime-to-runtime handoff that advertises the admission-preserving capability

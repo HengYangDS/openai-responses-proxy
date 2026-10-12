@@ -10,6 +10,13 @@ publication authority.
 
 ### Fixed
 
+- Stop and verify an interrupted first installation's native service and
+  processes before recovery discards its payload or journal. A missing health
+  response no longer permits a successful rollback with a service left behind,
+  and uncertain cleanup preserves recovery authority.
+- Verify selector, rollback snapshot, and command ownership before stopping a
+  recovery candidate, and treat only the exact native not-found results of a
+  Windows task query as an absent task.
 - Report the failing phase of an unproved native process exit instead of a
   bare failure, and keep the surviving generations' teardown running.
 - Preserve the initial installation failure when native cleanup or payload

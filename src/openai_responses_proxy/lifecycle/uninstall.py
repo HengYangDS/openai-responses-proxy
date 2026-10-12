@@ -65,7 +65,16 @@ def uninstall_product(
         if purge and transaction_state.get("state") == "purged":
             _remove_service(service, ctx)
             stopped = _stop_proxy(service, ctx)
-            result = transaction.recover(ctx, runtime=None, bind_terminal=lambda _ctx: None)
+
+            def unexpected_discard(_candidate: runtime_context.RuntimeContext) -> None:
+                raise errors.RecoveryStateError("terminal purge must not repeat native disposal")
+
+            result = transaction.recover(
+                ctx,
+                runtime=None,
+                bind_terminal=lambda _ctx: None,
+                discard_native=unexpected_discard,
+            )
             return {**result, "stopped": stopped, "command_removed": False}
         if transaction_state.get("state") == "invalid":
             raise errors.RecoveryStateError(

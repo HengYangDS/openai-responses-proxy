@@ -32,6 +32,97 @@ def test_recovery_is_idempotent_when_no_transaction_exists(tmp_path: Path) -> No
     assert recover_transaction(ctx, runtime=None) == {"state": "not_required"}
 
 
+def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx = install_context(tmp_path)
+    candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
+    candidate.commit_projection()
+    candidate.activate()
+    journal = payload_state.journal_path(ctx).read_bytes()
+    payload = Path(candidate.context.executable).read_bytes()
+
+    def remove_native(selected: runtime_context.RuntimeContext) -> None:
+        assert selected == candidate.context
+        assert payload_state.journal_path(ctx).read_bytes() == journal
+        assert Path(selected.executable).read_bytes() == payload
+
+    removal = mocker.Mock(side_effect=remove_native)
+    result = payload_transaction.recover(
+        ctx, runtime=None, bind_terminal=mocker.Mock(), discard_native=removal
+    )
+    assert result["state"] == "rolled_back"
+    removal.assert_called_once_with(candidate.context)
+    assert not payload_state.journal_path(ctx).exists()
+    assert not Path(candidate.context.payload_dir).exists()
+
+
+def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx = install_context(tmp_path)
+    candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
+    candidate.commit_projection()
+    candidate.activate()
+    journal = payload_state.journal_path(ctx).read_bytes()
+    payload = Path(candidate.context.executable).read_bytes()
+    removal = mocker.Mock(side_effect=errors.RecoveryStateError("native cleanup is unproved"))
+
+    with pytest.raises(errors.RecoveryStateError, match="native cleanup is unproved"):
+        payload_transaction.recover(
+            ctx, runtime=None, bind_terminal=mocker.Mock(), discard_native=removal
+        )
+    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert Path(candidate.context.executable).read_bytes() == payload
+    assert payload_generation.selected_context(ctx) == candidate.context
+
+
+@pytest.mark.parametrize("drift", ["selector", "snapshot", "command"])
+def test_fresh_recovery_admits_projection_before_native_disposal(
+    tmp_path: Path, drift: str, *, mocker
+) -> None:
+    ctx = install_context(tmp_path)
+    candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
+    candidate.commit_projection()
+    candidate.activate()
+    if drift == "selector":
+        payload_generation.path(ctx, "b" * 32).mkdir()
+        owned_files.write_bytes(
+            payload_generation.selector_path(ctx),
+            payload_digest.canonical_json(
+                {
+                    "schema_version": payload_generation.SELECTOR_SCHEMA,
+                    "active": "b" * 32,
+                    "predecessor": None,
+                }
+            ),
+            mode=0o600,
+        )
+        message = "selection changed"
+    elif drift == "snapshot":
+        snapshot = payload_state.transaction_root(ctx) / "rollback" / command.SNAPSHOT_FILENAME
+        snapshot.write_bytes(b"{}")
+        message = "command snapshot"
+    else:
+        Path(ctx.command).unlink()
+        Path(ctx.command).write_bytes(b"another owner")
+        message = "command path changed ownership"
+    before = _retained_carrier_snapshot(Path(ctx.install_dir), tmp_path / "unused")
+    command_before = Path(ctx.command).read_bytes()
+    removal = mocker.Mock()
+    binding = mocker.Mock()
+
+    with pytest.raises(errors.InstallError, match=message):
+        payload_transaction.recover(
+            ctx, runtime=None, bind_terminal=binding, discard_native=removal
+        )
+
+    removal.assert_not_called()
+    binding.assert_not_called()
+    assert _retained_carrier_snapshot(Path(ctx.install_dir), tmp_path / "unused") == before
+    assert Path(ctx.command).read_bytes() == command_before
+
+
 def test_recovery_finalization_selects_the_displaced_predecessor(tmp_path: Path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

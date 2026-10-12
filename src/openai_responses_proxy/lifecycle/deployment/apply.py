@@ -45,6 +45,10 @@ class ServiceAdapter(Protocol):
         """Return the executable configured in the native service definition."""
         ...
 
+    def status(self, ctx: runtime_context.RuntimeContext) -> str:
+        """Return the native service state for this installation."""
+        ...
+
 
 class UnknownDeploymentOutcome(errors.InstallError):
     """The deployment controller cannot prove whether the successor committed."""
@@ -147,7 +151,7 @@ def _fresh_install(
         service_unavailable = isinstance(install_error, errors.NativeServiceUnavailableError)
         if not service_unavailable:
             try:
-                _remove_candidate_runtime(
+                discard_runtime(
                     candidate,
                     adapter=adapter,
                     timeout_seconds=timeout_seconds,
@@ -288,7 +292,7 @@ def _bind_control_supervisor(
         raise errors.InstallError("native supervisor did not bind the lifecycle control executable")
 
 
-def _remove_candidate_runtime(
+def discard_runtime(
     candidate: runtime_context.RuntimeContext,
     *,
     adapter: ServiceAdapter,
@@ -296,7 +300,18 @@ def _remove_candidate_runtime(
 ) -> None:
     """Remove candidate supervision and processes before payload rollback."""
     try:
-        adapter.uninstall(candidate)
+        configured = adapter.configured_executable(candidate)
+        if configured is None:
+            if adapter.status(candidate) != "absent":
+                raise errors.InstallError("candidate native supervisor identity is unproved")
+        else:
+            if runtime_spec.normalized_path(configured) != runtime_spec.normalized_path(
+                candidate.executable
+            ):
+                raise errors.InstallError("candidate native supervisor identity is unproved")
+            adapter.uninstall(candidate)
+        if adapter.status(candidate) != "absent":
+            raise errors.InstallError("candidate native supervision is not absent")
         adapter.terminate_runtime(candidate, timeout_seconds=timeout_seconds)
     except BaseException as cleanup_error:
         raise UnknownDeploymentOutcome(
