@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-10-12
+
 ### Fixed
 
 - Restore the macOS watchdog after a restart. Its launch agent now admits the
