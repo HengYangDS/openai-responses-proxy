@@ -450,6 +450,13 @@ as a retained transaction. The outer install entrypoint keeps the original
 public code and next command when prepared cleanup fails. Both layers use the
 shared error owner; there is no second cause formatter.
 
+Public outcome admission validates the operation, not only its JSON shape. A
+completed reload requires distinct positive predecessor and successor process
+IDs. Cleanup reports a nonnegative integer process count; zero remains valid
+when there was no live listener to stop. The existing outcome owner rejects
+inconsistent evidence before either human or machine rendering, without a
+second result schema or a change to valid lifecycle output.
+
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and

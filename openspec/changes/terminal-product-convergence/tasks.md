@@ -25,6 +25,9 @@
       separately visible, with bounded native error codes and no false
       recovery-write claim. 18 source regressions fail before the change and
       pass after it; the Windows generation-removal cause remains unobserved.
+      From the same lane (`d35f285f`), the public outcome now rejects zero,
+      negative, or unchanged reload process IDs and negative or non-integer
+      cleanup counts, while zero-process cleanup stays successful.
 - [ ] 3.4 Verify `install`, `status`, `doctor`, `reload`, `rollback`, `recover`, and `uninstall` are semantically distinct, complete, symmetric, idempotent where declared, and free of hidden source or Forge dependencies.
 - [x] 3.5 Remove parallel command, package, service, environment, port, release, and platform identities without conflating their owners. `product_identity.py` owns public product identity and released platforms; `runtime/config.py` owns the port; release job names in the GitHub observer remain independent acceptance requirements, not a second CI projection. The controlled-value audit passes with no errors, its 31 contracts pass, and product source contains no duplicate provider or product identity literal outside its owners.
 - [ ] 3.6 Prove Proxy operates independently with an ordinary explicit upstream route and loopback endpoint; verify AIGW absence, client absence, and Forge absence do not prevent local product operation. Admit one non-Codex Responses client through real request, replay, streaming, error, and installed-client evidence before the planned major-version product rename or a generic client-support claim.

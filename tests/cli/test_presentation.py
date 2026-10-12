@@ -38,6 +38,93 @@ def test_malformed_success_cannot_be_presented_as_completed(
     assert json.loads(captured.err)["error"]["code"] == "internal_error"
 
 
+@pytest.mark.parametrize("as_json", [False, True])
+@pytest.mark.parametrize("recovered", [False, True])
+@pytest.mark.parametrize(
+    ("old_pid", "new_pid"),
+    [(0, 42), (41, 0), (-1, 42), (41, -1), (41, 41), (True, 42), (41, True)],
+)
+def test_reload_rejects_invalid_process_transition(
+    old_pid: object, new_pid: object, as_json: bool, recovered: bool, *, mocker, capsys
+) -> None:
+    result = {"state": "reloaded", "old_pid": old_pid, "new_pid": new_pid}
+    if recovered:
+        result.update({"transaction_id": "tx", "recovered_after_controller_failure": True})
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute("reload", as_json=as_json) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err
+    assert "Traceback" not in captured.err
+    if as_json:
+        assert json.loads(captured.err)["error"]["code"] == "internal_error"
+    else:
+        assert "Action required" in captured.err
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+@pytest.mark.parametrize("recovered", [False, True])
+def test_reload_accepts_distinct_positive_processes(
+    as_json: bool, recovered: bool, *, mocker, capsys
+) -> None:
+    result = {"state": "reloaded", "old_pid": 41, "new_pid": 42}
+    if recovered:
+        result.update({"transaction_id": "tx", "recovered_after_controller_failure": True})
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute("reload", as_json=as_json) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    if as_json:
+        assert json.loads(captured.out) == result
+    else:
+        assert "Reloaded" in captured.out
+        assert "41" in captured.out
+        assert "42" in captured.out
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+@pytest.mark.parametrize("command", ["uninstall", "recover"])
+@pytest.mark.parametrize("stopped", [-1, True, 0.5])
+def test_cleanup_rejects_invalid_process_count(
+    command: str, stopped: object, as_json: bool, *, mocker, capsys
+) -> None:
+    result = {"state": "purged", "stopped": stopped, "command_removed": True}
+    if command == "recover":
+        result.update({"transaction_id": "tx", "version": "5.0.2"})
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute(command, as_json=as_json) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err
+    assert "Traceback" not in captured.err
+    if as_json:
+        assert json.loads(captured.err)["error"]["code"] == "internal_error"
+    else:
+        assert "Action required" in captured.err
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+@pytest.mark.parametrize("command", ["uninstall", "recover"])
+def test_cleanup_accepts_zero_processes_when_no_listener_remains(
+    command: str, as_json: bool, *, mocker, capsys
+) -> None:
+    result = {"state": "purged", "stopped": 0, "command_removed": True}
+    if command == "recover":
+        result.update({"transaction_id": "tx", "version": "5.0.2"})
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute(command, as_json=as_json) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    if as_json:
+        assert json.loads(captured.out) == result
+    else:
+        assert "Purged" in captured.out
+
+
 @pytest.mark.parametrize("value", [Path("/private/operator"), float("nan")])
 def test_non_json_nested_evidence_is_rejected_before_projection(value: object) -> None:
     with pytest.raises(ValueError, match="finite JSON object"):

@@ -49,6 +49,19 @@ command.
 - **AND** emits no traceback, warning, internal type, private path, credential,
   request content, or unrelated usage dump.
 
+#### Scenario: Lifecycle evidence contradicts a completed operation
+
+- **WHEN** a reload result names a nonpositive process ID or the same predecessor
+  and successor, or a cleanup result has a negative or non-integer stopped count
+- **THEN** the public outcome boundary rejects the result before either renderer
+- **AND** emits one bounded failure instead of successful operation output.
+
+#### Scenario: Cleanup has no live process to stop
+
+- **WHEN** valid cleanup evidence reports zero stopped processes
+- **THEN** the public outcome remains successful in both human and JSON output
+- **AND** does not invent a process or require a positive count.
+
 #### Scenario: Installation fails and compensation also fails
 
 - **WHEN** a fresh install fails and native cleanup or payload rollback cannot finish

@@ -147,6 +147,9 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
         } if (
             type(old_pid) is int
             and type(new_pid) is int
+            and old_pid > 0
+            and new_pid > 0
+            and old_pid != new_pid
             and (
                 not rest
                 or (
@@ -178,6 +181,7 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
         } if not rest or (
             set(rest) == {"stopped", "command_removed"}
             and type(rest["stopped"]) is int
+            and rest["stopped"] >= 0
             and isinstance(rest["command_removed"], bool)
         ):
             pass
@@ -188,12 +192,16 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
             "stopped": stopped,
             "command_removed": bool(),
             **rest,
-        } if type(stopped) is int and (
-            not rest
-            or (
-                set(rest) == {"transaction_id", "version"}
-                and isinstance(rest["transaction_id"], str)
-                and isinstance(rest["version"], str)
+        } if (
+            type(stopped) is int
+            and stopped >= 0
+            and (
+                not rest
+                or (
+                    set(rest) == {"transaction_id", "version"}
+                    and isinstance(rest["transaction_id"], str)
+                    and isinstance(rest["version"], str)
+                )
             )
         ):
             pass
