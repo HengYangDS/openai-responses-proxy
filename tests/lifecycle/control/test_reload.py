@@ -7,11 +7,33 @@ from pathlib import Path
 import pytest
 
 from openai_responses_proxy import errors
+from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle.supervision import process
+from openai_responses_proxy.service import identity
 from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import install_payload
+
+
+def _stopped_installation(root: Path, *, mocker):
+    """Install one verified payload whose owned supervisor and listener are stopped."""
+    ctx = install_context(root)
+    install_payload(ctx, mocker=mocker)
+    control_ctx = generation.control_context(ctx)
+    native = mocker.patch.object(control, "adapter").return_value
+    native.status.return_value = "installed"
+    native.configured_executable.return_value = control_ctx.executable
+    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
+    mocker.patch.object(control.process, "listener_pids", return_value=[])
+    mocker.patch.object(control, "read_runtime", return_value=None)
+    mocker.patch.object(
+        control.command,
+        "status",
+        return_value={"path": ctx.command, "state": "owned", "kind": "symlink"},
+    )
+    return ctx, control_ctx, native
 
 
 def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
@@ -215,3 +237,99 @@ def test_reload_refuses_incompatible_listener_without_mutation(
     with pytest.raises(errors.InstallError, match="not healthy enough to reload"):
         control.reload(ctx)
     terminate.assert_not_called()
+
+
+def test_reload_starts_a_stopped_installation_through_its_native_supervisor(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
+    committed = identity.committed_payload(Path(ctx.executable))
+    assert committed is not None
+    serving = {"pid": 4242, "accepting": True, "draining": False}
+    wait = mocker.patch.object(control.apply, "wait_for_serving_runtime", return_value=serving)
+    request = mocker.patch.object(control.handoff, "request")
+
+    assert control.reload(ctx, timeout_seconds=12.5) == {"state": "started", "new_pid": 4242}
+    native.install.assert_called_once_with(control_ctx)
+    wait.assert_called_once_with(
+        ctx,
+        committed.handoff(),
+        runtime_reader=control.read_runtime,
+        timeout_seconds=12.5,
+    )
+    request.assert_not_called()
+    native.uninstall.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("service", "configured", "listeners"),
+    [
+        ("running", "control", []),
+        ("absent", "control", []),
+        ("installed", "foreign", []),
+        ("installed", "control", [4242]),
+    ],
+)
+def test_reload_refuses_a_runtime_less_installation_that_is_not_stopped(
+    tmp_path: Path, service: str, configured: str, listeners: list[int], *, mocker
+) -> None:
+    ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
+    native.status.return_value = service
+    native.configured_executable.return_value = (
+        control_ctx.executable if configured == "control" else str(tmp_path / "foreign")
+    )
+    mocker.patch.object(control.process, "listener_pids", return_value=listeners)
+    wait = mocker.patch.object(control.apply, "wait_for_serving_runtime")
+
+    with pytest.raises(errors.InstallError, match="not healthy enough to reload") as refused:
+        control.reload(ctx)
+
+    assert refused.value.next_command == product_identity.command("doctor")
+    native.install.assert_not_called()
+    wait.assert_not_called()
+
+
+def test_reload_requires_the_started_supervisor_to_bind_the_control_executable(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
+    native.configured_executable.side_effect = [control_ctx.executable, str(tmp_path / "foreign")]
+    wait = mocker.patch.object(control.apply, "wait_for_serving_runtime")
+
+    with pytest.raises(errors.InstallError, match="did not bind the lifecycle control executable"):
+        control.reload(ctx)
+
+    native.install.assert_called_once_with(control_ctx)
+    wait.assert_not_called()
+
+
+def test_reload_keeps_native_supervision_when_a_started_listener_is_unproved(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
+    mocker.patch.object(
+        control.apply,
+        "wait_for_serving_runtime",
+        side_effect=errors.InstallError("released successor did not prove SERVING identity"),
+    )
+
+    with pytest.raises(errors.InstallError, match="native supervisor started") as unproved:
+        control.reload(ctx, timeout_seconds=12.5)
+
+    assert "12.5s" in str(unproved.value)
+    native.install.assert_called_once_with(control_ctx)
+    native.uninstall.assert_not_called()
+    native.terminate_runtime.assert_not_called()
+
+
+def test_reload_refuses_a_stopped_payload_that_changes_before_start(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, _control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
+    mocker.patch.object(control, "status", return_value={"state": "stopped"})
+    mocker.patch.object(control.identity, "committed_payload", return_value=None)
+
+    with pytest.raises(errors.InstallError, match="changed before supervised start"):
+        control.reload(ctx)
+
+    native.install.assert_not_called()

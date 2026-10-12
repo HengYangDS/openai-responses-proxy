@@ -64,7 +64,8 @@ Installation requires a reachable user domain and does not create a login
 session. With a GUI login, the watchdog is registered in that login's domain,
 and launchd restores it at each later GUI login, including after a restart.
 Without one, it runs in the user domain with a Background session, which launchd
-does not restore after a restart. An owned predecessor registration is replaced
+does not restore after a restart; `status` then reports `stopped`, and `reload`
+starts it again. An owned predecessor registration is replaced
 only after the exact watchdog generation exits; unknown or competing
 registrations are preserved.
 
@@ -183,7 +184,7 @@ openai-responses-proxy status --json
 # Read-only diagnosis
 openai-responses-proxy doctor
 
-# Transactional same-payload handoff
+# Same-payload handoff; start a stopped installation through its supervisor
 openai-responses-proxy reload
 
 # Converge on the exact active release or verified retained predecessor
@@ -203,6 +204,13 @@ Lifecycle JSON uses one explicit `state` discriminator. `install` returns
 `unchanged` when the signed artifact exactly matches the healthy active
 installation; it neither replaces files nor restarts the listener. The same
 version with different artifact bytes is not the same installation.
+`status` reports `stopped` when a verified installation keeps its owned
+supervisor declaration but neither the supervisor nor a listener runs, for
+example after a restart, and names `reload` as the next action. `reload`
+returns `reloaded` after a same-payload handoff and `started` after it binds
+that stopped installation's native supervisor and proves the serving listener.
+Without a verified runtime, any other state is not reloaded; `doctor` then
+names `status --json`.
 `rollback` returns
 `unchanged` when the requested release is already the proven active
 installation, `unavailable` when no verified predecessor exists, and

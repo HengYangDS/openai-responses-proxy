@@ -34,6 +34,7 @@ from tests.release.fixtures import preserve_native_host_projection
 from tests.release.fixtures import run_command
 from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
+from tests.release.fixtures import stop_native_supervision
 from tests.service.handoff.fixtures import ScriptedUpstream
 from tests.service.handoff.fixtures import free_port
 from tools.release.artifact import signing
@@ -355,6 +356,26 @@ class TestSignedNativeLifecycle:
             upstream.push((200, b'{"id":"after-reload","status":"completed"}'))
             assert post_response(port, route="upstream") == (
                 b'{"id":"after-reload","status":"completed"}'
+            )
+            stop_native_supervision(ctx)
+            stopped = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert stopped["state"] == "stopped"
+            assert stopped["service"] == "installed"
+            assert stopped["runtime"] is None
+            diagnosed = run_command(
+                executable, environment, "doctor", "--port", str(port), "--json", expected=1
+            )
+            assert diagnosed["state"] == "stopped"
+            assert diagnosed["next"] == "openai-responses-proxy reload"
+            started = run_command(executable, environment, "reload", "--port", str(port), "--json")
+            assert started["state"] == "started"
+            assert process.listener_pids(port) == [started["new_pid"]]
+            restored = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert restored["state"] == "running"
+            assert restored["service"] == "running"
+            upstream.push((200, b'{"id":"after-start","status":"completed"}'))
+            assert post_response(port, route="upstream") == (
+                b'{"id":"after-start","status":"completed"}'
             )
             residue = install / "operator-note.txt"
             residue.write_text("preserve\n", encoding="utf-8")

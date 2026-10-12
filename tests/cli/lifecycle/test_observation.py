@@ -108,8 +108,11 @@ def test_status_binds_listener_identity_to_the_installed_executable(*, mocker) -
     pids.assert_called_once_with(context)
 
 
-def test_doctor_classifies_an_unavailable_listener_without_false_success(*, mocker) -> None:
-    evidence = {
+def test_doctor_classifies_an_unavailable_listener_without_false_success(
+    *, mocker, subtests
+) -> None:
+    stopped = {
+        "state": "stopped",
         "release": "2.0.8",
         "payload_integrity": {"ok": True, "detail": "verified"},
         "service": "installed",
@@ -118,17 +121,41 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(*, mock
         "payload_transaction": None,
         "command": {"state": "owned", "kind": "symlink"},
     }
+    status = mocker.patch.object(application.control, "status")
     mocker.patch.object(application.runtime_context, "create", return_value="context")
-    mocker.patch.object(application.control, "status", return_value=evidence)
-    code, stdout, stderr = invoke("doctor", "--json")
-    report = json.loads(stdout)
-    assert code == 1
-    assert stderr == ""
-    assert not report["ok"]
-    assert report["checks"]["listener"]["status"] == "failed"
-    assert report["next"] == "openai-responses-proxy reload"
-    assert "Traceback" not in stdout
-    assert "Warning" not in stdout
+    for evidence, state, next_command in (
+        (stopped, "stopped", "openai-responses-proxy reload"),
+        ({**stopped, "state": "degraded"}, "degraded", "openai-responses-proxy status --json"),
+        (
+            {**stopped, "state": "degraded", "service": "running"},
+            "degraded",
+            "openai-responses-proxy status --json",
+        ),
+        (
+            {
+                **stopped,
+                "state": "degraded",
+                "listener_pids": [321],
+                "runtime": {"pid": 321, "accepting": True},
+            },
+            "degraded",
+            "openai-responses-proxy reload",
+        ),
+    ):
+        with subtests.test(state=evidence["state"], service=evidence["service"]):
+            status.return_value = evidence
+            code, stdout, stderr = invoke("doctor", "--json")
+            report = json.loads(stdout)
+            assert code == 1
+            assert stderr == ""
+            assert not report["ok"]
+            assert report["state"] == state
+            assert report["checks"]["listener"]["status"] == (
+                "passed" if evidence["runtime"] else "failed"
+            )
+            assert report["next"] == next_command
+            assert "Traceback" not in stdout
+            assert "Warning" not in stdout
 
 
 def test_doctor_classifies_a_pristine_host_without_false_failures() -> None:

@@ -146,3 +146,29 @@ bypass, and tests SHALL be deleted.
 - **AND** fresh installation creates only its command rollback record, while
   current-layout upgrade and rollback reuse the selected immutable generations
   without a parallel payload snapshot or layout migration.
+
+### Requirement: Reload starts a stopped installation through native supervision
+
+When no runtime is live and status classifies the installation as `stopped`,
+`reload` SHALL bind the native supervisor to the lifecycle control executable
+through the adapter's installation operation and SHALL report `started` only
+after the selected payload's listener proves SERVING identity within the
+operator deadline. Every supported platform SHALL use this one path.
+
+#### Scenario: The supervisor declaration survived a restart
+
+- **WHEN** a `stopped` installation is reloaded on macOS, Linux, or Windows
+- **THEN** native supervision is bound and its configured executable is proved
+  to be the lifecycle control executable
+- **AND** one accepting, non-draining listener proves the selected payload's
+  release, manifest, serving aggregate, and receipt before `started` is reported
+- **AND** no payload, selector, installed record, command or transaction
+  changes.
+
+#### Scenario: The started listener cannot be proved
+
+- **WHEN** supervision binds but no serving listener is proved within the
+  deadline
+- **THEN** reload fails with one bounded lifecycle error
+- **AND** the bound supervisor remains in place because no predecessor runtime
+  exists to restore.

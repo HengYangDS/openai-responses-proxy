@@ -85,6 +85,78 @@ def test_reload_accepts_distinct_positive_processes(
 
 
 @pytest.mark.parametrize("as_json", [False, True])
+def test_reload_reports_a_started_stopped_installation(as_json: bool, *, mocker, capsys) -> None:
+    result = {"state": "started", "new_pid": 42}
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute("reload", as_json=as_json) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    if as_json:
+        assert json.loads(captured.out) == result
+    else:
+        assert "OpenAI Responses Proxy  Started" in captured.out
+        assert "Current PID 42" in captured.out
+        assert "Previous PID" not in captured.out
+        assert captured.out.endswith("Next\n  openai-responses-proxy status\n")
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+@pytest.mark.parametrize(
+    "result",
+    [
+        {"state": "started"},
+        {"state": "started", "new_pid": 0},
+        {"state": "started", "new_pid": -1},
+        {"state": "started", "new_pid": True},
+        {"state": "started", "new_pid": "42"},
+        {"state": "started", "old_pid": 41, "new_pid": 42},
+    ],
+)
+def test_reload_rejects_an_unproved_start(
+    result: dict[str, object], as_json: bool, *, mocker, capsys
+) -> None:
+    mocker.patch.object(application, "dispatch", return_value=result)
+
+    assert application._execute("reload", as_json=as_json) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Traceback" not in captured.err
+    if as_json:
+        assert json.loads(captured.err)["error"]["code"] == "internal_error"
+    else:
+        assert "Action required" in captured.err
+
+
+def test_stopped_installation_names_reload_in_status_and_doctor() -> None:
+    evidence = {
+        "state": "stopped",
+        "detail": "native supervisor is stopped",
+        "release": "5.0.2",
+        "payload_integrity": {"ok": True, "detail": "verified"},
+        "command": {"state": "owned", "kind": "symlink", "path": "/bin/proxy"},
+        "service": "installed",
+        "listener_pids": [],
+        "runtime": None,
+        "payload_transaction": None,
+        "rollback": {"state": "unavailable"},
+    }
+
+    status = application.outcome.admit("status", evidence)
+    report = application.outcome.admit("doctor", application._doctor(evidence))
+    rendered = application.presentation.render("status", status.evidence)
+
+    assert status.state == "stopped"
+    assert status.exit_code == 0
+    assert report.state == "stopped"
+    assert report.exit_code == 1
+    assert report.evidence["next"] == "openai-responses-proxy reload"
+    assert "State       Stopped" in rendered
+    assert "Listener    Unavailable" in rendered
+    assert rendered.endswith("Next\n  openai-responses-proxy reload")
+
+
+@pytest.mark.parametrize("as_json", [False, True])
 @pytest.mark.parametrize("command", ["uninstall", "recover"])
 @pytest.mark.parametrize("stopped", [-1, True, 0.5])
 def test_cleanup_rejects_invalid_process_count(
@@ -173,6 +245,7 @@ def test_status_rejects_undeclared_public_evidence(placement: str, *, mocker, ca
             },
         ),
         ("reload", {"state": "reloaded", "old_pid": 1, "new_pid": 2}),
+        ("reload", {"state": "started", "new_pid": 2}),
         ("rollback", {"state": "unavailable", "detail": "no predecessor"}),
         ("recover", {"state": "not_required"}),
         ("uninstall", {"state": "not_installed", "stopped": 0, "command_removed": False}),

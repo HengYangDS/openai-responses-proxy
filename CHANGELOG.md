@@ -8,6 +8,15 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Give a stopped installation one supported restart path. When a verified
+  installation keeps its owned supervisor declaration but neither the
+  supervisor nor a listener runs, for example after a restart, `status` and
+  `doctor` report `stopped` and name `reload`, which binds the native supervisor
+  and proves the serving listener before returning `started`. `doctor` no
+  longer recommends a reload that cannot act on a runtime-less installation.
+
 ## [5.0.3] - 2026-10-12
 
 ### Fixed

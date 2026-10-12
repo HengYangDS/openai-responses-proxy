@@ -21,6 +21,7 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle.supervision import linux
 from openai_responses_proxy.lifecycle.supervision import macos
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
@@ -273,6 +274,32 @@ def native_service_projection(ctx: runtime_context.RuntimeContext) -> dict[str, 
         "configured_executable": service.configured_executable(ctx),
         "processes": process.pids_naming_executable(ctx.executable, roles=_SERVICE_ROLES),
     }
+
+
+def stop_native_supervision(ctx: runtime_context.RuntimeContext) -> None:
+    """Keep the owned service carrier while its supervisor and runtime stop, as after a restart."""
+    service = native_service.adapter()
+    if sys.platform == "win32":
+        for arguments in (("/change", "/disable"), ("/end",)):
+            subprocess.run(
+                ["schtasks", *arguments, "/tn", ctx.service_id],
+                check=True,
+                capture_output=True,
+                text=True,
+                stdin=subprocess.DEVNULL,
+                timeout=30,
+            )
+    else:
+        carrier = Path(
+            macos._plist_path(ctx) if sys.platform == "darwin" else linux._unit_path(ctx)
+        )
+        content = carrier.read_bytes()
+        mode = carrier.stat().st_mode & 0o777
+        service.uninstall(ctx)
+        carrier.write_bytes(content)
+        carrier.chmod(mode)
+    for owned_ctx in _process_contexts(ctx):
+        service.terminate_runtime(owned_ctx, timeout_seconds=5.0)
 
 
 def owned_runtime_contexts(

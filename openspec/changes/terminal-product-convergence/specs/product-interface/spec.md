@@ -129,6 +129,30 @@ native service evidence proves absence.
 - **THEN** the registered or running watchdog is reported from native service evidence
 - **AND** the missing file alone is not evidence of service absence.
 
+### Requirement: Diagnosis names only an admissible lifecycle action
+
+`status` and `doctor` SHALL classify a verified installation that keeps its owned
+native supervisor declaration while neither its supervisor nor a listener runs
+as `stopped`, and SHALL name `reload` as its next action. Without a verified
+runtime, `doctor` SHALL name `reload` only for a `stopped` installation and
+SHALL otherwise name read-only `status --json`.
+
+#### Scenario: A restart leaves the installation stopped
+
+- **WHEN** the selected payload, installed record and command are verified, no
+  transaction exists, the native service is declared but not running, its
+  declaration binds the lifecycle control executable, and no process listens on
+  the installed port
+- **THEN** `status` and `doctor` report `stopped` and name `reload` in human and
+  JSON output
+- **AND** a completed `reload` reports `started` with one positive listener PID.
+
+#### Scenario: No verified runtime remains outside the stopped state
+
+- **WHEN** no verified runtime exists and the installation is not `stopped`
+- **THEN** `doctor` names `status --json` rather than `reload`
+- **AND** `reload` refuses without changing native supervision or processes.
+
 ## MODIFIED Requirements
 
 ### Requirement: Local product closure is Forge-free

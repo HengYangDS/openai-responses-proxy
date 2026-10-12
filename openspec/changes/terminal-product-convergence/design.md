@@ -493,6 +493,22 @@ when there was no live listener to stop. The existing outcome owner rejects
 inconsistent evidence before either human or machine rendering, without a
 second result schema or a change to valid lifecycle output.
 
+A stopped installation has one supported start path, owned by `reload` rather
+than `recover` or a new command. `status` classifies `stopped` only when the
+selected payload, installed record and command are verified, no transaction
+exists, the native service is declared but not running, its declaration binds
+the lifecycle control executable, and nothing listens on the installed port the
+request names. Reload reuses that classification, binds the supervisor through
+the adapter's existing installation operation, and proves the selected payload's
+serving identity within the operator deadline before returning `started`. A
+failed proof leaves the declared supervisor bound: no predecessor runtime exists
+to restore. macOS, Linux and Windows share this path through the adapter
+protocol. `doctor` names `reload` only for this state or a verified live runtime
+that can hand off, and read-only `status --json` when no verified runtime
+exists, so diagnosis and reload cannot send an operator around a loop. The
+`stopped` state and `started` result replace the former blanket reload
+recommendation; `recover` remains bound to interrupted transactions.
+
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and

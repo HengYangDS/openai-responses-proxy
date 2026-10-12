@@ -18,11 +18,13 @@ type SuccessState = Literal[
     "unchanged",
     "running",
     "degraded",
+    "stopped",
     "invalid",
     "not_installed",
     "not_required",
     "recovery_required",
     "reloaded",
+    "started",
     "unavailable",
     "rolled_back",
     "closed",
@@ -82,7 +84,14 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
     state = evidence.get("state")
     match command, evidence:
         case "status", {
-            "state": ("running" | "degraded" | "invalid" | "not_installed" | "recovery_required"),
+            "state": (
+                "running"
+                | "degraded"
+                | "stopped"
+                | "invalid"
+                | "not_installed"
+                | "recovery_required"
+            ),
             "detail": str(),
             "release": (str() | None),
             "payload_integrity": {"ok": bool(), "detail": str()} as integrity,
@@ -120,7 +129,8 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
             "checks": Mapping() as checks,
             **rest,
         } if (
-            state in {"running", "degraded", "invalid", "not_installed", "recovery_required"}
+            state
+            in {"running", "degraded", "stopped", "invalid", "not_installed", "recovery_required"}
             and not rest
             and _valid_doctor_checks(checks)
             and healthy == all(check["status"] == "passed" for check in checks.values())
@@ -158,6 +168,10 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
                     and rest["recovered_after_controller_failure"] is True
                 )
             )
+        ):
+            pass
+        case "reload", {"state": "started", "new_pid": new_pid, **rest} if (
+            type(new_pid) is int and new_pid > 0 and not rest
         ):
             pass
         case "rollback", {"state": "unavailable", "detail": str(), **rest} if not rest:

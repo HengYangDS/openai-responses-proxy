@@ -164,6 +164,18 @@ def status(
         lifecycle_state = "running"
         detail = "healthy"
     elif (
+        integrity_ok
+        and installed_matches_payload
+        and service == "installed"
+        and runtime is None
+        and not listeners
+        and command_state.get("state") == "owned"
+        and payload_transaction is None
+        and _stopped_supervisor_is_bound(active)
+    ):
+        lifecycle_state = "stopped"
+        detail = "native supervisor is stopped"
+    elif (
         isinstance(payload_transaction, dict)
         and payload_transaction.get("state")
         in {
@@ -219,8 +231,50 @@ def status(
     return evidence
 
 
+def _stopped_supervisor_is_bound(active: runtime_context.RuntimeContext) -> bool:
+    """Prove a stopped supervisor declares the control executable for a free installed port."""
+    try:
+        installed_port = runtime_spec.environment(runtime_spec.path(active))[
+            runtime_config.PROXY_PORT_ENV
+        ]
+        control_ctx = generation.control_context(active)
+        configured = adapter().configured_executable(control_ctx)
+    except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
+        return False
+    return (
+        installed_port == str(active.port)
+        and not process.listener_pids(active.port)
+        and configured is not None
+        and runtime_spec.normalized_path(configured)
+        == runtime_spec.normalized_path(control_ctx.executable)
+    )
+
+
+def _start_stopped(
+    ctx: runtime_context.RuntimeContext, *, timeout_seconds: float
+) -> dict[str, object]:
+    """Start one stopped installation through its native supervisor and prove SERVING."""
+    committed = identity.committed_payload(Path(ctx.executable))
+    if committed is None:
+        raise errors.InstallError("installed payload changed before supervised start")
+    apply.bind_control_supervisor(adapter(), generation.control_context(ctx))
+    try:
+        runtime = apply.wait_for_serving_runtime(
+            ctx,
+            committed.handoff(),
+            runtime_reader=read_runtime,
+            timeout_seconds=timeout_seconds,
+        )
+    except errors.InstallError as exc:
+        raise errors.InstallError(
+            "native supervisor started but no listener proved SERVING identity "
+            f"within {timeout_seconds:g}s"
+        ) from exc
+    return {"state": "started", "new_pid": runtime["pid"]}
+
+
 def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -> dict[str, object]:
-    """Reload the same installed protocol-v2 payload through live handoff."""
+    """Reload the installed payload through live handoff, or start it when stopped."""
     installed = payload_state.read_installed(ctx)
     install_root = Path(ctx.install_dir)
     if installed is None and not install_root.exists() and not install_root.is_symlink():
@@ -234,6 +288,8 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
         raise errors.RecoveryRequiredError("complete payload recovery before reloading")
     runtime = read_runtime(ctx)
     if not handoff.runtime_supports_handoff(runtime):
+        if runtime is None and status(ctx, include_rollback=False)["state"] == "stopped":
+            return _start_stopped(ctx, timeout_seconds=timeout_seconds)
         raise errors.InstallError("installed runtime is not healthy enough to reload")
     assert runtime is not None
     integrity_ok, integrity_detail = projection.verify_payload_manifest(ctx)

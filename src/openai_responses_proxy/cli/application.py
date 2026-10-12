@@ -36,8 +36,9 @@ PUBLIC_COMMANDS = frozenset(
     {"install", "status", "doctor", "recover", "reload", "rollback", "uninstall"}
 )
 _FAILURE_STATUS = "failed"
-_RECOVERY_NEXT = product_identity.command("reload")
-type DoctorState = Literal["running", "degraded", "invalid", "not_installed", "recovery_required"]
+type DoctorState = Literal[
+    "running", "degraded", "stopped", "invalid", "not_installed", "recovery_required"
+]
 _JSON = Annotated[
     bool,
     Parameter(
@@ -328,8 +329,12 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
         next_command = product_identity.command("recover")
     elif not integrity_ok or not command_ok:
         next_command = product_identity.command("install", "--help")
-    elif service_detail != "running" or not listener_ok:
-        next_command = _RECOVERY_NEXT
+    elif state == "stopped":
+        next_command = product_identity.command("reload")
+    elif not listener_ok:
+        next_command = product_identity.command("status", "--json")
+    elif service_detail != "running":
+        next_command = product_identity.command("reload")
     elif not checks_passed:
         next_command = product_identity.command("status", "--json")
     else:
@@ -338,6 +343,8 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
     match state:
         case "recovery_required":
             report_state = "recovery_required"
+        case "stopped":
+            report_state = "stopped"
         case "running" | "degraded":
             report_state = "running" if checks_passed else "degraded"
         case _:
@@ -481,7 +488,7 @@ def _app() -> App:
         port: _PORT = runtime_context.DEFAULT_PORT,
         timeout_seconds: _TIMEOUT = 30.0,
     ) -> int:
-        """Transactionally reload the installed service."""
+        """Hand off the installed service, or start it when stopped."""
         return _execute("reload", as_json=json_output, port=port, timeout_seconds=timeout_seconds)
 
     @app.command(name="rollback")

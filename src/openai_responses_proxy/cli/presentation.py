@@ -64,6 +64,8 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
             if state == "invalid"
             else product_identity.command("recover")
             if state == "recovery_required"
+            else product_identity.command("reload")
+            if state == "stopped"
             else product_identity.command("doctor")
             if state == "degraded"
             else None
@@ -115,6 +117,12 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
             next_command=product_identity.command("status"),
         )
     if command == "reload":
+        if result.get("state") == "started":
+            return _page(
+                "Started",
+                (("Current PID", result.get("new_pid", "Unknown")),),
+                next_command=product_identity.command("status"),
+            )
         return _page(
             "Reloaded",
             (

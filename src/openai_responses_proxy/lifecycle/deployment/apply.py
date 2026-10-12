@@ -234,7 +234,7 @@ def _upgrade(
         )
         successor_committed = True
         if not native_generation:
-            _bind_control_supervisor(adapter, generation.control_context(ctx))
+            bind_control_supervisor(adapter, generation.control_context(ctx))
     except UnknownDeploymentOutcome as exc:
         payload.preserve_for_recovery(str(exc))
         raise
@@ -279,7 +279,7 @@ def _upgrade(
     return {"state": "upgraded", "runtime": runtime}
 
 
-def _bind_control_supervisor(
+def bind_control_supervisor(
     adapter: ServiceAdapter,
     control: runtime_context.RuntimeContext,
 ) -> None:
@@ -340,7 +340,7 @@ def _replace_native_generation(
     if not source_exited:
         raise UnknownDeploymentOutcome("native generation replacement outcome is unconfirmed")
     try:
-        _bind_control_supervisor(adapter, generation.control_context(ctx))
+        bind_control_supervisor(adapter, generation.control_context(ctx))
         return wait_for_serving_runtime(
             ctx,
             expected,

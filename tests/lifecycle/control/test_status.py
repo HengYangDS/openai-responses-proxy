@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
@@ -141,6 +143,68 @@ def test_status_distinguishes_absence_from_command_and_transaction_degradation(
         degraded = control.status(installed_ctx)
         assert degraded["state"] == "degraded"
         assert degraded["detail"] == "installation is degraded"
+
+
+def test_status_classifies_a_verified_installation_whose_supervisor_is_stopped(
+    tmp_path: Path, *, mocker, subtests
+) -> None:
+    ctx = install_context(tmp_path)
+    install_payload(ctx, mocker=mocker)
+    control_executable = generation.control_context(ctx).executable
+    native = mocker.patch.object(control, "adapter").return_value
+    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
+    port_listeners = mocker.patch.object(control.process, "listener_pids")
+    mocker.patch.object(control, "read_runtime", return_value=None)
+    mocker.patch.object(
+        control.command,
+        "status",
+        return_value={"path": ctx.command, "state": "owned", "kind": "symlink"},
+    )
+
+    def observe(
+        *,
+        service: str = "installed",
+        configured: object = control_executable,
+        listeners: tuple[int, ...] = (),
+        port: int = ctx.port,
+    ) -> dict[str, object]:
+        native.status.return_value = service
+        native.configured_executable.side_effect = (
+            configured if isinstance(configured, Exception) else None
+        )
+        native.configured_executable.return_value = configured
+        port_listeners.return_value = list(listeners)
+        return control.status(replace(ctx, port=port))
+
+    stopped = observe()
+
+    assert stopped["state"] == "stopped"
+    assert stopped["detail"] == "native supervisor is stopped"
+    assert stopped["service"] == "installed"
+    assert stopped["runtime"] is None
+    assert stopped["listener_pids"] == []
+    native.configured_executable.assert_called_with(generation.control_context(ctx))
+    foreign = str(tmp_path / "foreign" / "openai-responses-proxy")
+    unproved = errors.InstallError("carrier is unproved")
+    bound = control_executable
+    installed = "native service is installed"
+    unavailable = "listener runtime identity is unavailable"
+    for case, service, configured, listeners, port, detail in (
+        ("foreign target", "installed", foreign, (), ctx.port, installed),
+        ("missing target", "installed", None, (), ctx.port, installed),
+        ("unproved target", "installed", unproved, (), ctx.port, installed),
+        ("occupied port", "installed", bound, (4242,), ctx.port, installed),
+        ("other port", "installed", bound, (), ctx.port + 1, installed),
+        ("absent service", "absent", bound, (), ctx.port, "native service is absent"),
+        ("unknown service", "unknown", bound, (), ctx.port, "native service is unknown"),
+        ("running watchdog", "running", bound, (), ctx.port, unavailable),
+    ):
+        with subtests.test(case=case):
+            degraded = observe(
+                service=service, configured=configured, listeners=listeners, port=port
+            )
+            assert degraded["state"] == "degraded"
+            assert degraded["detail"] == detail
 
 
 def test_status_reports_retained_rollback_availability_and_corruption(
