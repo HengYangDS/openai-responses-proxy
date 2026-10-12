@@ -114,14 +114,15 @@ class TestMacosBackgroundContract:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             assert macos.projection_is_current(ctx) is False
-            _set_file(plist, macos.render_plist(ctx))
+            plist.parent.mkdir(parents=True, exist_ok=True)
+            plist.write_bytes(macos.render_plist(ctx).encode())
             assert macos.projection_is_current(ctx) is True
             payload = plistlib.loads(macos.render_plist(ctx).encode())
             if sessions is None:
                 payload.pop("LimitLoadToSessionType")
             else:
                 payload["LimitLoadToSessionType"] = sessions
-            _set_file(plist, plistlib.dumps(payload).decode())
+            plist.write_bytes(plistlib.dumps(payload))
 
             assert macos.configured_executable(ctx) == ctx.executable
             assert macos.projection_is_current(ctx) is False

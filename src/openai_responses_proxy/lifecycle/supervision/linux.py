@@ -81,12 +81,16 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
 
 
 def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
-    """Return whether the product systemd unit is this release's rendering."""
+    """Return whether the product systemd unit is this release's rendering.
+
+    The unit is read in text mode, as installation writes it, so line endings
+    compare the same way on every host.
+    """
     try:
-        content = Path(_unit_path(ctx)).read_bytes()
-    except OSError:
+        content = Path(_unit_path(ctx)).read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
         return False
-    return content == render_unit(ctx).encode("utf-8")
+    return content == render_unit(ctx)
 
 
 def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:

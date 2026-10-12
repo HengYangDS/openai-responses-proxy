@@ -153,6 +153,8 @@ class TestLinuxLifecycle:
             assert linux.projection_is_current(ctx) is False
             _set_file(unit, linux.render_unit(ctx))
             assert linux.projection_is_current(ctx) is True
+            unit.write_bytes(linux.render_unit(ctx).replace("\n", "\r\n").encode("utf-8"))
+            assert linux.projection_is_current(ctx) is True
             _set_file(unit, linux.render_unit(ctx).replace("KillMode=process\n", ""))
 
             assert linux.configured_executable(ctx) == ctx.executable
