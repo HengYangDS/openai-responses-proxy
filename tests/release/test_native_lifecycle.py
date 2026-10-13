@@ -544,6 +544,7 @@ class TestSignedNativeLifecycle:
                 "version": current_version,
                 "stopped": 0,
                 "command_removed": False,
+                "next": "openai-responses-proxy status",
             }
             assert not install.exists()
             assert not payload_state.journal_path(ctx).exists()
@@ -594,6 +595,7 @@ class TestSignedNativeLifecycle:
                 "state": "closed",
                 "transaction_id": transaction_id,
                 "version": current_version,
+                "next": "openai-responses-proxy status",
             }
             assert not payload_state.transaction_root(ctx).exists()
             assert not payload_state.journal_path(ctx).exists()

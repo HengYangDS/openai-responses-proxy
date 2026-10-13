@@ -563,6 +563,7 @@ class TestPublishedPredecessorCompatibility:
                 "transaction_id": current_selection.predecessor,
                 "version": previous_version,
                 "state": "rolled_back",
+                "next": "openai-responses-proxy status",
             }
             assert generation.read(ctx) == current_selection
             assert Path(payload_state.installed_path(ctx)).read_bytes() == (
