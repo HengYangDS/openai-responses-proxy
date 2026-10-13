@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.0.6] - 2026-10-13
+
 ### Fixed
 
 - Reject terminal message-tool calls with missing or unreadable arguments even

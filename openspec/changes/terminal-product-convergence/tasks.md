@@ -146,7 +146,7 @@ This checklist retains the original task identities and completion states.
 - [x] 14.4 Close diagnosed compatibility and runtime gaps at existing owners; verify native acceptance and official upstream handling of reproducible vendor defects.
 - [x] 14.5 Deliver the product and repository rename through all active consumers; verify preserved IDs, history, permissions, content and legacy withdrawal.
 - [x] 14.6 Publish signed stable selected-platform assets; verify native upgrade, rollback, installed consumers, protected settings and original installation ownership.
-- [ ] 14.7 Integrate source, release, installed-consumer and preservation evidence; retire this increment's proposals, lane and lease with exact custody/absence readback. Retained-ref disposition depends on ETHOS; GitLab review is deferred to 2026-10-14.
+- [ ] 14.7 Integrate source, release, installed-consumer and preservation evidence; retire this increment's proposals, lane and lease with exact custody/absence readback. Next: pass final-source GitHub admission, then publish and qualify 5.0.6 from installed 5.0.4; retained-ref disposition depends on ETHOS. GitLab stays untouched; review that boundary on 2026-10-15 without probing it.
 - [x] 14.8 Restore macOS Background supervision at the current owner; verify no-GUI lifecycle, migration, rollback and host preservation.
 - [x] 14.9 Align overview, package and selected Forge descriptions with qualified behavior; verify current identity and avoid universal-support claims.
 - [ ] 14.10 Preserve precise stream/protocol diagnostics and committed output; verify terminal agent-argument proof through focused, released and installed behavior without attributing old unknown failures.
