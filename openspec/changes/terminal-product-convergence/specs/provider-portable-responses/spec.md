@@ -140,6 +140,16 @@ client configuration, credentials or conversation storage.
 - **AND** exact message arguments and call identities survive sender-to-recipient
   delivery using the client's native plaintext path.
 
+#### Scenario: A terminal delivery retains an in-progress item status
+
+- **WHEN** a terminal Response or `response.output_item.done` contains a selected
+  message call still marked `in_progress` with no readable arguments
+- **THEN** the terminal context requires complete readable arguments and fails
+  locally without restoring or dispatching that call
+- **AND** an initial `response.output_item.added` may precede argument generation
+  without an empty encrypted-argument marker; any previously emitted bytes remain
+  unchanged and the committed request is not reopened.
+
 #### Scenario: Old ciphertext or conflicting metadata is present
 
 - **WHEN** retained history contains encrypted native agent content, or a

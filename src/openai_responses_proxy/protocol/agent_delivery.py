@@ -125,11 +125,11 @@ def _encode(value: object) -> bytes:
         raise ValueError("invalid_agent_delivery_payload") from error
 
 
-def _restore_item(item: JsonObject) -> bool:
+def _restore_item(item: JsonObject, *, complete: bool) -> bool:
     if item.get("type") not in _CALL_TYPES or item.get("namespace") != PLAINTEXT_NAMESPACE:
         return False
     if item.get("name") in _MESSAGE_TOOLS and (
-        item.get("status") != "in_progress" or item.get("arguments")
+        complete or item.get("status") != "in_progress" or item.get("arguments")
     ):
         arguments = item.get("arguments")
         if not isinstance(arguments, str):
@@ -152,18 +152,23 @@ def _restore_item(item: JsonObject) -> bool:
     return True
 
 
-def _restore_payload(payload: JsonObject) -> bool:
+def _restore_payload(payload: JsonObject, *, streaming: bool) -> bool:
     changed = False
     item = payload.get("item")
     if isinstance(item, dict):
-        changed = _restore_item(item)
+        complete = not streaming or payload.get("type") != "response.output_item.added"
+        changed = _restore_item(item, complete=complete)
     response = payload.get("response")
     terminal = response if isinstance(response, dict) else payload
     output = terminal.get("output")
+    complete = not streaming or payload.get("type") not in (
+        "response.created",
+        "response.in_progress",
+    )
     if isinstance(output, list):
         for item in output:
             if isinstance(item, dict):
-                changed = _restore_item(item) or changed
+                changed = _restore_item(item, complete=complete) or changed
     return changed
 
 
@@ -172,7 +177,7 @@ def restore_response(raw: bytes, active: bool) -> bytes:
     if not active:
         return raw
     payload = _object(raw, "invalid_agent_delivery_payload")
-    return _encode(payload) if _restore_payload(payload) else raw
+    return _encode(payload) if _restore_payload(payload, streaming=False) else raw
 
 
 def restore_event(raw: bytes, active: bool) -> bytes:
@@ -180,7 +185,7 @@ def restore_event(raw: bytes, active: bool) -> bytes:
     if not active:
         return raw
     payload = sse_event_data(raw)
-    if not isinstance(payload, dict) or not _restore_payload(payload):
+    if not isinstance(payload, dict) or not _restore_payload(payload, streaming=True):
         return raw
     lines = raw.splitlines(keepends=True)
     output: list[bytes] = []

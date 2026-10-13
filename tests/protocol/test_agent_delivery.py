@@ -198,10 +198,55 @@ class AgentDeliveryContracts:
     def test_streaming_call_start_can_precede_argument_generation(self) -> None:
         call = {**_call(), "status": "in_progress", "arguments": ""}
         raw = _wire({"type": "response.output_item.added", "item": call})
-        restored = json.loads(agent_delivery.restore_response(raw, True))["item"]
+        event = agent_delivery.restore_event(b"data: " + raw + b"\n\n", True)
+        restored = json.loads(event.split(b"data: ", 1)[1])["item"]
         assert restored["namespace"] == "collaboration"
         assert restored["arguments"] == ""
         assert "encrypted_function_args" not in restored
+
+    @pytest.mark.parametrize("event_type", ["response.created", "response.in_progress"])
+    def test_nonterminal_response_snapshot_can_precede_argument_generation(
+        self, event_type: str
+    ) -> None:
+        call = {**_call(), "status": "in_progress", "arguments": ""}
+        response = {"status": "in_progress", "output": [call]}
+        raw = b"data: " + _wire({"type": event_type, "response": response}) + b"\n\n"
+        restored = json.loads(agent_delivery.restore_event(raw, True).split(b"data: ", 1)[1])
+        item = restored["response"]["output"][0]
+        assert item["namespace"] == "collaboration"
+        assert item["arguments"] == ""
+        assert "encrypted_function_args" not in item
+
+    @pytest.mark.parametrize(
+        ("context", "event_type"),
+        [
+            ("json", None),
+            ("json", "response.in_progress"),
+            ("sse", "response.output_item.done"),
+            ("sse", "response.completed"),
+            ("sse", "response.incomplete"),
+        ],
+    )
+    def test_terminal_context_requires_readable_arguments_despite_in_progress_item(
+        self, context: str, event_type: str | None
+    ) -> None:
+        call = {**_call(), "status": "in_progress", "arguments": ""}
+        terminal = {"status": "completed", "output": [call]}
+        if context == "json":
+            if event_type is not None:
+                terminal["type"] = event_type
+            raw = _wire(terminal)
+            restore = agent_delivery.restore_response
+        else:
+            payload = (
+                {"type": event_type, "item": call}
+                if event_type == "response.output_item.done"
+                else {"type": event_type, "response": terminal}
+            )
+            raw = b"data: " + _wire(payload) + b"\n\n"
+            restore = agent_delivery.restore_event
+        with pytest.raises(ValueError, match="agent_delivery_plaintext_unproved"):
+            restore(raw, True)
 
     def test_replayed_native_plaintext_marker_has_a_declared_item_grammar(self) -> None:
         call = _call()

@@ -149,7 +149,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 14.7 Integrate source, release, installed-consumer and preservation evidence; retire this increment's proposals, lane and lease with exact custody/absence readback. Retained-ref disposition depends on ETHOS; GitLab review is deferred to 2026-10-14.
 - [x] 14.8 Restore macOS Background supervision at the current owner; verify no-GUI lifecycle, migration, rollback and host preservation.
 - [x] 14.9 Align overview, package and selected Forge descriptions with qualified behavior; verify current identity and avoid universal-support claims.
-- [x] 14.10 Preserve precise stream/protocol diagnostics and committed output; verify focused, released and installed behavior without attributing old unknown failures.
+- [ ] 14.10 Preserve precise stream/protocol diagnostics and committed output; verify terminal agent-argument proof through focused, released and installed behavior without attributing old unknown failures.
 - [x] 14.11 Restore macOS supervision after restart; verify GUI-login acceptance and retain the separately deferred no-GUI/GitLab qualification.
 - [x] 14.12 Provide a supported reload path for a stopped installation; verify current doctor guidance and released native lifecycle.
 - [x] 14.13 Restore a serving installation whose supervisor stopped; verify released reload preserves the listener and native resource ownership.
