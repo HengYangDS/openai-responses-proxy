@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.0.5] - 2026-10-13
+
 ### Fixed
 
 - Restore native supervision by installing the installed artifact. `uninstall`
