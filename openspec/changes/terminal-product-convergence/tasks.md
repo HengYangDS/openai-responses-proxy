@@ -29,7 +29,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 3.3 Converge human and machine output on one typed result model with precise problem, current state, safe next action, and bounded evidence; verify no traceback, warning, private path, credential, payload, or internal module name leaks.
 - [ ] 3.4 Verify `install`, `status`, `doctor`, `reload`, `rollback`, `recover`, and `uninstall` are semantically distinct, complete, symmetric, idempotent where declared, and free of hidden source or Forge dependencies.
 - [x] 3.5 Remove duplicate product, command, service and platform identities; verify each remaining identity belongs to its declared owner.
-- [ ] 3.6 Prove Proxy operates independently with an ordinary explicit upstream route and loopback endpoint; verify AIGW absence, client absence, and Forge absence do not prevent local product operation.
+- [x] 3.6 Prove Proxy operates independently with an ordinary explicit upstream route and loopback endpoint; verify AIGW absence, client absence, and Forge absence do not prevent local product operation. Evidence: v5.0.5 isolated native journeys on three platforms and the product import gate.
 
 ## 4. Responses and Provider Architecture
 
@@ -59,7 +59,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 6.2 Replace flat suffix families and ambiguous buckets in `src`, `tests`, and `tools` with semantic subpackages; specifically converge `tools/release/publish*`, `publication/*`, and `forge/*` on one publication entrypoint, release construction owner, and Forge adapter boundary.
 - [ ] 6.3 Remove or precisely rename every ambiguous `common`, `shared`, `utils`, `helpers`, `misc`, `base`, `manager`, generic `service`, concatenated compound, and implementation-shaped module; verify no compatibility import or re-export remains.
 - [ ] 6.4 Make tests mirror product and repository-tool semantics rather than implementation filenames; keep unit tests with their domain and isolate integration, native, release, and end-to-end contracts by evidence scope.
-- [ ] 6.5 Establish one-way import rules for product domains and repository tools, detect cycles and undeclared owners, and verify no product package imports tests, repository tooling, Forge code, or ETHOS internals.
+- [x] 6.5 Establish one-way import rules for product domains and repository tools, detect cycles and undeclared owners, and verify no product package imports tests, repository tooling, Forge code, or ETHOS internals. Evidence: the architecture gate's product edge, undeclared-import, tool-domain cycle and test-import checks.
 - [ ] 6.6 Audit `.config`, root files, OpenSpec, docs, schemas, workflows, generated files, and release assets for the same semantic and physical isomorphism; relocate, absorb, rename, or delete every mixed-responsibility carrier.
 - [ ] 6.7 Remove empty packages, redirect-only indexes, dead entrypoints, duplicate schemas, parallel constants, obsolete fixtures, unused dependencies, and unreachable code; verify repository size and entity count decrease without losing a required invariant.
 

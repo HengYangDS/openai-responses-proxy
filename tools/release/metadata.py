@@ -274,7 +274,7 @@ def check_governance_contract() -> None:
         "LICENSE",
         ".ethos/release.toml",
         "tools/forge/audit.py",
-        "tools/forge/tag_signature.py",
+        "tools/release/tag_signature.py",
         "tools/release/publication/__main__.py",
         "tools/release/publication/github/publish.py",
         "tools/release/publication/gitlab/publish.py",
@@ -291,7 +291,7 @@ def check_governance_contract() -> None:
     ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
     if "python -m tools.release.metadata" not in ci:
         raise ValueError("GitLab CI must execute the release and governance checker")
-    if "verify-release-tag:" not in ci or "tools.forge.tag_signature" not in ci:
+    if "verify-release-tag:" not in ci or "tools.release.tag_signature" not in ci:
         raise ValueError("GitLab CI must verify the exact trusted product tag")
     if "publish-gitlab-release:" in ci or "nox -s release" in ci:
         raise ValueError("GitLab CI must not rebuild or republish the signed product bundle")

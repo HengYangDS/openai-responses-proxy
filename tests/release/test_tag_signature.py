@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.forge import tag_signature
+from tools.release import tag_signature
 
 
 @pytest.mark.parametrize("tag", ["latest", "1.2.3", "v1.2", "v1.2.3."])

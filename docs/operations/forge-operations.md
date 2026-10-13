@@ -124,11 +124,12 @@ Forge has its own semantic subpackage: `publish` owns remote release writes;
 `observe` owns read-only hosted identity and CI evidence. The verifier composes
 those observations without granting installation authority.
 
-[`tools/forge`](../../tools/forge/) owns tag trust, runner admission, and the
-read-only parity audit; ETHOS owns branch and tag publication. Release
-construction and signing remain under [`tools/release`](../../tools/release/);
-publishers only consume the resulting immutable bundle. These are different
-responsibilities, not alternative publication implementations.
+[`tools/forge`](../../tools/forge/) owns runner admission and the read-only
+parity audit; ETHOS owns branch and tag publication. Release identity, tag
+trust, construction, and signing belong to
+[`tools/release`](../../tools/release/); publishers only consume the resulting
+immutable bundle. These are different responsibilities, not alternative
+publication implementations.
 
 Publication success covers both the verified bundle and its user-facing Release
 links. GitLab publication compares every link's name, URL, and type with the

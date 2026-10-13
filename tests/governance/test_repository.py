@@ -267,7 +267,7 @@ class TestGovernanceMetadata:
         assert set(result.stdout.decode().rstrip("\0").split("\0")) == set(generated)
 
     def test_forge_publication_has_no_implicit_actor_or_trust_source(self):
-        source = (ROOT / "tools" / "forge" / "tag_signature.py").read_text(encoding="utf-8")
+        source = (ROOT / "tools" / "release" / "tag_signature.py").read_text(encoding="utf-8")
         assert "packaging/release" not in source
         assert "/Users/" not in source
         assert "$HOME/.ssh" not in source
