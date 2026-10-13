@@ -68,7 +68,7 @@ _PURGE = Annotated[
     Parameter(
         name="--purge",
         negative=False,
-        help="Remove verified product-owned data.",
+        help="Also remove the verified installed payload.",
         show_default=False,
     ),
 ]
@@ -323,20 +323,27 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
             "detail": installation_detail,
         }
         checks_passed = False
+    command_state = command.get("state") if isinstance(command, dict) else None
+    # Installing the installed artifact restores only a verified payload's missing
+    # supervision or command projection; it refuses every other combination,
+    # including an unverified listener on the installed port.
+    install_restores = (
+        integrity_ok
+        and command_state in {"owned", "absent"}
+        and service_detail in {"absent", "installed"}
+        and "absent" in {command_state, service_detail}
+        and (listener_ok or not evidence.get("listener_pids"))
+    )
     next_command: str | None
     if state == "invalid":
         next_command = product_identity.command("status", "--json")
     elif state == "recovery_required":
         next_command = product_identity.command("recover")
-    elif not integrity_ok or not command_ok:
-        next_command = product_identity.command("install", "--help")
     elif state == "stopped":
         next_command = product_identity.command("reload")
-    elif service_detail == "absent":
+    elif install_restores:
         next_command = product_identity.command("install", "--help")
-    elif not listener_ok:
-        next_command = product_identity.command("status", "--json")
-    elif service_detail in {"installed", "outdated"}:
+    elif listener_ok and command_ok and service_detail in {"installed", "outdated"}:
         next_command = product_identity.command("reload")
     elif not checks_passed:
         next_command = product_identity.command("status", "--json")
@@ -481,7 +488,7 @@ def _app() -> App:
 
     @app.command(name="recover")
     def recover(*, json_output: _JSON = False, port: _PORT = runtime_context.DEFAULT_PORT) -> int:
-        """Resolve an interrupted installation transaction."""
+        """Resolve an interrupted installation or purge transaction."""
         return _execute("recover", as_json=json_output, port=port)
 
     @app.command(name="reload")

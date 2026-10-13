@@ -14,6 +14,12 @@ publication authority.
   outside the installation root as `%LOCALAPPDATA%\openai-responses-proxy-state`.
   A fresh default installation no longer refuses its own lock directory as
   unverified content, and purge no longer reports it as leftover content.
+- Make `doctor` name `install --help` only when installing the installed
+  artifact restores a verified payload's missing supervision or command. An
+  unverified payload, a foreign command, an unverified listener, or a missing
+  command beside running supervision now leads to `status --json` rather than to
+  an install that refuses. The `recover` and `uninstall --purge` help now states
+  exactly what each resolves or removes.
 
 ## [5.0.6] - 2026-10-13
 

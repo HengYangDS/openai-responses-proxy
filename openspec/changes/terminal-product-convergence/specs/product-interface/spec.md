@@ -133,10 +133,10 @@ native service evidence proves absence.
 
 `status` and `doctor` SHALL classify a verified installation that keeps its owned
 native supervisor declaration while neither its supervisor nor a listener runs
-as `stopped`, and SHALL name `reload` as its next action. Without a verified
-runtime, `doctor` SHALL name `reload` only for a `stopped` installation,
-`install --help` when native supervision is absent, and otherwise read-only
-`status --json`.
+as `stopped`, and SHALL name `reload` as its next action. `doctor` SHALL name
+`install --help` only when installing the installed artifact restores a verified
+payload's missing native supervision or command projection, and otherwise,
+without a verified runtime, read-only `status --json`.
 
 #### Scenario: A restart leaves the installation stopped
 
@@ -150,8 +150,8 @@ runtime, `doctor` SHALL name `reload` only for a `stopped` installation,
 
 #### Scenario: No verified runtime remains outside the stopped state
 
-- **WHEN** no verified runtime exists, the installation is not `stopped`, and
-  native supervision is declared, running or unknown
+- **WHEN** no verified runtime exists, the installation is not `stopped`, native
+  supervision is declared, running or unknown, and the command is owned
 - **THEN** `doctor` names `status --json` rather than `reload`
 - **AND** `reload` refuses without changing native supervision or processes.
 
@@ -162,11 +162,27 @@ runtime, `doctor` SHALL name `reload` only for a `stopped` installation,
 - **THEN** `doctor` names `install --help`
 - **AND** installing the same signed artifact reports `installed`.
 
+#### Scenario: Only the command projection is missing
+
+- **WHEN** a verified payload keeps declared or absent native supervision, its
+  command projection is absent, and no unverified listener holds the port
+- **THEN** `doctor` names `install --help`
+- **AND** installing the same signed artifact restores the command and native
+  supervision.
+
+#### Scenario: The payload or command cannot be verified
+
+- **WHEN** no transaction requires recovery and the payload integrity fails or
+  the command path belongs to another owner
+- **THEN** `doctor` names `status --json` rather than `install --help` or
+  `reload`.
+
 ### Requirement: Diagnosis of a serving installation names a converging action
 
-With a verified serving runtime, `doctor` SHALL name `reload` only when native
-supervision is declared but not running or outdated, `install --help` when it
-is absent, and read-only `status --json` when it is unknown.
+With a verified serving runtime and an owned command projection, `doctor` SHALL
+name `reload` only when native supervision is declared but not running or
+outdated, `install --help` when it is absent, and read-only `status --json`
+when it is unknown.
 
 #### Scenario: The watchdog stopped while the listener serves
 

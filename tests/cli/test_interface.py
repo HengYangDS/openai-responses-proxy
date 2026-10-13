@@ -185,7 +185,7 @@ class ProductInterfaceContracts:
         code, uninstall_help, stderr = self.invoke("uninstall", "--help")
         assert code == 0
         assert stderr == ""
-        assert "Remove verified product-owned data" in uninstall_help
+        assert "Also remove the verified installed payload" in uninstall_help
         assert "--no-purge" not in uninstall_help
         assert "[default: False]" not in uninstall_help
 

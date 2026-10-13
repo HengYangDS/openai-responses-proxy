@@ -343,3 +343,58 @@ def test_doctor_reuses_status_listener_proof_when_process_inventory_lags() -> No
         "status": "passed",
         "detail": "accepting",
     }
+
+
+def test_doctor_names_install_only_where_installing_the_artifact_restores(subtests) -> None:
+    """Name `install --help` only for a verified payload missing supervision or its command."""
+    serving = {
+        "state": "degraded",
+        "release": "3.1.3",
+        "payload_integrity": {"ok": True, "detail": "verified"},
+        "service": "installed",
+        "listener_pids": [321],
+        "runtime": {"pid": 321, "accepting": True},
+        "payload_transaction": None,
+        "command": {"path": "/commands/openai-responses-proxy", "state": "owned"},
+    }
+    halted = {**serving, "listener_pids": [], "runtime": None}
+    unverified = {"ok": False, "detail": "hash mismatch"}
+    install = "openai-responses-proxy install --help"
+    inspect = "openai-responses-proxy status --json"
+    cases = (
+        (
+            "unverified payload, supervisor declared",
+            {**halted, "payload_integrity": unverified},
+            inspect,
+        ),
+        (
+            "unverified payload, supervision absent",
+            {**halted, "payload_integrity": unverified, "service": "absent"},
+            inspect,
+        ),
+        (
+            "foreign command, supervision absent",
+            {**halted, "service": "absent", "command": {"state": "foreign"}},
+            inspect,
+        ),
+        ("foreign command while serving", {**serving, "command": {"state": "foreign"}}, inspect),
+        (
+            "missing command while supervision runs",
+            {**serving, "service": "running", "command": {"state": "absent"}},
+            inspect,
+        ),
+        ("missing command while serving", {**serving, "command": {"state": "absent"}}, install),
+        (
+            "missing command and supervision",
+            {**halted, "service": "absent", "command": {"state": "absent"}},
+            install,
+        ),
+        (
+            "missing command beside an unverified listener",
+            {**halted, "listener_pids": [654], "command": {"state": "absent"}},
+            inspect,
+        ),
+    )
+    for name, evidence, expected in cases:
+        with subtests.test(case=name):
+            assert application._doctor(evidence)["next"] == expected
