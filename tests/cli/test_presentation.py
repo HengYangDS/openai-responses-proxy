@@ -77,7 +77,7 @@ def test_reload_accepts_distinct_positive_processes(
     captured = capsys.readouterr()
     assert captured.err == ""
     if as_json:
-        assert json.loads(captured.out) == result
+        assert json.loads(captured.out) == {**result, "next": "openai-responses-proxy status"}
     else:
         assert "Reloaded" in captured.out
         assert "41" in captured.out
@@ -93,7 +93,7 @@ def test_reload_reports_a_started_stopped_installation(as_json: bool, *, mocker,
     captured = capsys.readouterr()
     assert captured.err == ""
     if as_json:
-        assert json.loads(captured.out) == result
+        assert json.loads(captured.out) == {**result, "next": "openai-responses-proxy status"}
     else:
         assert "OpenAI Responses Proxy  Started" in captured.out
         assert "Current PID 42" in captured.out
@@ -192,7 +192,8 @@ def test_cleanup_accepts_zero_processes_when_no_listener_remains(
     captured = capsys.readouterr()
     assert captured.err == ""
     if as_json:
-        assert json.loads(captured.out) == result
+        named = "openai-responses-proxy status" if command == "recover" else None
+        assert json.loads(captured.out) == {**result, "next": named}
     else:
         assert "Purged" in captured.out
 
@@ -596,8 +597,9 @@ def test_rollback_without_a_predecessor_has_matching_human_and_json_semantics(
     human_code, human_stdout, human_stderr = invoke("rollback", "--to-release", "3.0.5")
 
     assert json_code == human_code == 0
-    assert json.loads(json_stdout) == unavailable
+    assert json.loads(json_stdout) == {**unavailable, "next": "openai-responses-proxy status"}
     assert "No verified predecessor" in human_stdout
+    assert human_stdout.endswith(f"Next\n  {json.loads(json_stdout)['next']}\n")
     assert json_stderr == human_stderr == ""
 
 

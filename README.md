@@ -200,7 +200,10 @@ openai-responses-proxy uninstall
 openai-responses-proxy uninstall --purge
 ```
 
-Lifecycle JSON uses one explicit `state` discriminator. `install` returns
+Lifecycle JSON uses one explicit `state` discriminator. Every successful result
+also carries `next`, the one safe follow-up command that the human output shows
+under Next, or `null` when nothing follows; a failure carries it as `error.next`.
+`install` returns
 `unchanged` when the signed artifact exactly matches the healthy active
 installation; it neither replaces files nor restarts the listener. The same
 version with different artifact bytes is not the same installation. When that

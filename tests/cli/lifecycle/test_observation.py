@@ -32,7 +32,7 @@ def test_status_uses_the_read_only_lifecycle_owner(*, mocker) -> None:
     status = mocker.patch.object(application.control, "status", return_value=evidence)
     code, stdout, stderr = invoke("status", "--json", "--port", "8801")
     assert code == 0
-    assert json.loads(stdout) == evidence
+    assert json.loads(stdout) == {**evidence, "next": None}
     assert stderr == ""
     context.assert_called_once_with(port=8801)
     status.assert_called_once_with("context")
@@ -60,7 +60,7 @@ def test_status_returns_bounded_current_runtime_evidence(*, mocker) -> None:
     mocker.patch.object(application.control, "status", return_value=evidence)
     code, stdout, stderr = invoke("status", "--json")
     assert code == 0
-    assert json.loads(stdout) == evidence
+    assert json.loads(stdout) == {**evidence, "next": None}
     assert stderr == ""
 
 

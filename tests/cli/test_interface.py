@@ -83,7 +83,8 @@ class ProductInterfaceContracts:
             assert "Traceback" not in stderr
             assert "Warning" not in stderr
 
-    def test_every_public_command_can_emit_stable_json(self, *, mocker) -> None:
+    def test_every_public_command_names_one_next_action_in_json_and_text(self, *, mocker) -> None:
+        """Each success carries one next action that both renderers project identically."""
         results = {
             "install": {"state": "unchanged", "release": "2.0.48"},
             "status": {
@@ -108,6 +109,15 @@ class ProductInterfaceContracts:
             "reload": {"state": "reloaded", "old_pid": 41, "new_pid": 42},
             "uninstall": {"state": "uninstalled", "stopped": 1, "command_removed": True},
         }
+        expected_next = {
+            "install": "openai-responses-proxy status",
+            "status": "openai-responses-proxy install --help",
+            "doctor": None,
+            "rollback": "openai-responses-proxy status",
+            "recover": "openai-responses-proxy status",
+            "reload": "openai-responses-proxy status",
+            "uninstall": None,
+        }
         arguments = {
             "install": (
                 "--asset",
@@ -127,8 +137,12 @@ class ProductInterfaceContracts:
             dispatch.return_value = results[command]
             code, stdout, stderr = self.invoke(command, *arguments[command], "--json")
             assert code == 0
-            assert json.loads(stdout) == results[command]
+            assert json.loads(stdout) == {**results[command], "next": expected_next[command]}
             assert stderr == ""
+            code, human, stderr = self.invoke(command, *arguments[command])
+            lines = human.splitlines()
+            shown = lines[lines.index("Next") + 1].strip() if "Next" in lines else None
+            assert (code, shown, stderr) == (0, expected_next[command], "")
 
     def test_parse_failures_are_bounded_in_text_and_json(self) -> None:
         cases = (

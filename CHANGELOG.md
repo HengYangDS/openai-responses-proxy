@@ -8,6 +8,12 @@ publication authority.
 
 ## [Unreleased]
 
+### Added
+
+- Every successful `--json` result carries `next`: the one safe follow-up
+  command that the human output names, or `null` when nothing follows. Human
+  and JSON output now derive it from the same result.
+
 ### Fixed
 
 - Keep the default Windows state root, which holds the lifecycle lock and logs,

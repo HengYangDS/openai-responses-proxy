@@ -390,7 +390,7 @@ def _render(result: outcome.PublicOutcome, *, as_json: bool) -> None:
             )
         return
     if as_json:
-        print(json.dumps(result.evidence, sort_keys=True))
+        print(json.dumps({**result.evidence, "next": result.next_command}, sort_keys=True))
         return
     rendered = presentation.render(result.command, result.evidence)
     if rendered:

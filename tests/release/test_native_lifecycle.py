@@ -336,7 +336,11 @@ class TestSignedNativeLifecycle:
                 str(port),
                 "--json",
             )
-            assert repeated == {"state": "unchanged", "release": current_version}
+            assert repeated == {
+                "state": "unchanged",
+                "release": current_version,
+                "next": "openai-responses-proxy status",
+            }
             assert generation.read(ctx) == selected
             assert payload_state.installed_path(ctx).read_bytes() == installed_bytes
             assert native_service_projection(ctx) == supervisor

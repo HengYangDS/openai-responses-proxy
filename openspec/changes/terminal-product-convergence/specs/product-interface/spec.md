@@ -42,6 +42,14 @@ invalid input, unavailable recovery, required recovery, completed mutation, and
 failed mutation, and SHALL identify only the safe next action owned by that
 command.
 
+#### Scenario: Human and JSON output name the same next action
+
+- **WHEN** any public command succeeds
+- **THEN** its JSON result carries `next`, the one safe follow-up command or
+  `null`
+- **AND** the human output shows exactly that command under Next, or no Next
+  line when it is `null`.
+
 #### Scenario: A public command cannot complete
 
 - **WHEN** a documented precondition or external dependency is missing

@@ -8,6 +8,7 @@ from typing import Literal
 from typing import cast
 
 from openai_responses_proxy import json_value
+from openai_responses_proxy import product_identity
 
 type PublicCommand = Literal[
     "install", "status", "doctor", "recover", "reload", "rollback", "uninstall"
@@ -33,6 +34,14 @@ type SuccessState = Literal[
     "uninstalled",
 ]
 
+_STATUS_NEXT = {
+    "not_installed": ("install", "--help"),
+    "invalid": ("status", "--json"),
+    "recovery_required": ("recover",),
+    "stopped": ("reload",),
+    "degraded": ("doctor",),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Success:
@@ -42,6 +51,7 @@ class Success:
     state: SuccessState
     evidence: dict[str, object]
     exit_code: int
+    next_command: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +65,22 @@ class Failure:
 
 
 type PublicOutcome = Success | Failure
+
+
+def next_action(command: str, evidence: Mapping[str, object]) -> str | None:
+    """Return the one safe follow-up command that a successful result names."""
+    state = evidence.get("state")
+    if command == "status":
+        arguments = _STATUS_NEXT.get(str(state or "degraded"))
+        return product_identity.command(*arguments) if arguments else None
+    if command == "doctor":
+        named = evidence.get("next")
+        return named if isinstance(named, str) else None
+    if command in {"install", "reload", "rollback"} or (
+        command == "recover" and state != "not_required"
+    ):
+        return product_identity.command("status")
+    return None
 
 
 def _valid_doctor_checks(checks: Mapping[str, object]) -> bool:
@@ -226,4 +252,5 @@ def admit(command: str, raw: Mapping[str, object] | None) -> Success:
         cast("SuccessState", state),
         evidence,
         1 if command == "doctor" and evidence["ok"] is False else 0,
+        next_action(command, evidence),
     )

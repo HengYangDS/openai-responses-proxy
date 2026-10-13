@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from itertools import starmap
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.cli import outcome
 
 _LABEL_WIDTH = 12
 _RULE = "-" * 40
@@ -38,6 +39,7 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
     """Render one successful public command without exposing serialized internals."""
     if not isinstance(result, Mapping):
         return ""
+    next_command = outcome.next_action(command, result)
     if command == "status":
         integrity = result.get("payload_integrity")
         payload_ok = isinstance(integrity, dict) and integrity.get("ok") is True
@@ -56,19 +58,6 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
             str(transaction.get("state", "Invalid")).replace("_", " ").title()
             if isinstance(transaction, dict)
             else "None"
-        )
-        next_command = (
-            product_identity.command("install", "--help")
-            if absent
-            else product_identity.command("status", "--json")
-            if state == "invalid"
-            else product_identity.command("recover")
-            if state == "recovery_required"
-            else product_identity.command("reload")
-            if state == "stopped"
-            else product_identity.command("doctor")
-            if state == "degraded"
-            else None
         )
         return _page(
             "Status",
@@ -101,8 +90,6 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
             for name, check in checks.items()
             if isinstance(check, Mapping)
         )
-        raw_next = result.get("next")
-        next_command = raw_next if isinstance(raw_next, str) else None
         return _page("Doctor", rows, next_command=next_command)
     if command == "install":
         raw_runtime = result.get("runtime")
@@ -114,14 +101,14 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
                 "unchanged": "Already installed",
             }.get(str(result.get("state")), "Installed"),
             (("Release", release),),
-            next_command=product_identity.command("status"),
+            next_command=next_command,
         )
     if command == "reload":
         if result.get("state") == "started":
             return _page(
                 "Started",
                 (("Current PID", result.get("new_pid", "Unknown")),),
-                next_command=product_identity.command("status"),
+                next_command=next_command,
             )
         return _page(
             "Reloaded",
@@ -129,20 +116,20 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
                 ("Previous PID", result.get("old_pid", "Unknown")),
                 ("Current PID", result.get("new_pid", "Unknown")),
             ),
-            next_command=product_identity.command("status"),
+            next_command=next_command,
         )
     if command == "rollback":
         if result.get("state") == "unavailable":
             return _page(
                 "Rollback unavailable",
                 (("State", "No verified predecessor"),),
-                next_command=product_identity.command("status"),
+                next_command=next_command,
             )
         if result.get("state") == "unchanged":
             return _page(
                 "Already selected",
                 (("Release", result.get("release", "Unknown")),),
-                next_command=product_identity.command("status"),
+                next_command=next_command,
             )
         return _page(
             "Rolled back",
@@ -150,11 +137,15 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
                 ("From", result.get("from_release", "Unknown")),
                 ("To", result.get("to_release", "Unknown")),
             ),
-            next_command=product_identity.command("status"),
+            next_command=next_command,
         )
     if command == "recover":
         if result.get("state") == "not_required":
-            return _page("No recovery required", (("State", "No pending transaction"),))
+            return _page(
+                "No recovery required",
+                (("State", "No pending transaction"),),
+                next_command=next_command,
+            )
         state = str(result.get("state", "Unknown"))
         return _page(
             state.replace("_", " ").title(),
@@ -162,11 +153,13 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
                 ("Transaction", result.get("transaction_id", "Unknown")),
                 ("Release", result.get("version", "Unknown")),
             ),
-            next_command=product_identity.command("status"),
+            next_command=next_command,
         )
     if command == "uninstall":
         if result.get("state") == "not_installed":
-            return _page("Not installed", (("State", "Nothing to remove"),))
+            return _page(
+                "Not installed", (("State", "Nothing to remove"),), next_command=next_command
+            )
         state = str(result.get("state", "uninstalled"))
         return _page(
             state.replace("_", " ").title(),
@@ -174,6 +167,7 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
                 ("Stopped", result.get("stopped", 0)),
                 ("Payload", "Removed" if state == "purged" else "Preserved"),
             ),
+            next_command=next_command,
         )
     return ""
 

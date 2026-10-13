@@ -715,7 +715,11 @@ class TestPublishedPredecessorCompatibility:
                 "60",
                 "--json",
             )
-            assert repeated == {"state": "unchanged", "release": previous_version}
+            assert repeated == {
+                "state": "unchanged",
+                "release": previous_version,
+                "next": "openai-responses-proxy status",
+            }
             assert generation.read(ctx) == rollback_selection
             repeated_status = run_command(
                 installed_command,
@@ -733,7 +737,7 @@ class TestPublishedPredecessorCompatibility:
                 "--port",
                 str(port),
                 "--json",
-            ) == {"state": "not_required"}
+            ) == {"state": "not_required", "next": None}
 
             restored = run_command(
                 installed_command,
@@ -783,7 +787,8 @@ class TestPublishedPredecessorCompatibility:
                 "--purge",
                 "--json",
             )
-            assert set(removed) == {"command_removed", "state", "stopped"}
+            assert set(removed) == {"command_removed", "next", "state", "stopped"}
+            assert removed["next"] is None
             assert removed["command_removed"] is True
             assert removed["state"] == "purged"
             assert type(removed["stopped"]) is int
@@ -919,7 +924,7 @@ class TestPublishedPredecessorCompatibility:
                 )
                 assert run_command(
                     current_executable, environment, "recover", "--port", str(port), "--json"
-                ) == {"state": "not_required"}
+                ) == {"state": "not_required", "next": None}
                 removed = run_command(
                     current_executable,
                     environment,

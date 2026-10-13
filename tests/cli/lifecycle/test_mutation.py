@@ -112,7 +112,7 @@ def test_reload_delegates_transactionally_with_an_explicit_timeout(
     reload = mocker.patch.object(application.control, "reload", return_value=result)
     code, stdout, stderr = invoke("reload", "--json", "--port", "8801", "--timeout-seconds", "12.5")
     assert code == 0
-    assert json.loads(stdout) == result
+    assert json.loads(stdout) == {**result, "next": "openai-responses-proxy status"}
     assert stderr == ""
     reload.assert_called_once_with(ctx, timeout_seconds=12.5)
 
@@ -158,7 +158,7 @@ def test_install_of_the_active_artifact_reports_no_change(tmp_path: Path, *, moc
     assert stderr == ""
     code, stdout, stderr = invoke(*arguments, "--json")
     assert code == 0
-    assert json.loads(stdout) == unchanged
+    assert json.loads(stdout) == {**unchanged, "next": "openai-responses-proxy status"}
     assert stderr == ""
 
 
@@ -183,6 +183,7 @@ def test_recover_restores_only_the_runtime_bound_retained_transaction(
         "state": "rolled_back",
         "version": "2.0.13",
         "transaction_id": "tx",
+        "next": "openai-responses-proxy status",
     }
     context.assert_called_once_with(port=8801)
     recover.assert_called_once_with(ctx)
@@ -213,7 +214,7 @@ def test_rollback_is_discoverable_and_delegates_to_the_installed_lifecycle(
 
     assert code == 0
     assert stderr == ""
-    assert json.loads(stdout) == result
+    assert json.loads(stdout) == {**result, "next": "openai-responses-proxy status"}
     context.assert_called_once_with(port=8801)
     rollback.assert_called_once_with(
         ctx,
@@ -246,7 +247,7 @@ def test_rollback_to_the_current_release_reports_an_unchanged_terminal_state(
     human_code, human_stdout, human_stderr = invoke("rollback", "--to-release", "3.0.6")
 
     assert json_code == human_code == 0
-    assert json.loads(json_stdout) == unchanged
+    assert json.loads(json_stdout) == {**unchanged, "next": "openai-responses-proxy status"}
     assert "Already selected" in human_stdout
     assert "3.0.6" in human_stdout
     assert json_stderr == human_stderr == ""
@@ -334,7 +335,7 @@ def test_pristine_recover_and_uninstall_are_explicit_no_ops(tmp_path: Path, *, m
     code, stdout, stderr = invoke("recover", "--json")
 
     assert code == 0
-    assert json.loads(stdout) == {"state": "not_required"}
+    assert json.loads(stdout) == {"state": "not_required", "next": None}
     assert stderr == ""
     context.assert_called_once_with(port=8792)
     recover.assert_called_once_with(ctx)
