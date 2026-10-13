@@ -213,6 +213,52 @@ class TestStructuralQualityContracts:
 
         assert gaps == ["architecture_cycle:relay,runtime"]
 
+    def test_architecture_gate_admits_only_declared_runtime_imports_in_the_product(
+        self, tmp_path: Path
+    ) -> None:
+        """Product code may import the standard library, itself and declared runtime dependencies."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "fixture"\ndependencies = ["Rich-Text==1.0", "psutil==7.2.2"]\n',
+            encoding="utf-8",
+        )
+        owner = tmp_path / "src/openai_responses_proxy/relay/owner.py"
+        owner.parent.mkdir(parents=True)
+        owner.write_text(
+            "from __future__ import annotations\n"
+            "import json\n"
+            "import psutil\n"
+            "import rich_text.console\n"
+            "from . import sibling\n"
+            "from openai_responses_proxy.relay import sibling\n"
+            "import tools.quality\n"
+            "from tests.fixtures import helper\n"
+            "import ethos.cli, aigw\n"
+            "from pytest import fixture\n",
+            encoding="utf-8",
+        )
+        policy: dict[str, object] = {
+            "owner": "quality",
+            "risk_model": "a repository-only or foreign import couples the product to its workspace",
+            "measurement": "parse product imports against declared runtime dependencies",
+            "false_positive_cost": "a new runtime dependency is declared in project metadata",
+            "remediation": "declare the dependency or move the coupling out of the product",
+            "review_condition": "reassess when runtime dependencies change",
+            "source_roots": ["src/openai_responses_proxy"],
+            "test_roots": ["tests"],
+            "package_root": "src/openai_responses_proxy",
+            "package_root_modules": [],
+            "root_configuration_modules": [],
+            "package_initializers": "ordinary-modules",
+            "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
+            "external_responsibilities": {"credentials": "client-control-plane"},
+            "allowed_package_edges": {"relay": []},
+        }
+
+        assert architecture_gaps(tmp_path, policy) == [
+            f"architecture_undeclared_import:{module}:src/openai_responses_proxy/relay/owner.py"
+            for module in ("aigw", "ethos", "pytest", "tests", "tools")
+        ]
+
     @pytest.mark.parametrize(
         "source",
         ["value = call(first, second)\n", "value = call(\n first,\n second,\n)\n"],

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import ast
+import re
+import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 POLICY = ROOT / ".config/quality/policy/architecture.toml"
+_REQUIREMENT_NAME_END = re.compile(r"[\s\[(<>=!~;@]")
 
 _POLICY_FIELDS = frozenset(
     {
@@ -91,6 +94,40 @@ def _dependency_cycles(edges: Mapping[str, set[str]]) -> list[tuple[str, ...]]:
         if node not in indices:
             visit(node)
     return sorted(cycles)
+
+
+def _runtime_import_roots(root: Path) -> frozenset[str]:
+    """Return the import roots that declared runtime dependencies provide."""
+    metadata = root / "pyproject.toml"
+    if not metadata.is_file():
+        return frozenset[str]()
+    project = tomllib.loads(metadata.read_text(encoding="utf-8")).get("project", {})
+    names = (
+        _REQUIREMENT_NAME_END.split(requirement.strip(), maxsplit=1)[0]
+        for requirement in project.get("dependencies", [])
+    )
+    return frozenset(re.sub(r"[-.]", "_", name).lower() for name in names)
+
+
+def _undeclared_import_gaps(root: Path, package: Path) -> list[str]:
+    """Report product imports outside the standard library, itself and runtime dependencies."""
+    admitted = frozenset({package.name, *sys.stdlib_module_names, *_runtime_import_roots(root)})
+    gaps: set[str] = set()
+    for path in sorted(package.rglob("*.py")):
+        relative = path.relative_to(root).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            modules: tuple[str, ...] = ()
+            if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                modules = (node.module,)
+            elif isinstance(node, ast.Import):
+                modules = tuple(alias.name for alias in node.names)
+            gaps.update(
+                f"architecture_undeclared_import:{top}:{relative}"
+                for top in (module.split(".", 1)[0] for module in modules)
+                if top not in admitted
+            )
+    return sorted(gaps)
 
 
 def _package_declaration_gaps(root: Path, package: Path) -> list[str]:
@@ -243,5 +280,6 @@ def architecture_gaps(root: Path = ROOT, policy: Mapping[str, object] | None = N
             for target in sorted(targets - allowed_edges.get(owner, frozenset()))
         )
     gaps.extend(f"architecture_cycle:{','.join(cycle)}" for cycle in _dependency_cycles(edges))
+    gaps.extend(_undeclared_import_gaps(root, package))
     gaps.extend(_package_declaration_gaps(root, package))
     return sorted(gaps)
