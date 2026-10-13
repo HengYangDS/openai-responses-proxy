@@ -258,3 +258,23 @@ port.
 - **THEN** `rollback` fails with one bounded lifecycle error
 - **AND** the selector, installed record, command, native supervision and
   journal are unchanged.
+
+### Requirement: Default product roots are disjoint
+
+The default state root, which holds the lifecycle lock and logs, SHALL lie
+outside the default product data root on every supported platform, so that no
+lifecycle command creates content in the root that installation and purge
+verify.
+
+#### Scenario: A fresh Windows host uses the default roots
+
+- **WHEN** no root override is set on Windows
+- **THEN** the data root is `%LOCALAPPDATA%\openai-responses-proxy` and the
+  state root is `%LOCALAPPDATA%\openai-responses-proxy-state`
+- **AND** taking the lifecycle lock before a fresh `install` leaves the data
+  root absent.
+
+#### Scenario: Every platform default is disjoint
+
+- **WHEN** the product resolves its default roots on macOS, Linux or Windows
+- **THEN** taking the lifecycle lock creates content only beneath the state root.

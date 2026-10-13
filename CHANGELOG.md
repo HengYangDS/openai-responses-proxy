@@ -8,6 +8,13 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the default Windows state root, which holds the lifecycle lock and logs,
+  outside the installation root as `%LOCALAPPDATA%\openai-responses-proxy-state`.
+  A fresh default installation no longer refuses its own lock directory as
+  unverified content, and purge no longer reports it as leftover content.
+
 ## [5.0.6] - 2026-10-13
 
 ### Fixed

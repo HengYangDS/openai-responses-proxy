@@ -44,7 +44,7 @@ def platform_context(port: int = 8791, *, windows: bool = False) -> runtime_cont
     if windows:
         home = PureWindowsPath("C:/fixture-home")
         install_dir = home / "AppData" / "Local" / "openai-responses-proxy"
-        log_dir = home / "AppData" / "Local" / "openai-responses-proxy" / "state"
+        log_dir = home / "AppData" / "Local" / "openai-responses-proxy-state"
     else:
         home = PurePosixPath("/fixture-home")
         install_dir = home / ".local" / "share" / "openai-responses-proxy"

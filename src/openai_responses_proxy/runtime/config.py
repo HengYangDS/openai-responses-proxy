@@ -146,14 +146,18 @@ def default_data_dir(environment: Mapping[str, str] | None = None) -> str:
 
 
 def state_dir(environment: Mapping[str, str] | None = None) -> str:
-    """Return the portable product state root, allowing an explicit override."""
+    """Return the portable product state root, allowing an explicit override.
+
+    Every default lies outside the default data root, which installation and
+    purge verify, so taking the lifecycle lock never creates content there.
+    """
     source = os.environ if environment is None else environment
     if override := _absolute_override(source, STATE_HOME_ENV):
         return override
     home = home_dir()
     if os.name == "nt":
         base = source.get("LOCALAPPDATA", path_join(home, "AppData", "Local"))
-        return path_join(base, product_identity.PRODUCT_SLUG, "state")
+        return path_join(base, f"{product_identity.PRODUCT_SLUG}-state")
     if sys.platform == "darwin":
         return path_join(home, "Library", "Logs", product_identity.PRODUCT_SLUG)
     base = source.get("XDG_STATE_HOME", path_join(home, ".local", "state"))

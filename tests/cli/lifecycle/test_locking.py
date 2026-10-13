@@ -2,16 +2,63 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from filelock import FileLock
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
+from openai_responses_proxy.runtime import config
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
+
+
+@pytest.mark.parametrize(
+    ("os_name", "system"),
+    [("posix", "linux"), ("posix", "darwin"), ("nt", "win32")],
+)
+def test_lifecycle_lock_leaves_a_fresh_default_installation_root_absent(
+    tmp_path: Path,
+    os_name: str,
+    system: str,
+    *,
+    mocker,
+) -> None:
+    """Take the writer lock outside the default installation root on every platform."""
+    home = tmp_path / "home"
+    environment = {"HOME": str(home), "LOCALAPPDATA": str(home / "AppData" / "Local")}
+    mocker.patch.object(config, "home_dir", return_value=str(home))
+    with (
+        mock.patch.dict(config.os.environ, environment, clear=True),
+        mock.patch.object(config.os, "name", os_name),
+        mock.patch.object(config.sys, "platform", system),
+    ):
+        roots = config.data_dir(), config.state_dir()
+    install_root, state_root = map(Path, roots)
+    ctx = dataclasses.replace(
+        install_context(tmp_path), install_dir=str(install_root), log_dir=str(state_root)
+    )
+    mocker.patch.object(application.runtime_context, "create", return_value=ctx)
+    observed: list[bool] = []
+    mocker.patch.object(
+        application.install,
+        "install_asset",
+        side_effect=lambda *_args, **_kwargs: observed.append(install_root.exists()),
+    )
+
+    application.dispatch(
+        "install",
+        port=ctx.port,
+        asset=tmp_path / "release.tar.gz",
+        trust_anchor=tmp_path / "trust",
+    )
+
+    assert observed == [False]
+    assert (state_root / "lifecycle.lock").is_file()
 
 
 @pytest.mark.parametrize("command", ["install", "recover", "reload", "rollback", "uninstall"])

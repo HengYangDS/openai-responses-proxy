@@ -42,7 +42,7 @@ class TestInstallationInputValidation:
                 {"os.name": "nt", "sys.platform": "win32"},
                 (
                     "/portable/local/openai-responses-proxy",
-                    "/portable/local/openai-responses-proxy/state",
+                    "/portable/local/openai-responses-proxy-state",
                 ),
             ),
             (
