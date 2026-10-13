@@ -406,9 +406,7 @@ class TestDialogueRecovery:
         assert recovered["input"] == [payload["input"][0], payload["input"][1]]
         assert recovered["include"] == ["other"]
         assert not {"previous_response_id", "conversation", "prompt_cache_key"} & recovered.keys()
-        assert metrics == input_recovery.RecoveryMetrics(
-            len(raw), len(recovery), 2, 1, 3, True, True
-        )
+        assert metrics == input_recovery.RecoveryMetrics(len(raw), len(recovery), 2, 1, True)
 
     def test_latest_role_messages_keep_original_relative_order(self) -> None:
         cases = (

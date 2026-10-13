@@ -38,13 +38,11 @@ def owned_payload_files(ctx: runtime_context.RuntimeContext) -> dict[str, str]:
     ok, detail = verify_payload_manifest(ctx)
     if not ok:
         raise errors.InstallError(f"installed payload integrity check failed: {detail}")
-    manifest = owned_files.read_json_object(manifest_path, "installed payload manifest")
-    owned = set(owned_files.declared_files(manifest)) | set(owned_files.OWNED_PAYLOAD_METADATA)
     return {
         relative: digest.sha256_file(
             owned_files.regular_file(install, relative, "installed payload purge")
         )
-        for relative in sorted(owned)
+        for relative in sorted(owned_files.current_inventory(install))
     }
 
 
