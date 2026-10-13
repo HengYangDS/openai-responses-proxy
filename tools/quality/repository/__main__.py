@@ -20,6 +20,7 @@ from typing import TypedDict
 from cyclopts import App
 
 from tools.quality.commits import commit_subject_gaps
+from tools.quality.python_matrix import supported_requirement
 from tools.quality.repository.decisions import decision_record_gaps
 from tools.quality.repository.names import semantic_name_gaps
 from tools.quality.repository.topology import architecture_gaps
@@ -332,8 +333,10 @@ def audit() -> AuditReport:
     project_name = project.get("name") if isinstance(project, dict) else None
     repository = tool.get(project_name, {}) if isinstance(project_name, str) else {}
     policy_errors: list[str] = []
-    if not isinstance(project, dict) or project.get("requires-python") != ">=3.12":
-        policy_errors.append("requires_python_must_be_3_12_without_upper_bound")
+    if not isinstance(project, dict) or project.get("requires-python") != supported_requirement(
+        ROOT / ".python-versions"
+    ):
+        policy_errors.append("requires_python_must_match_supported_matrix")
     hatch_version = tool.get("hatch", {}).get("version", {})
     if project.get("dynamic") != ["version"] or hatch_version.get("path") != "VERSION":
         policy_errors.append("version_source_must_remain_VERSION")

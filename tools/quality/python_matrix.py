@@ -12,10 +12,28 @@ from pathlib import Path
 from cyclopts import App
 
 
+def supported_versions(versions: Path) -> list[str]:
+    """Read one nonempty ordered range of supported Python minor lines."""
+    values = versions.read_text(encoding="utf-8").splitlines()
+    if not values or any(re.fullmatch(r"\d+\.\d+", value) is None for value in values):
+        raise ValueError("supported Python matrix is unavailable or invalid")
+    lines = [tuple(map(int, value.split("."))) for value in values]
+    if lines != [(lines[0][0], lines[0][1] + offset) for offset in range(len(lines))]:
+        raise ValueError("supported Python matrix is unavailable or invalid")
+    return values
+
+
+def supported_requirement(versions: Path) -> str:
+    """Project the package bounds from the supported Python minor lines."""
+    values = supported_versions(versions)
+    major, minor = map(int, values[-1].split("."))
+    return f">={values[0]},<{major}.{minor + 1}"
+
+
 def write(*, versions: Path, release: Path, metadata: Path, output: Path) -> None:
     """Write Python and native-runtime outputs from repository SSOTs."""
-    values = versions.read_text(encoding="utf-8").splitlines()
-    if not values or len(values) != len(set(values)) or output.is_symlink():
+    values = supported_versions(versions)
+    if output.is_symlink():
         raise ValueError("supported Python matrix is unavailable or invalid")
     release_version = release.read_text(encoding="utf-8").strip()
     if re.fullmatch(r"\d+\.\d+\.\d+", release_version) is None:

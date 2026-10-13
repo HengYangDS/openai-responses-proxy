@@ -55,6 +55,24 @@ def test_matrix_cli_requires_an_output_and_nonempty_unique_versions(tmp_path, mo
         )
 
 
+@pytest.mark.parametrize(
+    ("versions", "requirement"),
+    [("3.12\n3.13\n3.14\n", ">=3.12,<3.15"), ("3.13\n3.14\n", ">=3.13,<3.15")],
+)
+def test_package_python_bounds_derive_from_the_selected_matrix(tmp_path, versions, requirement):
+    path = tmp_path / "versions"
+    path.write_text(versions)
+    assert python_matrix.supported_requirement(path) == requirement
+
+
+@pytest.mark.parametrize("versions", ["3.12\n3.12\n", "3.12.7\n", "3.12\n3.14\n"])
+def test_package_python_bounds_require_an_ordered_contiguous_matrix(tmp_path, versions):
+    path = tmp_path / "versions"
+    path.write_text(versions)
+    with pytest.raises(ValueError, match="matrix is unavailable or invalid"):
+        python_matrix.supported_requirement(path)
+
+
 def _load_yaml(path: Path) -> dict[str, object]:
     """Load a workflow as semantic data rather than presentation text."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))

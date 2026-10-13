@@ -679,11 +679,9 @@ class TestMacosLifecycle:
 
     def test_plist_executes_the_installed_binary_in_private_watchdog_mode(self):
         with _temporary_context("log_dir") as ctx:
-            rendered = macos.render_plist(ctx)
-        assert f"<string>{ctx.executable}</string>" in rendered
-        assert "<string>--internal-watchdog</string>" in rendered
-        assert "python" not in rendered.lower()
-        assert ".py" not in rendered
+            ctx.executable = f"{ctx.install_dir}/python-build.py/bin/openai-responses-proxy"
+            payload = plistlib.loads(macos.render_plist(ctx).encode())
+        assert payload["ProgramArguments"] == [ctx.executable, "--internal-watchdog"]
 
     def test_plist_serialization_preserves_special_characters(self):
         with _temporary_context("log_dir") as ctx:
