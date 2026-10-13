@@ -112,7 +112,7 @@ This checklist retains the original task identities and completion states.
 
 ## 11. Documentation, Configuration, and Experience
 
-- [ ] 11.1 Rebuild the documentation map around product overview, concepts, setup, operations, architecture, contribution, governance, and decisions; verify every canonical document is reachable from `docs/README.md` and every index has a navigation purpose.
+- [x] 11.1 Rebuild the documentation map around product overview, concepts, setup, operations, architecture, contribution, governance, and decisions; verify every canonical document is reachable from `docs/README.md` and every index has a navigation purpose.
 - [ ] 11.2 Rewrite operation and routing journeys against the released executable; verify every documented command in a clean environment.
 - [ ] 11.3 Normalize names, headings, terminology, tables, code blocks, internal links, and external links for semantic precision and readable `信、达、雅`; verify Markdown format, lint, table, and link gates are clean.
 - [x] 11.4 Use numbered durable Decision Records and a complete register; verify enduring decisions and rejected alternatives have a canonical owner.

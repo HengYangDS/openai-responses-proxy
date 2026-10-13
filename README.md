@@ -363,15 +363,7 @@ See [CONTRIBUTING](CONTRIBUTING.md) for source verification and release work.
 
 ## Documentation
 
-| Need                     | Source of truth                                                        |
-| ------------------------ | ---------------------------------------------------------------------- |
-| Product and first use    | This README                                                            |
-| Development workflow     | [CONTRIBUTING](CONTRIBUTING.md)                                        |
-| Runtime architecture     | [Architecture](docs/architecture/authority-and-runtime-boundary.md)    |
-| Release governance       | [Release policy](docs/governance/release-and-change-policy.md)         |
-| Forge publication        | [Forge operations](docs/operations/forge-operations.md)                |
-| Decision register        | [Decision Records](docs/decisions/decision-register.md)                |
-| Durable product boundary | [DR-0001](docs/decisions/dr-0001-control-plane-data-plane-boundary.md) |
-| Release history          | [CHANGELOG](CHANGELOG.md)                                              |
+Use the [documentation map](docs/README.md) for product journeys, architecture,
+decisions, evidence, and release governance.
 
 Licensed under the [MIT License](LICENSE).

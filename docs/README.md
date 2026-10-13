@@ -10,19 +10,26 @@ relations:
 
 # Documentation
 
-This repository uses a deliberately small documentation kernel. It separates
-stable boundary knowledge, durable decisions, proof limits, and release history
-without copying a larger governance system into a small transport adapter.
+Choose the entry for your task. Product use belongs in the project README;
+development and release work belong in CONTRIBUTING. The remaining documents
+own architecture, decisions, evidence, and governance without duplicating those
+journeys.
 
-| Domain         | Document                                                                         | Owns                                                                                |
-| -------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Architecture   | [Authority and runtime boundary](architecture/authority-and-runtime-boundary.md) | Product position, component boundaries, Provider admission, and runtime projection. |
-| Decisions      | [Decision register](decisions/decision-register.md)                              | Decision grammar, coverage rule, and durable rulings.                               |
-| Evidence       | [Evidence policy](evidence/evidence-policy.md)                                   | Proof requirements and evidence limits.                                             |
-| Governance     | [Release and change policy](governance/release-and-change-policy.md)             | Change, release, and contributor rules.                                             |
-| Operations     | [Forge operations](operations/forge-operations.md)                               | Independent GitLab and GitHub operation.                                            |
-| Specifications | [OpenSpec](../openspec/)                                                         | Current specifications and active change.                                           |
-| History        | [Changelog](../CHANGELOG.md)                                                     | Published release history.                                                          |
+| Domain         | Document                                                                         | Owns                                                        |
+| -------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Overview       | [Project README](../README.md)                                                   | Product purpose and supported scope.                        |
+| Concepts       | [Product boundary](../README.md#product-boundary)                                | Data-plane and client-control responsibilities.             |
+| Setup          | [Install](../README.md#install)                                                  | Native installation and upgrade eligibility.                |
+| Client routing | [Configure a client route](../README.md#configure-a-client-route)                | Explicit upstream and loopback composition.                 |
+| Operations     | [Operate](../README.md#operate)                                                  | Status, diagnosis, reload, rollback, recovery, and removal. |
+| Contribution   | [CONTRIBUTING](../CONTRIBUTING.md)                                               | Locked development, verification, and release workflow.     |
+| Architecture   | [Authority and runtime boundary](architecture/authority-and-runtime-boundary.md) | Components, Provider admission, and runtime projection.     |
+| Decisions      | [Decisions](decisions/README.md)                                                 | Durable rulings and their register.                         |
+| Evidence       | [Evidence](evidence/README.md)                                                   | Proof requirements, observations, and acceptance limits.    |
+| Governance     | [Release and change policy](governance/release-and-change-policy.md)             | Change, release, and contributor rules.                     |
+| Publication    | [Forge operations](operations/forge-operations.md)                               | Independent GitLab and GitHub operation.                    |
+| Specifications | [OpenSpec](../openspec/)                                                         | Current specifications and active change.                   |
+| History        | [Changelog](../CHANGELOG.md)                                                     | Published release history.                                  |
 
 Source, tests, `VERSION`, and CI remain higher authority than prose. Generated
 runtime files and host logs are evidence only.
