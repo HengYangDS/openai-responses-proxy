@@ -270,3 +270,30 @@ compare-and-swap request; `candidate/dev` and `work/*` SHALL remain local-only.
 - **THEN** the governed landing command can atomically advance `candidate/dev`
 - **AND** the permission does not authorize direct publication or runtime mutation
 - **AND** no alternate integration path is introduced.
+
+### Requirement: Small public lifecycle grammar
+
+The installed executable SHALL expose only the end-user lifecycle commands
+`install`, `status`, `doctor`, `reload`, `rollback`, `recover`, and `uninstall`.
+`rollback` SHALL require one exact release and converge on it only when it is
+already active or is the sole verified retained predecessor. `recover` SHALL
+resolve only an interrupted or indeterminate installation or purge transaction.
+Source-side release admission and publication SHALL remain outside the
+installed command grammar.
+
+#### Scenario: Public help is rendered
+
+- **WHEN** the operator runs `openai-responses-proxy --help`
+- **THEN** exactly the supported lifecycle commands are presented
+- **AND** rollback and recovery are separately discoverable
+- **AND** their descriptions distinguish explicit release selection from
+  interrupted-transaction recovery
+- **AND** Python module commands, internal service entrypoints, and aliases are
+  absent.
+
+#### Scenario: No predecessor is retained
+
+- **WHEN** the operator requests an exact release that is not active after a
+  fresh installation or before any successful upgrade
+- **THEN** the command reports state `unavailable` without mutation
+- **AND** Human and JSON output explain that no verified predecessor exists.

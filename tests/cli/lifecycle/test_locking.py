@@ -97,6 +97,24 @@ def test_mutating_commands_reject_a_second_lifecycle_writer(
         owner.assert_not_called()
 
 
+def test_no_op_recovery_on_a_fresh_host_creates_only_the_lifecycle_lock(
+    tmp_path: Path,
+    *,
+    mocker,
+) -> None:
+    """A no-op lifecycle result may leave only the writer lock in the state root."""
+    ctx = install_context(tmp_path)
+    mocker.patch.object(application.runtime_context, "create", return_value=ctx)
+    mocker.patch.object(application.control, "read_runtime", return_value=None)
+
+    assert application.dispatch("recover", port=ctx.port) == {"state": "not_required"}
+    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*")) == [
+        "state",
+        "state/openai-responses-proxy",
+        "state/openai-responses-proxy/lifecycle.lock",
+    ]
+
+
 def test_lifecycle_lock_is_released_after_success_and_failure(
     tmp_path: Path,
     *,
