@@ -14,4 +14,5 @@ rules:
     - Assign each failure and repair to one semantic owner.
     - Preserve rollback, evidence, and external-state boundaries.
   tasks:
-    - Put each bounded action and its verification in a numbered checkbox; keep execution results with their verifier and design rationale in design.md.
+    - Keep dependency-ordered numbered checkboxes with stable identities, bounded actions, observable completion conditions and truthful states.
+    - Keep only short evidence references or current dependencies in tasks; preserve execution history and originals with existing Git, CI and native evidence owners.
