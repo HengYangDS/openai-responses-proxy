@@ -134,8 +134,9 @@ native service evidence proves absence.
 `status` and `doctor` SHALL classify a verified installation that keeps its owned
 native supervisor declaration while neither its supervisor nor a listener runs
 as `stopped`, and SHALL name `reload` as its next action. Without a verified
-runtime, `doctor` SHALL name `reload` only for a `stopped` installation and
-SHALL otherwise name read-only `status --json`.
+runtime, `doctor` SHALL name `reload` only for a `stopped` installation,
+`install --help` when native supervision is absent, and otherwise read-only
+`status --json`.
 
 #### Scenario: A restart leaves the installation stopped
 
@@ -149,15 +150,23 @@ SHALL otherwise name read-only `status --json`.
 
 #### Scenario: No verified runtime remains outside the stopped state
 
-- **WHEN** no verified runtime exists and the installation is not `stopped`
+- **WHEN** no verified runtime exists, the installation is not `stopped`, and
+  native supervision is declared, running or unknown
 - **THEN** `doctor` names `status --json` rather than `reload`
 - **AND** `reload` refuses without changing native supervision or processes.
+
+#### Scenario: Native supervision is absent after uninstall
+
+- **WHEN** `uninstall` preserved a verified payload, so that no native
+  supervision, command or listener remains
+- **THEN** `doctor` names `install --help`
+- **AND** installing the same signed artifact reports `installed`.
 
 ### Requirement: Diagnosis of a serving installation names a converging action
 
 With a verified serving runtime, `doctor` SHALL name `reload` only when native
-supervision is declared but not running or outdated, and SHALL name read-only
-`status --json` when native supervision is absent or unknown.
+supervision is declared but not running or outdated, `install --help` when it
+is absent, and read-only `status --json` when it is unknown.
 
 #### Scenario: The watchdog stopped while the listener serves
 
@@ -167,10 +176,14 @@ supervision is declared but not running or outdated, and SHALL name read-only
   names `reload`
 - **AND** after the completed reload `status` reports `running`.
 
-#### Scenario: Native supervision is absent or unobservable
+#### Scenario: Native supervision is absent while the listener serves
 
-- **WHEN** a verified listener serves while native supervision is absent or
-  unknown
+- **WHEN** a verified listener serves while native supervision is absent
+- **THEN** `doctor` names `install --help` rather than `reload`.
+
+#### Scenario: Native supervision is unobservable
+
+- **WHEN** a verified listener serves while native supervision is unknown
 - **THEN** `doctor` names `status --json` rather than `reload`.
 
 ### Requirement: Status reports the native supervisor projection

@@ -203,3 +203,58 @@ one path.
 - **THEN** `reload` fails with one bounded lifecycle error that names the
   serving successor
 - **AND** the handoff is not reversed.
+
+### Requirement: Installing the installed artifact restores native supervision
+
+When a signed artifact exactly matches a verified, transaction-free
+installation whose native supervision is absent or declared but not running,
+`install` SHALL restore the command projection, bind native supervision to the
+lifecycle control executable, and report `installed` only after a listener
+proves the artifact's SERVING identity. It SHALL change no payload file,
+selector or installed record.
+
+#### Scenario: Uninstall preserved the verified payload
+
+- **WHEN** `uninstall` removed native supervision and the command while
+  preserving the verified payload, and the same signed artifact is installed
+  with the installed port and upstream selection
+- **THEN** the command and native supervision are restored and one accepting
+  listener proves the artifact's release receipt and serving payload before
+  `installed` is reported
+- **AND** no transaction is created.
+
+#### Scenario: A verified listener serves without running supervision
+
+- **WHEN** a listener serving exactly that artifact remains while native
+  supervision is absent or declared but not running
+- **THEN** `install` binds native supervision and reports `installed` with that
+  same listener's identity.
+
+#### Scenario: The installation is not proved
+
+- **WHEN** the artifact differs from the installed payload, the payload or
+  command is not verified, the native service is running or unknown, the
+  requested port differs, or another process listens on the installed port
+- **THEN** `install` refuses without changing the command, native supervision,
+  payload or journal.
+
+#### Scenario: The restored listener cannot be proved
+
+- **WHEN** supervision binds but no serving listener is proved within the
+  deadline
+- **THEN** `install` fails with one bounded lifecycle error
+- **AND** the restored command and bound supervisor remain in place.
+
+### Requirement: Rollback requires an answering successor before any change
+
+`rollback` to the retained predecessor SHALL refuse before it creates a
+transaction or changes any projection when no runtime answers on the installed
+port.
+
+#### Scenario: Nothing serves the successor
+
+- **WHEN** a verified predecessor is retained but no runtime answers on the
+  installed port
+- **THEN** `rollback` fails with one bounded lifecycle error
+- **AND** the selector, installed record, command, native supervision and
+  journal are unchanged.

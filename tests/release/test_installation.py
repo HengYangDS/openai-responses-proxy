@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import urllib.error
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 from typing import override
@@ -10,6 +11,7 @@ from typing import override
 import pytest
 
 from openai_responses_proxy import errors
+from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
@@ -883,7 +885,7 @@ class TestReleasedDeployment:
         service = FakeServiceAdapter(mocker=mocker)
 
         def runtime_reader(_ctx):
-            return None
+            return {"pid": 321}
 
         result = apply.rollback(
             self.ctx,
@@ -906,6 +908,31 @@ class TestReleasedDeployment:
             runtime_reader=runtime_reader,
             timeout_seconds=12.5,
         )
+
+    def test_explicit_rollback_refuses_before_any_change_when_no_runtime_answers(
+        self, *, mocker
+    ) -> None:
+        retained = payload_rollback.RetainedRollback(
+            root=Path("/retained/1.2.2"),
+            predecessor=retained_identity("1.2.2"),
+            successor=retained_identity("1.2.3"),
+        )
+        begin = mocker.patch.object(transaction, "begin_rollback_transaction")
+        install = mocker.patch.object(apply, "install")
+        service = FakeServiceAdapter(mocker=mocker)
+
+        with pytest.raises(errors.InstallError, match="verified running successor"):
+            apply.rollback(
+                self.ctx,
+                retained,
+                adapter=service,
+                runtime_reader=lambda _ctx: None,
+            )
+
+        begin.assert_not_called()
+        install.assert_not_called()
+        service.install_mock.assert_not_called()
+        service.uninstall_mock.assert_not_called()
 
     def test_explicit_rollback_uses_current_runtime_handoff_capability(self, *, mocker) -> None:
         """Rollback keeps admission open when the current listener supports handoff."""
@@ -1015,7 +1042,7 @@ class TestReleasedDeployment:
                 self.ctx,
                 retained,
                 adapter=FakeServiceAdapter(mocker=mocker),
-                runtime_reader=lambda _ctx: None,
+                runtime_reader=lambda _ctx: {"pid": 321},
             )
 
     def test_request_handoff_resolves_finalized_rolled_back_and_unknown(
@@ -1245,6 +1272,175 @@ def test_install_of_exact_active_artifact_preserves_every_projection(
     applied.assert_not_called()
     native.install.assert_not_called()
     native.uninstall.assert_not_called()
+
+
+def _unsupervised_installation(root: Path, *, service: str, serving: bool = False, mocker):
+    """Install one verified payload whose native supervision is absent or stopped."""
+    ctx = install_context(root)
+    install_payload(ctx, mocker=mocker)
+    released = released_artifact()
+    mocker.patch.object(install.artifact, "admit", return_value=released)
+    control_ctx = generation.control_context(ctx)
+    committed = identity.committed_payload(Path(ctx.executable))
+    assert committed is not None
+    bound = {"control": service == "installed"}
+    native = mocker.Mock()
+    native.status.return_value = service
+    native.configured_executable.side_effect = lambda _ctx: (
+        control_ctx.executable if bound["control"] else None
+    )
+    native.install.side_effect = lambda _ctx: bound.update(control=True)
+    mocker.patch(
+        "openai_responses_proxy.lifecycle.supervision.native_service.adapter", return_value=native
+    )
+    mocker.patch.object(control, "adapter", return_value=native)
+    runtime = {
+        "pid": 4242,
+        **committed.handoff(),
+        "payload_manifest_sha256": committed.manifest_sha256,
+        "accepting": True,
+        "draining": False,
+    }
+    listeners = [4242] if serving else []
+    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=listeners)
+    mocker.patch.object(control.process, "listener_pids", return_value=listeners)
+    mocker.patch.object(control, "read_runtime", return_value=runtime if serving else None)
+    return ctx, control_ctx, native, committed, runtime
+
+
+@pytest.mark.parametrize(
+    ("service", "serving", "command_removed"),
+    [
+        ("absent", False, True),
+        ("absent", False, False),
+        ("installed", False, False),
+        ("absent", True, False),
+        ("installed", True, False),
+    ],
+)
+def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_installation(
+    tmp_path: Path, service: str, serving: bool, command_removed: bool, *, mocker
+) -> None:
+    ctx, control_ctx, native, committed, runtime = _unsupervised_installation(
+        tmp_path, service=service, serving=serving, mocker=mocker
+    )
+    if command_removed:
+        Path(ctx.command).unlink()
+    wait = mocker.patch.object(control.apply, "wait_for_serving_runtime", return_value=runtime)
+    begin = mocker.spy(transaction, "begin_transaction")
+    applied = mocker.patch.object(apply, "install")
+    installed_bytes = payload_state.installed_path(ctx).read_bytes()
+    selector_bytes = generation.selector_path(ctx).read_bytes()
+
+    assert install.install_asset(
+        ctx,
+        tmp_path / "release.tar.gz",
+        trust_anchor=tmp_path / "allowed-signers",
+        timeout_seconds=12.5,
+    ) == {"state": "installed", "runtime": runtime}
+
+    assert command.status(Path(ctx.command), Path(control_ctx.executable))["state"] == "owned"
+    native.install.assert_called_once_with(control_ctx)
+    wait.assert_called_once_with(
+        ctx,
+        committed.handoff(),
+        runtime_reader=control.read_runtime,
+        timeout_seconds=12.5,
+    )
+    assert payload_state.installed_path(ctx).read_bytes() == installed_bytes
+    assert generation.selector_path(ctx).read_bytes() == selector_bytes
+    assert not payload_state.journal_path(ctx).exists()
+    begin.assert_not_called()
+    applied.assert_not_called()
+    native.uninstall.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        "different_artifact",
+        "foreign_listener",
+        "service_unknown",
+        "service_running",
+        "other_port",
+        "foreign_command",
+        "changed_payload",
+    ],
+)
+def test_install_of_the_exact_artifact_refuses_an_unproved_unsupervised_installation(
+    tmp_path: Path, evidence: str, *, mocker
+) -> None:
+    ctx, _control_ctx, native, _committed, _runtime = _unsupervised_installation(
+        tmp_path,
+        service={"service_unknown": "unknown", "service_running": "running"}.get(
+            evidence, "absent"
+        ),
+        mocker=mocker,
+    )
+    if evidence == "different_artifact":
+        mocker.patch.object(
+            install.artifact,
+            "admit",
+            return_value=released_artifact(executable_content=b"different-native-executable"),
+        )
+    if evidence == "foreign_listener":
+        mocker.patch.object(control.process, "listener_pids", return_value=[99])
+    if evidence == "foreign_command":
+        Path(ctx.command).unlink()
+        Path(ctx.command).write_text("another owner\n", encoding="utf-8")
+    if evidence == "changed_payload":
+        Path(ctx.executable).write_bytes(b"changed-native-executable")
+    requested = replace(ctx, port=ctx.port + 1) if evidence == "other_port" else ctx
+    wait = mocker.patch.object(control.apply, "wait_for_serving_runtime")
+    begin = mocker.spy(transaction, "begin_transaction")
+    command_bytes = Path(ctx.command).read_bytes()
+    message = (
+        "selected control-plane generation identity is invalid"
+        if evidence == "changed_payload"
+        else "not the verified active installation"
+    )
+
+    with pytest.raises(errors.InstallError, match=message):
+        install.install_asset(
+            requested, tmp_path / "release.tar.gz", trust_anchor=tmp_path / "allowed-signers"
+        )
+
+    assert Path(ctx.command).read_bytes() == command_bytes
+    assert not payload_state.journal_path(ctx).exists()
+    native.install.assert_not_called()
+    native.uninstall.assert_not_called()
+    wait.assert_not_called()
+    begin.assert_not_called()
+
+
+def test_install_of_the_exact_artifact_keeps_restored_supervision_when_no_listener_is_proved(
+    tmp_path: Path, *, mocker
+) -> None:
+    ctx, control_ctx, native, _committed, _runtime = _unsupervised_installation(
+        tmp_path, service="absent", mocker=mocker
+    )
+    Path(ctx.command).unlink()
+    mocker.patch.object(
+        control.apply,
+        "wait_for_serving_runtime",
+        side_effect=errors.InstallError("released successor did not prove SERVING identity"),
+    )
+
+    with pytest.raises(
+        errors.InstallError,
+        match=r"native supervisor started but no listener proved SERVING identity within 3s",
+    ):
+        install.install_asset(
+            ctx,
+            tmp_path / "release.tar.gz",
+            trust_anchor=tmp_path / "allowed-signers",
+            timeout_seconds=3.0,
+        )
+
+    assert command.status(Path(ctx.command), Path(control_ctx.executable))["state"] == "owned"
+    native.install.assert_called_once_with(control_ctx)
+    native.uninstall.assert_not_called()
+    assert not payload_state.journal_path(ctx).exists()
 
 
 def test_install_admission_failure_closes_the_prepared_transaction(

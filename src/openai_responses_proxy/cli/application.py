@@ -332,6 +332,8 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
         next_command = product_identity.command("install", "--help")
     elif state == "stopped":
         next_command = product_identity.command("reload")
+    elif service_detail == "absent":
+        next_command = product_identity.command("install", "--help")
     elif not listener_ok:
         next_command = product_identity.command("status", "--json")
     elif service_detail in {"installed", "outdated"}:

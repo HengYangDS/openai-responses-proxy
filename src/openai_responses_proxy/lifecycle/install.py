@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import artifact
+from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
@@ -13,6 +15,43 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
+from openai_responses_proxy.lifecycle.supervision import process
+from openai_responses_proxy.service import identity
+
+
+def _lacks_supervision(
+    ctx: runtime_context.RuntimeContext,
+    released: artifact.VerifiedArtifact,
+    installed: Mapping[str, object],
+    observed: Mapping[str, object],
+) -> bool:
+    """Return whether this artifact's verified installation lacks only running supervision.
+
+    Its listener either serves this exact artifact or is absent with the port free.
+    """
+    integrity = observed.get("payload_integrity")
+    command_state = observed.get("command")
+    if (
+        not isinstance(integrity, dict)
+        or integrity.get("ok") is not True
+        or observed.get("service") not in {"absent", "installed"}
+        or not isinstance(command_state, dict)
+        or command_state.get("state") not in {"owned", "absent"}
+    ):
+        return False
+    committed = identity.committed_payload(Path(generation.selected_context(ctx).executable))
+    if (
+        committed is None
+        or committed.release_receipt_sha256 != released.receipt_sha256
+        or committed.serving_payload_sha256 != released.serving_payload_sha256
+        or not control.installed_names(ctx, installed, committed)
+    ):
+        return False
+    runtime = observed.get("runtime")
+    if isinstance(runtime, dict):
+        serving = (runtime.get("release_receipt_sha256"), runtime.get("serving_payload_sha256"))
+        return serving == (released.receipt_sha256, released.serving_payload_sha256)
+    return observed.get("listener_pids") == [] and not process.listener_pids(ctx.port)
 
 
 def install_asset(
@@ -54,6 +93,14 @@ def install_asset(
             == runtime_spec.normalized_path(control_ctx.executable)
         ):
             return {"state": "unchanged", "release": released.version}
+        if selected_settings[config.PROXY_PORT_ENV] == str(ctx.port) and _lacks_supervision(
+            ctx, released, previous, observed
+        ):
+            command.project(Path(state.require_command(previous)), Path(control_ctx.executable))
+            return {
+                "state": "installed",
+                "runtime": control.start_supervised(ctx, timeout_seconds=timeout_seconds),
+            }
         raise errors.InstallError("requested artifact is not the verified active installation")
     payload_transaction = transaction.begin_transaction(ctx, released)
     try:

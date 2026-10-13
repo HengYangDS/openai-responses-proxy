@@ -427,6 +427,66 @@ class TestSignedNativeLifecycle:
                     executable, environment, "status", "--port", str(port), "--json"
                 )
                 assert (current["state"], current["service"]) == ("running", "running")
+            stop_native_supervision(ctx, keep_runtime=True)
+            orphaned = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert orphaned["service"] == "installed"
+            orphan = orphaned["runtime"]
+            assert isinstance(orphan, dict)
+            adopted = run_command(
+                executable,
+                environment,
+                "install",
+                "--asset",
+                str(current_asset),
+                "--trust-anchor",
+                str(anchor),
+                "--port",
+                str(port),
+                "--upstream-base-url",
+                upstream_url,
+                "--json",
+            )
+            assert adopted["state"] == "installed"
+            adopted_runtime = adopted["runtime"]
+            assert isinstance(adopted_runtime, dict)
+            assert adopted_runtime["pid"] == orphan["pid"]
+            readopted = run_command(
+                executable, environment, "status", "--port", str(port), "--json"
+            )
+            assert (readopted["state"], readopted["service"]) == ("running", "running")
+            removed = run_command(
+                executable, environment, "uninstall", "--port", str(port), "--json"
+            )
+            assert removed["state"] == "uninstalled"
+            retained = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert retained["state"] == "degraded"
+            assert retained["service"] == "absent"
+            assert retained["runtime"] is None
+            diagnosed = run_command(
+                executable, environment, "doctor", "--port", str(port), "--json", expected=1
+            )
+            assert diagnosed["next"] == "openai-responses-proxy install --help"
+            restored = run_command(
+                executable,
+                environment,
+                "install",
+                "--asset",
+                str(current_asset),
+                "--trust-anchor",
+                str(anchor),
+                "--port",
+                str(port),
+                "--upstream-base-url",
+                upstream_url,
+                "--json",
+            )
+            assert restored["state"] == "installed"
+            resumed = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert (resumed["state"], resumed["service"]) == ("running", "running")
+            upstream.push((200, b'{"id":"after-restore","status":"completed"}'))
+            assert post_response(port, route="upstream") == (
+                b'{"id":"after-restore","status":"completed"}'
+            )
             residue = install / "operator-note.txt"
             residue.write_text("preserve\n", encoding="utf-8")
             refused_purge = run_command(

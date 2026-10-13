@@ -203,7 +203,11 @@ openai-responses-proxy uninstall --purge
 Lifecycle JSON uses one explicit `state` discriminator. `install` returns
 `unchanged` when the signed artifact exactly matches the healthy active
 installation; it neither replaces files nor restarts the listener. The same
-version with different artifact bytes is not the same installation.
+version with different artifact bytes is not the same installation. When that
+artifact's verified installation lacks native supervision, for example after
+`uninstall` preserved the payload, `install` restores the command and native
+supervision without replacing payload files and returns `installed` after the
+serving listener is proved.
 `status` reports `stopped` when a verified installation keeps its owned
 supervisor declaration but neither the supervisor nor a listener runs, for
 example after a restart, and names `reload` as the next action. `reload`
@@ -217,14 +221,16 @@ the installed release's rendering, for example a launch agent that an older
 installer wrote; Windows compares only the scheduled task's action, because Task
 Scheduler normalizes the rest of an exported task. With a serving listener,
 `doctor` names `reload` when native supervision is declared but not running or
-outdated, and `status --json` when supervision is absent or unknown. Without a
-verified runtime, any other state is not reloaded; `doctor` then names
-`status --json`.
+outdated, `install --help` when it is absent, and `status --json` when it is
+unknown. Without a verified runtime, `doctor` names `reload` only for a
+`stopped` installation, `install --help` when native supervision is absent, and
+otherwise `status --json`.
 `rollback` returns
 `unchanged` when the requested release is already the proven active
 installation, `unavailable` when no verified predecessor exists, and
 `rolled_back` only after the requested predecessor is the proven accepting
-installation. `recover` returns
+installation. It refuses before any change when no runtime answers on the
+installed port; start a `stopped` installation with `reload` first. `recover` returns
 `not_required` when no transaction exists, `closed` when an unmutated prepared
 transaction is discarded, `finalized` when the committed candidate is already
 the proven live installation, `rolled_back` when the exact prior state is

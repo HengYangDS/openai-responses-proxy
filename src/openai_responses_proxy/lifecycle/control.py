@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
 
 from openai_responses_proxy import errors
@@ -82,15 +83,7 @@ def status(
         else None
     )
     committed = identity.committed_payload(Path(active.executable)) if integrity_ok else None
-    selection = generation.read(ctx)
-    installed_matches_payload = (
-        installed is not None
-        and committed is not None
-        and installed.get("version") == committed.release
-        and installed.get("receipt_sha256") == committed.release_receipt_sha256
-        and installed.get("command") == ctx.command
-        and (selection is None or installed.get("transaction_id") == selection.active)
-    )
+    installed_matches_payload = installed_names(ctx, installed, committed)
     runtime_matches_payload = (
         isinstance(runtime, dict)
         and committed is not None
@@ -232,6 +225,23 @@ def status(
     return evidence
 
 
+def installed_names(
+    ctx: runtime_context.RuntimeContext,
+    installed: Mapping[str, object] | None,
+    committed: identity.LoadedPayloadIdentity | None,
+) -> bool:
+    """Return whether the installed record names this committed payload as the active selection."""
+    if installed is None or committed is None:
+        return False
+    selection = generation.read(ctx)
+    return (
+        installed.get("version") == committed.release
+        and installed.get("receipt_sha256") == committed.release_receipt_sha256
+        and installed.get("command") == ctx.command
+        and (selection is None or installed.get("transaction_id") == selection.active)
+    )
+
+
 def _observe_supervision(
     active: runtime_context.RuntimeContext, control_ctx: runtime_context.RuntimeContext
 ) -> tuple[str, bool]:
@@ -271,16 +281,16 @@ def _stopped_supervisor_is_bound(active: runtime_context.RuntimeContext) -> bool
     )
 
 
-def _start_stopped(
+def start_supervised(
     ctx: runtime_context.RuntimeContext, *, timeout_seconds: float
 ) -> dict[str, object]:
-    """Start one stopped installation through its native supervisor and prove SERVING."""
+    """Bind native supervision for one verified installation and prove its SERVING listener."""
     committed = identity.committed_payload(Path(ctx.executable))
     if committed is None:
         raise errors.InstallError("installed payload changed before supervised start")
     apply.bind_control_supervisor(adapter(), generation.control_context(ctx))
     try:
-        runtime = apply.wait_for_serving_runtime(
+        return apply.wait_for_serving_runtime(
             ctx,
             committed.handoff(),
             runtime_reader=read_runtime,
@@ -291,7 +301,6 @@ def _start_stopped(
             "native supervisor started but no listener proved SERVING identity "
             f"within {timeout_seconds:g}s"
         ) from exc
-    return {"state": "started", "new_pid": runtime["pid"]}
 
 
 def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -> dict[str, object]:
@@ -310,7 +319,8 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
     runtime = read_runtime(ctx)
     if not handoff.runtime_supports_handoff(runtime):
         if runtime is None and status(ctx, include_rollback=False)["state"] == "stopped":
-            return _start_stopped(ctx, timeout_seconds=timeout_seconds)
+            started = start_supervised(ctx, timeout_seconds=timeout_seconds)
+            return {"state": "started", "new_pid": started["pid"]}
         raise errors.InstallError("installed runtime is not healthy enough to reload")
     assert runtime is not None
     integrity_ok, integrity_detail = projection.verify_payload_manifest(ctx)

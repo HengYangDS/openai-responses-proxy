@@ -205,16 +205,16 @@ alias or a second installer.
 
 ## Runtime operations
 
-| Command             | Mutation                                 | Proof boundary                          |
-| ------------------- | ---------------------------------------- | --------------------------------------- |
-| `status`            | None                                     | Installed payload and listener evidence |
-| `doctor`            | None                                     | Classified local lifecycle checks       |
-| `reload`            | Handoff with supervisor rebind, or start | Exact successor and supervisor identity |
-| `install`           | Payload replacement                      | Verified asset and successor            |
-| `rollback`          | Predecessor restore                      | Selected retained generation            |
-| `recover`           | Transaction resume                       | Active transaction and runtime evidence |
-| `uninstall`         | Service removal                          | Exact owned process exit                |
-| `uninstall --purge` | Owned payload removal                    | Valid manifest inventory                |
+| Command             | Mutation                                    | Proof boundary                          |
+| ------------------- | ------------------------------------------- | --------------------------------------- |
+| `status`            | None                                        | Installed payload and listener evidence |
+| `doctor`            | None                                        | Classified local lifecycle checks       |
+| `reload`            | Handoff with supervisor rebind, or start    | Exact successor and supervisor identity |
+| `install`           | Payload replacement, or supervision restore | Verified asset and successor            |
+| `rollback`          | Predecessor restore                         | Selected retained generation            |
+| `recover`           | Transaction resume                          | Active transaction and runtime evidence |
+| `uninstall`         | Service removal                             | Exact owned process exit                |
+| `uninstall --purge` | Owned payload removal                       | Valid manifest inventory                |
 
 No lifecycle command edits a client or conversation.
 

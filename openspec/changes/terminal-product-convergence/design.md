@@ -504,8 +504,8 @@ serving identity within the operator deadline before returning `started`. A
 failed proof leaves the declared supervisor bound: no predecessor runtime exists
 to restore. macOS, Linux and Windows share this path through the adapter
 protocol. `doctor` names `reload` only for this state or a verified live runtime
-that can hand off, and read-only `status --json` when no verified runtime
-exists, so diagnosis and reload cannot send an operator around a loop. The
+that can hand off, and never names it when no verified runtime exists outside
+this state, so diagnosis and reload cannot send an operator around a loop. The
 `stopped` state and `started` result replace the former blanket reload
 recommendation; `recover` remains bound to interrupted transactions.
 
@@ -520,9 +520,32 @@ rebinds on every reload, so the installed command's adapter also replaces a
 definition that an older installer rendered. A rebind failure after the handoff
 is one bounded error that names the serving successor and reverses nothing.
 With a live runtime, `doctor` names `reload` only when supervision is declared
-but not running, and read-only `status --json` when supervision is absent or
-unobservable: an absent declaration may remain from an interrupted removal, so
+but not running, and read-only `status --json` when supervision is
+unobservable. An absent declaration may remain from an interrupted removal, so
 recreating it is not reload's decision.
+
+An absent declaration converges through `install`, which expresses
+installation intent. `uninstall` deliberately preserves the verified payload,
+yet the same signed artifact was then refused as "not the verified active
+installation" while `doctor` named `install --help`, so only `uninstall --purge`
+followed by a fresh installation restored service. `install` now admits a third
+state beside a fresh target and a verified current listener: the exact
+artifact's verified, transaction-free installation whose native supervision is
+absent or declared but not running, and whose listener either serves that
+artifact or is absent with the installed port free. It restores the command
+projection, binds supervision through the adapter's installation operation and
+proves the serving listener before returning `installed`, without a payload
+transaction, so the retained rollback predecessor survives. A running or
+unobservable service, another artifact, an unverified payload or command,
+another port and a foreign listener stay refused. `doctor` names
+`install --help` whenever supervision is absent.
+
+Rollback states its own precondition before any change. It reuses the upgrade
+machinery, whose fresh-installation branch also admits an installation that
+nothing serves, so rolling back such an installation activated and started the
+predecessor and only then failed its "verified running successor" check.
+Rollback now requires an answering runtime before it creates the reverse
+transaction; a `stopped` installation is started with `reload` first.
 
 A running supervisor can still carry a definition that another release
 rendered. An upgrade binds supervision with the invoking installer's adapter, so
@@ -537,9 +560,12 @@ compares the registered task action, because Task Scheduler normalizes the rest
 of an exported task, so an outdated Windows definition is observable only
 through its action. A running supervisor whose declaration does not bind the
 lifecycle control executable is `degraded` with that detail, and `doctor` names
-`status --json`, matching the refusal of both upgrade and reload. A carrier
-registered outside the selected launchd domain and an absent declaration remain
-recorded follow-ups.
+`status --json`, matching the refusal of both upgrade and reload. launchd itself
+keeps one label out of a second domain: with a GUI login, bootstrapping a label
+into `gui/<uid>` after `user/<uid>`, or the reverse, fails with exit 5 on
+macOS 27, so the adapter's refusal of a registration in both domains is a guard
+rather than a reachable state. A registration in the unselected domain alone is
+replaced by the next bind and by a restart.
 
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to

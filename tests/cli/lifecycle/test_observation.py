@@ -137,8 +137,18 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
             "degraded",
             "openai-responses-proxy status --json",
         ),
+        (
+            {**stopped, "state": "degraded", "service": "absent"},
+            "degraded",
+            "openai-responses-proxy install --help",
+        ),
+        (
+            {**stopped, "state": "degraded", "service": "unknown"},
+            "degraded",
+            "openai-responses-proxy status --json",
+        ),
         (serving, "degraded", "openai-responses-proxy reload"),
-        ({**serving, "service": "absent"}, "degraded", "openai-responses-proxy status --json"),
+        ({**serving, "service": "absent"}, "degraded", "openai-responses-proxy install --help"),
         ({**serving, "service": "unknown"}, "degraded", "openai-responses-proxy status --json"),
         ({**serving, "service": "outdated"}, "degraded", "openai-responses-proxy reload"),
     ):

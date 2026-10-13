@@ -111,6 +111,8 @@ def rollback(
     timeout_seconds: float = 30.0,
 ) -> dict[str, object]:
     """Apply one retained predecessor through the ordinary upgrade machinery."""
+    if runtime_reader(ctx) is None:
+        raise errors.InstallError("rollback requires a verified running successor")
     payload = transaction.begin_rollback_transaction(ctx, retained)
     result = install(
         ctx,

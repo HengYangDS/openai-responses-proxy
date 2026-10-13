@@ -290,7 +290,10 @@ path. Once established, the installed release owns adjacent upgrades normally.
 Reload is a same-payload handoff that then binds native supervision to the
 lifecycle control executable, as an upgrade's handoff does; when a verified
 installation's supervisor is stopped and no runtime remains, reload binds that
-supervisor and proves the serving listener instead. Upgrade is install. Rollback is a new reverse
+supervisor and proves the serving listener instead. Upgrade is install. Installing
+the signed artifact whose verified installation lacks native supervision
+restores the command and that supervision without a payload transaction.
+Rollback is a new reverse
 transaction from the current successor to its sole retained predecessor.
 Recover resumes or resolves an already active transaction; it is not a synonym
 for rollback. Uninstall removes native supervision first, proves owned listener

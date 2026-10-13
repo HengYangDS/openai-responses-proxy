@@ -8,6 +8,23 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Restore native supervision by installing the installed artifact. `uninstall`
+  preserves the verified payload, but the same signed artifact was then refused
+  as "not the verified active installation" while `doctor` named
+  `install --help`, so only `uninstall --purge` and a fresh installation
+  restored service. `install` now restores the command and native supervision of
+  that artifact's verified installation when supervision is absent or declared
+  but not running, without replacing payload files, and returns `installed`
+  after the serving listener is proved. `doctor` names `install --help` whenever
+  native supervision is absent.
+- Refuse a rollback that nothing serves before any change. With no runtime on
+  the installed port, `rollback --to-release <predecessor>` activated and started
+  the predecessor and then failed with "rollback requires a verified running
+  successor". It now refuses first and changes nothing; start a `stopped`
+  installation with `reload` before rolling back.
+
 ## [5.0.4] - 2026-10-12
 
 ### Fixed

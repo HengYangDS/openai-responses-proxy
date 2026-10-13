@@ -60,8 +60,10 @@ requires explicit operational authorization. See [CONTRIBUTING](CONTRIBUTING.md)
 
 Use `openai-responses-proxy status --json` for read-only runtime evidence. Reload
 and upgrade are transactional lifecycle mutations and must be communicated
-before execution. Installation accepts only a fresh target or one verified
-current native listener; an incompatible payload must be removed explicitly.
+before execution. Installation accepts only a fresh target, one verified
+current native listener, or the same signed artifact's verified installation
+that lacks native supervision; an incompatible payload must be removed
+explicitly.
 
 Release preparation requires a clean accepted release checkout. Native builders
 produce each platform asset from that frozen source; tag creation binds the
