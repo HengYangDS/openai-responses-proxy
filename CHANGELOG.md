@@ -8,6 +8,13 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject terminal message-tool calls with missing or unreadable arguments even
+  when their status remains `in_progress`, while preserving valid initial
+  streaming events and already committed output.
+- Recognize public Git signature fingerprints without weakening secret detection.
+
 ## [5.0.5] - 2026-10-13
 
 ### Fixed
