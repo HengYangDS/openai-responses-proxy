@@ -52,6 +52,12 @@ flowchart LR
 
 - Use one active atomic OpenSpec change for material product work.
 - Keep source, tests, docs, and specification synchronized.
+- Keep `tasks.md` as dependency-ordered, actionable checkboxes. Each task
+  states its bounded work and completion test; preserve stable task identities
+  and truthful completion states. Reference detailed execution and evidence
+  through their existing Git, CI and native Attestation owners. Update task
+  text only when its action, acceptance or state changes; retain current
+  dependency and review information when it is needed to execute pending work.
 - Complete and archive OpenSpec changes through the declared lifecycle after
   canonical specifications and durable decisions absorb their surviving
   semantics. Archived changes remain historical inputs, not mutation authority.
