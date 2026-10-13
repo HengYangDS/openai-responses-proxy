@@ -10,8 +10,8 @@ import pytest
 from openai_responses_proxy.protocol.agent_delivery import PLAINTEXT_NAMESPACE
 from tests.protocol.test_agent_delivery import _call
 from tests.protocol.test_agent_delivery import _tools
-from tests.relay.proxy_fixture import request
-from tests.relay.proxy_fixture import running_proxy
+from tests.relay.fixtures import request
+from tests.relay.fixtures import running_proxy
 
 
 class AgentDeliveryRelayContracts:

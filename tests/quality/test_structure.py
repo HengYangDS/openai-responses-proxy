@@ -790,7 +790,9 @@ class TestStructuralQualityContracts:
         )
         with repository(files) as root:
             inventory = quality_inventory(root)
-        assert inventory.gaps == ("quality_inventory_test_misnamed:tests/nested/helper.py",)
+        assert inventory.gaps == (
+            "quality_inventory_test_misnamed:tests/nested/helper.py,tests/protocol/replay_fixture.py",
+        )
 
     @pytest.mark.parametrize(
         ("totals", "floor", "expected"),

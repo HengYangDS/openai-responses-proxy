@@ -944,7 +944,7 @@ class TestQualityPolicyContracts:
     def test_service_tests_follow_runtime_and_deployment_ownership(self) -> None:
         tests = ROOT / "tests"
         assert [name for name in ("listener",) if (tests / name).exists()] == []
-        assert (tests / "relay/proxy_fixture.py").is_file()
+        assert (tests / "relay/fixtures.py").is_file()
         assert (tests / "runtime/test_process_environment.py").is_file()
         assert (tests / "service/test_entrypoint.py").is_file()
         assert (tests / "service/handoff/test_state_machine.py").is_file()

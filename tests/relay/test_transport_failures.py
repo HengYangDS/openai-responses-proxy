@@ -21,10 +21,10 @@ from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
-from tests.relay.exchange_fixture import DirectResponse
-from tests.relay.exchange_fixture import InputTransportFixture
-from tests.relay.exchange_fixture import MemoryHandler
-from tests.relay.exchange_fixture import http_error
+from tests.relay.fixtures import DirectResponse
+from tests.relay.fixtures import InputTransportFixture
+from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import http_error
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()

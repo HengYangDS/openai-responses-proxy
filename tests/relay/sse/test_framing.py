@@ -19,12 +19,12 @@ from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
 from tests.protocol.test_agent_delivery import _call
-from tests.relay.exchange_fixture import DirectResponse
-from tests.relay.exchange_fixture import InputTransportFixture
-from tests.relay.exchange_fixture import MemoryHandler
-from tests.relay.exchange_fixture import request_body
-from tests.relay.proxy_fixture import request
-from tests.relay.proxy_fixture import running_proxy
+from tests.relay.fixtures import DirectResponse
+from tests.relay.fixtures import InputTransportFixture
+from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import request
+from tests.relay.fixtures import request_body
+from tests.relay.fixtures import running_proxy
 
 
 class TestSseFraming(InputTransportFixture):
