@@ -117,7 +117,10 @@ def test_native_helper_supply_refuses_unsupplied_or_invalid_requirements(
     session.install.assert_not_called()
 
 
+@pytest.mark.parametrize(("platform_name", "ruff_name"), [("posix", "ruff"), ("nt", "ruff.exe")])
 def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
+    platform_name: str,
+    ruff_name: str,
     tmp_path: Path,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
@@ -132,6 +135,11 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     session.env = {}
     session.create_tmp.return_value = str(work)
     mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(output)})
+    mocker.patch.object(
+        nox_configuration.python_quality,
+        "os",
+        SimpleNamespace(name=platform_name, environ=os.environ),
+    )
     for name in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
         mocker.patch.object(nox_configuration, name)
 
@@ -158,7 +166,7 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
         nox_configuration.python_quality.RUFF_CONFIG
     )
     ruff = list(checker[checker.index("--") + 1 :])
-    assert ruff[0] == str(tmp_path / "ruff")
+    assert ruff[0] == str(tmp_path / ruff_name)
     assert ruff[1] == "check"
     assert "--verbose" in ruff
     assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.json")
