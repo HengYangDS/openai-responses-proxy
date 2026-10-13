@@ -10,8 +10,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from openai_responses_proxy import product_identity
-from tools.forge import tag_signature
 from tools.release import identity
+from tools.release import tag_signature
 from tools.release.artifact import assembly
 from tools.release.publication import hosted
 

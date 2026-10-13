@@ -1,4 +1,4 @@
-"""Validate product package ownership and dependency direction."""
+"""Validate product and repository-tool ownership and dependency direction."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import ast
 import re
 import sys
 import tomllib
+from collections.abc import Iterator
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -34,27 +35,30 @@ _POLICY_FIELDS = frozenset(
 )
 
 
+def _absolute_imports(path: Path) -> Iterator[str]:
+    """Yield every absolute module name that one Python file imports."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            yield node.module
+        elif isinstance(node, ast.Import):
+            yield from (alias.name for alias in node.names)
+
+
 def _package_edges(package: Path, package_name: str) -> dict[str, set[str]]:
     edges: dict[str, set[str]] = {}
+    prefix = f"{package_name}."
     for path in sorted(package.rglob("*.py")) if package.is_dir() else ():
         relative = path.relative_to(package)
         if len(relative.parts) < 2:
             continue
         owner = relative.parts[0]
-        edges.setdefault(owner, set())
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            modules: tuple[str, ...] = ()
-            if isinstance(node, ast.ImportFrom) and node.module:
-                modules = (node.module,)
-            elif isinstance(node, ast.Import):
-                modules = tuple(alias.name for alias in node.names)
-            for module in modules:
-                prefix = f"{package_name}."
-                if module.startswith(prefix):
-                    target = module.removeprefix(prefix).split(".", 1)[0]
-                    if target != owner:
-                        edges[owner].add(target)
+        targets = edges.setdefault(owner, set())
+        for module in _absolute_imports(path):
+            if module.startswith(prefix):
+                target = module.removeprefix(prefix).split(".", 1)[0]
+                if target != owner:
+                    targets.add(target)
     return edges
 
 
@@ -112,21 +116,43 @@ def _runtime_import_roots(root: Path) -> frozenset[str]:
 def _undeclared_import_gaps(root: Path, package: Path) -> list[str]:
     """Report product imports outside the standard library, itself and runtime dependencies."""
     admitted = frozenset({package.name, *sys.stdlib_module_names, *_runtime_import_roots(root)})
+    return sorted(
+        {
+            f"architecture_undeclared_import:{top}:{path.relative_to(root).as_posix()}"
+            for path in package.rglob("*.py")
+            for top in (module.split(".", 1)[0] for module in _absolute_imports(path))
+            if top not in admitted
+        }
+    )
+
+
+def _source_root_gaps(root: Path, policy: Mapping[str, object]) -> list[str]:
+    """Keep the domains of each non-product source root acyclic and independent of tests."""
+    raw_sources = policy.get("source_roots")
+    raw_tests = policy.get("test_roots")
+    sources = (
+        {item for item in raw_sources if isinstance(item, str)}
+        if isinstance(raw_sources, list)
+        else set()
+    )
+    test_modules = (
+        {part for item in raw_tests if isinstance(item, str) for part in Path(item).parts[:1]}
+        if isinstance(raw_tests, list)
+        else set()
+    )
     gaps: set[str] = set()
-    for path in sorted(package.rglob("*.py")):
-        relative = path.relative_to(root).as_posix()
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            modules: tuple[str, ...] = ()
-            if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-                modules = (node.module,)
-            elif isinstance(node, ast.Import):
-                modules = tuple(alias.name for alias in node.names)
-            gaps.update(
-                f"architecture_undeclared_import:{top}:{relative}"
-                for top in (module.split(".", 1)[0] for module in modules)
-                if top not in admitted
-            )
+    for source in sources - {str(policy["package_root"])}:
+        tree = root / source
+        gaps.update(
+            "architecture_cycle:" + ",".join(f"{source}/{domain}" for domain in cycle)
+            for cycle in _dependency_cycles(_package_edges(tree, tree.name))
+        )
+        gaps.update(
+            f"architecture_test_import:{top}:{path.relative_to(root).as_posix()}"
+            for path in (tree.rglob("*.py") if tree.is_dir() else ())
+            for top in (module.split(".", 1)[0] for module in _absolute_imports(path))
+            if top in test_modules
+        )
     return sorted(gaps)
 
 
@@ -281,5 +307,6 @@ def architecture_gaps(root: Path = ROOT, policy: Mapping[str, object] | None = N
         )
     gaps.extend(f"architecture_cycle:{','.join(cycle)}" for cycle in _dependency_cycles(edges))
     gaps.extend(_undeclared_import_gaps(root, package))
+    gaps.extend(_source_root_gaps(root, policy))
     gaps.extend(_package_declaration_gaps(root, package))
     return sorted(gaps)

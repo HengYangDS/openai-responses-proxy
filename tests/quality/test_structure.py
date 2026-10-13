@@ -259,6 +259,45 @@ class TestStructuralQualityContracts:
             for module in ("aigw", "ethos", "pytest", "tests", "tools")
         ]
 
+    def test_architecture_gate_keeps_tool_domains_acyclic_and_independent_of_tests(
+        self, tmp_path: Path
+    ) -> None:
+        """Repository tool domains form a one-way graph and never import the test tree."""
+        for relative, source in (
+            ("src/openai_responses_proxy/relay/owner.py", ""),
+            ("tools/forge/tag.py", "from tools.release import identity\n"),
+            (
+                "tools/release/publish.py",
+                "from tools.forge import tag\nimport tools.quality.audit\n",
+            ),
+            ("tools/quality/audit.py", "from tests.fixtures import helper\nfrom . import names\n"),
+        ):
+            module = tmp_path / relative
+            module.parent.mkdir(parents=True, exist_ok=True)
+            module.write_text(source, encoding="utf-8")
+        policy: dict[str, object] = {
+            "owner": "quality",
+            "risk_model": "a tool cycle or test import erases repository ownership",
+            "measurement": "parse repository tool imports",
+            "false_positive_cost": "a legitimate tool dependency keeps one direction",
+            "remediation": "move the shared behavior to its owning tool domain",
+            "review_condition": "reassess when the repository topology changes",
+            "source_roots": ["src/openai_responses_proxy", "tools"],
+            "test_roots": ["tests"],
+            "package_root": "src/openai_responses_proxy",
+            "package_root_modules": [],
+            "root_configuration_modules": [],
+            "package_initializers": "ordinary-modules",
+            "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
+            "external_responsibilities": {"credentials": "client-control-plane"},
+            "allowed_package_edges": {"relay": []},
+        }
+
+        assert architecture_gaps(tmp_path, policy) == [
+            "architecture_cycle:tools/forge,tools/release",
+            "architecture_test_import:tests:tools/quality/audit.py",
+        ]
+
     @pytest.mark.parametrize(
         "source",
         ["value = call(first, second)\n", "value = call(\n first,\n second,\n)\n"],

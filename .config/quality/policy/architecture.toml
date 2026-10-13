@@ -1,9 +1,9 @@
 owner = "repository-quality"
 risk_model = "undeclared package owners and dependency edges create hidden coupling, ambiguous authority, and non-local change risk"
-measurement = "parse the declared product package, imports, root modules, package declarations, and dependency cycles against this contract"
+measurement = "parse the declared product package, imports, root modules, package declarations, and dependency cycles, and the domain cycles and test imports of every other source root, against this contract"
 false_positive_cost = "a legitimate new semantic owner or dependency requires an intentional policy update reviewed with the implementation"
 remediation = "move behavior to an existing owner or declare the new owner and dependency here with focused contract tests"
-review_condition = "reassess when the product topology changes or two legitimate changes in one release train are blocked by the same contract"
+review_condition = "reassess when the product or repository-tool topology changes or two legitimate changes in one release train are blocked by the same contract"
 source_roots = ["src/openai_responses_proxy", "tools"]
 test_roots = ["tests"]
 package_root = "src/openai_responses_proxy"

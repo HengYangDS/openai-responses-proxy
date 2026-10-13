@@ -226,7 +226,7 @@ gitlab: {
 		]])
 		script: [
 			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.release.metadata --tag \"$CI_COMMIT_TAG\"",
-			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.forge.tag_signature . \"$CI_COMMIT_TAG\" \"$OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST\"",
+			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.release.tag_signature . \"$CI_COMMIT_TAG\" \"$OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST\"",
 			#GitLabCommitEvent + "uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
 		]
 	}

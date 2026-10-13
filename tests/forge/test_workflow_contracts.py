@@ -380,7 +380,7 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
     assert "git fetch --tags --force --prune --prune-tags origin" in tag_before_script
     assert 'test -f "${OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST:-}"' in tag_before_script
     assert any("tools.release.metadata --tag" in command for command in tag_script)
-    assert any("tools.forge.tag_signature" in command for command in tag_script)
+    assert any("tools.release.tag_signature" in command for command in tag_script)
 
 
 @pytest.mark.parametrize("review", [True, False])
