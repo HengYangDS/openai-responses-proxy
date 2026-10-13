@@ -471,9 +471,3 @@ class ProxyOwnerBoundaryContracts:
 
 def _write_manifest(root: Path, manifest: object) -> None:
     (root / inventory.MANIFEST_FILENAME).write_text(json.dumps(manifest))
-
-
-def _module(name: str, path: Path) -> ModuleType:
-    module = ModuleType(name)
-    module.__file__ = str(path)
-    return module

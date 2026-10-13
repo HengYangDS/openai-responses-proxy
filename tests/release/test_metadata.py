@@ -32,13 +32,6 @@ def _run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     )
 
 
-def ci_block(source: str, job: str, next_job: str | None = None) -> str:
-    """Return one exact top-level CI job or template block."""
-    start = source.index(job)
-    end = source.index(next_job, start) if next_job else source.find("\n\n", start)
-    return source[start : end if end >= 0 else None]
-
-
 def require_tokens(source: str, tokens: tuple[str, ...], context: str) -> None:
     """Require every literal contract token in one source surface."""
     missing = [token for token in tokens if token not in source]

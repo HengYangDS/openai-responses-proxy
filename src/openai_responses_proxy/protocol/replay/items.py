@@ -125,11 +125,6 @@ def is_current_turn_control(item: object) -> bool:
     }
 
 
-def item_type_label(item_type: object) -> str:
-    """Return a content-free diagnostic label for an item type."""
-    return item_type if isinstance(item_type, str) and item_type in ITEM_POLICIES else "unknown"
-
-
 def item_types() -> frozenset[str]:
     """Return the recognized item kinds declared by the policy."""
     return frozenset(ITEM_POLICIES)

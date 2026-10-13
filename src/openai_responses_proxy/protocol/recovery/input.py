@@ -84,8 +84,6 @@ class RecoveryMetrics:
     recovery_bytes: int
     retained_messages: int
     dropped_input_items: int
-    provider_bindings_removed: int
-    reasoning_include_removed: bool
     prompt_cache_key_removed: bool
 
 
@@ -193,8 +191,6 @@ def build_recovery(raw: bytes, budget: int) -> tuple[bytes | None, RecoveryMetri
         recovery_bytes=len(recovery),
         retained_messages=sum(item.get("type") == "message" for item in dialogue),
         dropped_input_items=dropped_items,
-        provider_bindings_removed=removed_bindings,
-        reasoning_include_removed=include_removed,
         prompt_cache_key_removed="prompt_cache_key" in payload,
     )
 

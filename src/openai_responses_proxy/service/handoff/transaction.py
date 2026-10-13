@@ -81,7 +81,6 @@ class Context:
     draining: Callable[[], bool]
     active_responses: Callable[[], int]
     active_handlers: Callable[[], int]
-    bounded_lease_seconds: Callable[[object | None], int]
     log: Callable[[str], None]
     server_factory: Callable[[socket.socket], ThreadingHTTPServer]
     set_server_instance: Callable[[ThreadingHTTPServer], None]
