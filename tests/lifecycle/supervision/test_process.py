@@ -218,7 +218,12 @@ class TestProcessIdentity:
             fixture.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
             child = subprocess.Popen([sys.executable, str(fixture)])
             try:
-                assert process.process_argv(child.pid) == [sys.executable, str(fixture)]
+                # A framework interpreter's launcher re-executes its app bundle, so the
+                # first argument may name either; the path with spaces must survive intact.
+                argv = process.process_argv(child.pid)
+                assert argv[1:] == [str(fixture)]
+                assert Path(argv[0]).is_absolute()
+                assert Path(argv[0]).name.lower().startswith("python")
                 assert process.pid_names_path(child.pid, str(fixture))
                 assert child.pid in process.pids_naming_path(str(fixture))
             finally:
