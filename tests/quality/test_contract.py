@@ -312,7 +312,7 @@ class TestQualityPolicyContracts:
         run = mocker.patch.object(
             governance.subprocess,
             "run",
-            side_effect=[tracked, tracked, *([completed] * 14)],
+            side_effect=[tracked, tracked, *([completed] * 15)],
         )
 
         governance.audit(online_links=False)
@@ -369,6 +369,13 @@ class TestQualityPolicyContracts:
                 ".config/quality/native/vulture.toml",
             ),
             ("gitleaks", "git", "--platform", "gitlab", "--redact", "--no-banner", "."),
+            (
+                governance.sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "tests/quality/secrets",
+            ),
             (
                 "lychee",
                 "--config",

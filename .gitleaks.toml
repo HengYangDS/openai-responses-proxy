@@ -2,3 +2,9 @@ title = "OpenAI Responses Proxy secret scanning"
 
 [extend]
 useDefault = true
+
+[[allowlists]]
+description = "Public Git signature verification fingerprints"
+targetRules = ["generic-api-key"]
+regexTarget = "match"
+regexes = ['''^key SHA256:[A-Za-z0-9+/]{43}(?:\\[nr]|[\t\r\n ])*["']?$''']

@@ -88,6 +88,7 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
             ".config/quality/native/vulture.toml",
         ),
         ("gitleaks", "git", "--platform", "gitlab", "--redact", "--no-banner", "."),
+        (sys.executable, "-m", "pytest", "-q", "tests/quality/secrets"),
         ("lychee", "--config", LINK_POLICY, *link_mode, *markdown),
         (sys.executable, "-m", "tools.release.metadata"),
         (sys.executable, "-m", "tools.quality.hard_coding"),
