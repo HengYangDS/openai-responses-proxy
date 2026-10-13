@@ -95,6 +95,17 @@ def test_prepare_release_rejects_only_future_dates() -> None:
         metadata.check_pending_release_date("1.2.3", [("1.2.3", "2026-07-28")], today=current)
 
 
+def test_python_metadata_accepts_the_declared_supported_matrix(tmp_path, mocker) -> None:
+    source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    source = re.sub(
+        r'^requires-python = ".*"$', 'requires-python = ">=3.12,<3.15"', source, flags=re.MULTILINE
+    )
+    (tmp_path / "pyproject.toml").write_text(source, encoding="utf-8")
+    (tmp_path / ".python-versions").write_text("3.12\n3.13\n3.14\n", encoding="utf-8")
+    mocker.patch.object(metadata, "ROOT", tmp_path)
+    metadata.check_python_metadata()
+
+
 @pytest.mark.parametrize("version", ["0.0.0", "1.2.3", "01.2.3", "1.2.3-rc.1", ""])
 def test_version_file_uses_the_product_grammar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str
@@ -111,7 +122,7 @@ def test_version_file_uses_the_product_grammar(
 @pytest.mark.parametrize(
     ("before", "after", "diagnostic"),
     [
-        ('requires-python = ">=3.12"', 'requires-python = ">=3.13"', "require Python"),
+        ('requires-python = ">=3.12,<3.15"', 'requires-python = ">=3.12"', "require Python"),
         ('dynamic = ["version"]', "dynamic = []", "sole version owner"),
         ('path = "VERSION"', 'path = "version.txt"', "read package version"),
         ('distribution = "native-executable"', 'distribution = "wheel"', "native executable"),
@@ -127,6 +138,7 @@ def test_package_metadata_keeps_version_and_distribution_owners(
     source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     target = tmp_path / "pyproject.toml"
     target.write_text(source, encoding="utf-8")
+    (tmp_path / ".python-versions").write_text((ROOT / ".python-versions").read_text())
     monkeypatch.setattr(metadata, "ROOT", tmp_path)
     metadata.check_python_metadata()
     assert source.count(before) == 1

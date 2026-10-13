@@ -16,6 +16,7 @@ from cyclopts import App
 from cyclopts import Parameter
 
 from openai_responses_proxy import product_identity
+from tools.quality.python_matrix import supported_requirement
 from tools.release import identity
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,8 +40,9 @@ def check_python_metadata() -> None:
     """Keep Python support metadata aligned without duplicating release ownership."""
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = metadata.get("project", {})
-    if project.get("requires-python") != ">=3.12":
-        raise ValueError("pyproject.toml must require Python >=3.12 without an upper bound")
+    requirement = supported_requirement(ROOT / ".python-versions")
+    if project.get("requires-python") != requirement:
+        raise ValueError(f"pyproject.toml must require Python {requirement} from .python-versions")
     if project.get("dynamic") != ["version"]:
         raise ValueError("pyproject.toml must keep VERSION as the sole version owner")
     hatch_version = metadata.get("tool", {}).get("hatch", {}).get("version", {})
