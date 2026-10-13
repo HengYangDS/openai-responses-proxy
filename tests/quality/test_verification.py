@@ -343,7 +343,7 @@ class TestVerificationContracts:
         assert (
             "native_distribution: requires the self-contained released executable" in pytest_config
         )
-        source = (ROOT / "tests/service/handoff/test_subprocess.py").read_text(encoding="utf-8")
+        source = (ROOT / "tests/serving/handoff/test_subprocess.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         pytestmark = next(
             node

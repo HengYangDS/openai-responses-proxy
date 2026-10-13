@@ -8,7 +8,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import linux
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import set_file as _set_file
@@ -208,7 +208,7 @@ class TestLinuxLifecycle:
             wait.assert_called_once_with(
                 417,
                 ctx.executable,
-                roles={service_runtime.WATCHDOG_MODE},
+                roles={serving_roles.WATCHDOG_MODE},
             )
             mocker.patch.object(
                 linux.subprocess,
@@ -358,5 +358,5 @@ class TestLinuxLifecycle:
         terminate.assert_called_once_with(
             17,
             ctx.executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )

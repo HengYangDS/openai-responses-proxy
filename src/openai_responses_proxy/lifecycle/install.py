@@ -16,7 +16,7 @@ from openai_responses_proxy.lifecycle import state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import identity
+from openai_responses_proxy.serving import identity
 
 
 def _lacks_supervision(

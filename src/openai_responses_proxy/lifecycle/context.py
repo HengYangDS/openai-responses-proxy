@@ -15,7 +15,7 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import inventory
 
 SERVICE_ID = product_identity.SERVICE_ID
 DEFAULT_PORT = config.DEFAULT_PORT

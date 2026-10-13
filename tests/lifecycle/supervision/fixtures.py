@@ -7,7 +7,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import install_context
 
 

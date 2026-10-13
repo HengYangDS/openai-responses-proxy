@@ -36,8 +36,8 @@ from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
 from tests.release.fixtures import stop_native_supervision
 from tests.release.fixtures import write_predecessor_native_projection
-from tests.service.handoff.fixtures import ScriptedUpstream
-from tests.service.handoff.fixtures import free_port
+from tests.serving.handoff.fixtures import ScriptedUpstream
+from tests.serving.handoff.fixtures import free_port
 from tools.release.artifact import signing
 
 ROOT = Path(__file__).resolve().parents[2]

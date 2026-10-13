@@ -27,7 +27,7 @@ from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.service import entrypoint as proxy
+from openai_responses_proxy.serving import entrypoint as proxy
 
 ScriptedResponse = tuple[int, bytes] | Mapping[str, object]
 

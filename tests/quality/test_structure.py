@@ -148,7 +148,7 @@ class TestStructuralQualityContracts:
                 "control.py": "def main():\n    return 0\n",
                 "src/openai_responses_proxy/__init__.py": "from .runtime import state\n",
                 "src/openai_responses_proxy/common/value.py": "VALUE = 1\n",
-                "src/openai_responses_proxy/service/__init__.py": "",
+                "src/openai_responses_proxy/serving/__init__.py": "",
                 "src/openai_responses_proxy/extra/state.py": (
                     "from openai_responses_proxy.relay import relay\n"
                 ),
@@ -167,7 +167,7 @@ class TestStructuralQualityContracts:
         assert "architecture_init_behavior:src/openai_responses_proxy/__init__.py" in gaps
         assert "architecture_undeclared_package:common" in gaps
         assert (
-            "architecture_package_declaration_missing:src/openai_responses_proxy/service/__init__.py"
+            "architecture_package_declaration_missing:src/openai_responses_proxy/serving/__init__.py"
             in gaps
         )
         assert "architecture_undeclared_package:extra" in gaps
@@ -484,7 +484,7 @@ class TestStructuralQualityContracts:
             "providers",
             "relay",
             "runtime",
-            "service",
+            "serving",
         }
         assert set(policy) == {
             "owner",
@@ -541,9 +541,9 @@ class TestStructuralQualityContracts:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             package = root / "src" / "openai_responses_proxy"
-            (package / "service").mkdir(parents=True)
-            (package / "service" / "__init__.py").write_text(
-                '"""Service package."""\nVALUE = 1\n', encoding="utf-8"
+            (package / "serving").mkdir(parents=True)
+            (package / "serving" / "__init__.py").write_text(
+                '"""Serving package."""\nVALUE = 1\n', encoding="utf-8"
             )
             policy = {
                 "owner": "quality",
@@ -559,15 +559,15 @@ class TestStructuralQualityContracts:
                 "root_configuration_modules": [],
                 "package_initializers": "declarations-only",
                 "product_concepts": {
-                    "native-supervision": "src/openai_responses_proxy/service/native.py"
+                    "native-supervision": "src/openai_responses_proxy/serving/native.py"
                 },
                 "external_responsibilities": {"credentials": "client-control-plane"},
-                "allowed_package_edges": {"service": []},
+                "allowed_package_edges": {"serving": []},
             }
             gaps = architecture_gaps(root, policy)
             policy["package_initializers"] = "ordinary-modules"
             relaxed = architecture_gaps(root, policy)
-        expected = "architecture_init_behavior:src/openai_responses_proxy/service/__init__.py"
+        expected = "architecture_init_behavior:src/openai_responses_proxy/serving/__init__.py"
         assert expected in gaps
         assert expected not in relaxed
 
@@ -783,8 +783,8 @@ class TestStructuralQualityContracts:
             "src/current.py",
             "tests/test_current.py",
             "tests/__init__.py",
-            "tests/service/conftest.py",
-            "tests/service/fixtures.py",
+            "tests/serving/conftest.py",
+            "tests/serving/fixtures.py",
             "tests/protocol/replay_fixture.py",
             "tests/nested/helper.py",
         )

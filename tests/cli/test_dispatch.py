@@ -79,17 +79,17 @@ def test_no_command_uses_sys_argv_and_renders_public_help(*, mocker) -> None:
 def test_internal_roles_are_exact_and_never_public_commands(*, mocker) -> None:
     activate = mocker.patch.object(application.runtime_spec, "activate")
     executable = mocker.patch.object(
-        application.service_runtime,
+        application.serving_roles,
         "current_executable",
         return_value="/opt/proxy/bin/openai-responses-proxy",
     )
-    entrypoint = mocker.patch("openai_responses_proxy.service.entrypoint.run", return_value=7)
-    assert application.main([application.service_runtime.LISTENER_MODE]) == 7
+    entrypoint = mocker.patch("openai_responses_proxy.serving.entrypoint.run", return_value=7)
+    assert application.main([application.serving_roles.LISTENER_MODE]) == 7
     entrypoint.assert_called_once_with()
     mocker.stop(entrypoint)
 
-    handoff = mocker.patch("openai_responses_proxy.service.entrypoint.run", return_value=8)
-    assert application.main([application.service_runtime.HANDOFF_CHILD_MODE]) == 8
+    handoff = mocker.patch("openai_responses_proxy.serving.entrypoint.run", return_value=8)
+    assert application.main([application.serving_roles.HANDOFF_CHILD_MODE]) == 8
     handoff.assert_called_once_with(handoff_child=True)
     mocker.stop(handoff)
 
@@ -97,14 +97,14 @@ def test_internal_roles_are_exact_and_never_public_commands(*, mocker) -> None:
         "openai_responses_proxy.lifecycle.supervision.watchdog.run",
         return_value=None,
     )
-    assert application.main([application.service_runtime.WATCHDOG_MODE]) == 0
+    assert application.main([application.serving_roles.WATCHDOG_MODE]) == 0
     watchdog.assert_called_once_with()
     mocker.stop(watchdog)
 
-    assert application.main([application.service_runtime.PREWARM_MODE]) == 0
+    assert application.main([application.serving_roles.PREWARM_MODE]) == 0
     code, stdout, stderr = invoke("--help")
     assert code == 0
-    assert application.service_runtime.PREWARM_MODE not in stdout
+    assert application.serving_roles.PREWARM_MODE not in stdout
     assert stderr == ""
 
     assert activate.call_count == 3
@@ -116,7 +116,7 @@ def test_internal_roles_are_exact_and_never_public_commands(*, mocker) -> None:
     assert executable.call_count == 3
 
     for arguments in (
-        [application.service_runtime.LISTENER_MODE, "extra"],
+        [application.serving_roles.LISTENER_MODE, "extra"],
         ["--internal-unknown"],
     ):
         code, stdout, stderr = invoke(*arguments)

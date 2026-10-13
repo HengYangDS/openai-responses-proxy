@@ -18,8 +18,8 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.lifecycle import state as payload_state
-from openai_responses_proxy.service import digest as payload_digest
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest as payload_digest
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
@@ -153,7 +153,7 @@ class TestPayloadValidation:
         payload_candidate.prewarm(ctx)
         arguments = completed.call_args.args[0]
         assert arguments[0] == str(executable)
-        assert arguments[1:] == [payload_candidate.service_runtime.PREWARM_MODE]
+        assert arguments[1:] == [payload_candidate.serving_roles.PREWARM_MODE]
         environment = completed.call_args.kwargs["env"]
         assert environment[product_identity.environment_name("HOME")] == str(ctx.payload_dir)
         assert environment["PYINSTALLER_RESET_ENVIRONMENT"] == "1"

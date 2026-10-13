@@ -20,20 +20,20 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import TypedDict
 
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service.handoff.protocol import HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS
-from openai_responses_proxy.service.handoff.protocol import HANDOFF_PROTOCOL_VERSION
-from openai_responses_proxy.service.handoff.protocol import HandoffChild
-from openai_responses_proxy.service.handoff.protocol import HandoffError
-from openai_responses_proxy.service.handoff.protocol import JsonObject
-from openai_responses_proxy.service.handoff.protocol import ReadOnlyJsonObject
-from openai_responses_proxy.service.handoff.protocol import listener_from_prepare
-from openai_responses_proxy.service.handoff.protocol import probe_health
-from openai_responses_proxy.service.handoff.protocol import (
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving.handoff.protocol import HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS
+from openai_responses_proxy.serving.handoff.protocol import HANDOFF_PROTOCOL_VERSION
+from openai_responses_proxy.serving.handoff.protocol import HandoffChild
+from openai_responses_proxy.serving.handoff.protocol import HandoffError
+from openai_responses_proxy.serving.handoff.protocol import JsonObject
+from openai_responses_proxy.serving.handoff.protocol import ReadOnlyJsonObject
+from openai_responses_proxy.serving.handoff.protocol import listener_from_prepare
+from openai_responses_proxy.serving.handoff.protocol import probe_health
+from openai_responses_proxy.serving.handoff.protocol import (
     read_control_message as _read_control_message,
 )
-from openai_responses_proxy.service.handoff.protocol import spawn_child
-from openai_responses_proxy.service.handoff.protocol import (
+from openai_responses_proxy.serving.handoff.protocol import spawn_child
+from openai_responses_proxy.serving.handoff.protocol import (
     write_control_message as _write_control_message,
 )
 

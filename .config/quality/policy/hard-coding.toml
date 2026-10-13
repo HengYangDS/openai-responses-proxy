@@ -161,11 +161,11 @@ projections = [
 [[controls]]
 id = "control-routes"
 kind = "domain-constant"
-owner = "src/openai_responses_proxy/service/server.py"
+owner = "src/openai_responses_proxy/serving/server.py"
 invariant = "Every loopback control route is explicit and remains separate from relayed Provider traffic."
 surfaces = ["network-control-route"]
 rationale = "Health, drain, and handoff are product-owned control routes rather than Provider catalog entries."
-projections = ["docs/", "src/openai_responses_proxy/service/", "tests/service/"]
+projections = ["docs/", "src/openai_responses_proxy/serving/", "tests/serving/"]
 
 [[controls]]
 id = "native-resources"
@@ -178,7 +178,7 @@ projections = [
   "docs/",
   "src/openai_responses_proxy/lifecycle/",
   "tests/lifecycle/",
-  "tests/service/",
+  "tests/serving/",
 ]
 
 [[controls]]

@@ -20,17 +20,17 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.release.fixtures import preserve_native_host_projection
-from tests.service.handoff.fixtures import ScriptedUpstream
-from tests.service.handoff.fixtures import child_pid_observer
-from tests.service.handoff.fixtures import free_port
-from tests.service.handoff.fixtures import http_json
-from tests.service.handoff.fixtures import installed_expected_metadata
-from tests.service.handoff.fixtures import pid_alive
-from tests.service.handoff.fixtures import start_real_proxy
-from tests.service.handoff.fixtures import terminate_owned_proxy
-from tests.service.handoff.fixtures import terminate_process
-from tests.service.handoff.fixtures import wait_until
-from tests.service.handoff.fixtures import write_installed_payload
+from tests.serving.handoff.fixtures import ScriptedUpstream
+from tests.serving.handoff.fixtures import child_pid_observer
+from tests.serving.handoff.fixtures import free_port
+from tests.serving.handoff.fixtures import http_json
+from tests.serving.handoff.fixtures import installed_expected_metadata
+from tests.serving.handoff.fixtures import pid_alive
+from tests.serving.handoff.fixtures import start_real_proxy
+from tests.serving.handoff.fixtures import terminate_owned_proxy
+from tests.serving.handoff.fixtures import terminate_process
+from tests.serving.handoff.fixtures import wait_until
+from tests.serving.handoff.fixtures import write_installed_payload
 
 ROOT = Path(__file__).resolve().parents[3]
 

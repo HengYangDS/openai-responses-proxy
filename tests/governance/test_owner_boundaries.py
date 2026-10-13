@@ -23,11 +23,11 @@ from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.protocol.replay import projection as replay_request
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
-from openai_responses_proxy.service import control
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import server
+from openai_responses_proxy.serving import control
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import server
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "src" / "openai_responses_proxy"
@@ -116,7 +116,7 @@ class ProxyOwnerBoundaryContracts:
         assert issubclass(server.Handler, object)
 
     def test_entrypoint_composes_without_redefining_owner_symbols(self) -> None:
-        tree = ast.parse((PACKAGE / "service" / "entrypoint.py").read_text())
+        tree = ast.parse((PACKAGE / "serving" / "entrypoint.py").read_text())
         definitions = {
             node.name
             for node in tree.body
@@ -131,7 +131,7 @@ class ProxyOwnerBoundaryContracts:
         }.isdisjoint(definitions)
 
     def test_owner_modules_never_import_the_entrypoint(self) -> None:
-        for relative in ("lifecycle/control.py", "service/server.py", "relay/sse.py"):
+        for relative in ("lifecycle/control.py", "serving/server.py", "relay/sse.py"):
             tree = ast.parse((PACKAGE / relative).read_text())
             imports = {
                 alias.name
@@ -139,10 +139,10 @@ class ProxyOwnerBoundaryContracts:
                 if isinstance(node, ast.Import)
                 for alias in node.names
             }
-            assert "openai_responses_proxy.service.entrypoint" not in imports, relative
+            assert "openai_responses_proxy.serving.entrypoint" not in imports, relative
 
     def test_response_transport_has_no_listener_facade(self) -> None:
-        assert not (PACKAGE / "service" / "responses.py").exists()
+        assert not (PACKAGE / "serving" / "responses.py").exists()
         for relative in ("relay/responses.py", "relay/exchange.py", "relay/relay.py"):
             assert (PACKAGE / relative).is_file(), relative
 
@@ -154,7 +154,7 @@ class ProxyOwnerBoundaryContracts:
             "protocol/__init__.py",
             "providers/__init__.py",
             "relay/__init__.py",
-            "service/__init__.py",
+            "serving/__init__.py",
         ):
             tree = ast.parse((PACKAGE / relative).read_text())
             assert not any(

@@ -184,9 +184,9 @@ no replacement state authority or compatibility import remains.
 
 A package survives only when it owns a distinct invariant and dependency
 boundary. Catch-all packages and names such as `common`, `shared`, `utils`,
-`helpers`, `misc`, `manager`, or `service` are not terminal names. Existing
-`service` usage is decomposed by actual runtime, supervision, handoff, and
-entrypoint ownership instead of being preserved as a generic bucket.
+`helpers`, `misc`, `manager`, or `service` are not terminal names. The former
+`service` package is now `serving`, named for the process it runs, and its
+private executable roles live in `serving/roles.py`.
 
 Lifecycle control tests follow status, recovery, reload, rollback and uninstall
 semantics; loopback transport belongs to runtime tests. Their shared installed

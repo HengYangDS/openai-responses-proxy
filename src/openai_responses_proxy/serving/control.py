@@ -17,8 +17,8 @@ from http.server import ThreadingHTTPServer
 from typing import cast
 
 from openai_responses_proxy.relay import admission
-from openai_responses_proxy.service.handoff import protocol as handoff_protocol
-from openai_responses_proxy.service.handoff import transaction as handoff
+from openai_responses_proxy.serving.handoff import protocol as handoff_protocol
+from openai_responses_proxy.serving.handoff import transaction as handoff
 
 
 @dataclass(frozen=True)

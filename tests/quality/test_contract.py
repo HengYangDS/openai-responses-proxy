@@ -575,6 +575,8 @@ class TestQualityPolicyContracts:
         assert subject.fullmatch("fix(ci): provision quality projection tools")
         assert subject.fullmatch("fix(install): restore exact payload on rollback")
         assert subject.fullmatch("fix(supervision): classify zombie tombstones")
+        assert subject.fullmatch("refactor(serving): rename the listener process package")
+        assert not subject.fullmatch("test(service): isolate the mocked native launch contract")
         assert not subject.fullmatch("refactor: centralize repository policy owners")
         assert not subject.fullmatch("fix(arbitrary): restore exact payload on rollback")
         assert not subject.fullmatch("materialize quality-policy-ssot carrier")
@@ -946,15 +948,15 @@ class TestQualityPolicyContracts:
         ] == []
         assert (tests / "lifecycle/fixtures.py").is_file()
         assert (tests / "lifecycle/supervision/test_process.py").is_file()
-        assert (tests / "service/test_identity.py").is_file()
+        assert (tests / "serving/test_identity.py").is_file()
 
-    def test_service_tests_follow_runtime_and_deployment_ownership(self) -> None:
+    def test_serving_tests_follow_runtime_and_deployment_ownership(self) -> None:
         tests = ROOT / "tests"
         assert [name for name in ("listener",) if (tests / name).exists()] == []
         assert (tests / "relay/fixtures.py").is_file()
         assert (tests / "runtime/test_process_environment.py").is_file()
-        assert (tests / "service/test_entrypoint.py").is_file()
-        assert (tests / "service/handoff/test_state_machine.py").is_file()
+        assert (tests / "serving/test_entrypoint.py").is_file()
+        assert (tests / "serving/handoff/test_state_machine.py").is_file()
         assert (tests / "lifecycle/deployment/test_handoff.py").is_file()
 
     def test_protocol_and_relay_tests_follow_terminal_ownership(self) -> None:

@@ -26,11 +26,11 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
-from openai_responses_proxy.service.handoff import transaction as handoff_transaction
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 
 HANDOFF_PROTOCOL_VERSION = 2
 _MAX_BODY_BYTES = 64 * 1024
@@ -45,7 +45,7 @@ _RUNTIME_IDENTITY_FIELDS = ["release", *_RUNTIME_DIGEST_FIELDS]
 RuntimeSnapshot = dict[str, object]
 RuntimeReader = Callable[[runtime_context.RuntimeContext], RuntimeSnapshot | None]
 type DeploymentStrategy = Literal["handoff", "native_generation", "unsupported"]
-_LISTENER_ROLES = {service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE}
+_LISTENER_ROLES = {serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE}
 
 
 def _fields_match(actual: RuntimeSnapshot, expected: dict[str, object]) -> bool:
@@ -393,7 +393,7 @@ def request(
     successor = process.wait_for_executable(
         child_pid,
         ctx.executable,
-        roles={service_runtime.HANDOFF_CHILD_MODE},
+        roles={serving_roles.HANDOFF_CHILD_MODE},
         timeout_seconds=timeout_seconds,
     )
     if successor is None:
@@ -472,7 +472,7 @@ def resolve_after_controller_failure(
                     successor := process.capture_executable(
                         pid,
                         ctx.executable,
-                        roles={service_runtime.HANDOFF_CHILD_MODE},
+                        roles={serving_roles.HANDOFF_CHILD_MODE},
                     )
                 )
                 is not None

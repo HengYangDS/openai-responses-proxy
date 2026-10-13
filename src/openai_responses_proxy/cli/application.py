@@ -30,7 +30,7 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import install
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import uninstall
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 PUBLIC_COMMANDS = frozenset(
     {"install", "status", "doctor", "recover", "reload", "rollback", "uninstall"}
@@ -567,18 +567,18 @@ def _run_internal(arguments: list[str]) -> int:
     if len(arguments) != 1:
         return _error("internal service mode accepts no additional arguments", as_json=False)
     mode = arguments[0]
-    if mode == service_runtime.PREWARM_MODE:
+    if mode == serving_roles.PREWARM_MODE:
         return 0
-    runtime_spec.activate(service_runtime.current_executable())
-    if mode == service_runtime.LISTENER_MODE:
-        from openai_responses_proxy.service import entrypoint
+    runtime_spec.activate(serving_roles.current_executable())
+    if mode == serving_roles.LISTENER_MODE:
+        from openai_responses_proxy.serving import entrypoint
 
         return entrypoint.run()
-    if mode == service_runtime.HANDOFF_CHILD_MODE:
-        from openai_responses_proxy.service import entrypoint
+    if mode == serving_roles.HANDOFF_CHILD_MODE:
+        from openai_responses_proxy.serving import entrypoint
 
         return entrypoint.run(handoff_child=True)
-    if mode == service_runtime.WATCHDOG_MODE:
+    if mode == serving_roles.WATCHDOG_MODE:
         from openai_responses_proxy.lifecycle.supervision import watchdog
 
         watchdog.run()

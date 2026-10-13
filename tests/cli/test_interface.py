@@ -18,7 +18,7 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -375,7 +375,7 @@ class ProductInterfaceContracts:
         assert report["runtime"] is None
         assert report["payload_transaction"] is None
 
-    @pytest.mark.parametrize("argument", ["--version", service_runtime.PREWARM_MODE])
+    @pytest.mark.parametrize("argument", ["--version", serving_roles.PREWARM_MODE])
     def test_built_executable_runs_without_python_on_path(self, argument: str) -> None:
         executable = os.environ.get("OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE")
         if executable is None:

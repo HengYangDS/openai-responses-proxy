@@ -287,7 +287,7 @@ class TestGovernanceMetadata:
             "providers",
             "relay",
             "runtime",
-            "service",
+            "serving",
         }
         for package in (package_root / name for name in sorted(packages)):
             source = (ROOT / package / "__init__.py").read_text(encoding="utf-8")
@@ -329,7 +329,7 @@ class TestReleaseMetadata:
                 ("AIGW", "ChatGPT", "JetBrains"),
             ),
             (
-                ("src/openai_responses_proxy/service/entrypoint.py",),
+                ("src/openai_responses_proxy/serving/entrypoint.py",),
                 (),
                 (
                     "OPENAI_RESPONSES_PROXY_DUMP_BODIES",

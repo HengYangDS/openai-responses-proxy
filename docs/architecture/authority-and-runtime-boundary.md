@@ -69,7 +69,7 @@ flowchart TD
 | `providers` | Manifest-defined routes and optional pure policies                           |
 | `protocol`  | Closed provider-portable request and response grammar                        |
 | `relay`     | Admission, upstream exchange, retries, cooldown, SSE and HTTP integrity      |
-| `service`   | Listener process, health, structured logs, control and handoff protocol      |
+| `serving`   | Listener process, health, structured logs, control and handoff protocol      |
 | `lifecycle` | Artifact trust, payload transaction, supervision, install, reload, uninstall |
 
 Dependencies point toward semantic owners. No package may infer provider

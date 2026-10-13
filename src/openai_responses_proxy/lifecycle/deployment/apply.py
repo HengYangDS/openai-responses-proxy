@@ -15,8 +15,8 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import roles as serving_roles
 
 RuntimeReader = Callable[[runtime_context.RuntimeContext], dict[str, object] | None]
 
@@ -421,8 +421,8 @@ def wait_for_serving_runtime(
                     pid,
                     ctx.executable,
                     roles={
-                        service_runtime.LISTENER_MODE,
-                        service_runtime.HANDOFF_CHILD_MODE,
+                        serving_roles.LISTENER_MODE,
+                        serving_roles.HANDOFF_CHILD_MODE,
                     },
                 )
                 if type(pid) is int

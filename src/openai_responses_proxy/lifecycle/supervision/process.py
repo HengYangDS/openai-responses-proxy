@@ -12,7 +12,7 @@ import psutil
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.context import RuntimeContext
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 
 @dataclass(frozen=True)
@@ -360,7 +360,7 @@ def verified_proxy_listener_pids(context: RuntimeContext) -> list[int]:
         if pid_names_executable(
             pid,
             context.executable,
-            roles={service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
         )
     ]
 

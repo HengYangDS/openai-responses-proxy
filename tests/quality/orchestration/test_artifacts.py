@@ -286,7 +286,7 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
         "pytest",
         "-q",
         "tests/cli/test_interface.py",
-        "tests/service/handoff/test_subprocess.py",
+        "tests/serving/handoff/test_subprocess.py",
         "tests/release/test_native_lifecycle.py",
         "tests/release/test_native_compatibility.py",
         "--basetemp=/short/proxy-test",

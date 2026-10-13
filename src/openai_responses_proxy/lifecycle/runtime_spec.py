@@ -14,9 +14,9 @@ from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
 
 if TYPE_CHECKING:
     from openai_responses_proxy.lifecycle.context import RuntimeContext

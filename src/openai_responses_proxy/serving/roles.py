@@ -1,4 +1,4 @@
-"""Private executable roles and process identity owned by the service domain."""
+"""Private executable roles and process identity owned by the serving domain."""
 
 from __future__ import annotations
 

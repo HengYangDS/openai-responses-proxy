@@ -18,8 +18,8 @@ from pytest_mock import MockerFixture
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import artifact
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
 from tools.release.artifact import format as product_assets

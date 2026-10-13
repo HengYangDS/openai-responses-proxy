@@ -9,7 +9,7 @@ from tools.quality.repository.topology import architecture_gaps
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = ROOT / "src" / "openai_responses_proxy"
-TERMINAL = {"cli", "protocol", "providers", "relay", "runtime", "service", "lifecycle"}
+TERMINAL = {"cli", "protocol", "providers", "relay", "runtime", "serving", "lifecycle"}
 
 
 class TerminalPackageContracts:

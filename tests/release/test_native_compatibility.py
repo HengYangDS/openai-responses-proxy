@@ -29,7 +29,7 @@ from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.service.handoff import transaction as handoff_transaction
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.release.fixtures import COMMAND_TIMEOUT_SECONDS
 from tests.release.fixtures import cleanup_runtime
 from tests.release.fixtures import legacy_published_bundle
@@ -39,9 +39,9 @@ from tests.release.fixtures import post_response
 from tests.release.fixtures import run_command
 from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
-from tests.service.handoff.fixtures import ScriptedUpstream
-from tests.service.handoff.fixtures import free_port
-from tests.service.handoff.fixtures import wait_until
+from tests.serving.handoff.fixtures import ScriptedUpstream
+from tests.serving.handoff.fixtures import free_port
+from tests.serving.handoff.fixtures import wait_until
 from tools.release.artifact import signing
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -171,10 +171,10 @@ def test_upgrade_drain_waits_through_materialization(tmp_path: Path, *, mocker) 
         ],
     )
     mocker.patch(
-        "tests.service.handoff.fixtures.time.monotonic",
+        "tests.serving.handoff.fixtures.time.monotonic",
         side_effect=[0.0, 0.0, 0.2],
     )
-    mocker.patch("tests.service.handoff.fixtures.time.sleep")
+    mocker.patch("tests.serving.handoff.fixtures.time.sleep")
 
     assert _wait_for_upgrade_drain(
         future,

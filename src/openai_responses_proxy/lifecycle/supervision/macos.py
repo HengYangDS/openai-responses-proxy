@@ -17,9 +17,9 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
     from openai_responses_proxy.lifecycle import runtime_spec
@@ -124,7 +124,7 @@ def render_plist(ctx: runtime_spec.NativeServiceContext) -> str:
     """Serialize the minimal launchd projection for one installed runtime."""
     payload = {
         "Label": ctx.service_id,
-        "ProgramArguments": [ctx.executable, service_runtime.WATCHDOG_MODE],
+        "ProgramArguments": [ctx.executable, serving_roles.WATCHDOG_MODE],
         "LimitLoadToSessionType": list(_SESSION_TYPES),
         "RunAtLoad": True,
         "KeepAlive": True,
@@ -171,7 +171,7 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
         or not isinstance(arguments, list)
         or len(arguments) != 2
         or not all(isinstance(value, str) for value in arguments)
-        or arguments[1] != service_runtime.WATCHDOG_MODE
+        or arguments[1] != serving_roles.WATCHDOG_MODE
         or environment != {"HOME": ctx.user_home}
         or payload.get("LimitLoadToSessionType") not in _RELEASED_SESSION_TYPES
     ):
@@ -235,7 +235,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         generation = process.capture_executable(
             previous.pid,
             previous_executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
         if generation is None:
             msg = "registered launchd watchdog process identity is unproved"
@@ -292,7 +292,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     successor = process.wait_for_executable(
         successor_pid,
         ctx.executable,
-        roles={service_runtime.WATCHDOG_MODE},
+        roles={serving_roles.WATCHDOG_MODE},
     )
     if successor is None or not process.owned_process_alive(successor):
         msg = "launchd successor watchdog process identity is unproved"
@@ -313,7 +313,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
         generation = process.wait_for_executable(
             current.pid,
             executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
         if generation is None:
             msg = "registered launchd watchdog process identity is unproved"

@@ -20,7 +20,7 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
-from openai_responses_proxy.service import control
+from openai_responses_proxy.serving import control
 
 type ServerRequest = socket.socket | tuple[bytes, socket.socket]
 type ClientAddress = tuple[str, int] | str

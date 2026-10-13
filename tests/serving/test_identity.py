@@ -10,9 +10,9 @@ import pytest
 
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload

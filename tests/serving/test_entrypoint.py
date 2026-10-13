@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from openai_responses_proxy.providers import registry as provider_registry
-from openai_responses_proxy.service import entrypoint
-from openai_responses_proxy.service import identity
+from openai_responses_proxy.serving import entrypoint
+from openai_responses_proxy.serving import identity
 
 
 class TestListenerEntrypoint:

@@ -8,17 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from openai_responses_proxy.service.handoff import protocol as handoff_protocol_module
-from tests.service.handoff.fixtures import HandoffFixture
-from tests.service.handoff.fixtures import child_message
-from tests.service.handoff.fixtures import entrypoint_module
-from tests.service.handoff.fixtures import expected_metadata
-from tests.service.handoff.fixtures import fake_child
-from tests.service.handoff.fixtures import fake_server
-from tests.service.handoff.fixtures import handoff_module
-from tests.service.handoff.fixtures import handoff_outcome_ready
-from tests.service.handoff.fixtures import matching_health
-from tests.service.handoff.fixtures import wait_until
+from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
+from tests.serving.handoff.fixtures import HandoffFixture
+from tests.serving.handoff.fixtures import child_message
+from tests.serving.handoff.fixtures import entrypoint_module
+from tests.serving.handoff.fixtures import expected_metadata
+from tests.serving.handoff.fixtures import fake_child
+from tests.serving.handoff.fixtures import fake_server
+from tests.serving.handoff.fixtures import handoff_module
+from tests.serving.handoff.fixtures import handoff_outcome_ready
+from tests.serving.handoff.fixtures import matching_health
+from tests.serving.handoff.fixtures import wait_until
 
 ROOT = Path(__file__).resolve().parents[3]
 

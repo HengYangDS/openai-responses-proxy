@@ -22,7 +22,7 @@ from openai_responses_proxy.providers.policies import dmxapi as policy
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.service import entrypoint as proxy
+from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import request
 from tests.relay.fixtures import serve_proxy
 

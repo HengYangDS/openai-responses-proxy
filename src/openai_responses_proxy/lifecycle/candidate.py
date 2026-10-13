@@ -18,9 +18,9 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
 
 _STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
@@ -132,7 +132,7 @@ def prewarm(ctx: runtime_context.RuntimeContext) -> None:
     )
     try:
         completed = subprocess.run(
-            [str(executable), service_runtime.PREWARM_MODE],
+            [str(executable), serving_roles.PREWARM_MODE],
             stdin=subprocess.DEVNULL,
             capture_output=True,
             check=False,

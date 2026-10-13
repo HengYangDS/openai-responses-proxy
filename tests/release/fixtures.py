@@ -27,8 +27,8 @@ from openai_responses_proxy.lifecycle.supervision import macos
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
 from tools.release.artifact import bundle as release_assembly
 from tools.release.artifact import format as product_assets
 from tools.release.artifact import signing
@@ -37,10 +37,10 @@ ROOT = Path(__file__).resolve().parents[2]
 COMMAND_TIMEOUT_SECONDS = 180
 _SERVICE_ROLES = frozenset(
     {
-        service_runtime.LISTENER_MODE,
-        service_runtime.HANDOFF_CHILD_MODE,
-        service_runtime.WATCHDOG_MODE,
-        service_runtime.PREWARM_MODE,
+        serving_roles.LISTENER_MODE,
+        serving_roles.HANDOFF_CHILD_MODE,
+        serving_roles.WATCHDOG_MODE,
+        serving_roles.PREWARM_MODE,
     }
 )
 
@@ -302,7 +302,7 @@ def stop_native_supervision(
             )
         if keep_runtime:
             control = generation.control_context(ctx)
-            watchdog = {service_runtime.WATCHDOG_MODE}
+            watchdog = {serving_roles.WATCHDOG_MODE}
             for pid in process.pids_naming_executable(control.executable, roles=watchdog):
                 assert process.terminate_executable(pid, control.executable, roles=watchdog)
     elif keep_runtime and sys.platform.startswith("linux"):

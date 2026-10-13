@@ -472,7 +472,7 @@ class TestMacosLifecycle:
                 capture.assert_called_once_with(
                     41,
                     configured,
-                    roles={macos.service_runtime.WATCHDOG_MODE},
+                    roles={macos.serving_roles.WATCHDOG_MODE},
                 )
 
     def test_install_rejects_unchanged_watchdog_generation(self, *, mocker) -> None:
@@ -506,7 +506,7 @@ class TestMacosLifecycle:
             capture.assert_any_call(
                 41,
                 ctx.executable,
-                roles={macos.service_runtime.WATCHDOG_MODE},
+                roles={macos.serving_roles.WATCHDOG_MODE},
             )
             wait_for_exit.assert_called_once_with(generation)
 
@@ -628,12 +628,12 @@ class TestMacosLifecycle:
                 mocker.call(
                     41,
                     ctx.executable,
-                    roles={macos.service_runtime.WATCHDOG_MODE},
+                    roles={macos.serving_roles.WATCHDOG_MODE},
                 ),
                 mocker.call(
                     73,
                     ctx.executable,
-                    roles={macos.service_runtime.WATCHDOG_MODE},
+                    roles={macos.serving_roles.WATCHDOG_MODE},
                 ),
             ]
             wait_for_exit.assert_called_once_with(predecessor)
@@ -690,7 +690,7 @@ class TestMacosLifecycle:
 
         assert payload["ProgramArguments"] == [
             ctx.executable,
-            macos.service_runtime.WATCHDOG_MODE,
+            macos.serving_roles.WATCHDOG_MODE,
         ]
 
     def test_configured_executable_reads_only_a_valid_watchdog_plist(self):
@@ -766,7 +766,7 @@ class TestMacosLifecycle:
             wait_for_executable.assert_called_once_with(
                 73,
                 configured,
-                roles={macos.service_runtime.WATCHDOG_MODE},
+                roles={macos.serving_roles.WATCHDOG_MODE},
             )
 
     def test_uninstall_boots_out_registered_service_when_plist_is_missing(self, *, mocker):

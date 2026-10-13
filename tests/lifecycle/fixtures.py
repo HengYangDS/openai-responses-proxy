@@ -14,9 +14,9 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
-from openai_responses_proxy.service import digest as payload_digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest as payload_digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
 
 ROOT = Path(__file__).resolve().parents[2]
 

@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from openai_responses_proxy.service import control
-from openai_responses_proxy.service.handoff import protocol as handoff_protocol_module
-from tests.service.handoff.fixtures import entrypoint_module
-from tests.service.handoff.fixtures import expected_metadata
-from tests.service.handoff.fixtures import fake_handler
-from tests.service.handoff.fixtures import handoff_module
-from tests.service.handoff.fixtures import runtime_state_module
+from openai_responses_proxy.serving import control
+from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
+from tests.serving.handoff.fixtures import entrypoint_module
+from tests.serving.handoff.fixtures import expected_metadata
+from tests.serving.handoff.fixtures import fake_handler
+from tests.serving.handoff.fixtures import handoff_module
+from tests.serving.handoff.fixtures import runtime_state_module
 
 ROOT = Path(__file__).resolve().parents[3]
 

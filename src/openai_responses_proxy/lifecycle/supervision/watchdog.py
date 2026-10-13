@@ -21,12 +21,12 @@ from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.runtime import bounded_log
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 SETTINGS = runtime_config.load()
 HOST, PORT = SETTINGS.listener
 EXECUTABLE = str(Path(sys.executable).resolve())
-LISTENER_MODE = service_runtime.LISTENER_MODE
+LISTENER_MODE = serving_roles.LISTENER_MODE
 CHECK_INTERVAL = SETTINGS.watchdog_interval
 MAX_BACKOFF = SETTINGS.watchdog_max_backoff
 LOG_PATH = SETTINGS.watchdog_log.path

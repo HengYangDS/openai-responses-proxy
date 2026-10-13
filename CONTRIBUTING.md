@@ -133,7 +133,7 @@ credentials, host paths, or Forge identity.
 | `providers` | Declarative provider registry and optional wire policies        |
 | `protocol`  | Provider-portable request and response projection               |
 | `relay`     | HTTP/SSE exchange, admission, retry, and cooldown               |
-| `service`   | Listener process, health, logs, and handoff protocol            |
+| `serving`   | Listener process, health, logs, and handoff protocol            |
 | `lifecycle` | Artifact admission, install, supervision, reload, and uninstall |
 | `runtime`   | Process-local configuration, bounded logs, and loopback control |
 

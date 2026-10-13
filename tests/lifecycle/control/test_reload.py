@@ -12,7 +12,7 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import identity
+from openai_responses_proxy.serving import identity
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 

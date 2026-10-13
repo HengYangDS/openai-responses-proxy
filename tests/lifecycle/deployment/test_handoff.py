@@ -18,15 +18,15 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
-from openai_responses_proxy.service.handoff import transaction as handoff_transaction
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.fixtures import install_context
-from tests.service.handoff.fixtures import Response
-from tests.service.handoff.fixtures import expected_metadata
-from tests.service.handoff.fixtures import idle_runtime
-from tests.service.handoff.fixtures import matching_health
-from tests.service.handoff.fixtures import ready_ack
+from tests.serving.handoff.fixtures import Response
+from tests.serving.handoff.fixtures import expected_metadata
+from tests.serving.handoff.fixtures import idle_runtime
+from tests.serving.handoff.fixtures import matching_health
+from tests.serving.handoff.fixtures import ready_ack
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -81,7 +81,7 @@ class TestControllerHandoffWiring:
         capture.assert_called_once_with(
             999,
             ctx.executable,
-            roles={service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
         )
         alive.assert_called_once_with(admitted)
 
@@ -306,7 +306,7 @@ class TestControllerHandoffWiring:
         capture.assert_called_once_with(
             1000,
             ctx.executable,
-            roles={service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.HANDOFF_CHILD_MODE},
             timeout_seconds=1,
         )
         assert {call.args[0].pid for call in alive.call_args_list} == {999, 1000}

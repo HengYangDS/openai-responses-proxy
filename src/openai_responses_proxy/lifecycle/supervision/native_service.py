@@ -10,13 +10,13 @@ from typing import cast
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 _RUNTIME_ROLES = {
-    service_runtime.LISTENER_MODE,
-    service_runtime.HANDOFF_CHILD_MODE,
-    service_runtime.WATCHDOG_MODE,
-    service_runtime.PREWARM_MODE,
+    serving_roles.LISTENER_MODE,
+    serving_roles.HANDOFF_CHILD_MODE,
+    serving_roles.WATCHDOG_MODE,
+    serving_roles.PREWARM_MODE,
 }
 
 

@@ -13,7 +13,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 # A fixed past boundary so the repeating time trigger is always active; the
 # repetition, not this date, drives every self-heal relaunch.
@@ -73,7 +73,7 @@ def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
     actions = _element(root, "Actions", Context="Author")
     execute = _element(actions, "Exec")
     _element(execute, "Command", ctx.executable)
-    _element(execute, "Arguments", service_runtime.WATCHDOG_MODE)
+    _element(execute, "Arguments", serving_roles.WATCHDOG_MODE)
     _element(execute, "WorkingDirectory", ctx.payload_dir)
     ET.indent(root, space="  ")
     rendered = ET.tostring(root, encoding="utf-16", xml_declaration=True)
@@ -118,7 +118,7 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
         len(commands) != 1
         or len(arguments) != 1
         or not commands[0].text
-        or arguments[0].text != service_runtime.WATCHDOG_MODE
+        or arguments[0].text != serving_roles.WATCHDOG_MODE
     ):
         raise errors.InstallError("scheduled task watchdog identity is unproved")
     return commands[0].text
@@ -139,12 +139,12 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     predecessors = []
     if previous_executable is not None:
         for pid in process.pids_naming_executable(
-            previous_executable, roles={service_runtime.WATCHDOG_MODE}
+            previous_executable, roles={serving_roles.WATCHDOG_MODE}
         ):
             predecessor = process.capture_executable(
                 pid,
                 previous_executable,
-                roles={service_runtime.WATCHDOG_MODE},
+                roles={serving_roles.WATCHDOG_MODE},
             )
             if predecessor is None:
                 raise errors.InstallError("scheduled watchdog process identity is unproved")
@@ -190,7 +190,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
 
 def _running_watchdog_pids(ctx: runtime_spec.NativeServiceContext) -> list[int]:
     """Return PIDs exactly naming this installation's native watchdog role."""
-    return process.pids_naming_executable(ctx.executable, roles={service_runtime.WATCHDOG_MODE})
+    return process.pids_naming_executable(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
 
 
 def _wait_for_watchdog(
@@ -204,7 +204,7 @@ def _wait_for_watchdog(
             watchdog = process.capture_executable(
                 watchdogs[0],
                 ctx.executable,
-                roles={service_runtime.WATCHDOG_MODE},
+                roles={serving_roles.WATCHDOG_MODE},
             )
             if watchdog is not None and process.owned_process_alive(watchdog):
                 return watchdog
@@ -232,7 +232,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     # process that appeared between them.
     for pid in _running_watchdog_pids(ctx):
         if not process.terminate_executable(
-            pid, ctx.executable, roles={service_runtime.WATCHDOG_MODE}
+            pid, ctx.executable, roles={serving_roles.WATCHDOG_MODE}
         ):
             raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
     if remaining := _running_watchdog_pids(ctx):
@@ -244,6 +244,6 @@ def status(ctx: runtime_spec.NativeServiceContext) -> str:
     configured = configured_executable(ctx)
     if configured is None:
         return "absent"
-    if process.pids_naming_executable(configured, roles={service_runtime.WATCHDOG_MODE}):
+    if process.pids_naming_executable(configured, roles={serving_roles.WATCHDOG_MODE}):
         return "running"
     return "installed"

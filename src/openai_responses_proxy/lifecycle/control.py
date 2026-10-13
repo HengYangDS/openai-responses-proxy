@@ -25,8 +25,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.supervision.native_service import adapter
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import roles as serving_roles
 
 
 def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:
@@ -77,7 +77,7 @@ def status(
         process.capture_executable(
             pid,
             active.executable,
-            roles={service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
         )
         if type(pid) is int
         else None

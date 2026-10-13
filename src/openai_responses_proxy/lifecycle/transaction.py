@@ -29,8 +29,8 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import state
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import identity
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
 
 
 def recover(

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 
 _RUNTIME_PAYLOAD_FIELDS = {
     "release": "release",

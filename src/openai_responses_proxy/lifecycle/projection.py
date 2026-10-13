@@ -14,8 +14,8 @@ from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.json_value import ReadOnlyJsonObject
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 
 PAYLOAD_MANIFEST_SCHEMA_VERSION = 2
 _WINDOWS_DISPOSAL_ERRORS = frozenset({5, 32})

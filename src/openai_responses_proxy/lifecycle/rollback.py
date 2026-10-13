@@ -9,7 +9,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import state
-from openai_responses_proxy.service import identity
+from openai_responses_proxy.serving import identity
 
 
 @dataclass(frozen=True, slots=True)

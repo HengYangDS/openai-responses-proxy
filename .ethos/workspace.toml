@@ -8,6 +8,6 @@ proposal_branch_prefix = "proposal/"
 canonical_sibling_worktrees = true
 
 [commit_policy]
-subject_pattern = '^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|spec|test)\((?:architecture|ci|cli|docs|forge|governance|install|lifecycle|openspec|protocol|providers|quality|relay|release|runtime|service|supervision|tests|toolchain)\): [a-z](?:[^\n]*[^\s.]|[^\n\s.])$'
+subject_pattern = '^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|spec|test)\((?:architecture|ci|cli|docs|forge|governance|install|lifecycle|openspec|protocol|providers|quality|relay|release|runtime|serving|supervision|tests|toolchain)\): [a-z](?:[^\n]*[^\s.]|[^\n\s.])$'
 signing_required = true
 signing_format = "ssh"

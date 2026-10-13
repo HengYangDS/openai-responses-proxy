@@ -12,7 +12,7 @@ from pathlib import PureWindowsPath
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import owned_files
-from openai_responses_proxy.service import digest
+from openai_responses_proxy.serving import digest
 
 COMMAND_NAME = product_identity.COMMAND_NAME
 SNAPSHOT_FILENAME = "command.json"

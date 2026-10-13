@@ -12,7 +12,7 @@ from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import rollback
 from openai_responses_proxy.lifecycle import state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
-from openai_responses_proxy.service import digest
+from openai_responses_proxy.serving import digest
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload

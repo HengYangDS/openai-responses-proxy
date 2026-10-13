@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.service import digest
+from openai_responses_proxy.serving import digest
 
 MANIFEST_FILENAME = "payload-manifest.json"
 RELEASE_RECEIPT_FILENAME = "release-asset-receipt.json"

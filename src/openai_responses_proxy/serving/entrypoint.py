@@ -19,11 +19,11 @@ from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.runtime import config as runtime_config
-from openai_responses_proxy.service import control
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import runtime
-from openai_responses_proxy.service import server
-from openai_responses_proxy.service.handoff import transaction as handoff
+from openai_responses_proxy.serving import control
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import roles
+from openai_responses_proxy.serving import server
+from openai_responses_proxy.serving.handoff import transaction as handoff
 
 _SERVER_INSTANCE: ThreadingHTTPServer | None = None
 
@@ -39,7 +39,7 @@ class Bootstrap:
 
 def bootstrap(executable: Path | None = None) -> Bootstrap:
     """Verify one installed payload, load its routes, then reject identity drift."""
-    selected = Path(runtime.current_executable()) if executable is None else executable
+    selected = Path(roles.current_executable()) if executable is None else executable
     loaded = identity.freeze_loaded_payload(selected)
     if loaded is None:
         raise RuntimeError("installed payload identity is unavailable")
@@ -111,7 +111,7 @@ def _set_server_instance(server: ThreadingHTTPServer) -> None:
 
 def _handoff_context() -> handoff.Context:
     """Bind the rolling-handoff state machine to process-owned primitives."""
-    executable = Path(runtime.current_executable()) if _BOOTSTRAP is None else _BOOTSTRAP.executable
+    executable = Path(roles.current_executable()) if _BOOTSTRAP is None else _BOOTSTRAP.executable
     return handoff.Context(
         executable=executable,
         state_root=Path(runtime_config.state_dir()),

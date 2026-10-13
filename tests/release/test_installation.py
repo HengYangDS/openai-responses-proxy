@@ -20,9 +20,9 @@ from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import runtime as service_runtime
-from openai_responses_proxy.service.handoff import transaction as handoff_transaction
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import roles as serving_roles
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -246,7 +246,7 @@ class TestReleasedDeployment:
         capture.assert_called_once_with(
             111,
             self.ctx.executable,
-            roles={service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
         )
         request.assert_called_once_with(
             payload.context,
@@ -285,7 +285,7 @@ class TestReleasedDeployment:
         capture.assert_called_once_with(
             111,
             self.ctx.executable,
-            roles={service_runtime.LISTENER_MODE, service_runtime.HANDOFF_CHILD_MODE},
+            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
         )
         terminate.assert_called_once_with(source, timeout_seconds=30)
         drain.assert_called_once_with(

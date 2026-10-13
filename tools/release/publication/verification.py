@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from pathlib import Path
 
-from openai_responses_proxy.service import digest
+from openai_responses_proxy.serving import digest
 from tools.release import identity
 from tools.release.publication import evaluator
 from tools.release.publication import git

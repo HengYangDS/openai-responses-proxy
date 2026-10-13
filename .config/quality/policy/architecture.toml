@@ -30,7 +30,7 @@ model-selection = "client"
 conversation-history = "client"
 
 [allowed_package_edges]
-cli = ["errors", "lifecycle", "product_identity", "service"]
+cli = ["errors", "lifecycle", "product_identity", "serving"]
 lifecycle = [
   "errors",
   "json_value",
@@ -39,12 +39,12 @@ lifecycle = [
   "providers",
   "relay",
   "runtime",
-  "service",
+  "serving",
 ]
 protocol = []
 providers = []
 relay = ["protocol", "providers", "runtime"]
-service = [
+serving = [
   "json_value",
   "product_identity",
   "protocol",

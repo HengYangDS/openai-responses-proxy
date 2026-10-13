@@ -8,7 +8,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import windows
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
@@ -70,7 +70,7 @@ class TestWindowsLifecycle:
         )
         assert windows.status(ctx) == ("running" if live else "installed")
         assert "/xml" in run.call_args.args[0]
-        inventory.assert_called_once_with(ctx.executable, roles={service_runtime.WATCHDOG_MODE})
+        inventory.assert_called_once_with(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
 
     @pytest.mark.parametrize(
         "failure",
@@ -220,7 +220,7 @@ class TestWindowsLifecycle:
         capture.assert_called_once_with(
             41,
             previous_executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
 
         mocker.patch.object(windows.process, "capture_executable", return_value=predecessor)
@@ -315,7 +315,7 @@ class TestWindowsLifecycle:
             return_value=[12, 15, 18],
         )
         assert windows._running_watchdog_pids(ctx) == [12, 15, 18]
-        inventory.assert_called_once_with(ctx.executable, roles={service_runtime.WATCHDOG_MODE})
+        inventory.assert_called_once_with(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
         invoked = mocker.patch.object(windows.subprocess, "run", return_value=_completed())
         mocker.patch.object(windows, "status", return_value="absent")
         mocker.patch.object(windows, "_running_watchdog_pids", return_value=[4242])
@@ -327,7 +327,7 @@ class TestWindowsLifecycle:
         terminate.assert_called_once_with(
             4242,
             ctx.executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
         mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[4242], []])
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=True)
@@ -335,7 +335,7 @@ class TestWindowsLifecycle:
         terminate.assert_called_once_with(
             4242,
             ctx.executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
 
     def test_uninstall_requires_task_deletion_and_absence_proof(self, *, mocker):

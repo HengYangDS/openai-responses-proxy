@@ -14,8 +14,8 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import runtime
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import roles
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -42,13 +42,13 @@ class TestRuntimeContext:
     ) -> None:
         invoked = tmp_path / "copied-proxy"
         invoked.write_text("fixture", encoding="utf-8")
-        frozen = mocker.patch.object(runtime.sys, "frozen", True, create=True)
-        mocker.patch.object(runtime.sys, "executable", str(invoked))
-        assert runtime.current_executable() == str(invoked.resolve())
+        frozen = mocker.patch.object(roles.sys, "frozen", True, create=True)
+        mocker.patch.object(roles.sys, "executable", str(invoked))
+        assert roles.current_executable() == str(invoked.resolve())
         mocker.stop(frozen)
 
-        mocker.patch.object(runtime.sys, "argv", [str(invoked)])
-        assert runtime.current_executable() == str(invoked.resolve())
+        mocker.patch.object(roles.sys, "argv", [str(invoked)])
+        assert roles.current_executable() == str(invoked.resolve())
 
     def test_default_port_is_8792_and_explicit_override_remains_configurable(self):
         assert config.DEFAULT_PORT == 8792

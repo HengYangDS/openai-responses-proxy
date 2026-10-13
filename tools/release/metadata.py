@@ -371,7 +371,7 @@ def _command(
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    proxy = (ROOT / "src" / "openai_responses_proxy" / "service" / "entrypoint.py").read_text(
+    proxy = (ROOT / "src" / "openai_responses_proxy" / "serving" / "entrypoint.py").read_text(
         encoding="utf-8"
     )
     if "release_version()" not in proxy:

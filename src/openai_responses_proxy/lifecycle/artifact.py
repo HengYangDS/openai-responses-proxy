@@ -23,8 +23,8 @@ from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.json_value import ReadOnlyJsonObject
 from openai_responses_proxy.json_value import is_json_object
 from openai_responses_proxy.json_value import thaw_value
-from openai_responses_proxy.service import digest
-from openai_responses_proxy.service import inventory
+from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 
 RECEIPT_SCHEMA = 1
 _ARCHIVE = re.compile(

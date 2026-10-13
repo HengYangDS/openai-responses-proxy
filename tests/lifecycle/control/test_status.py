@@ -16,9 +16,9 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import digest as payload_digest
-from openai_responses_proxy.service import identity
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import digest as payload_digest
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
@@ -353,8 +353,8 @@ def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
         76541,
         active.executable,
         roles={
-            service_runtime.HANDOFF_CHILD_MODE,
-            service_runtime.LISTENER_MODE,
+            serving_roles.HANDOFF_CHILD_MODE,
+            serving_roles.LISTENER_MODE,
         },
     )
 

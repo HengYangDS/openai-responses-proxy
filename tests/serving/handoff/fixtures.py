@@ -28,10 +28,10 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.relay import admission as runtime_state_module
-from openai_responses_proxy.service import entrypoint as entrypoint_module
-from openai_responses_proxy.service import inventory
-from openai_responses_proxy.service import runtime as service_runtime
-from openai_responses_proxy.service.handoff import transaction as handoff_module
+from openai_responses_proxy.serving import entrypoint as entrypoint_module
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles as serving_roles
+from openai_responses_proxy.serving.handoff import transaction as handoff_module
 from tests.lifecycle.fixtures import install_context
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -291,8 +291,8 @@ def terminate_process(process: subprocess.Popen[bytes], timeout: float = 5) -> N
 def terminate_owned_proxy(pid: int | None, proxy_script: str) -> None:
     """Terminate one child only while its argv names the temporary executable."""
     roles = {
-        service_runtime.HANDOFF_CHILD_MODE,
-        service_runtime.LISTENER_MODE,
+        serving_roles.HANDOFF_CHILD_MODE,
+        serving_roles.LISTENER_MODE,
     }
     if pid is None or not process.pid_names_executable(pid, proxy_script, roles=roles):
         return

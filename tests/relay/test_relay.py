@@ -28,7 +28,7 @@ class TestProxyTransport:
     """Exercise retry behavior through real local HTTP hops."""
 
     def setup_method(self):
-        from openai_responses_proxy.service import entrypoint as p
+        from openai_responses_proxy.serving import entrypoint as p
 
         self.p = p
         admission.reset_for_test()

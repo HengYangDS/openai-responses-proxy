@@ -11,7 +11,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import state as payload_state
-from openai_responses_proxy.service import digest as payload_digest
+from openai_responses_proxy.serving import digest as payload_digest
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context

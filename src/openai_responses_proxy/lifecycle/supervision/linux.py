@@ -11,7 +11,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.service import runtime as service_runtime
+from openai_responses_proxy.serving import roles as serving_roles
 
 UNIT_TEMPLATE = f"""[Unit]
 Description={product_identity.DISPLAY_NAME} watchdog
@@ -58,7 +58,7 @@ def render_unit(ctx: runtime_spec.NativeServiceContext) -> str:
     """Render the user-level systemd watchdog unit for this installation."""
     return UNIT_TEMPLATE.format(
         executable=f'"{_unit_value(ctx.executable)}"',
-        watchdog_mode=service_runtime.WATCHDOG_MODE,
+        watchdog_mode=serving_roles.WATCHDOG_MODE,
     )
 
 
@@ -75,7 +75,7 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
         arguments = shlex.split(commands[0], posix=True)
     except ValueError:
         return None
-    if len(arguments) != 2 or arguments[1] != service_runtime.WATCHDOG_MODE:
+    if len(arguments) != 2 or arguments[1] != serving_roles.WATCHDOG_MODE:
         return None
     return arguments[0].replace("%%", "%")
 
@@ -125,7 +125,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
         process.wait_for_executable(
             watchdog_pid,
             ctx.executable,
-            roles={service_runtime.WATCHDOG_MODE},
+            roles={serving_roles.WATCHDOG_MODE},
         )
         if watchdog_pid > 0
         else None
@@ -172,16 +172,14 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             raise errors.InstallError("systemctl daemon-reload failed after unit removal")
         if status(ctx) != "absent":
             raise errors.InstallError("systemd watchdog remains registered after removal")
-    watchdogs = process.pids_naming_executable(
-        ctx.executable, roles={service_runtime.WATCHDOG_MODE}
-    )
+    watchdogs = process.pids_naming_executable(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
     for pid in watchdogs:
         if not process.terminate_executable(
-            pid, ctx.executable, roles={service_runtime.WATCHDOG_MODE}
+            pid, ctx.executable, roles={serving_roles.WATCHDOG_MODE}
         ):
             raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
     if remaining := process.pids_naming_executable(
-        ctx.executable, roles={service_runtime.WATCHDOG_MODE}
+        ctx.executable, roles={serving_roles.WATCHDOG_MODE}
     ):
         raise errors.InstallError(f"verified watchdogs remain: {remaining}")
 
