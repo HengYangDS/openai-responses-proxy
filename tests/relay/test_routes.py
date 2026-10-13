@@ -11,9 +11,9 @@ import pytest
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import telemetry
-from tests.relay.proxy_fixture import raw_exchange
-from tests.relay.proxy_fixture import request
-from tests.relay.proxy_fixture import running_proxy
+from tests.relay.fixtures import raw_exchange
+from tests.relay.fixtures import request
+from tests.relay.fixtures import running_proxy
 
 ROOT = Path(__file__).resolve().parents[2]
 

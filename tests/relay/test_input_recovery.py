@@ -18,11 +18,11 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
-from tests.relay.exchange_fixture import EXACT_ERROR
-from tests.relay.exchange_fixture import InputTransportFixture
-from tests.relay.exchange_fixture import request_body
-from tests.relay.proxy_fixture import request
-from tests.relay.proxy_fixture import running_proxy
+from tests.relay.fixtures import EXACT_ERROR
+from tests.relay.fixtures import InputTransportFixture
+from tests.relay.fixtures import request
+from tests.relay.fixtures import request_body
+from tests.relay.fixtures import running_proxy
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()
