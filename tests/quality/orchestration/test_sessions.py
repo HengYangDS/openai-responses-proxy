@@ -48,32 +48,27 @@ def test_native_report_selection_refuses_relative_output_before_static_writes(
     session.run.assert_not_called()
 
 
-@pytest.mark.parametrize("hash_location", ["fragment", "archive"])
 @pytest.mark.parametrize("changed", [False, True])
-def test_native_helper_supply_checks_exact_wheel_before_install(
+def test_native_helper_supply_checks_the_supplied_wheel_before_install(
     tmp_path: Path,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
-    hash_location: str,
     changed: bool,
 ) -> None:
+    """The attempt selects the observer; this session only verifies its exact bytes."""
     wheel = tmp_path / "original wheel.whl"
     wheel.write_bytes(b"original immutable wheel fixture")
     digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
-    provenance = {"url": wheel.as_uri(), "archive_info": {}}
-    if hash_location == "fragment":
-        provenance["url"] += f"#sha256={digest}"
-    else:
-        provenance["archive_info"] = {"hashes": {"sha256": digest}}
+    requirement = f"ethos @ {wheel.as_uri()}#sha256={digest}"
     if changed:
         wheel.write_bytes(b"changed wheel fixture")
-    metadata = SimpleNamespace(read_text=lambda _name: json.dumps(provenance))
-    mocker.patch.object(
-        nox_configuration.python_quality.importlib.metadata,
-        "distribution",
-        return_value=metadata,
+    mocker.patch.dict(
+        os.environ,
+        {
+            "ETHOS_NATIVE_OUTPUT_DIR": str(tmp_path),
+            "ETHOS_NATIVE_OBSERVER_REQUIREMENT": requirement,
+        },
     )
-    mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(tmp_path)})
     session = mocker.Mock()
     session.error.side_effect = ValueError("native helper wheel unavailable")
 
@@ -85,32 +80,35 @@ def test_native_helper_supply_checks_exact_wheel_before_install(
         nox_configuration.python_quality.install_native_helpers(session)
         session.install.assert_called_once_with(
             "--no-deps",
-            f"ethos @ {wheel.as_uri()}#sha256={digest}",
+            requirement,
             env={"PYTHONNOUSERSITE": "1", "UV_NO_PROGRESS": "1"},
         )
 
 
 @pytest.mark.parametrize(
-    "provenance",
+    "requirement",
     [
-        None,
-        {"url": "file:///wheel.whl", "archive_info": []},
-        {"url": "file:///wheel.whl", "archive_info": {"hashes": []}},
+        "",
+        "ethos @ file:///wheel.whl",
+        "ethos @ https://example.invalid/wheel.whl#sha256=" + "a" * 64,
+        "ethos @ file:///wheel.whl#sha256=not-a-digest",
+        "ethos @ file:///wheel.whl#sha512=" + "a" * 64,
     ],
 )
-def test_native_helper_supply_refuses_incomplete_provenance_before_install(
-    provenance: object,
+def test_native_helper_supply_refuses_unsupplied_or_invalid_requirements(
+    requirement: str,
     tmp_path: Path,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
 ) -> None:
-    metadata = SimpleNamespace(read_text=lambda _name: json.dumps(provenance))
-    mocker.patch.object(
-        nox_configuration.python_quality.importlib.metadata,
-        "distribution",
-        return_value=metadata,
+    """An absent, remote, unhashed or malformed supply cannot reach installation."""
+    mocker.patch.dict(
+        os.environ,
+        {
+            "ETHOS_NATIVE_OUTPUT_DIR": str(tmp_path),
+            "ETHOS_NATIVE_OBSERVER_REQUIREMENT": requirement,
+        },
     )
-    mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(tmp_path)})
     session = mocker.Mock()
     session.error.side_effect = ValueError("native helper wheel unavailable")
 
@@ -124,6 +122,7 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     mocker: MockerFixture,
     nox_configuration: ModuleType,
 ) -> None:
+    """This interpreter has no ETHOS, so a parent import would fail the session."""
     output = tmp_path / "reports"
     output.mkdir()
     work = tmp_path / "work"
@@ -135,19 +134,34 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(output)})
     for name in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
         mocker.patch.object(nox_configuration, name)
-    observer = mocker.Mock()
-    mocker.patch.object(
-        nox_configuration.python_quality.importlib, "import_module", return_value=observer
-    )
 
     nox_configuration.quality(session)
 
-    observer.run_ruff.assert_called_once()
-    checker = observer.run_ruff.call_args
-    assert checker.args[0] is session
-    assert checker.kwargs["identity"] == "quality-3.12"
-    assert checker.kwargs["configuration"] == nox_configuration.python_quality.RUFF_CONFIG
-    assert checker.kwargs["runtime_output"] == output / "quality-ruff-runtime.json"
+    custody = [
+        call for call in session.run.call_args_list if "ethos.domain.quality.nox" in call.args
+    ]
+    assert len(custody) == 1
+    checker = custody[0].args
+    assert checker[:6] == (
+        "python",
+        "-B",
+        "-I",
+        "-m",
+        "ethos.domain.quality.nox",
+        "run",
+    )
+    assert checker[checker.index("--session") + 1] == "quality-3.12"
+    assert checker[checker.index("--runtime-output") + 1] == str(
+        output / "quality-ruff-runtime.json"
+    )
+    assert checker[checker.index("--configuration") + 1] == str(
+        nox_configuration.python_quality.RUFF_CONFIG
+    )
+    ruff = list(checker[checker.index("--") + 1 :])
+    assert ruff[0] == str(tmp_path / "ruff")
+    assert ruff[1] == "check"
+    assert "--verbose" in ruff
+    assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.json")
     behavior, nested = [call for call in session.run.call_args_list if "pytest" in call.args]
     assert behavior.args[behavior.args.index("--ethos-native-session") + 1] == "quality-3.12"
     assert behavior.args[behavior.args.index("--ethos-runtime-output") + 1] == str(

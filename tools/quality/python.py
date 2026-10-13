@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import importlib
-import importlib.metadata
-import json
 import os
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
-from urllib.parse import parse_qs
 from urllib.parse import unquote
 from urllib.parse import urlsplit
 
@@ -21,6 +17,8 @@ ROOTS = ("src/openai_responses_proxy", "tools", "tests", "noxfile.py")
 RUFF_CONFIG = ROOT / ".config/quality/native/ruff.toml"
 TY_CONFIG = ROOT / ".config/quality/native/ty.toml"
 COVERAGE_CONFIG = ROOT / ".config/quality/native/coverage.ini"
+OBSERVER_REQUIREMENT = "ETHOS_NATIVE_OBSERVER_REQUIREMENT"
+OBSERVER_MODULE = "ethos.domain.quality.nox"
 
 
 def source_manifest(root: Path) -> dict[str, str]:
@@ -165,45 +163,40 @@ def _static_report(
     output: Path,
     environment: Mapping[str, str],
 ) -> None:
-    """Use the shipped observer for one actual same-child Ruff launch."""
-    runtime = output / f"{session.name}-ruff-runtime.json"
+    """Run the supplied observer in this session's child, never in the Nox parent."""
+    binary = Path(session.bin) / ("ruff.exe" if os.name == "nt" else "ruff")
     session.run(
         "python",
+        "-B",
         "-I",
-        "-c",
-        "import json,sys; from pathlib import Path; "
-        "Path(sys.argv[1]).write_text(json.dumps({'executable':sys.executable, "
-        "'version':list(sys.version_info[:3]), 'prefix':sys.prefix}) + '\\n', encoding='utf-8')",
-        str(runtime),
+        "-m",
+        OBSERVER_MODULE,
+        "run",
+        "--runtime-output",
+        str(output / f"{session.name}-ruff-runtime.json"),
+        "--session",
+        _native_session(session),
+        "--configuration",
+        str(RUFF_CONFIG),
+        "--",
+        str(binary),
+        *command[1:],
+        "--verbose",
+        "--output-format",
+        "json",
+        "--output-file",
+        str(output / f"{session.name}-ruff.json"),
         env=environment,
-    )
-    session.env.update(environment)
-    helper = importlib.import_module("ethos.domain.quality.nox")
-    binary = Path(session.bin) / ("ruff.exe" if os.name == "nt" else "ruff")
-    helper.run_ruff(
-        session,
-        (
-            str(binary),
-            *command[1:],
-            "--verbose",
-            "--output-format",
-            "json",
-            "--output-file",
-            str(output / f"{session.name}-ruff.json"),
-        ),
-        runtime_output=runtime,
-        identity=_native_session(session),
-        configuration=RUFF_CONFIG,
     )
 
 
 def install_native_helpers(session: nox.Session) -> None:
-    """Supply only the same installed wheel's observers without changing dependencies."""
+    """Supply only the attempt-selected observer without changing dependencies."""
     if _output_directory(session) is None:
         return
     try:
         requirement = native_helper_requirement()
-    except (OSError, TypeError, ValueError, importlib.metadata.PackageNotFoundError):
+    except (OSError, ValueError):
         session.error("native evidence requires the selected immutable ETHOS wheel")
     session.install(
         "--no-deps",
@@ -213,36 +206,28 @@ def install_native_helpers(session: nox.Session) -> None:
 
 
 def native_helper_requirement() -> str:
-    """Resolve native PEP 610 wheel custody before supplying another Nox child."""
-    distribution = importlib.metadata.distribution("ethos")
-    provenance = json.loads(distribution.read_text("direct_url.json") or "null")
-    if not isinstance(provenance, dict) or not isinstance(provenance.get("url"), str):
-        raise ValueError("native helper wheel provenance is unavailable")
-    selected = urlsplit(provenance["url"])
-    archive = provenance.get("archive_info", {})
-    if not isinstance(archive, dict):
-        raise ValueError("native helper wheel provenance is invalid")
-    hashes = archive.get("hashes", {})
-    if not isinstance(hashes, dict):
-        raise ValueError("native helper wheel provenance is invalid")
-    digest = hashes.get("sha256") or parse_qs(selected.fragment).get("sha256", [""])[0]
+    """Verify the supplied observer's exact bytes before supplying another Nox child."""
+    requirement = os.environ.get(OBSERVER_REQUIREMENT, "")
+    selected = urlsplit(requirement.removeprefix("ethos @ "))
+    digest = selected.fragment.removeprefix("sha256=")
     path = unquote(selected.path, errors="strict")
     wheel = Path(path.removeprefix("/") if os.name == "nt" else path)
     if (
-        selected.scheme != "file"
+        not requirement.startswith("ethos @ ")
+        or selected.scheme != "file"
         or selected.netloc not in ("", "localhost")
         or selected.query
+        or not selected.fragment.startswith("sha256=")
         or not wheel.is_absolute()
         or wheel.is_symlink()
         or not wheel.is_file()
         or wheel.suffix != ".whl"
-        or not isinstance(digest, str)
         or len(digest) != 64
         or any(character not in "0123456789abcdef" for character in digest)
         or hashlib.sha256(wheel.read_bytes()).hexdigest() != digest
     ):
         raise ValueError("native helper wheel identity is invalid")
-    return f"ethos @ {wheel.as_uri()}#sha256={digest}"
+    return requirement
 
 
 def _native_session(session: nox.Session) -> str:
