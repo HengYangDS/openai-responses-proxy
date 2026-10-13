@@ -154,7 +154,7 @@ This checklist retains the original task identities and completion states.
 - [x] 14.12 Provide a supported reload path for a stopped installation; verify current doctor guidance and released native lifecycle.
 - [x] 14.13 Restore a serving installation whose supervisor stopped; verify released reload preserves the listener and native resource ownership.
 - [x] 14.14 Report outdated supervision and rebind the installed release's definition; verify native status, doctor and reload contracts.
-- [ ] 14.15 Restore same-artifact supervision and refuse rollback without a serving runtime; verify full gates, signed release and released three-platform journeys.
+- [x] 14.15 Restore same-artifact supervision and refuse rollback without a serving runtime; verify full gates, signed release and released three-platform journeys. Released in v5.0.5.
 
 ## Workflow follow-up
 
