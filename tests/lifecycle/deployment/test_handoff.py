@@ -632,9 +632,7 @@ class TestControllerHandoffWiring:
                 timeout_seconds=1,
             )
 
-    def test_handoff_post_requires_a_complete_protocol_v2_ready_acknowledgement(
-        self, subtests, *, mocker
-    ):
+    def test_handoff_post_requires_a_complete_ready_acknowledgement(self, subtests, *, mocker):
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         valid = ready_ack(expected)
@@ -1029,7 +1027,7 @@ class TestControllerHandoffWiring:
         terminate.assert_not_called()
         assert result == {"state": "reloaded", "old_pid": 1, "new_pid": 2}
 
-    def test_reload_rejects_v2_handoff_when_installed_payload_integrity_fails(self, *, mocker):
+    def test_reload_rejects_handoff_when_installed_payload_integrity_fails(self, *, mocker):
         ctx = install_context(Path(self.tempdir.name))
         Path(ctx.install_dir).mkdir(parents=True)
         mocker.patch.object(control, "read_runtime", return_value={"handoff_protocol_version": 2})
