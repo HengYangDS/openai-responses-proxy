@@ -67,7 +67,7 @@ owner = ".python-release"
 invariant = "Every native release is built by one exact reproducible Python runtime."
 rationale = "Native release construction uses one exact Python patch release."
 projections = [
-  "mise.toml",
+  ".config/mise/config.toml",
   "pyproject.toml",
   ".config/ci/pipeline.cue",
   "tools/",
@@ -85,15 +85,15 @@ projections = ["pyproject.toml"]
 [[controls]]
 id = "standalone-tools"
 kind = "supply-chain-pin"
-owner = "mise.lock"
+owner = ".config/mise/mise.lock"
 invariant = "Every standalone repository tool resolves from one integrity-locked graph."
 rationale = "Language runtimes and standalone executable versions and integrity are owned by the mise lock."
-projections = ["mise.toml", ".config/ci/pipeline.cue"]
+projections = [".config/mise/config.toml", ".config/ci/pipeline.cue"]
 
 [[controls]]
 id = "macos-workflow-executor"
 kind = "supply-chain-pin"
-owner = "mise.toml"
+owner = ".config/mise/config.toml"
 invariant = "macOS checks use one immutable official stable workflow checker with every integration enabled."
 rationale = "The stable Darwin binary's upstream stdin deadlock requires its same-version official Linux image until a fixed stable native release is available."
 projections = [
@@ -108,7 +108,7 @@ kind = "supply-chain-pin"
 owner = "package-lock.json"
 invariant = "Every Node repository tool resolves from one complete lockfile."
 rationale = "Repository Node tools and their complete transitive dependency graph are owned by the npm lock."
-projections = ["package.json", ".npmrc", ".config/ci/pipeline.cue"]
+projections = ["package.json", ".config/npm/npmrc", ".config/ci/pipeline.cue"]
 
 [[controls]]
 id = "ci-proof-graph"

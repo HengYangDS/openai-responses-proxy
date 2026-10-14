@@ -188,9 +188,10 @@ retirement_condition = "the declared tool or dependency loses its final verified
 files = [
   ".python-release",
   ".python-versions",
-  "mise.lock",
-  "mise.toml",
-  ".npmrc",
+  ".config/mise/config.toml",
+  ".config/mise/mise.lock",
+  ".config/miserc.toml",
+  ".config/npm/npmrc",
   "package-lock.json",
   "package.json",
   "pyproject.toml",

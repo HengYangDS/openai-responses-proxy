@@ -514,6 +514,26 @@ def test_every_session_pytest_run_binds_the_explicit_configuration(
     assert not (ROOT / "pytest.ini").exists()
 
 
+def test_fix_formats_python_then_text_through_their_owners(
+    mocker: MockerFixture, nox_configuration: ModuleType
+) -> None:
+    session = mocker.Mock(posargs=[])
+
+    nox_configuration.fix(session)
+
+    assert [call.args for call in session.run.call_args_list] == [
+        (
+            "ruff",
+            "format",
+            "--config",
+            str(nox_configuration.python_quality.RUFF_CONFIG),
+            "--no-cache",
+            ".",
+        ),
+        (sys.executable, "-m", "tools.quality.governance", "--fix"),
+    ]
+
+
 def test_governance_reuses_the_admitted_interpreter(
     mocker: MockerFixture, nox_configuration: ModuleType
 ) -> None:

@@ -825,7 +825,7 @@ def test_node_repository_tools_have_one_locked_owner() -> None:
         assert re.fullmatch(r"\d+\.\d+\.\d+", version)
         assert package["packages"][f"node_modules/{name}"]["version"] == version
 
-    mise = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+    mise = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
     assert all(not name.startswith("npm:") for name in mise["tools"])
 
     github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])[

@@ -1,0 +1,7 @@
+# Configuration discovery precedes the project tool declaration; only this checkout supplies policy.
+ceiling_paths = ['{{ config_root | dirname | dirname }}']
+ignored_config_paths = [
+  '{{ env.MISE_CONFIG_DIR | default(value=xdg_config_home ~ "/mise") }}',
+  '{{ env.MISE_GLOBAL_CONFIG_FILE | default(value=xdg_config_home ~ "/mise/config.toml") }}',
+  '{{ env.MISE_SYSTEM_CONFIG_DIR | default(value="/etc/mise") }}',
+]

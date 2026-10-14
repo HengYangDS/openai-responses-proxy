@@ -7,8 +7,10 @@ import sys
 import tomllib
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Annotated
 
 from cyclopts import App
+from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
 LINK_POLICY = ".config/checks/lychee/lychee.toml"
@@ -54,12 +56,10 @@ def _dependency_options() -> tuple[str, ...]:
     )
 
 
-def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
-    """Return the single ordered governance graph for this repository."""
-    link_mode = () if online_links else ("--offline",)
-    markdown_yaml = _tracked_current((".md", ".yaml", ".yml"))
-    markdown = tuple(path for path in markdown_yaml if path.endswith(".md"))
-    toml = _tracked_current((".toml",))
+def _formatter_commands(
+    markdown_yaml: tuple[str, ...], toml: tuple[str, ...], *, write: bool
+) -> tuple[tuple[str, ...], ...]:
+    """Bind Prettier and taplo to one tracked input set for both check and fix."""
     return (
         (
             "npm",
@@ -67,7 +67,7 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
             "--offline",
             "--",
             "prettier",
-            "--check",
+            "--write" if write else "--check",
             "--config",
             ".config/checks/prettier/prettier.toml",
             *markdown_yaml,
@@ -75,11 +75,22 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
         (
             "taplo",
             "format",
-            "--check",
+            *(() if write else ("--check",)),
             "--config",
             ".config/checks/taplo/taplo.toml",
             *toml,
         ),
+    )
+
+
+def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
+    """Return the single ordered governance graph for this repository."""
+    link_mode = () if online_links else ("--offline",)
+    markdown_yaml = _tracked_current((".md", ".yaml", ".yml"))
+    markdown = tuple(path for path in markdown_yaml if path.endswith(".md"))
+    toml = _tracked_current((".toml",))
+    return (
+        *_formatter_commands(markdown_yaml, toml, write=False),
         ("cue", "fmt", "--check", "--files", ".config/ci/pipeline.cue"),
         ("cue", "vet", ".config/ci/pipeline.cue"),
         (sys.executable, "-m", "tools.ci.project"),
@@ -139,9 +150,9 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
     )
 
 
-def audit(*, online_links: bool = False) -> None:
-    """Execute every governance concern from one composition root."""
-    for command in _commands(online_links=online_links):
+def _run(commands: Iterable[tuple[str, ...]]) -> None:
+    """Execute commands in order and stop at the first unavailable or failing tool."""
+    for command in commands:
         try:
             completed = subprocess.run(command, cwd=ROOT, check=False)
         except OSError as error:
@@ -150,9 +161,28 @@ def audit(*, online_links: bool = False) -> None:
             raise GovernanceError(f"governance check failed: {command[0]}")
 
 
-def _command(*, online_links: bool = False) -> None:
-    """Run deterministic checks, optionally including external links."""
-    audit(online_links=online_links)
+def audit(*, online_links: bool = False) -> None:
+    """Execute every governance concern from one composition root."""
+    _run(_commands(online_links=online_links))
+
+
+def fix() -> None:
+    """Apply the Markdown, YAML and TOML formatters to the inputs that audit checks."""
+    markdown_yaml = _tracked_current((".md", ".yaml", ".yml"))
+    toml = _tracked_current((".toml",))
+    _run(_formatter_commands(markdown_yaml, toml, write=True))
+
+
+def _command(
+    *,
+    online_links: bool = False,
+    fix_formatting: Annotated[bool, Parameter(name="--fix", negative=False)] = False,
+) -> None:
+    """Run deterministic checks, optionally including external links, or apply formatters."""
+    if fix_formatting:
+        fix()
+    else:
+        audit(online_links=online_links)
 
 
 def main(argv: Iterable[str] = ()) -> None:

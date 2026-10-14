@@ -409,11 +409,16 @@ class TestVerificationContracts:
         assert metadata["tool"]["uv"]["link-mode"] == "copy"
         assert (ROOT / "uv.lock").is_file()
 
-        toolchain = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
         assert toolchain["settings"] == {
             "idiomatic_version_file_enable_tools": [],
             "locked": True,
+            "not_found_system_fallback": False,
+            "use_versions_host": False,
         }
+        early = tomllib.loads((ROOT / ".config/miserc.toml").read_text(encoding="utf-8"))
+        assert early["ceiling_paths"] == ["{{ config_root | dirname | dirname }}"]
+        assert len(early["ignored_config_paths"]) == 3
 
     def test_native_release_tools_are_isolated_from_quality(self) -> None:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -425,7 +430,7 @@ class TestVerificationContracts:
         assert release == {"pyinstaller"}
 
     def test_developer_bootstrap_installs_product_and_quality_groups(self) -> None:
-        toolchain = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
         environment = toolchain["env"]
         assert environment["UV_PROJECT_ENVIRONMENT"] == "{{config_root}}/.venv"
         assert environment["VIRTUAL_ENV"] is False
@@ -433,6 +438,9 @@ class TestVerificationContracts:
         assert environment["PYTHONHOME"] is False
         assert environment["PYTHONPATH"] is False
         assert environment["PYTHONNOUSERSITE"] == "1"
+        assert environment["NPM_CONFIG_USERCONFIG"] == "{{ config_root }}/.config/npm/npmrc"
+        assert not (ROOT / ".npmrc").exists()
+        assert not (ROOT / "mise.toml").exists()
         assert toolchain["tasks"]["bootstrap"]["run"] == [
             'uv sync --locked --all-groups --python "{{tools.python.path}}"',
             "npm ci --ignore-scripts",
@@ -448,6 +456,7 @@ class TestVerificationContracts:
         ("task", "session"),
         [
             ("quick", "quick"),
+            ("fix", "fix"),
             ("check", "full"),
             ("native", "release"),
             ("release", "release_asset"),
@@ -456,7 +465,7 @@ class TestVerificationContracts:
     def test_developer_tasks_delegate_to_existing_verification(
         self, task: str, session: str
     ) -> None:
-        toolchain = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
         assert toolchain["tasks"][task]["run"] == (
             'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s ' + session
         )

@@ -43,11 +43,14 @@ mise install --locked
 mise run bootstrap
 ```
 
-`mise.toml` and `mise.lock` own language runtimes and standalone executables.
+`.config/mise/config.toml` and `.config/mise/mise.lock` own language runtimes and
+standalone executables. `.config/miserc.toml` keeps parent and global mise
+configuration out of this checkout, and the toolchain binds npm to
+`.config/npm/npmrc`.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
 GitHub, GitLab, POSIX, and Windows use the same repository installation.
-The `mise.toml` tasks pass the exact mise Python installation to uv and bind the
+The mise tasks pass the exact mise Python installation to uv and bind the
 project environment to this worktree's `.venv`. An activated environment or
 inherited Python override does not select the development interpreter. Nox owns
 disposable `.nox/<session>` environments and selects compatibility interpreters

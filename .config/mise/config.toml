@@ -3,6 +3,9 @@ min_version = "2026.9.11"
 [settings]
 idiomatic_version_file_enable_tools = []
 locked = true
+not_found_system_fallback = false
+# Locked installs must not query Mise's optional version-index service.
+use_versions_host = false
 
 [vars]
 # Official stable Linux supply preserves ShellCheck and Pyflakes on macOS.
@@ -35,6 +38,15 @@ PYTHONHOME = false
 PYTHONPATH = false
 PYTHONNOUSERSITE = "1"
 
+# Development tools must not inherit operator registries or shared npm configuration.
+# npm treats environment names case-insensitively; remove its POSIX aliases.
+npm_config_userconfig = false
+npm_config_globalconfig = false
+NPM_CONFIG_REGISTRY = false
+npm_config_registry = false
+NPM_CONFIG_USERCONFIG = "{{ config_root }}/.config/npm/npmrc"
+NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% endif %}"
+
 [tasks.bootstrap]
 description = "Install the locked Python and Node development dependencies"
 run = [
@@ -55,6 +67,10 @@ run = '{% if os() == "macos" %}docker run --rm --pull=never --network=none --rea
 [tasks.quick]
 description = "Run the editing feedback loop"
 run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s quick'
+
+[tasks.fix]
+description = "Apply the repository formatters to every input that check verifies"
+run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s fix'
 
 [tasks.check]
 description = "Run repository governance, quality, and Python compatibility gates"

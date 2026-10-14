@@ -14,7 +14,7 @@ from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / ".config/ci/pipeline.cue"
-MISE = ROOT / "mise.toml"
+MISE = ROOT / ".config/mise/config.toml"
 
 
 @dataclass(frozen=True, slots=True)

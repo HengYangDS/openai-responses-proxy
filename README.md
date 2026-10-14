@@ -355,7 +355,7 @@ mise run bootstrap
 mise run check
 ```
 
-The tasks in `mise.toml` select the locked Python installation and this
+The tasks in `.config/mise/config.toml` select the locked Python installation and this
 worktree's `.venv`; Nox owns isolated `.nox/<session>` verification environments.
 Use `mise run quick` while editing. `check` runs repository governance, strict
 quality and Python 3.12 coverage, then Python 3.13 and 3.14 compatibility.

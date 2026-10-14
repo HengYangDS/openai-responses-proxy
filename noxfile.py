@@ -182,6 +182,29 @@ def governance(session: nox.Session) -> None:
 
 
 @nox.session(python=False)
+def fix(session: nox.Session) -> None:
+    """Apply the repository formatters to every input that check verifies."""
+    session.run(
+        "ruff",
+        "format",
+        "--config",
+        str(python_quality.RUFF_CONFIG),
+        "--no-cache",
+        ".",
+        external=True,
+        env=_environment(),
+    )
+    session.run(
+        sys.executable,
+        "-m",
+        "tools.quality.governance",
+        "--fix",
+        external=True,
+        env=_environment(),
+    )
+
+
+@nox.session(python=False)
 def full(session: nox.Session) -> None:
     """Run governance, strict quality, and every remaining supported interpreter."""
     session.notify("governance")

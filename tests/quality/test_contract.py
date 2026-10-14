@@ -54,6 +54,32 @@ def test_malformed_dependency_policy_stops_governance(
         governance._dependency_options()
 
 
+def test_governance_fix_writes_the_inputs_that_audit_checks(mocker: MockerFixture) -> None:
+    mocker.patch.object(
+        governance, "_tracked_current", side_effect=[("README.md",), ("pyproject.toml",)]
+    )
+    run = mocker.patch.object(
+        governance.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+    )
+
+    governance.main(("--fix",))
+
+    assert [tuple(call.args[0]) for call in run.call_args_list] == [
+        (
+            "npm",
+            "exec",
+            "--offline",
+            "--",
+            "prettier",
+            "--write",
+            "--config",
+            ".config/checks/prettier/prettier.toml",
+            "README.md",
+        ),
+        ("taplo", "format", "--config", ".config/checks/taplo/taplo.toml", "pyproject.toml"),
+    ]
+
+
 @pytest.mark.parametrize(
     "defect",
     [
@@ -330,7 +356,7 @@ class TestQualityPolicyContracts:
         completed = mocker.Mock(returncode=0)
         tracked = mocker.Mock(
             returncode=0,
-            stdout=b"README.md\0.gitlab-ci.yml\0mise.toml\0openspec/changes/archive/old.md\0",
+            stdout=b"README.md\0.gitlab-ci.yml\0.config/mise/config.toml\0openspec/changes/archive/old.md\0",
         )
         run = mocker.patch.object(
             governance.subprocess,
@@ -360,7 +386,7 @@ class TestQualityPolicyContracts:
                 "--check",
                 "--config",
                 ".config/checks/taplo/taplo.toml",
-                "mise.toml",
+                ".config/mise/config.toml",
             ),
             ("cue", "fmt", "--check", "--files", ".config/ci/pipeline.cue"),
             ("cue", "vet", ".config/ci/pipeline.cue"),

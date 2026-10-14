@@ -50,7 +50,7 @@ mise run bootstrap
 mise run check
 ```
 
-`mise.toml` owns these tasks and binds uv to the exact locked Python installation
+`.config/mise/config.toml` owns these tasks and binds uv to the exact locked Python installation
 and this worktree's `.venv`, independent of an ambient activated environment.
 Nox provisions separate `.nox/<session>` compatibility environments. Use
 `mise run quick` while editing and rerun `mise run bootstrap` after dependency
