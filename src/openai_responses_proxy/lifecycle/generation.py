@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
-from openai_responses_proxy.lifecycle import state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
@@ -101,7 +101,7 @@ def control_context(ctx: runtime_context.RuntimeContext) -> runtime_context.Runt
         payload = identity.committed_payload(Path(candidate.executable))
         if payload is None:
             raise errors.InstallError("selected control-plane generation identity is invalid")
-        identified.append((candidate, state.version_key(payload.release)))
+        identified.append((candidate, records.version_key(payload.release)))
     return max(identified, key=lambda item: item[1])[0]
 
 

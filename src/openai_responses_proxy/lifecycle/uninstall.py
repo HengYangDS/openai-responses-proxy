@@ -10,7 +10,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
-from openai_responses_proxy.lifecycle import state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.supervision.native_service import adapter
@@ -60,7 +60,7 @@ def uninstall_product(
     """Remove owned supervision and optionally purge the verified payload."""
     service = cast(ServiceAdapter, adapter())
 
-    transaction_state = state.status(ctx)
+    transaction_state = records.status(ctx)
     if transaction_state is not None:
         if purge and transaction_state.get("state") == "purged":
             _remove_service(service, ctx)
@@ -81,9 +81,9 @@ def uninstall_product(
                 "payload transaction evidence is invalid; preserve it for diagnosis"
             )
         raise errors.RecoveryRequiredError("complete payload recovery before uninstalling")
-    installed = state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     command_path = (
-        Path(state.require_command(installed)) if installed is not None else Path(ctx.command)
+        Path(records.require_command(installed)) if installed is not None else Path(ctx.command)
     )
     control_ctx = generation.control_context(ctx)
     command_state = command.status(command_path, Path(control_ctx.executable))

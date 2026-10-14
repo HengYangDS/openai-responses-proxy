@@ -9,8 +9,8 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import control
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.serving import digest as payload_digest
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import healthy_status_dependencies
@@ -23,9 +23,7 @@ def test_rollback_requires_idle_and_verified_retained_authority(
     tmp_path: Path, *, mocker, subtests
 ) -> None:
     ctx = install_context(tmp_path)
-    transaction_status = mocker.patch.object(
-        payload_state, "status", return_value={"state": "prepared"}
-    )
+    transaction_status = mocker.patch.object(records, "status", return_value={"state": "prepared"})
 
     with (
         subtests.test(state="active transaction"),
@@ -84,8 +82,8 @@ def test_rollback_rejects_an_invalid_target_before_lifecycle_inspection(
     tmp_path: Path, *, mocker
 ) -> None:
     ctx = install_context(tmp_path)
-    transaction_status = mocker.patch.object(payload_state, "status")
-    installed = mocker.patch.object(payload_state, "read_installed")
+    transaction_status = mocker.patch.object(records, "status")
+    installed = mocker.patch.object(records, "read_installed")
     retained = mocker.patch.object(payload_rollback, "load_retained_or_none")
     apply = mocker.patch.object(control.apply, "rollback")
 
@@ -108,7 +106,7 @@ def test_rollback_does_not_treat_stale_installed_state_as_the_active_target(
     successor.activate()
     successor.finalize({"pid": 2})
     healthy_status_dependencies(ctx, mocker=mocker)
-    installed_path = Path(payload_state.installed_path(ctx))
+    installed_path = Path(records.installed_path(ctx))
     installed = json.loads(installed_path.read_text(encoding="utf-8"))
     installed["receipt_sha256"] = "0" * 64
     installed_path.write_bytes(

@@ -15,8 +15,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
@@ -1244,11 +1244,11 @@ def test_install_of_exact_active_artifact_preserves_every_projection(
     )
     pending = evidence == "pending_transaction"
     if pending:
-        mocker.patch.object(payload_state, "status", return_value={"state": "prepared"})
+        mocker.patch.object(records, "status", return_value={"state": "prepared"})
     begin = mocker.spy(transaction, "begin_transaction")
     applied = mocker.patch.object(apply, "install")
     projections = (
-        payload_state.installed_path(ctx),
+        records.installed_path(ctx),
         generation.selector_path(ctx),
         Path(ctx.command),
     )
@@ -1267,7 +1267,7 @@ def test_install_of_exact_active_artifact_preserves_every_projection(
             )
 
     assert {path: path.read_bytes() for path in projections} == before
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
     begin.assert_not_called()
     applied.assert_not_called()
     native.install.assert_not_called()
@@ -1329,7 +1329,7 @@ def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_install
     wait = mocker.patch.object(control.apply, "wait_for_serving_runtime", return_value=runtime)
     begin = mocker.spy(transaction, "begin_transaction")
     applied = mocker.patch.object(apply, "install")
-    installed_bytes = payload_state.installed_path(ctx).read_bytes()
+    installed_bytes = records.installed_path(ctx).read_bytes()
     selector_bytes = generation.selector_path(ctx).read_bytes()
 
     assert install.install_asset(
@@ -1347,9 +1347,9 @@ def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_install
         runtime_reader=control.read_runtime,
         timeout_seconds=12.5,
     )
-    assert payload_state.installed_path(ctx).read_bytes() == installed_bytes
+    assert records.installed_path(ctx).read_bytes() == installed_bytes
     assert generation.selector_path(ctx).read_bytes() == selector_bytes
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
     begin.assert_not_called()
     applied.assert_not_called()
     native.uninstall.assert_not_called()
@@ -1406,7 +1406,7 @@ def test_install_of_the_exact_artifact_refuses_an_unproved_unsupervised_installa
         )
 
     assert Path(ctx.command).read_bytes() == command_bytes
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
     native.install.assert_not_called()
     native.uninstall.assert_not_called()
     wait.assert_not_called()
@@ -1440,7 +1440,7 @@ def test_install_of_the_exact_artifact_keeps_restored_supervision_when_no_listen
     assert command.status(Path(ctx.command), Path(control_ctx.executable))["state"] == "owned"
     native.install.assert_called_once_with(control_ctx)
     native.uninstall.assert_not_called()
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
 
 
 def test_install_admission_failure_closes_the_prepared_transaction(

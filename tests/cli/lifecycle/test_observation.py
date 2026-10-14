@@ -7,7 +7,7 @@ from pathlib import Path
 
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import projection
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.cli.fixtures import invoke
 
@@ -78,7 +78,7 @@ def test_status_binds_listener_identity_to_the_installed_executable(*, mocker) -
         return_value=(True, "release 2.0.15; 2 files verified"),
     )
     mocker.patch.object(
-        application.control.payload_state,
+        application.control.records,
         "read_installed",
         return_value={
             "schema_version": 1,
@@ -98,7 +98,7 @@ def test_status_binds_listener_identity_to_the_installed_executable(*, mocker) -
         "read_runtime",
         return_value={"pid": 321, "accepting": True},
     )
-    mocker.patch.object(payload_state, "status", return_value=None)
+    mocker.patch.object(records, "status", return_value=None)
     adapter.return_value.status.return_value = "running"
     evidence = application.control.status(context)
     payload_integrity = evidence["payload_integrity"]

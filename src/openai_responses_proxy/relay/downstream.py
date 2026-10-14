@@ -12,8 +12,8 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.relay.contracts import ResponseHeaders
-from openai_responses_proxy.relay.contracts import UpstreamResponse
+from openai_responses_proxy.relay.upstream import ResponseHeaders
+from openai_responses_proxy.relay.upstream import UpstreamResponse
 
 HOP_BY_HOP = {
     "connection",

@@ -12,8 +12,8 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -42,16 +42,16 @@ def test_finalized_transaction_cannot_rollback_its_committed_payload(
     transaction.finalize({"pid": 123})
     root = Path(ctx.install_dir)
     before = _retained_carrier_snapshot(root, Path(ctx.command))
-    installed = payload_state.installed_path(ctx).read_bytes()
+    installed = records.installed_path(ctx).read_bytes()
     command_target = Path(ctx.command).resolve(strict=True)
 
     with pytest.raises(errors.InstallError, match="finalized"):
         transaction.rollback()
 
     assert _retained_carrier_snapshot(root, Path(ctx.command)) == before
-    assert payload_state.installed_path(ctx).read_bytes() == installed
+    assert records.installed_path(ctx).read_bytes() == installed
     assert Path(ctx.command).resolve(strict=True) == command_target
-    assert not payload_state.transaction_root(ctx).exists()
+    assert not records.transaction_root(ctx).exists()
 
 
 def test_consumed_transaction_preserves_the_next_transaction(tmp_path: Path, *, mocker) -> None:
@@ -60,12 +60,12 @@ def test_consumed_transaction_preserves_the_next_transaction(tmp_path: Path, *, 
     install_payload(ctx, "1.2.1", mocker=mocker)
     completed = install_payload(ctx, "1.2.2", mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
 
     with pytest.raises(errors.InstallError, match="finalized"):
         completed.rollback()
 
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
     pending.rollback()
 
 
@@ -89,7 +89,7 @@ def test_recovered_transaction_cannot_mutate_the_next_transaction(
         assert candidate is not None
         assert recover_transaction(ctx, runtime=recovery_runtime(candidate))["state"] == "finalized"
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     before = _retained_carrier_snapshot(Path(ctx.install_dir), Path(ctx.command))
 
     actions: dict[str, Callable[[], None]] = {
@@ -102,14 +102,14 @@ def test_recovered_transaction_cannot_mutate_the_next_transaction(
     with pytest.raises(errors.InstallError, match="no longer owns"):
         actions[operation]()
 
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
     assert _retained_carrier_snapshot(Path(ctx.install_dir), Path(ctx.command)) == before
     pending.rollback()
 
 
 def test_transaction_status_is_absent_without_a_journal(tmp_path: Path) -> None:
     ctx = install_context(tmp_path)
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
 
 
 @pytest.mark.parametrize("drift", ["installed", "selection", "root"])
@@ -123,7 +123,7 @@ def test_reverse_transition_rejects_stale_authority(tmp_path: Path, drift: str, 
     successor.finalize({"pid": 2})
     retained = payload_rollback.load_retained(ctx)
     if drift == "installed":
-        installed_path = Path(payload_state.installed_path(ctx))
+        installed_path = Path(records.installed_path(ctx))
         installed = json.loads(installed_path.read_text(encoding="utf-8"))
         installed["version"] = "1.2.4"
         installed_path.write_bytes(payload_digest.canonical_json(installed))
@@ -161,10 +161,10 @@ def test_retained_predecessor_rejects_corruption_before_mutation(tmp_path: Path,
 
 def test_transaction_status_classifies_an_existing_invalid_carrier(tmp_path: Path) -> None:
     ctx = install_context(tmp_path)
-    root = Path(payload_state.transaction_root(ctx))
+    root = Path(records.transaction_root(ctx))
     root.mkdir(parents=True)
 
-    assert payload_state.status(ctx) == {
+    assert records.status(ctx) == {
         "state": "invalid",
         "detail": "payload transaction journal is missing",
     }
@@ -174,12 +174,12 @@ def test_transaction_status_classifies_an_existing_invalid_carrier(tmp_path: Pat
 
 def test_installed_state_rejects_a_symlink_even_when_its_target_is_absent(tmp_path: Path) -> None:
     ctx = install_context(tmp_path)
-    installed = Path(payload_state.installed_path(ctx))
+    installed = Path(records.installed_path(ctx))
     installed.parent.mkdir(parents=True)
     installed.symlink_to(tmp_path / "missing-installed-state.json")
 
     with pytest.raises(errors.InstallError, match="installed release state is invalid"):
-        payload_state.read_installed(ctx)
+        records.read_installed(ctx)
 
 
 def test_replay_and_downgrade_are_rejected_before_any_live_write(
@@ -196,7 +196,7 @@ def test_replay_and_downgrade_are_rejected_before_any_live_write(
         ):
             begin_transaction(ctx, released_artifact(version), mocker=mocker)
         assert Path(ctx.executable).read_bytes() == marker
-        assert not Path(payload_state.transaction_root(ctx)).exists()
+        assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_empty_control_root_remains_a_fresh_install(tmp_path: Path, *, mocker) -> None:
@@ -205,12 +205,12 @@ def test_empty_control_root_remains_a_fresh_install(tmp_path: Path, *, mocker) -
     Path(ctx.install_dir).mkdir(parents=True)
 
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    journal = payload_state.read_journal(ctx)
+    journal = records.read_journal(ctx)
 
     assert journal["fresh"] is True
     assert "previous_generation" not in journal
     candidate.commit_projection()
-    rollback = Path(payload_state.transaction_root(ctx), "rollback")
+    rollback = Path(records.transaction_root(ctx), "rollback")
     assert {path.name for path in rollback.iterdir()} == {command.SNAPSHOT_FILENAME}
     candidate.rollback()
     assert not Path(ctx.install_dir).exists()
@@ -230,7 +230,7 @@ def test_upgrade_requires_a_selected_generation_before_any_write(tmp_path: Path,
 
     assert _retained_carrier_snapshot(root, tmp_path / "unused") == before
     assert Path(ctx.command).readlink() == command_before
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_nonempty_control_root_without_installed_authority_is_rejected(
@@ -246,7 +246,7 @@ def test_nonempty_control_root_without_installed_authority_is_rejected(
         begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
 
     assert (install_root / "unknown.txt").read_text(encoding="utf-8") == "operator data"
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_transaction_status_projects_only_the_read_only_recovery_contract(
@@ -257,7 +257,7 @@ def test_transaction_status_projects_only_the_read_only_recovery_contract(
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     transaction.commit_projection()
     transaction.preserve_for_recovery("handoff outcome unknown")
-    journal_path = Path(payload_state.journal_path(ctx))
+    journal_path = Path(records.journal_path(ctx))
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
     journal.update(
         {
@@ -273,7 +273,7 @@ def test_transaction_status_projects_only_the_read_only_recovery_contract(
     journal_path.write_bytes(payload_digest.canonical_json(journal))
     before = journal_path.read_bytes()
 
-    evidence = payload_state.status(ctx)
+    evidence = records.status(ctx)
 
     assert evidence == {
         "state": "invalid",

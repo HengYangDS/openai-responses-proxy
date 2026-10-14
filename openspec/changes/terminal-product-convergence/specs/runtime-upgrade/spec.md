@@ -536,3 +536,18 @@ The rollback command SHALL require one syntactically valid target release.
   proved
 - **THEN** the active transaction is retained for `recover`
 - **AND** no successful rollback or restoration claim is emitted.
+
+### Requirement: Payload primitives have one semantic owner
+
+Canonical paths and safe file I/O SHALL belong to `owned_files`; candidate
+materialization to `candidate`; installed integrity and purge to `projection`;
+rollback to `rollback`; journals and installed records to `records`; and
+orchestration to `transaction`. No forwarding facade or private-name import
+SHALL create a second authority. The four transaction roles SHALL remain
+separate concrete modules rather than being folded into the orchestrator or
+projected through a compatibility facade.
+
+#### Scenario: A transaction mutates the payload
+
+- **WHEN** it validates, snapshots, writes, verifies, restores, or finalizes
+- **THEN** it calls the defining semantic owner directly.

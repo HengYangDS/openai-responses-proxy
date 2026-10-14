@@ -21,7 +21,7 @@ from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection as payload_projection
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
@@ -237,8 +237,8 @@ class TestSignedNativeLifecycle:
         assert observed["listener_pids"] == []
         assert observed["command"] == {"kind": None, "path": ctx.command, "state": "absent"}
         assert not install.exists()
-        assert not payload_state.journal_path(ctx).exists()
-        assert not payload_state.transaction_root(ctx).exists()
+        assert not records.journal_path(ctx).exists()
+        assert not records.transaction_root(ctx).exists()
         assert not any(path.is_file() or path.is_symlink() for path in home.rglob("*"))
 
     def test_signed_fresh_lifecycle_is_transactional(self, tmp_path: Path) -> None:
@@ -322,7 +322,7 @@ class TestSignedNativeLifecycle:
             installed_pid = installed_runtime.get("pid")
             assert type(installed_pid) is int
             selected = generation.read(ctx)
-            installed_bytes = payload_state.installed_path(ctx).read_bytes()
+            installed_bytes = records.installed_path(ctx).read_bytes()
             supervisor = native_service_projection(ctx)
             repeated = run_command(
                 executable,
@@ -342,10 +342,10 @@ class TestSignedNativeLifecycle:
                 "next": "openai-responses-proxy status",
             }
             assert generation.read(ctx) == selected
-            assert payload_state.installed_path(ctx).read_bytes() == installed_bytes
+            assert records.installed_path(ctx).read_bytes() == installed_bytes
             assert native_service_projection(ctx) == supervisor
             assert process.listener_pids(port) == [installed_pid]
-            assert payload_state.status(ctx) is None
+            assert records.status(ctx) is None
             assert (
                 run_command(executable, environment, "doctor", "--port", str(port), "--json")["ok"]
                 is True
@@ -509,8 +509,8 @@ class TestSignedNativeLifecycle:
                 "next": "openai-responses-proxy doctor",
             }
             assert residue.read_text(encoding="utf-8") == "preserve\n"
-            assert not payload_state.transaction_root(ctx).exists()
-            pending_purge = payload_state.read_journal(ctx)
+            assert not records.transaction_root(ctx).exists()
+            pending_purge = records.read_journal(ctx)
             assert pending_purge["state"] == "purged"
             refused_install = run_command(
                 executable,
@@ -533,7 +533,7 @@ class TestSignedNativeLifecycle:
                 ),
                 "next": "openai-responses-proxy doctor",
             }
-            assert not payload_state.transaction_root(ctx).exists()
+            assert not records.transaction_root(ctx).exists()
             residue.unlink()
             recovered_purge = run_command(
                 executable, environment, "recover", "--port", str(port), "--json"
@@ -547,7 +547,7 @@ class TestSignedNativeLifecycle:
                 "next": "openai-responses-proxy status",
             }
             assert not install.exists()
-            assert not payload_state.journal_path(ctx).exists()
+            assert not records.journal_path(ctx).exists()
 
             reinstalled = run_command(
                 executable,
@@ -587,7 +587,7 @@ class TestSignedNativeLifecycle:
                 ctx,
                 artifact.admit(current_asset, trust_anchor=anchor),
             )
-            transaction_id = payload_state.read_journal(ctx)["transaction_id"]
+            transaction_id = records.read_journal(ctx)["transaction_id"]
             recovered = run_command(
                 executable, environment, "recover", "--port", str(port), "--json"
             )
@@ -597,8 +597,8 @@ class TestSignedNativeLifecycle:
                 "version": current_version,
                 "next": "openai-responses-proxy status",
             }
-            assert not payload_state.transaction_root(ctx).exists()
-            assert not payload_state.journal_path(ctx).exists()
+            assert not records.transaction_root(ctx).exists()
+            assert not records.journal_path(ctx).exists()
         assert native_service_projection(ctx) == isolated_before
         assert native_service_projection(canonical_ctx) == canonical_service_before
         assert process.listener_pids(runtime_config.DEFAULT_PORT) == canonical_before

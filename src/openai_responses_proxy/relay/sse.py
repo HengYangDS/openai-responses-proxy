@@ -23,7 +23,7 @@ from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.relay.contracts import UpstreamResponse
+from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
 
 UPSTREAM_READ_TIMEOUT = runtime_config.load().upstream_read_timeout

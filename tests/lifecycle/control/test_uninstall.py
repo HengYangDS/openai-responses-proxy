@@ -12,7 +12,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import uninstall
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
@@ -98,9 +98,9 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
     interrupted = {
         "selector": generation.selector_path(ctx),
         "payload": executable,
-        "metadata": payload_state.installed_path(ctx),
+        "metadata": records.installed_path(ctx),
         "root": Path(ctx.install_dir),
-        "journal": payload_state.journal_path(ctx),
+        "journal": records.journal_path(ctx),
     }[interruption]
 
     def interrupted_unlink(path: Path, *args, **kwargs) -> None:
@@ -121,7 +121,7 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
         uninstall.uninstall_product(ctx, purge=True)
     mocker.stop(failure)
     mocker.stop(root_failure)
-    pending = payload_state.status(ctx)
+    pending = records.status(ctx)
     assert pending is not None
     assert pending["state"] == "purged"
 
@@ -133,7 +133,7 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
 
     assert result["state"] == "purged"
     assert not Path(ctx.install_dir).exists()
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
 
 
 def test_process_teardown_fails_closed_when_exit_is_unproved(
@@ -253,7 +253,7 @@ def test_uninstall_refuses_any_retained_transaction_before_mutation(
     mocker.patch.object(uninstall, "adapter", return_value=service)
     mocker.patch.object(uninstall.process, "verified_proxy_listener_pids", return_value=[])
 
-    root = Path(payload_state.transaction_root(ctx))
+    root = Path(records.transaction_root(ctx))
     root.mkdir(parents=True)
     with pytest.raises(errors.RecoveryStateError, match="invalid"):
         uninstall.uninstall_product(ctx, purge=True)
@@ -273,11 +273,11 @@ def test_status_and_uninstall_use_the_finalized_command_path(tmp_path: Path, *, 
     changed_environment_command = tmp_path / "changed-bin" / "openai-responses-proxy"
     ctx = replace(ctx, command=str(changed_environment_command))
     installed_state = {
-        "schema_version": payload_state.INSTALLED_RELEASE_STATE_SCHEMA,
+        "schema_version": records.INSTALLED_RELEASE_STATE_SCHEMA,
         "version": "2.0.37",
         "command": str(installed_command),
     }
-    mocker.patch.object(payload_state, "read_installed", return_value=installed_state)
+    mocker.patch.object(records, "read_installed", return_value=installed_state)
     command_status = mocker.patch.object(
         control.command,
         "status",

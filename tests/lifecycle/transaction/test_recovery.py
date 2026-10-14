@@ -12,8 +12,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import owned_files
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -39,12 +39,12 @@ def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     payload = Path(candidate.context.executable).read_bytes()
 
     def remove_native(selected: runtime_context.RuntimeContext) -> None:
         assert selected == candidate.context
-        assert payload_state.journal_path(ctx).read_bytes() == journal
+        assert records.journal_path(ctx).read_bytes() == journal
         assert Path(selected.executable).read_bytes() == payload
 
     removal = mocker.Mock(side_effect=remove_native)
@@ -53,7 +53,7 @@ def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
     )
     assert result["state"] == "rolled_back"
     removal.assert_called_once_with(candidate.context)
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
     assert not Path(candidate.context.payload_dir).exists()
 
 
@@ -64,7 +64,7 @@ def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     payload = Path(candidate.context.executable).read_bytes()
     removal = mocker.Mock(side_effect=errors.RecoveryStateError("native cleanup is unproved"))
 
@@ -72,7 +72,7 @@ def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
         payload_transaction.recover(
             ctx, runtime=None, bind_terminal=mocker.Mock(), discard_native=removal
         )
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
     assert Path(candidate.context.executable).read_bytes() == payload
     assert payload_generation.selected_context(ctx) == candidate.context
 
@@ -100,7 +100,7 @@ def test_fresh_recovery_admits_projection_before_native_disposal(
         )
         message = "selection changed"
     elif drift == "snapshot":
-        snapshot = payload_state.transaction_root(ctx) / "rollback" / command.SNAPSHOT_FILENAME
+        snapshot = records.transaction_root(ctx) / "rollback" / command.SNAPSHOT_FILENAME
         snapshot.write_bytes(b"{}")
         message = "command snapshot"
     else:
@@ -263,10 +263,10 @@ def test_unselected_reverse_recovery_does_not_require_an_unused_command_snapshot
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.preserve_for_recovery("rollback controller outcome unknown")
-    rollback = Path(payload_state.transaction_root(ctx), "rollback")
+    rollback = Path(records.transaction_root(ctx), "rollback")
     Path(rollback, command.SNAPSHOT_FILENAME).unlink()
     rollback.rmdir()
-    installed_before = Path(payload_state.installed_path(ctx)).read_bytes()
+    installed_before = Path(records.installed_path(ctx)).read_bytes()
     command_before = Path(ctx.command).resolve(strict=True)
     terminal = listener_identity.committed_payload(
         Path(payload_generation.context(ctx, selection.active).executable)
@@ -286,9 +286,9 @@ def test_unselected_reverse_recovery_does_not_require_an_unused_command_snapshot
         "state": "rolled_back",
     }
     assert payload_generation.read(ctx) == selection
-    assert Path(payload_state.installed_path(ctx)).read_bytes() == installed_before
+    assert Path(records.installed_path(ctx)).read_bytes() == installed_before
     assert Path(ctx.command).resolve(strict=True) == command_before
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
     bind_terminal.assert_not_called()
 
 
@@ -322,7 +322,7 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.preserve_for_recovery("rollback controller outcome unknown")
-    rollback = Path(payload_state.transaction_root(ctx), "rollback")
+    rollback = Path(records.transaction_root(ctx), "rollback")
     Path(rollback, command.SNAPSHOT_FILENAME).unlink()
     rollback.rmdir()
     terminal_path = Path(payload_generation.context(ctx, selection.active).executable)
@@ -337,10 +337,10 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
             predecessor=None,
         )
     elif drift == "installed":
-        installed = json.loads(Path(payload_state.installed_path(ctx)).read_text(encoding="utf-8"))
+        installed = json.loads(Path(records.installed_path(ctx)).read_text(encoding="utf-8"))
         installed["receipt_sha256"] = "0" * 64
         owned_files.write_bytes(
-            payload_state.installed_path(ctx),
+            records.installed_path(ctx),
             payload_digest.canonical_json(installed),
             mode=0o600,
         )
@@ -350,10 +350,10 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
         alternate_command = tmp_path / "bin" / "alternate-proxy"
         alternate_command.parent.mkdir()
         alternate_command.symlink_to(terminal_path)
-        installed = json.loads(Path(payload_state.installed_path(ctx)).read_text(encoding="utf-8"))
+        installed = json.loads(Path(records.installed_path(ctx)).read_text(encoding="utf-8"))
         installed["command"] = str(alternate_command)
         owned_files.write_bytes(
-            payload_state.installed_path(ctx),
+            records.installed_path(ctx),
             payload_digest.canonical_json(installed),
             mode=0o600,
         )
@@ -362,7 +362,7 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
     else:
         runtime["release"] = "9.9.9"
 
-    transaction_root = Path(payload_state.transaction_root(ctx))
+    transaction_root = Path(records.transaction_root(ctx))
     with pytest.raises(errors.RecoveryStateError, match=message):
         recover_transaction(ctx, runtime=runtime)
 
@@ -402,8 +402,8 @@ def test_recovery_classifies_invalid_carriers_without_mutation(
     mocker,
 ) -> None:
     ctx = install_context(tmp_path)
-    root = Path(payload_state.transaction_root(ctx))
-    journal = Path(payload_state.journal_path(ctx))
+    root = Path(records.transaction_root(ctx))
+    journal = Path(records.journal_path(ctx))
     target = tmp_path / "retained-target"
     root.parent.mkdir(parents=True, exist_ok=True)
     if carrier == "root_symlink":
@@ -448,7 +448,7 @@ def test_recovery_classifies_invalid_carriers_without_mutation(
             journal.write_bytes(
                 payload_digest.canonical_json(
                     {
-                        "schema_version": payload_state.TRANSACTION_JOURNAL_SCHEMA,
+                        "schema_version": records.TRANSACTION_JOURNAL_SCHEMA,
                         "state": "prepared",
                         "transaction_id": "",
                         "version": "1.2",
@@ -484,7 +484,7 @@ def test_recovery_rejects_candidate_identity_drift(
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
-    journal_path = Path(payload_state.journal_path(ctx))
+    journal_path = Path(records.journal_path(ctx))
     if corruption == "identity":
         Path(candidate.context.executable).write_bytes(b"corrupt")
         expected = "candidate projection identity is invalid"
@@ -547,7 +547,7 @@ def test_recovery_closes_an_unmutated_prepared_transaction(tmp_path: Path, *, mo
         "version": "1.2.3",
     }
     assert Path(ctx.executable).read_bytes() == before
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_recovery_refuses_a_prepared_transaction_with_unowned_content(
@@ -556,14 +556,14 @@ def test_recovery_refuses_a_prepared_transaction_with_unowned_content(
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    residue = Path(payload_state.transaction_root(ctx), "unexpected")
+    residue = Path(records.transaction_root(ctx), "unexpected")
     residue.write_text("unknown\n", encoding="utf-8")
 
     with pytest.raises(errors.RecoveryStateError, match="unowned content"):
         recover_transaction(ctx, runtime=None)
 
     assert residue.is_file()
-    assert Path(payload_state.journal_path(ctx)).is_file()
+    assert Path(records.journal_path(ctx)).is_file()
 
 
 def test_activated_generation_recovery_restores_the_exact_prior_selection(
@@ -692,7 +692,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
     successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     successor.commit_projection()
     expected_target = Path(successor.context.executable).resolve()
-    original_write = payload_transaction.state.write_journal
+    original_write = records.write_journal
 
     def interrupt_activated_journal(*args, **kwargs):
         if kwargs.get("state") == "activated":
@@ -700,7 +700,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
         return original_write(*args, **kwargs)
 
     mocker.patch.object(
-        payload_transaction.state,
+        records,
         "write_journal",
         side_effect=interrupt_activated_journal,
     )
@@ -708,7 +708,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
         successor.activate()
 
     assert Path(ctx.command).samefile(expected_target)
-    assert payload_state.read_journal(ctx)["state"] == "materialized"
+    assert records.read_journal(ctx)["state"] == "materialized"
 
     candidate = listener_identity.committed_payload(Path(successor.context.executable))
     assert candidate is not None
@@ -741,7 +741,7 @@ def test_recovery_finishes_activation_when_selector_precedes_command_and_phase(
     mocker.stop(interrupted)
 
     assert Path(ctx.command).samefile(old_target)
-    assert payload_state.read_journal(ctx)["state"] == "materialized"
+    assert records.read_journal(ctx)["state"] == "materialized"
 
     candidate = listener_identity.committed_payload(Path(successor.context.executable))
     assert candidate is not None
@@ -777,7 +777,7 @@ def test_recovery_rollback_restores_previous_projection_and_removes_hold(
 
     assert result["state"] == "rolled_back"
     assert Path(ctx.executable).read_bytes() == previous
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_recovery_rolls_back_an_interrupted_committed_upgrade(tmp_path: Path, *, mocker) -> None:
@@ -800,7 +800,7 @@ def test_recovery_rolls_back_an_interrupted_committed_upgrade(tmp_path: Path, *,
 
     assert result["state"] == "rolled_back"
     assert Path(ctx.executable).read_bytes() == previous
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_recovery_finalizes_a_verified_successor_after_controller_loss(
@@ -822,12 +822,12 @@ def test_recovery_finalizes_a_verified_successor_after_controller_loss(
         "version": "1.2.3",
         "state": "finalized",
     }
-    installed = payload_state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     assert installed is not None
     assert installed["transaction_id"] == result["transaction_id"]
     assert installed["version"] == "1.2.3"
     assert installed["runtime"] == runtime
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_recovery_retains_finalization_authority_until_supervision_is_bound(
@@ -851,8 +851,8 @@ def test_recovery_retains_finalization_authority_until_supervision_is_bound(
         )
 
     bind_terminal.assert_called_once_with(candidate.context)
-    assert Path(payload_state.transaction_root(ctx)).is_dir()
-    transaction_status = payload_state.status(ctx)
+    assert Path(records.transaction_root(ctx)).is_dir()
+    transaction_status = records.status(ctx)
     assert transaction_status is not None
     assert transaction_status["state"] == "recovery_required"
 
@@ -877,7 +877,7 @@ def test_recovery_retains_rollback_authority_until_supervision_is_bound(
         )
 
     bind_terminal.assert_called_once_with(predecessor.context)
-    assert Path(payload_state.transaction_root(ctx)).is_dir()
+    assert Path(records.transaction_root(ctx)).is_dir()
     assert Path(candidate.context.payload_dir).is_dir()
     assert payload_generation.selected_context(ctx) == predecessor.context
 
@@ -891,7 +891,7 @@ def test_recovery_retains_rollback_authority_until_supervision_is_bound(
 
     assert result["state"] == "rolled_back"
     bind_terminal.assert_called_once_with(predecessor.context)
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
     assert not Path(candidate.context.payload_dir).exists()
 
 
@@ -922,7 +922,7 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
     with pytest.raises(errors.InstallError, match="bind failed"):
         recover_transaction(ctx, runtime=runtime, bind_terminal=bind_terminal)
 
-    assert Path(payload_state.transaction_root(ctx)).is_dir()
+    assert Path(records.transaction_root(ctx)).is_dir()
     assert Path(candidate.context.payload_dir).is_dir()
     assert payload_generation.selected_context(ctx) == predecessor.context
     assert select.call_count == 1
@@ -934,7 +934,7 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
     assert result["state"] == "rolled_back"
     bind_terminal.assert_called_once_with(predecessor.context)
     assert select.call_count == 1
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
     assert Path(candidate.context.payload_dir).exists() is reverse
 
 
@@ -958,7 +958,7 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
         candidate.commit_projection()
     if phase == "materialized":
         interruption = mocker.patch.object(
-            payload_state,
+            records,
             "write_journal",
             side_effect=errors.InstallError("activation interrupted"),
         )
@@ -980,7 +980,7 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
 
     assert payload_generation.selected_context(ctx) == predecessor.context
     assert not Path(ctx.command).exists()
-    assert payload_state.journal_path(ctx).is_file()
+    assert records.journal_path(ctx).is_file()
     binder.assert_not_called()
     mocker.stop(failure)
 
@@ -993,7 +993,7 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
     assert (
         command.status(Path(ctx.command), Path(predecessor.context.executable))["state"] == "owned"
     )
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
     assert Path(candidate.context.payload_dir).exists() is reverse
 
 
@@ -1015,7 +1015,7 @@ def test_recovery_binds_only_the_terminal_generation_once(tmp_path: Path, *, moc
 
     assert result["state"] == "rolled_back"
     bind_terminal.assert_called_once_with(predecessor.context)
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_recovery_keeps_superseded_generation_until_terminal_binding(
@@ -1070,7 +1070,7 @@ def test_recovery_no_op_and_prepared_close_do_not_bind_supervision(
     )
 
     bind_terminal.assert_not_called()
-    assert not payload_state.transaction_root(ctx).exists()
+    assert not records.transaction_root(ctx).exists()
 
 
 def test_recovery_finalizes_an_activated_fresh_candidate(tmp_path: Path, *, mocker) -> None:
@@ -1105,4 +1105,4 @@ def test_recovery_removes_an_interrupted_fresh_projection_without_a_runtime(
     assert result["state"] == "rolled_back"
     assert not Path(ctx.install_dir).exists()
     assert not Path(ctx.command).exists()
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()

@@ -23,8 +23,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control as lifecycle_control
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
@@ -314,7 +314,7 @@ class TestPublishedPredecessorCompatibility:
                 "--json",
             )
             assert not published_install.exists()
-            assert not payload_state.transaction_root(published_context).exists()
+            assert not records.transaction_root(published_context).exists()
 
         home, install, state = (
             tmp_path / "home",
@@ -539,7 +539,7 @@ class TestPublishedPredecessorCompatibility:
             current_selection = generation.read(ctx)
             assert current_selection is not None
             assert current_selection.predecessor is not None
-            installed_before_recovery = Path(payload_state.installed_path(ctx)).read_bytes()
+            installed_before_recovery = Path(records.installed_path(ctx)).read_bytes()
             command_before_recovery = Path(ctx.command).resolve(strict=True)
             reverse = payload_transaction.begin_rollback_transaction(
                 ctx,
@@ -547,7 +547,7 @@ class TestPublishedPredecessorCompatibility:
             )
             reverse.commit_projection()
             reverse.preserve_for_recovery("rollback controller outcome unknown")
-            rollback_snapshot = Path(payload_state.transaction_root(ctx), "rollback")
+            rollback_snapshot = Path(records.transaction_root(ctx), "rollback")
             Path(rollback_snapshot, command.SNAPSHOT_FILENAME).unlink()
             rollback_snapshot.rmdir()
 
@@ -566,11 +566,9 @@ class TestPublishedPredecessorCompatibility:
                 "next": "openai-responses-proxy status",
             }
             assert generation.read(ctx) == current_selection
-            assert Path(payload_state.installed_path(ctx)).read_bytes() == (
-                installed_before_recovery
-            )
+            assert Path(records.installed_path(ctx)).read_bytes() == (installed_before_recovery)
             assert Path(ctx.command).resolve(strict=True) == command_before_recovery
-            assert not Path(payload_state.transaction_root(ctx)).exists()
+            assert not Path(records.transaction_root(ctx)).exists()
             recovered_status = run_command(
                 current_executable,
                 environment,
@@ -802,7 +800,7 @@ class TestPublishedPredecessorCompatibility:
                 for owned_ctx in owned_contexts
             )
             assert not install.exists()
-            assert not payload_state.transaction_root(ctx).exists()
+            assert not records.transaction_root(ctx).exists()
             assert process.listener_pids(port) == []
             assert process.listener_pids(runtime_config.DEFAULT_PORT) == canonical_before
 

@@ -122,7 +122,7 @@ class TestWatchdogLogging:
         watchdog = load_watchdog()
         current = mocker.Mock(executable="/installed/current")
         mocker.patch.object(watchdog.runtime_context, "create", return_value=current)
-        transaction = mocker.patch.object(watchdog.payload_state, "status", return_value=None)
+        transaction = mocker.patch.object(watchdog.records, "status", return_value=None)
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         spawn = mocker.patch.object(watchdog, "spawn_proxy")
         sleep = mocker.patch.object(watchdog.time, "sleep")
@@ -146,7 +146,7 @@ class TestWatchdogLogging:
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         mocker.patch.object(watchdog.runtime_context, "create")
         mocker.patch.object(
-            watchdog.payload_state,
+            watchdog.records,
             "status",
             return_value={"state": "invalid", "detail": "journal is malformed"},
         )

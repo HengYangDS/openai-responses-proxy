@@ -17,7 +17,7 @@ from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection as payload_projection
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
@@ -36,7 +36,7 @@ class TestPayloadValidation:
         self, subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
-        transaction_root = Path(payload_state.transaction_root(ctx))
+        transaction_root = Path(records.transaction_root(ctx))
         transaction_root.mkdir(parents=True)
         with pytest.raises(errors.RecoveryStateError, match="evidence is invalid"):
             begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -305,14 +305,14 @@ class TestPayloadValidation:
         with pytest.raises(errors.InstallError, match="unavailable or invalid"):
             owned_files.read_canonical_json(path, "state")
 
-        installed_state = Path(payload_state.installed_path(ctx))
+        installed_state = Path(records.installed_path(ctx))
         installed_state.write_bytes(payload_digest.canonical_json({"schema_version": 99}))
         with pytest.raises(errors.InstallError, match="schema is unsupported"):
-            payload_state.read_installed(ctx)
+            records.read_installed(ctx)
         with pytest.raises(errors.InstallError, match="state version is invalid"):
-            payload_state.require_version({"version": "latest"})
+            records.require_version({"version": "latest"})
         with pytest.raises(errors.InstallError, match="state command path is invalid"):
-            payload_state.require_command({"command": "relative/command"})
+            records.require_command({"command": "relative/command"})
 
     def test_owned_file_boundaries_reject_invalid_types_and_path_races(
         self, tmp_path: Path, *, mocker

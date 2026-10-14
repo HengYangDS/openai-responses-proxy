@@ -11,8 +11,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import runtime_spec
-from openai_responses_proxy.lifecycle import state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
@@ -68,9 +68,9 @@ def install_asset(
         released = artifact.admit(asset, trust_anchor=trust_anchor)
     except errors.InstallError as exc:
         raise errors.InstallInputError(str(exc)) from exc
-    previous = state.read_installed(ctx)
+    previous = records.read_installed(ctx)
     if previous is not None and previous.get("version") == released.version:
-        if state.status(ctx) is not None:
+        if records.status(ctx) is not None:
             raise errors.RecoveryRequiredError("complete payload recovery before installing")
         observed = control.status(ctx, include_rollback=False)
         runtime = observed.get("runtime")
@@ -96,7 +96,7 @@ def install_asset(
         if selected_settings[config.PROXY_PORT_ENV] == str(ctx.port) and _lacks_supervision(
             ctx, released, previous, observed
         ):
-            command.project(Path(state.require_command(previous)), Path(control_ctx.executable))
+            command.project(Path(records.require_command(previous)), Path(control_ctx.executable))
             return {
                 "state": "installed",
                 "runtime": control.start_supervised(ctx, timeout_seconds=timeout_seconds),

@@ -17,7 +17,7 @@ def test_recovery_rebinds_supervision_to_the_control_generation(
     control_generation = generation.context(ctx, "a" * 32)
     service = mocker.Mock()
     service.configured_executable.return_value = control_generation.executable
-    mocker.patch.object(control.payload_state, "status", return_value={"state": "activated"})
+    mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
@@ -45,7 +45,7 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
     control_generation = generation.context(ctx, "a" * 32)
     service = mocker.Mock()
     service.configured_executable.return_value = None
-    mocker.patch.object(control.payload_state, "status", return_value={"state": "activated"})
+    mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
@@ -65,7 +65,7 @@ def test_recovery_no_op_does_not_touch_native_supervision(
     *, mocker, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
-    mocker.patch.object(control.payload_state, "status", return_value=None)
+    mocker.patch.object(control.records, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=None)
     recover = mocker.patch.object(
         control.transaction,
@@ -96,7 +96,7 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
     if failure == "process-exit":
         service.terminate_runtime.side_effect = errors.InstallError("process exit unproved")
     mocker.patch.object(control, "adapter", return_value=service)
-    mocker.patch.object(control.payload_state, "status", return_value={"state": "activated"})
+    mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
     def recover_and_discard(_ctx, *, runtime, bind_terminal, discard_native):
@@ -129,7 +129,7 @@ def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
     service.configured_executable.return_value = None
     service.status.return_value = native_state
     mocker.patch.object(control, "adapter", return_value=service)
-    mocker.patch.object(control.payload_state, "status", return_value={"state": "activated"})
+    mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
     def recover_and_discard(_ctx, *, runtime, bind_terminal, discard_native):

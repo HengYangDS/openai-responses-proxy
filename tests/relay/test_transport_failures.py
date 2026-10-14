@@ -16,8 +16,8 @@ from openai_responses_proxy.protocol.replay import projection as rewrite
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
-from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry

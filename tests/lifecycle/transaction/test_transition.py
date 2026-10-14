@@ -14,8 +14,8 @@ from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import projection as payload_projection
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -237,18 +237,18 @@ def test_fresh_commit_writes_manifest_receipt_and_pending_journal_then_finalize_
 
     assert Path(transaction.context.payload_dir, "payload-manifest.json").is_file()
     assert Path(transaction.context.payload_dir, inventory.RELEASE_RECEIPT_FILENAME).is_file()
-    journal = json.loads(Path(payload_state.journal_path(ctx)).read_text(encoding="utf-8"))
+    journal = json.loads(Path(records.journal_path(ctx)).read_text(encoding="utf-8"))
     assert journal["state"] == "materialized"
-    assert not Path(payload_state.installed_path(ctx)).exists()
+    assert not Path(records.installed_path(ctx)).exists()
 
     transaction.activate()
     transaction.finalize({"pid": 123, "accepting": True})
 
-    state = json.loads(Path(payload_state.installed_path(ctx)).read_text(encoding="utf-8"))
+    state = json.loads(Path(records.installed_path(ctx)).read_text(encoding="utf-8"))
     assert state["version"] == "1.2.3"
     assert state["receipt_sha256"] == transaction.receipt_sha256
     assert state["command"] == ctx.command
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_upgrade_materializes_an_immutable_candidate_generation(tmp_path: Path, *, mocker) -> None:
@@ -286,7 +286,7 @@ def test_generation_upgrade_does_not_copy_a_payload_snapshot(tmp_path: Path, *, 
 
     successor.commit_projection()
 
-    rollback = Path(payload_state.transaction_root(ctx), "rollback")
+    rollback = Path(records.transaction_root(ctx), "rollback")
     assert {path.name for path in rollback.iterdir()} == {command.SNAPSHOT_FILENAME}
     successor.rollback()
 
@@ -392,7 +392,7 @@ def test_failed_commit_rolls_back_before_propagating(
         assert not Path(ctx.executable).exists()
     assert payload_generation.read(ctx) == selection
     assert not Path(transaction.context.payload_dir).exists()
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_upgrade_rollback_restores_payload_receipt_and_installed_state_exactly(
@@ -411,7 +411,7 @@ def test_upgrade_rollback_restores_payload_receipt_and_installed_state_exactly(
             inventory.RELEASE_RECEIPT_FILENAME,
         )
     }
-    before_state = Path(payload_state.installed_path(ctx)).read_bytes()
+    before_state = Path(records.installed_path(ctx)).read_bytes()
 
     second = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     second.commit_projection()
@@ -421,8 +421,8 @@ def test_upgrade_rollback_restores_payload_receipt_and_installed_state_exactly(
     assert restored == selection
     for relative, content in before.items():
         assert Path(active.payload_dir, relative).read_bytes() == content
-    assert Path(payload_state.installed_path(ctx)).read_bytes() == before_state
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert Path(records.installed_path(ctx)).read_bytes() == before_state
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_upgrade_rollback_preserves_unknown_content(tmp_path: Path, *, mocker) -> None:
@@ -451,7 +451,7 @@ def test_preserve_for_recovery_keeps_journal_and_rollback_visible(
 
     transaction.preserve_for_recovery("handoff outcome unknown")
 
-    journal = json.loads(Path(payload_state.journal_path(ctx)).read_text(encoding="utf-8"))
+    journal = json.loads(Path(records.journal_path(ctx)).read_text(encoding="utf-8"))
     assert journal["state"] == "recovery_required"
     assert journal["reason"] == "handoff outcome unknown"
-    assert Path(payload_state.transaction_root(ctx), "rollback").is_dir()
+    assert Path(records.transaction_root(ctx), "rollback").is_dir()

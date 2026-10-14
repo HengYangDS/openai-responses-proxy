@@ -143,7 +143,7 @@ class ProxyOwnerBoundaryContracts:
 
     def test_response_transport_has_no_listener_facade(self) -> None:
         assert not (PACKAGE / "serving" / "responses.py").exists()
-        for relative in ("relay/responses.py", "relay/exchange.py", "relay/relay.py"):
+        for relative in ("relay/responses.py", "relay/exchange.py", "relay/downstream.py"):
             assert (PACKAGE / relative).is_file(), relative
 
     def test_packages_are_declarations_not_reexport_facades(self) -> None:

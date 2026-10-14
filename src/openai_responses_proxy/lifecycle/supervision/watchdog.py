@@ -17,7 +17,7 @@ from pathlib import Path
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.runtime import bounded_log
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
@@ -117,7 +117,7 @@ def run(max_iterations: int | None = None) -> None:
             try:
                 ctx = runtime_context.create(executable=EXECUTABLE, port=PORT)
                 executable = ctx.executable
-                transaction = payload_state.status(ctx)
+                transaction = records.status(ctx)
             except errors.InstallError:
                 transaction = {"state": "invalid"}
                 _log("ERROR installed runtime ownership is invalid; refusing to start")

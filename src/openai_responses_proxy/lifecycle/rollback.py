@@ -8,7 +8,7 @@ from pathlib import Path
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
-from openai_responses_proxy.lifecycle import state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import identity
 
 
@@ -60,7 +60,7 @@ def _load_selected(
     predecessor_ctx = generation.context(ctx, selection.predecessor)
     successor = identity.committed_payload(Path(active_ctx.executable))
     predecessor = identity.committed_payload(Path(predecessor_ctx.executable))
-    installed = state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     if successor is None:
         raise errors.InstallError("retained rollback successor generation identity is invalid")
     if predecessor is None:

@@ -150,9 +150,9 @@ class TestStructuralQualityContracts:
                 "src/openai_responses_proxy/common/value.py": "VALUE = 1\n",
                 "src/openai_responses_proxy/serving/__init__.py": "",
                 "src/openai_responses_proxy/extra/state.py": (
-                    "from openai_responses_proxy.relay import relay\n"
+                    "from openai_responses_proxy.relay import downstream\n"
                 ),
-                "src/openai_responses_proxy/relay/relay.py": (
+                "src/openai_responses_proxy/relay/downstream.py": (
                     "from openai_responses_proxy.runtime import state\n"
                 ),
             }

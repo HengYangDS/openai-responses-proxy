@@ -12,7 +12,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import projection as payload_projection
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -33,13 +33,13 @@ def test_nonfresh_rollback_without_retained_snapshot_only_closes_transaction(
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    rollback = Path(payload_state.transaction_root(ctx), "rollback")
+    rollback = Path(records.transaction_root(ctx), "rollback")
     rollback.mkdir()
     rollback.rmdir()
 
     transaction.rollback()
 
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
     transaction.rollback()
 
 
@@ -53,7 +53,7 @@ def test_rollback_retries_cleanup_before_becoming_terminal(
     if previous_release is not None:
         install_payload(ctx, previous_release, mocker=mocker)
     selection = payload_generation.read(ctx)
-    installed = payload_state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     if phase != "prepared":
         transaction.commit_projection()
@@ -68,21 +68,21 @@ def test_rollback_retries_cleanup_before_becoming_terminal(
     with pytest.raises(errors.InstallError, match="cleanup failed"):
         transaction.rollback()
 
-    assert payload_state.journal_path(ctx).is_file()
+    assert records.journal_path(ctx).is_file()
     assert payload_generation.read(ctx) == selection
-    assert payload_state.read_installed(ctx) == installed
+    assert records.read_installed(ctx) == installed
     assert not Path(transaction.context.payload_dir).exists()
     mocker.stop(cleanup)
 
     transaction.rollback()
 
-    assert not payload_state.transaction_root(ctx).exists()
+    assert not records.transaction_root(ctx).exists()
     assert payload_generation.read(ctx) == selection
-    assert payload_state.read_installed(ctx) == installed
+    assert records.read_installed(ctx) == installed
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     transaction.rollback()
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
     pending.rollback()
 
 
@@ -107,7 +107,7 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     projected = listener_identity.committed_payload(Path(transaction.context.executable))
     assert projected is not None
     runtime = recovery_runtime(projected, projected)
-    root = payload_state.transaction_root(ctx)
+    root = records.transaction_root(ctx)
     remove_tree = payload_transaction.shutil.rmtree
     unlink = Path.unlink
 
@@ -122,7 +122,7 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
         remove_tree(path)
 
     def interrupt_journal(path: Path, *args, **kwargs) -> None:
-        if interruption == "journal" and path == payload_state.journal_path(ctx):
+        if interruption == "journal" and path == records.journal_path(ctx):
             raise PermissionError("interrupted terminal cleanup")
         unlink(path, *args, **kwargs)
 
@@ -136,13 +136,13 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     with pytest.raises(errors.InstallError, match="cleanup failed"):
         finish()
     selection = payload_generation.read(ctx)
-    installed = payload_state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     mocker.stop(cleanup)
     mocker.stop(journal_cleanup)
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     with pytest.raises(errors.RecoveryRequiredError, match="complete payload recovery"):
         begin_transaction(ctx, released_artifact("1.2.4"), mocker=mocker)
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
 
     recovery = multiprocessing.get_context("spawn").Process(
         target=_recover_without_binding, args=(ctx, outcome)
@@ -158,9 +158,9 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
         recovery.close()
 
     assert payload_generation.read(ctx) == selection
-    assert payload_state.read_installed(ctx) == installed
+    assert records.read_installed(ctx) == installed
     assert not root.exists()
-    assert not payload_state.journal_path(ctx).exists()
+    assert not records.journal_path(ctx).exists()
     assert recover_transaction(ctx, runtime=None) == {"state": "not_required"}
 
 
@@ -191,15 +191,15 @@ def test_terminal_recovery_finishes_partially_removed_generation(
     with pytest.raises(errors.InstallError, match="generation"):
         finish()
     selection = payload_generation.read(ctx)
-    installed = payload_state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     mocker.stop(cleanup)
 
     _recover_without_binding(ctx, outcome)
 
     assert payload_generation.read(ctx) == selection
-    assert payload_state.read_installed(ctx) == installed
+    assert records.read_installed(ctx) == installed
     assert not Path(discarded.context.payload_dir).exists()
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
 
 
 def test_purge_recovery_uses_its_inventory_in_a_fresh_process(tmp_path: Path, *, mocker) -> None:
@@ -232,7 +232,7 @@ def test_purge_recovery_uses_its_inventory_in_a_fresh_process(tmp_path: Path, *,
             recovery.join()
         recovery.close()
     assert not Path(ctx.install_dir).exists()
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
 
 
 def test_purge_accepts_a_verified_flat_payload_without_installed_state(
@@ -243,11 +243,11 @@ def test_purge_accepts_a_verified_flat_payload_without_installed_state(
     installed = install_payload(ctx, mocker=mocker)
     _project_as_legacy_flat_install(ctx, installed)
     payload_generation.root(ctx).rmdir()
-    payload_state.installed_path(ctx).unlink()
+    records.installed_path(ctx).unlink()
 
     assert payload_transaction.purge(ctx)["state"] == "purged"
     assert not Path(ctx.install_dir).exists()
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
 
 
 def test_pending_transaction_retains_exclusive_removal_authority(tmp_path: Path, *, mocker) -> None:
@@ -255,10 +255,10 @@ def test_pending_transaction_retains_exclusive_removal_authority(tmp_path: Path,
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.4"), mocker=mocker)
-    before = payload_state.journal_path(ctx).read_bytes()
+    before = records.journal_path(ctx).read_bytes()
     with pytest.raises(errors.RecoveryRequiredError, match="recovery"):
         payload_transaction.purge(ctx)
-    assert payload_state.journal_path(ctx).read_bytes() == before
+    assert records.journal_path(ctx).read_bytes() == before
     pending.rollback()
 
 
@@ -278,7 +278,7 @@ def test_removal_authority_is_validated_before_disposal(
     with pytest.raises(errors.InstallError, match="interrupted"):
         payload_transaction.purge(ctx)
     mocker.stop(failure)
-    journal = payload_state.read_journal(ctx)
+    journal = records.read_journal(ctx)
     files = journal["files"]
     assert isinstance(files, dict)
     match corruption:
@@ -293,8 +293,8 @@ def test_removal_authority_is_validated_before_disposal(
         case "state":
             journal["state"] = "closed"
         case "transaction_root":
-            payload_state.transaction_root(ctx).mkdir()
-    payload_state.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
+            records.transaction_root(ctx).mkdir()
+    records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
     before = _retained_carrier_snapshot(Path(ctx.install_dir), tmp_path / "unrelated")
 
     with pytest.raises(errors.RecoveryStateError):
@@ -339,7 +339,7 @@ def test_purge_recovery_preserves_unowned_replacements(
         assert retained.is_dir()
     else:
         assert retained.read_bytes() == expected
-    pending = payload_state.status(ctx)
+    pending = records.status(ctx)
     assert pending is not None
     assert pending["state"] == "purged"
 
@@ -367,7 +367,7 @@ def test_snapshot_failure_cleanup_remains_retryable(
     else:
         transaction.rollback()
 
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
     assert not Path(ctx.install_dir).exists()
     assert not Path(ctx.command).exists()
 
@@ -385,7 +385,7 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
     )
     with pytest.raises(errors.InstallError, match="generation removal failed"):
         transaction.rollback()
-    journal = payload_state.journal_path(ctx).read_bytes()
+    journal = records.journal_path(ctx).read_bytes()
     mocker.stop(cleanup)
     action = (
         transaction.activate
@@ -396,7 +396,7 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
     with pytest.raises(errors.InstallError, match="terminal"):
         action()
 
-    assert payload_state.journal_path(ctx).read_bytes() == journal
+    assert records.journal_path(ctx).read_bytes() == journal
     transaction.rollback()
 
 
@@ -411,23 +411,23 @@ def test_recovery_cleans_a_finalized_transaction_without_rolling_back(
     assert candidate_identity is not None
     runtime = recovery_runtime(candidate_identity, candidate_identity)
     installed = {
-        "schema_version": payload_state.INSTALLED_RELEASE_STATE_SCHEMA,
+        "schema_version": records.INSTALLED_RELEASE_STATE_SCHEMA,
         "version": "1.2.3",
         "receipt_sha256": candidate.receipt_sha256,
-        "transaction_id": json.loads(
-            Path(payload_state.journal_path(ctx)).read_text(encoding="utf-8")
-        )["transaction_id"],
+        "transaction_id": json.loads(Path(records.journal_path(ctx)).read_text(encoding="utf-8"))[
+            "transaction_id"
+        ],
         "command": ctx.command,
         "runtime": runtime,
     }
-    Path(payload_state.installed_path(ctx)).write_bytes(payload_digest.canonical_json(installed))
+    Path(records.installed_path(ctx)).write_bytes(payload_digest.canonical_json(installed))
     candidate_bytes = Path(ctx.executable).read_bytes()
 
     result = recover_transaction(ctx, runtime=runtime)
 
     assert result["state"] == "finalized"
     assert Path(ctx.executable).read_bytes() == candidate_bytes
-    assert not Path(payload_state.transaction_root(ctx)).exists()
+    assert not Path(records.transaction_root(ctx)).exists()
 
 
 def test_finalize_reports_cleanup_failure_without_erasing_success_state(
@@ -447,8 +447,8 @@ def test_finalize_reports_cleanup_failure_without_erasing_success_state(
         transaction.finalize({"pid": 123})
     assert "/Users/private/transaction" not in str(raised.value)
 
-    assert Path(payload_state.installed_path(ctx)).is_file()
-    assert Path(payload_state.journal_path(ctx)).is_file()
+    assert Path(records.installed_path(ctx)).is_file()
+    assert Path(records.journal_path(ctx)).is_file()
 
 
 def test_finalization_journal_omits_private_failure_details(tmp_path: Path, *, mocker) -> None:
@@ -465,10 +465,10 @@ def test_finalization_journal_omits_private_failure_details(tmp_path: Path, *, m
     with pytest.raises(errors.InstallError, match="selection failed"):
         transaction.finalize({"pid": 123})
 
-    journal = payload_state.read_journal(ctx)
+    journal = records.read_journal(ctx)
     assert journal["state"] == "recovery_required"
     assert journal["reason"] == "finalization failed"
-    assert "/Users/private/payload" not in Path(payload_state.journal_path(ctx)).read_text()
+    assert "/Users/private/payload" not in Path(records.journal_path(ctx)).read_text()
 
 
 def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
@@ -514,7 +514,7 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
     mocker.stopall()
 
     ctx = install_context(tmp_path / "cleanup")
-    root = payload_transaction.state.transaction_root(ctx)
+    root = records.transaction_root(ctx)
     root.mkdir(parents=True)
     mocker.patch.object(payload_transaction.shutil, "rmtree", return_value=None)
     with (

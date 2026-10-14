@@ -13,8 +13,8 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity
@@ -51,7 +51,7 @@ def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
     assert degraded["state"] == "degraded"
     assert degraded["detail"] == "installed payload manifest is unavailable"
 
-    transaction_root = Path(payload_state.transaction_root(ctx))
+    transaction_root = Path(records.transaction_root(ctx))
     transaction_root.mkdir()
 
     invalid = control.status(ctx)
@@ -66,7 +66,7 @@ def test_status_reports_an_invalid_installed_state_without_losing_read_only_evid
     ctx = install_context(tmp_path)
     install_root = Path(ctx.install_dir)
     install_root.mkdir(parents=True)
-    Path(payload_state.installed_path(ctx)).write_text("not-json", encoding="utf-8")
+    Path(records.installed_path(ctx)).write_text("not-json", encoding="utf-8")
     mocker.patch.object(control, "adapter").return_value.status.return_value = "absent"
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     mocker.patch.object(control, "read_runtime", return_value=None)
@@ -139,7 +139,7 @@ def test_status_distinguishes_absence_from_command_and_transaction_degradation(
         "state": "owned",
         "kind": "symlink",
     }
-    mocker.patch.object(payload_state, "status", return_value={"state": "future"})
+    mocker.patch.object(records, "status", return_value={"state": "future"})
     with subtests.test(state="unrecognized transaction"):
         degraded = control.status(installed_ctx)
         assert degraded["state"] == "degraded"
@@ -269,18 +269,18 @@ def test_status_routes_terminal_cleanup_to_recovery(
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
-    journal = payload_state.read_journal(ctx)
+    journal = records.read_journal(ctx)
     journal["state"] = outcome
-    payload_state.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
+    records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
     healthy_status_dependencies(ctx, mocker=mocker)
 
     result = control.status(ctx)
 
     assert result["state"] == "recovery_required"
     assert result["detail"] == "payload cleanup is required"
-    assert payload_state.read_journal(ctx)["state"] == outcome
+    assert records.read_journal(ctx)["state"] == outcome
     journal["state"] = "prepared"
-    payload_state.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
+    records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
     pending.rollback()
 
 
@@ -455,7 +455,7 @@ def test_control_status_json_reports_recovery_without_private_transaction_data(*
         transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
         transaction.commit_projection()
         transaction.preserve_for_recovery("handoff outcome unknown")
-        journal_path = Path(payload_state.journal_path(ctx))
+        journal_path = Path(records.journal_path(ctx))
         journal = json.loads(journal_path.read_text(encoding="utf-8"))
         journal.update(
             {

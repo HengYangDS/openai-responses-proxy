@@ -9,8 +9,8 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import owned_files
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback
-from openai_responses_proxy.lifecycle import state
 from openai_responses_proxy.lifecycle import transaction as payload_transaction
 from openai_responses_proxy.serving import digest
 from tests.lifecycle.fixtures import begin_transaction
@@ -107,11 +107,11 @@ def test_retained_installed_binding_drift_is_rejected(tmp_path: Path, *, mocker)
     """Rollback admission binds the selector to the exact installed successor record."""
     ctx = install_context(tmp_path)
     _first, _second = install_successor(ctx, mocker=mocker)
-    installed = state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     assert installed is not None
     installed["version"] = "1.2.4"
     owned_files.write_bytes(
-        state.installed_path(ctx),
+        records.installed_path(ctx),
         digest.canonical_json(installed),
         mode=0o600,
     )

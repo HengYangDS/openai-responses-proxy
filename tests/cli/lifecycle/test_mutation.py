@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from openai_responses_proxy.cli import application
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
@@ -261,9 +261,9 @@ def test_recover_projects_one_precise_invalid_state_contract(
     mocker,
 ) -> None:
     ctx = install_context(tmp_path)
-    transaction_root = Path(payload_state.transaction_root(ctx))
+    transaction_root = Path(records.transaction_root(ctx))
     transaction_root.mkdir(parents=True)
-    journal = Path(payload_state.journal_path(ctx))
+    journal = Path(records.journal_path(ctx))
     journal.write_bytes(b"{not-json\n")
     before = journal.read_bytes()
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
@@ -381,9 +381,7 @@ def test_public_recovery_reconstructs_context_after_interrupted_purge(
     mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[])
     mocker.patch.object(application.control, "read_runtime", return_value=None)
     unlink = Path.unlink
-    interrupted = (
-        Path(ctx.executable) if interruption == "payload" else payload_state.journal_path(ctx)
-    )
+    interrupted = Path(ctx.executable) if interruption == "payload" else records.journal_path(ctx)
 
     def fail(path: Path, *args, **kwargs) -> None:
         if path == interrupted:
@@ -405,7 +403,7 @@ def test_public_recovery_reconstructs_context_after_interrupted_purge(
     assert json.loads(stdout)["state"] == "purged"
     assert stderr == ""
     assert not Path(ctx.install_dir).exists()
-    assert payload_state.status(ctx) is None
+    assert records.status(ctx) is None
     code, stdout, stderr = invoke("uninstall", "--purge", "--json")
     assert code == 0
     assert json.loads(stdout)["state"] == "not_installed"

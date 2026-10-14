@@ -19,10 +19,10 @@ from openai_responses_proxy.protocol.recovery import execution as execution_reco
 from openai_responses_proxy.protocol.recovery import input as input_recovery
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import cooldown
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
-from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.relay.contracts import UpstreamResponse
+from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
 
 _SETTINGS = runtime_config.load()

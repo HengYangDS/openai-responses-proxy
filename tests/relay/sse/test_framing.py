@@ -14,8 +14,8 @@ import pytest
 from openai_responses_proxy.protocol import response as response_projection
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
-from openai_responses_proxy.relay import relay as downstream
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
 from tests.protocol.test_agent_delivery import _call

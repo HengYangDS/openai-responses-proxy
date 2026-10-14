@@ -14,9 +14,9 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
-from openai_responses_proxy.lifecycle import state as payload_state
 from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle import uninstall
 from openai_responses_proxy.lifecycle.deployment import apply
@@ -57,7 +57,7 @@ def status(
     active = generation.selected_context(ctx)
     installed_error: str | None = None
     try:
-        installed = payload_state.read_installed(ctx)
+        installed = records.read_installed(ctx)
     except errors.InstallError as exc:
         installed = None
         installed_error = str(exc)
@@ -98,12 +98,10 @@ def status(
     ):
         runtime = None
     installed_command = (
-        Path(payload_state.require_command(installed))
-        if installed is not None
-        else Path(active.command)
+        Path(records.require_command(installed)) if installed is not None else Path(active.command)
     )
     command_state = command.status(installed_command, Path(control_ctx.executable))
-    payload_transaction = payload_state.status(ctx)
+    payload_transaction = records.status(ctx)
     rollback_status = (
         (
             payload_rollback.RetainedRollbackStatus(
@@ -176,12 +174,12 @@ def status(
             "activated",
             "recovery_required",
         }
-        | payload_state.TERMINAL_STATES
+        | records.TERMINAL_STATES
     ):
         lifecycle_state = "recovery_required"
         detail = (
             "payload cleanup is required"
-            if payload_transaction["state"] in payload_state.TERMINAL_STATES
+            if payload_transaction["state"] in records.TERMINAL_STATES
             else "payload recovery is required"
         )
     else:
@@ -203,7 +201,7 @@ def status(
     evidence: dict[str, object] = {
         "state": lifecycle_state,
         "detail": detail,
-        "release": payload_state.require_version(installed) if installed is not None else None,
+        "release": records.require_version(installed) if installed is not None else None,
         "command": command_state,
         "payload_integrity": {"ok": integrity_ok, "detail": integrity_detail},
         "service": service,
@@ -305,11 +303,11 @@ def start_supervised(
 
 def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -> dict[str, object]:
     """Hand off the installed payload and rebind its supervisor, or start it when stopped."""
-    installed = payload_state.read_installed(ctx)
+    installed = records.read_installed(ctx)
     install_root = Path(ctx.install_dir)
     if installed is None and not install_root.exists() and not install_root.is_symlink():
         raise errors.NotInstalledError
-    transaction_state = payload_state.status(ctx)
+    transaction_state = records.status(ctx)
     if transaction_state is not None:
         if transaction_state.get("state") == "invalid":
             raise errors.RecoveryStateError(
@@ -397,7 +395,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
 
 def recover(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
     """Converge one interrupted payload transaction and its native supervisor."""
-    if (pending := payload_state.status(ctx)) is not None and pending.get("state") == "purged":
+    if (pending := records.status(ctx)) is not None and pending.get("state") == "purged":
         return uninstall.uninstall_product(ctx, purge=True)
 
     def bind_terminal(control: runtime_context.RuntimeContext) -> None:
@@ -430,13 +428,13 @@ def rollback(
 ) -> dict[str, object]:
     """Converge on one explicit installed or retained release."""
     try:
-        payload_state.version_key(to_release)
+        records.version_key(to_release)
     except errors.InstallError as exc:
         raise errors.RollbackStateError("requested rollback release is invalid") from exc
-    if payload_state.status(ctx) is not None:
+    if records.status(ctx) is not None:
         raise errors.RecoveryRequiredError("complete payload recovery before rollback")
     try:
-        installed = payload_state.read_installed(ctx)
+        installed = records.read_installed(ctx)
         active = generation.selected_context(ctx) if installed is not None else None
         active_identity = (
             identity.committed_payload(Path(active.executable)) if active is not None else None
@@ -444,7 +442,7 @@ def rollback(
         selection = generation.read(ctx) if installed is not None else None
     except errors.InstallError as exc:
         raise errors.RollbackStateError(str(exc)) from exc
-    if installed is not None and payload_state.require_version(installed) == to_release:
+    if installed is not None and records.require_version(installed) == to_release:
         observed = status(ctx, include_rollback=False)
         if not (
             observed.get("state") == "running"

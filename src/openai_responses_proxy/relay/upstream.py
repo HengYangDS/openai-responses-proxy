@@ -1,4 +1,4 @@
-"""Narrow transport capabilities shared by upstream relay components."""
+"""Upstream response capabilities consumed by the downstream relay."""
 
 from __future__ import annotations
 

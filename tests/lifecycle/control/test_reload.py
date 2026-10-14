@@ -10,7 +10,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
-from openai_responses_proxy.lifecycle import state as payload_state
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import identity
 from tests.lifecycle.fixtures import install_context
@@ -152,8 +152,8 @@ def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, moc
     expected = {"transaction_id": "tx"}
     native = mocker.patch.object(control, "adapter").return_value
     native.configured_executable.return_value = ctx.executable
-    mocker.patch.object(control.payload_state, "read_installed", return_value={})
-    mocker.patch.object(control.payload_state, "status", return_value=None)
+    mocker.patch.object(control.records, "read_installed", return_value={})
+    mocker.patch.object(control.records, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=runtime)
     mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(
@@ -243,7 +243,7 @@ def test_reload_requires_installation_and_resolved_transaction_state(
         ({"state": "invalid"}, errors.RecoveryStateError),
         ({"state": "prepared"}, errors.RecoveryRequiredError),
     ):
-        mocker.patch.object(payload_state, "status", return_value=transaction_state)
+        mocker.patch.object(records, "status", return_value=transaction_state)
         with (
             subtests.test(state=transaction_state["state"]),
             pytest.raises(expected),
