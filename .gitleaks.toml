@@ -1,0 +1,4 @@
+# Root pointer for the selected ETHOS pre-commit runtime, which discovers only this
+# name. Remove it in the batch that switches to a runtime reading the canonical path.
+[extend]
+path = ".config/checks/gitleaks/gitleaks.toml"

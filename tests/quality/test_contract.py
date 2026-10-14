@@ -281,7 +281,8 @@ class TestQualityPolicyContracts:
         repository = tool.get("openai-responses-proxy", {})
         assert "quality" not in repository
         assert not (ROOT / "pytest.ini").exists()
-        assert not (ROOT / ".gitleaks.toml").exists()
+        pointer = tomllib.loads((ROOT / ".gitleaks.toml").read_text(encoding="utf-8"))
+        assert pointer == {"extend": {"path": ".config/checks/gitleaks/gitleaks.toml"}}
 
         governance = " ".join(
             (ROOT / "docs/governance/release-and-change-policy.md")

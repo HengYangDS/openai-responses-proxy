@@ -118,7 +118,10 @@ the ETHOS repository paradigm, tool configuration lives under
 `.config/checks/<tool>/` with the tool's native file name, and repository-owned
 parameters live beside it as `policy.toml`; `.config/checks/pytest/pytest.toml`
 therefore owns test discovery and warning policy. Every invocation passes these
-paths explicitly, and no root file points at them. Nox executes those owners,
+paths explicitly. The only root pointer is `.gitleaks.toml`, which extends the
+canonical secret-scanning policy for the selected ETHOS pre-commit runtime that
+discovers only that name; it is removed in the batch that switches to a runtime
+reading the canonical path. Nox executes those owners,
 `.ethos/profile.toml` registers gates, and CI/hooks only project them.
 
 Required local evidence includes:

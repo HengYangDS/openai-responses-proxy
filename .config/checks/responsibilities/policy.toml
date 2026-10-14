@@ -163,6 +163,7 @@ files = [
   ".config/checks/taplo/taplo.toml",
   ".config/checks/ty/ty.toml",
   ".config/checks/vulture/vulture.toml",
+  ".gitleaks.toml",
 ]
 
 [[roles]]
