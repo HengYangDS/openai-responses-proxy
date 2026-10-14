@@ -26,7 +26,7 @@ from tools.quality.repository.names import semantic_name_gaps
 from tools.quality.repository.topology import architecture_gaps
 
 ROOT = Path(__file__).resolve().parents[3]
-CONFIG = ROOT / ".config/quality/policy/architecture.toml"
+CONFIG = ROOT / ".config/checks/architecture/policy.toml"
 PROJECT = ROOT / "pyproject.toml"
 _DEFINITION_TYPES = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 

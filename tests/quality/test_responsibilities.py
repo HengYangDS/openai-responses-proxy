@@ -184,13 +184,13 @@ class TestResponsibilityMap:
         assert len(report["assignments"]) > 1000
 
     def test_responsibility_map_rejects_missing_concern_rationale(self, tmp_path: Path) -> None:
-        source = (ROOT / ".config/quality/responsibility-map.toml").read_text(encoding="utf-8")
+        source = (ROOT / ".config/checks/responsibilities/policy.toml").read_text(encoding="utf-8")
         malformed = source.replace(
             'risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."\n',
             "",
             1,
         )
-        policy = tmp_path / "responsibility-map.toml"
+        policy = tmp_path / "policy.toml"
         policy.write_text(malformed, encoding="utf-8")
 
         report = responsibilities.audit(ROOT, policy)
@@ -198,13 +198,13 @@ class TestResponsibilityMap:
         assert "responsibility_map_concern_field_missing:python-lint:risk_model" in report["errors"]
 
     def test_responsibility_map_rejects_overlapping_roles(self, tmp_path: Path) -> None:
-        source = (ROOT / ".config/quality/responsibility-map.toml").read_text(encoding="utf-8")
+        source = (ROOT / ".config/checks/responsibilities/policy.toml").read_text(encoding="utf-8")
         malformed = source.replace(
             'prefixes = ["tools/"]\n',
             'prefixes = ["tools/", "src/"]\n',
             1,
         )
-        policy = tmp_path / "responsibility-map.toml"
+        policy = tmp_path / "policy.toml"
         policy.write_text(malformed, encoding="utf-8")
 
         report = responsibilities.audit(ROOT, policy)

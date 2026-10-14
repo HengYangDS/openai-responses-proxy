@@ -1,0 +1,4 @@
+known_first_party = ["openai_responses_proxy"]
+
+[package_module_name_map]
+pyinstaller = ["PyInstaller"]

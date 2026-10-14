@@ -55,7 +55,7 @@ class TestStructuralQualityContracts:
             "    owner.choose(True)\n    owner.choose(False)\n",
             encoding="utf-8",
         )
-        config = ROOT / ".config/quality/native/coverage.ini"
+        config = ROOT / ".config/checks/coverage/coverage.toml"
         data_file = tmp_path / ".coverage"
         environment = {**os.environ, "COVERAGE_FILE": str(data_file)}
         subprocess.run(
@@ -92,7 +92,7 @@ class TestStructuralQualityContracts:
         monkeypatch.setenv("COVERAGE_FILE", str(data_file))
         monkeypatch.chdir(tmp_path)
         with pytest.raises(SystemExit) as failure:
-            branch_coverage.main(("--policy", str(ROOT / ".config/quality/policy/coverage.toml")))
+            branch_coverage.main(("--policy", str(ROOT / ".config/checks/coverage/policy.toml")))
         assert failure.value.code == 1
         admission = json.loads(capsys.readouterr().out)
         assert set(admission["sources"]) == {"openai_responses_proxy", "tools", "noxfile"}
@@ -352,13 +352,15 @@ class TestStructuralQualityContracts:
         assert inventory[0]["effective_lines"] == 122
 
     def test_coverage_floor_has_one_owner_and_semantic_risk_scopes(self) -> None:
-        coverage = (ROOT / ".config/quality/native/coverage.ini").read_text(encoding="utf-8")
-        policy = tomllib.loads(
-            (ROOT / ".config/quality/policy/coverage.toml").read_text(encoding="utf-8")
+        coverage = tomllib.loads(
+            (ROOT / ".config/checks/coverage/coverage.toml").read_text(encoding="utf-8")
         )
-        assert "branch = True" in coverage
-        assert "source_pkgs = openai_responses_proxy" in coverage
-        assert "omit" not in coverage
+        policy = tomllib.loads(
+            (ROOT / ".config/checks/coverage/policy.toml").read_text(encoding="utf-8")
+        )
+        assert coverage["run"]["branch"] is True
+        assert coverage["run"]["source_pkgs"] == ["openai_responses_proxy", "noxfile"]
+        assert "omit" not in coverage["run"]
         assert set(policy) == {
             "minimum_percent",
             "comparison",
@@ -452,7 +454,7 @@ class TestStructuralQualityContracts:
         self,
     ) -> None:
         policy = tomllib.loads(
-            (ROOT / ".config/quality/policy/architecture.toml").read_text(encoding="utf-8")
+            (ROOT / ".config/checks/architecture/policy.toml").read_text(encoding="utf-8")
         )
         assert policy["source_roots"] == ["src/openai_responses_proxy", "tools"]
         assert policy["test_roots"] == ["tests"]
@@ -573,7 +575,7 @@ class TestStructuralQualityContracts:
 
     def test_product_concepts_require_distinct_existing_product_owners(self) -> None:
         policy = tomllib.loads(
-            (ROOT / ".config/quality/policy/architecture.toml").read_text(encoding="utf-8")
+            (ROOT / ".config/checks/architecture/policy.toml").read_text(encoding="utf-8")
         )
         duplicate = dict(policy)
         duplicate["product_concepts"] = dict(policy["product_concepts"])

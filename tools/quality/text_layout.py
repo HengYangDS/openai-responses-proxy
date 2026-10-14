@@ -12,7 +12,7 @@ from cyclopts import App
 from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_POLICY = ROOT / ".config/quality/policy/text.toml"
+DEFAULT_POLICY = ROOT / ".config/checks/text-layout/policy.toml"
 
 
 def _tracked(root: Path) -> tuple[str, ...]:

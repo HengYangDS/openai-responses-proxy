@@ -134,8 +134,15 @@ source_of_truth = "repository-owned responsibility and semantic quality policy"
 change_condition = "a protected risk, scope, threshold rationale, or ownership boundary changes"
 dependency_direction = "native tools and orchestration implement the declared policy"
 retirement_condition = "the protected concern disappears or a higher authority fully owns it"
-files = [".config/quality/responsibility-map.toml"]
-prefixes = [".config/quality/policy/"]
+files = [
+  ".config/checks/architecture/policy.toml",
+  ".config/checks/coverage/policy.toml",
+  ".config/checks/deptry/policy.toml",
+  ".config/checks/hard-coding/policy.toml",
+  ".config/checks/performance/policy.toml",
+  ".config/checks/responsibilities/policy.toml",
+  ".config/checks/text-layout/policy.toml",
+]
 
 [[roles]]
 id = "quality-tool-configuration"
@@ -146,8 +153,17 @@ source_of_truth = "tool-native configuration projected from repository quality p
 change_condition = "tool capability or the policy it implements changes"
 dependency_direction = "configuration depends on policy and is consumed by its native tool"
 retirement_condition = "the native tool is removed or its configuration becomes unnecessary"
-files = [".gitleaks.toml", "pytest.ini"]
-prefixes = [".config/quality/native/"]
+files = [
+  ".config/checks/coverage/coverage.toml",
+  ".config/checks/gitleaks/gitleaks.toml",
+  ".config/checks/lychee/lychee.toml",
+  ".config/checks/prettier/prettier.toml",
+  ".config/checks/pytest/pytest.toml",
+  ".config/checks/ruff/ruff.toml",
+  ".config/checks/taplo/taplo.toml",
+  ".config/checks/ty/ty.toml",
+  ".config/checks/vulture/vulture.toml",
+]
 
 [[roles]]
 id = "editor-configuration"
@@ -274,7 +290,7 @@ id = "controlled-values"
 owner = "tools.quality.hard_coding"
 scope = "all-carriers"
 session = "quick"
-configuration = [".config/quality/policy/hard-coding.toml"]
+configuration = [".config/checks/hard-coding/policy.toml"]
 risk_model = "Duplicated product identity, policy, supply-chain, and generated values drift across runtime, release, documentation, and Forge projections."
 measurement = "Validate one declared owner, rationale, class, and projection set for every controlled-value family and run focused semantic consistency checks."
 false_positive_cost = "An incidental literal must not be promoted into policy; only values whose drift changes product, governance, release, or portability semantics are controlled."
@@ -286,7 +302,7 @@ id = "python-lint"
 owner = "ruff"
 scope = "python"
 session = "quick"
-configuration = [".config/quality/native/ruff.toml"]
+configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."
 measurement = "Ruff static analysis over every Python carrier, including C901 McCabe complexity at the bound declared in its native configuration; real tool probes cover product, tooling, test and Nox roles."
 false_positive_cost = "An inapplicable rule can force an obscuring rewrite, so applicability is changed only through this role contract."
@@ -298,7 +314,7 @@ id = "python-format"
 owner = "ruff"
 scope = "python"
 session = "quick"
-configuration = [".config/quality/native/ruff.toml"]
+configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Inconsistent source layout raises review cost and permits host-dependent formatting drift."
 measurement = "Ruff formatter verification over every Python carrier."
 false_positive_cost = "Formatter changes must preserve syntax and must not encode product policy."
@@ -310,7 +326,7 @@ id = "python-public-docstrings"
 owner = "ruff"
 scope = "python"
 session = "quick"
-configuration = [".config/quality/native/ruff.toml"]
+configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Undocumented public product and repository interfaces make behavior ambiguous to users and maintainers."
 measurement = "One Ruff invocation enforces Google-style docstrings across Python; missing-docstring rules apply to product and tooling, while existing test prose is validated without requiring ornamental comments."
 false_positive_cost = "Behavior-named tests do not require docstrings; the native tests/** D1 applicability rule excludes only missing-docstring diagnostics, not malformed existing prose."
@@ -322,7 +338,7 @@ id = "python-types"
 owner = "ty"
 scope = "python"
 session = "quick"
-configuration = [".config/quality/native/ty.toml"]
+configuration = [".config/checks/ty/ty.toml"]
 risk_model = "Unsound boundaries and platform-specific assumptions can fail only after installation on a supported host."
 measurement = "All ty diagnostics are errors under Python 3.12 semantics and the all-platform model."
 false_positive_cost = "Incomplete third-party stubs can require explicit validated adapters at integration boundaries."
@@ -334,7 +350,7 @@ id = "python-package-architecture"
 owner = "tools.quality.repository.topology"
 scope = "production-python"
 session = "quick"
-configuration = [".config/quality/policy/architecture.toml"]
+configuration = [".config/checks/architecture/policy.toml"]
 risk_model = "Undeclared package edges create parallel ownership and non-local change risk."
 measurement = "Repository-semantic analysis of declared package owners, imports, and dependency cycles."
 false_positive_cost = "A legitimate new owner requires an explicit architectural decision."
@@ -346,7 +362,7 @@ id = "python-tests"
 owner = "pytest"
 scope = "python"
 session = "tests"
-configuration = ["pytest.ini"]
+configuration = [".config/checks/pytest/pytest.toml"]
 risk_model = "Product behavior can regress without executable contracts across every supported Python runtime."
 measurement = "Warnings-as-errors pytest execution against installed artifacts on Python 3.12, 3.13, and 3.14."
 false_positive_cost = "Host-native capabilities cannot be proved by emulation and remain separate explicit evidence."
@@ -359,8 +375,8 @@ owner = "coverage.py"
 scope = "production-python"
 session = "quality"
 configuration = [
-  ".config/quality/native/coverage.ini",
-  ".config/quality/policy/coverage.toml",
+  ".config/checks/coverage/coverage.toml",
+  ".config/checks/coverage/policy.toml",
 ]
 risk_model = "Unobserved lifecycle, protocol, release, and verification branches permit silent regressions or false acceptance."
 measurement = "Independent statement and branch floors for every native-configured product, tooling, and orchestration root; unexecuted namespace files remain in the denominator and every semantic package requires execution evidence."
@@ -373,7 +389,7 @@ id = "python-dependencies"
 owner = "deptry"
 scope = "product-python"
 session = "governance"
-configuration = ["pyproject.toml", "uv.lock"]
+configuration = [".config/checks/deptry/policy.toml", "pyproject.toml", "uv.lock"]
 risk_model = "Undeclared, obsolete, or misplaced dependencies make builds non-reproducible and enlarge the supply chain."
 measurement = "Locked dependency resolution and Deptry analysis of the installed product package."
 false_positive_cost = "Build-only and platform-specific dependencies require correct group ownership rather than exclusions."
@@ -385,7 +401,7 @@ id = "python-unused-code"
 owner = "vulture"
 scope = "production-python"
 session = "governance"
-configuration = [".config/quality/native/vulture.toml"]
+configuration = [".config/checks/vulture/vulture.toml"]
 risk_model = "Unreachable implementation preserves obsolete semantics and raises maintenance cost."
 measurement = "High-confidence Vulture analysis of product and repository tool Python."
 false_positive_cost = "Dynamic framework entrypoints may look unused and must instead be proved through an explicit executable entrypoint."
@@ -397,7 +413,7 @@ id = "text-bytes"
 owner = "tools.quality.text_layout"
 scope = "all-carriers"
 session = "quick"
-configuration = [".config/quality/policy/text.toml", ".editorconfig"]
+configuration = [".config/checks/text-layout/policy.toml", ".editorconfig"]
 risk_model = "Host-dependent bytes create noisy diffs and parser disagreement."
 measurement = "UTF-8, LF, final-newline, and trailing-whitespace verification over declared text carriers."
 false_positive_cost = "Binary or generated carriers must be correctly classified instead of forced through text rules."
@@ -409,7 +425,7 @@ id = "markdown-yaml-format"
 owner = "prettier"
 scope = "prettier-formatted"
 session = "governance"
-configuration = [".config/quality/native/prettier.json"]
+configuration = [".config/checks/prettier/prettier.toml"]
 risk_model = "Inconsistent Markdown and YAML structure raises review cost and can obscure semantic drift across documentation and generated Forge projections."
 measurement = "Locked Prettier checks every current Markdown and YAML authority while immutable OpenSpec archives remain byte-stable."
 false_positive_cost = "Formatting must preserve authored prose wrapping and must not rewrite immutable historical evidence."
@@ -421,7 +437,7 @@ id = "toml-format"
 owner = "taplo"
 scope = "toml-formatted"
 session = "governance"
-configuration = [".config/quality/native/taplo.toml"]
+configuration = [".config/checks/taplo/taplo.toml"]
 risk_model = "Noncanonical TOML layout makes configuration ownership harder to review and permits tool-dependent rewrites."
 measurement = "Locked Taplo validates and checks formatting for every current TOML authority while immutable OpenSpec archives remain byte-stable."
 false_positive_cost = "Formatting must preserve semantic key order where ordering communicates repository intent."
@@ -445,7 +461,7 @@ id = "documentation-links"
 owner = "lychee"
 scope = "documentation"
 session = "governance"
-configuration = [".config/quality/native/lychee.toml"]
+configuration = [".config/checks/lychee/lychee.toml"]
 risk_model = "Broken local or external references make otherwise correct documentation unusable."
 measurement = "Lychee validates documentation links, offline deterministically and online before publication."
 false_positive_cost = "Transient external failure can block publication and therefore requires bounded retries."
@@ -457,7 +473,7 @@ id = "repository-secrets"
 owner = "gitleaks"
 scope = "all-carriers"
 session = "governance"
-configuration = [".gitleaks.toml"]
+configuration = [".config/checks/gitleaks/gitleaks.toml"]
 risk_model = "Committed credentials or private material can compromise users and publication infrastructure."
 measurement = "Gitleaks scans current repository content and Git history with redacted diagnostics."
 false_positive_cost = "Test fixtures that resemble secrets must use structurally non-secret data."
@@ -532,7 +548,7 @@ id = "semantic-path-names"
 owner = "tools.quality.repository.names"
 scope = "all-carriers"
 session = "quick"
-configuration = [".config/quality/responsibility-map.toml"]
+configuration = [".config/checks/responsibilities/policy.toml"]
 risk_model = "Compressed, historical, or implementation-leaking names obscure responsibility and encourage parallel semantics."
 measurement = "Validate current authoritative path segments against the repository naming contract."
 false_positive_cost = "Established external protocol and vendor names must retain their canonical spelling."
@@ -544,7 +560,7 @@ id = "product-performance"
 owner = "pyperf"
 scope = "product-python"
 session = "performance"
-configuration = [".config/quality/policy/performance.toml"]
+configuration = [".config/checks/performance/policy.toml"]
 risk_model = "Unmeasured request and lifecycle overhead can degrade interactive use while functional behavior remains correct."
 measurement = "Process-isolated measurements of provider resolution, Responses projection, lifecycle readiness, loopback forwarding, and peak memory."
 false_positive_cost = "Host noise can move absolute latency, so review uses distributions rather than a single wall-clock sample."
@@ -573,7 +589,7 @@ id = "quality-responsibility-map"
 owner = "tools.quality.responsibilities"
 scope = "all-carriers"
 session = "quick"
-configuration = [".config/quality/responsibility-map.toml"]
+configuration = [".config/checks/responsibilities/policy.toml"]
 risk_model = "Unowned or multiply classified carriers create gaps, duplicated gates, and ambiguous remediation."
 measurement = "Classify every tracked or pending carrier exactly once and validate every declared scope, concern, and configuration reference."
 false_positive_cost = "A new carrier cannot enter the repository until its positive role is declared."

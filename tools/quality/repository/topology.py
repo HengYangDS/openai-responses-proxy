@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-POLICY = ROOT / ".config/quality/policy/architecture.toml"
+POLICY = ROOT / ".config/checks/architecture/policy.toml"
 _REQUIREMENT_NAME_END = re.compile(r"[\s\[(<>=!~;@]")
 
 _POLICY_FIELDS = frozenset(

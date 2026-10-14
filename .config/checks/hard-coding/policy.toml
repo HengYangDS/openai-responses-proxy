@@ -125,11 +125,11 @@ projections = [
 [[controls]]
 id = "quality-thresholds"
 kind = "policy-parameter"
-owner = ".config/quality/responsibility-map.toml"
+owner = ".config/checks/responsibilities/policy.toml"
 invariant = "Every quality requirement has one policy owner and one executable enforcement path."
 rationale = "The responsibility map selects one native configuration or repository policy for each threshold; it records rationale without duplicating the numeric value."
 projections = [
-  ".config/quality/native/",
+  ".config/checks/",
   "noxfile.py",
   "tools/quality/",
   "tests/quality/",

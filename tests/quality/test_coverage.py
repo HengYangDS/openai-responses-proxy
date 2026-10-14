@@ -26,7 +26,7 @@ from tools.quality import branch_coverage
     ],
 )
 def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker):
-    path = branch_coverage.ROOT / ".config/quality/policy/coverage.toml"
+    path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     policy = tomllib.loads(path.read_text())
     policy[field] = value
     mocker.patch.object(branch_coverage.tomllib, "loads", return_value=policy)
@@ -79,7 +79,7 @@ def test_malformed_package_counts_are_not_coverage_evidence():
 
 @pytest.mark.parametrize("source", [None, [1], ["tools"]])
 def test_cli_requires_native_source_inventory_and_returns_measured_success(source, mocker, capsys):
-    path = branch_coverage.ROOT / ".config/quality/policy/coverage.toml"
+    path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     coverage = mocker.patch.object(branch_coverage, "Coverage").return_value
     coverage.get_option.return_value = source
     totals = {"num_statements": 1, "covered_lines": 1, "num_branches": 0, "covered_branches": 0}

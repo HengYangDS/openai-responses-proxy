@@ -227,7 +227,7 @@ def _command(
     if isinstance(raw_floor, bool) or not isinstance(raw_floor, int | float):
         raise AssertionError("validated coverage floor must be numeric")
     floor = float(raw_floor)
-    coverage = Coverage(config_file=str(ROOT / ".config/quality/native/coverage.ini"))
+    coverage = Coverage(config_file=str(ROOT / ".config/checks/coverage/coverage.toml"))
     try:
         coverage.load()
         report = measured_report(coverage)

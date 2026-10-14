@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TypedDict
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY = ROOT / ".config/quality/policy/hard-coding.toml"
+POLICY = ROOT / ".config/checks/hard-coding/policy.toml"
 REQUIRED_FIELDS = ("id", "kind", "owner", "invariant", "rationale", "projections")
 PROJECTION_MATCHES = {"toml-key", "toml-value"}
 PUBLIC_SURFACES = frozenset(

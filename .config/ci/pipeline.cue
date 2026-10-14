@@ -500,7 +500,7 @@ githubVerify: {
 					"""
 			}, {
 				name: "Verify repository governance"
-				run:  "uv run --locked --no-sync python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication"
+				run:  "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication"
 			}]
 		}
 		"python-quality": {
@@ -695,7 +695,7 @@ githubVerify: {
 					OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE: "${{ runner.temp }}/native-linux/runtime/bin/openai-responses-proxy"
 					OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE:     "${{ runner.temp }}/native-linux/runtime/bin"
 				}
-				run: "uv run --locked --no-sync python -m pytest -q tests/release/test_native_lifecycle.py"
+				run: "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/test_native_lifecycle.py"
 			}]
 		}
 		"release-compatibility": {

@@ -1,0 +1,17 @@
+[run]
+branch = true
+source_pkgs = ["openai_responses_proxy", "noxfile"]
+source_dirs = ["tools"]
+
+[paths]
+product = [
+  "src/openai_responses_proxy",
+  ".nox/*/lib/python*/site-packages/openai_responses_proxy",
+  ".nox/*/Lib/site-packages/openai_responses_proxy",
+]
+
+[report]
+show_missing = true
+precision = 2
+include_namespace_packages = true
+exclude_also = ['if __name__ == .__main__.:']

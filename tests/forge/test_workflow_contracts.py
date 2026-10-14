@@ -527,7 +527,10 @@ def test_linux_asset_build_and_native_lifecycle_have_distinct_execution_hosts() 
     assert any(
         _mapping(step).get("name") == "Prove the native Linux service lifecycle"
         and _mapping(step).get("run")
-        == ("uv run --locked --no-sync python -m pytest -q tests/release/test_native_lifecycle.py")
+        == (
+            "uv run --locked --no-sync python -m pytest -q --rootdir . "
+            "-c .config/checks/pytest/pytest.toml tests/release/test_native_lifecycle.py"
+        )
         for step in lifecycle_steps
     )
     assert any(
@@ -888,7 +891,8 @@ def _assert_github_required_tokens(text: str) -> None:
         "python-quality:",
         "astral-sh/setup-uv@",
         "uv run --locked --group quality nox -s quality",
-        "python -m pytest -q tests/quality/test_contract.py tests/forge/test_workflow_contracts.py",
+        "python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml "
+        "tests/quality/test_contract.py tests/forge/test_workflow_contracts.py",
         "tests/release/publication",
         "native-assets:",
         "name: Native asset (${{ matrix.platform }})",

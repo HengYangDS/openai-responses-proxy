@@ -46,10 +46,6 @@ release = ["pyinstaller==6.22.3"]
 required-version = "==0.12.18"
 link-mode = "copy"
 
-[tool.deptry]
-known_first_party = ["openai_responses_proxy"]
-package_module_name_map = { pyinstaller = ["PyInstaller"] }
-
 [tool.hatch.version]
 path = "VERSION"
 pattern = "(?P<version>[^\\s]+)"

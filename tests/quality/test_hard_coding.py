@@ -53,7 +53,7 @@ class TestHardCodingResponsibility:
     def test_public_surface_mapping_requires_complete_contract(
         self, field: str, error: str, tmp_path: Path
     ) -> None:
-        source = (ROOT / ".config/quality/policy/hard-coding.toml").read_text(encoding="utf-8")
+        source = (ROOT / ".config/checks/hard-coding/policy.toml").read_text(encoding="utf-8")
         policy = tmp_path / "hard-coding.toml"
         policy.write_text(source.replace(f"{field} = ", f"removed_{field} = ", 1), encoding="utf-8")
 
@@ -62,7 +62,7 @@ class TestHardCodingResponsibility:
         assert any(error in item for item in report["errors"])
 
     def test_public_surface_has_one_authoritative_mapping(self, tmp_path: Path) -> None:
-        source = (ROOT / ".config/quality/policy/hard-coding.toml").read_text(encoding="utf-8")
+        source = (ROOT / ".config/checks/hard-coding/policy.toml").read_text(encoding="utf-8")
         policy = tmp_path / "hard-coding.toml"
         policy.write_text(
             source.replace(
@@ -78,7 +78,7 @@ class TestHardCodingResponsibility:
         assert "hard_coding_surface_multiple_owners:public-command" in report["errors"]
 
     def test_hard_coding_policy_rejects_duplicate_owners(self, tmp_path: Path) -> None:
-        source = (ROOT / ".config/quality/policy/hard-coding.toml").read_text(encoding="utf-8")
+        source = (ROOT / ".config/checks/hard-coding/policy.toml").read_text(encoding="utf-8")
         control = source.split("[[controls]]", 2)[1]
         malformed = source + "\n[[controls]]" + control
         policy = tmp_path / "hard-coding.toml"
@@ -89,9 +89,9 @@ class TestHardCodingResponsibility:
         assert "hard_coding_duplicate_control:product-slug" in report["errors"]
 
     def test_product_identity_projection_drift_fails_the_audit(self, tmp_path: Path) -> None:
-        policy = tmp_path / ".config/quality/policy/hard-coding.toml"
+        policy = tmp_path / ".config/checks/hard-coding/policy.toml"
         policy.parent.mkdir(parents=True)
-        shutil.copy2(ROOT / ".config/quality/policy/hard-coding.toml", policy)
+        shutil.copy2(ROOT / ".config/checks/hard-coding/policy.toml", policy)
         owner = tmp_path / "src/openai_responses_proxy/product_identity.py"
         owner.parent.mkdir(parents=True)
         shutil.copy2(ROOT / "src/openai_responses_proxy/product_identity.py", owner)

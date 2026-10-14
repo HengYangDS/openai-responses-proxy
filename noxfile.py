@@ -32,7 +32,17 @@ _python_quality_loader.exec_module(python_quality)
 PYTHONS = tuple((ROOT / ".python-versions").read_text(encoding="utf-8").splitlines())
 MIN_PYTHON, *_, MAX_PYTHON = PYTHONS
 RELEASE_PYTHON = (ROOT / ".python-release").read_text(encoding="utf-8").strip()
-PERFORMANCE_POLICY = ROOT / ".config/quality/policy/performance.toml"
+PERFORMANCE_POLICY = ROOT / ".config/checks/performance/policy.toml"
+PYTEST_COMMAND = (
+    "python",
+    "-m",
+    "pytest",
+    "-q",
+    "--rootdir",
+    str(ROOT),
+    "-c",
+    str(python_quality.PYTEST_CONFIG),
+)
 
 nox.options.default_venv_backend = "uv"
 nox.options.error_on_missing_interpreters = True
@@ -44,14 +54,7 @@ def quick(session: nox.Session) -> None:
     """Run the cheapest deterministic contract and source checks."""
     _install_tools(session)
     python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
-    session.run(
-        "python",
-        "-m",
-        "pytest",
-        "-q",
-        "tests/quality/test_contract.py",
-        env=_environment(),
-    )
+    session.run(*PYTEST_COMMAND, "tests/quality/test_contract.py", env=_environment())
 
 
 @nox.session(python=PYTHONS)
@@ -93,10 +96,7 @@ def quality(session: nox.Session) -> None:
     python_quality.behavior(session, environment=environment, require_coverage=True)
     if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR"):
         session.run(
-            "python",
-            "-m",
-            "pytest",
-            "-q",
+            *PYTEST_COMMAND,
             "tests/quality/orchestration/test_sessions.py",
             "-k",
             "native_behavior_reports_share_one_actual_pytest_attempt "
@@ -200,10 +200,7 @@ def release_asset(session: nox.Session) -> None:
         product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
     }
     session.run(
-        "python",
-        "-m",
-        "pytest",
-        "-q",
+        *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
         env=environment,
@@ -221,10 +218,7 @@ def release(session: nox.Session) -> None:
         product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
     }
     session.run(
-        "python",
-        "-m",
-        "pytest",
-        "-q",
+        *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/release/test_native_lifecycle.py",
         "tests/serving/handoff/test_subprocess.py",
@@ -267,10 +261,7 @@ def release_compatibility(session: nox.Session) -> None:
     )
     _work, bundle, executable = _build_native_candidate(session)
     session.run(
-        "python",
-        "-m",
-        "pytest",
-        "-q",
+        *PYTEST_COMMAND,
         "tests/release/test_native_compatibility.py",
         env={
             **_environment(),
@@ -310,10 +301,7 @@ def published_release_compatibility(session: nox.Session) -> None:
     _assert_installed_product(session, work)
     bundle, executable = _materialize_published_bundle(session, current_asset, trust, work)
     session.run(
-        "python",
-        "-m",
-        "pytest",
-        "-q",
+        *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
         "tests/release/test_native_lifecycle.py",

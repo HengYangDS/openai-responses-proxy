@@ -39,7 +39,7 @@ def test_public_signature_fingerprint_never_hides_a_credential(
             "gitleaks",
             "stdin",
             "--config",
-            str(ROOT / ".gitleaks.toml"),
+            str(ROOT / ".config/checks/gitleaks/gitleaks.toml"),
             "--redact",
             "--no-banner",
             "--no-color",

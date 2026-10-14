@@ -164,15 +164,20 @@ class TestVerificationContracts:
         quality = metadata["dependency-groups"]["quality"]
         assert any(requirement.startswith("pytest==") for requirement in quality)
         assert any(requirement.startswith("pytest-mock==") for requirement in quality)
-        pytest_config = (ROOT / "pytest.ini").read_text(encoding="utf-8")
-        assert "addopts = --import-mode=importlib --strict-config --strict-markers" in pytest_config
-        assert "cache_dir = .cache/pytest" in pytest_config
-        assert "filterwarnings = error" in pytest_config
+        pytest_config = tomllib.loads(
+            (ROOT / ".config/checks/pytest/pytest.toml").read_text(encoding="utf-8")
+        )["pytest"]
+        assert pytest_config["addopts"] == ["--import-mode=importlib"]
+        assert pytest_config["strict_config"] is True
+        assert pytest_config["strict_markers"] is True
+        assert pytest_config["cache_dir"] == ".cache/pytest"
+        assert pytest_config["filterwarnings"] == ["error"]
         assert (
-            "native_distribution: requires the self-contained released executable" in pytest_config
+            "native_distribution: requires the self-contained released executable"
+            in pytest_config["markers"]
         )
-        assert "python_classes = Test* *Tests *Contracts" in pytest_config
-        assert "testpaths = tests" in pytest_config
+        assert pytest_config["python_classes"] == ["Test*", "*Tests", "*Contracts"]
+        assert pytest_config["testpaths"] == ["tests"]
         direct_test_commands = []
         for relative in (
             ".gitlab-ci.yml",
@@ -339,10 +344,10 @@ class TestVerificationContracts:
         assert offenders == []
 
     def test_native_distribution_tests_are_explicit_and_release_owned(self) -> None:
-        pytest_config = (ROOT / "pytest.ini").read_text(encoding="utf-8")
-        assert (
-            "native_distribution: requires the self-contained released executable" in pytest_config
-        )
+        markers = tomllib.loads(
+            (ROOT / ".config/checks/pytest/pytest.toml").read_text(encoding="utf-8")
+        )["pytest"]["markers"]
+        assert "native_distribution: requires the self-contained released executable" in markers
         source = (ROOT / "tests/serving/handoff/test_subprocess.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         pytestmark = next(
@@ -482,7 +487,7 @@ class TestVerificationContracts:
                 "ruff",
                 "check",
                 "--config",
-                str(ROOT / ".config/quality/native/ruff.toml"),
+                str(ROOT / ".config/checks/ruff/ruff.toml"),
                 "--output-format",
                 "json",
                 "--stdin-filename",
@@ -581,7 +586,7 @@ class TestVerificationContracts:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         quality = metadata["dependency-groups"]["quality"]
         assert "pyperf==2.10.0" in quality
-        assert (ROOT / ".config/quality/policy/performance.toml").is_file()
+        assert (ROOT / ".config/checks/performance/policy.toml").is_file()
         assert (ROOT / "tools/performance/benchmark.py").is_file()
         assert (ROOT / "tools/performance/memory.py").is_file()
 

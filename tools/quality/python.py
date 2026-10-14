@@ -14,9 +14,11 @@ import nox
 
 ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ("src/openai_responses_proxy", "tools", "tests", "noxfile.py")
-RUFF_CONFIG = ROOT / ".config/quality/native/ruff.toml"
-TY_CONFIG = ROOT / ".config/quality/native/ty.toml"
-COVERAGE_CONFIG = ROOT / ".config/quality/native/coverage.ini"
+RUFF_CONFIG = ROOT / ".config/checks/ruff/ruff.toml"
+TY_CONFIG = ROOT / ".config/checks/ty/ty.toml"
+COVERAGE_CONFIG = ROOT / ".config/checks/coverage/coverage.toml"
+COVERAGE_POLICY = ROOT / ".config/checks/coverage/policy.toml"
+PYTEST_CONFIG = ROOT / ".config/checks/pytest/pytest.toml"
 OBSERVER_REQUIREMENT = "ETHOS_NATIVE_OBSERVER_REQUIREMENT"
 OBSERVER_MODULE = "ethos.domain.quality.nox"
 
@@ -103,12 +105,12 @@ def behavior(
         ),
         "-m",
         "not native_distribution and not repository_toolchain",
+        "--rootdir",
+        str(ROOT),
+        "-c",
+        str(PYTEST_CONFIG),
         *(
             (
-                "--rootdir",
-                str(ROOT),
-                "-c",
-                str(ROOT / "pytest.ini"),
                 "-p",
                 "ethos.surface.pytest.plugin",
                 "--ethos-runtime-output",
@@ -131,7 +133,7 @@ def behavior(
             "python",
             "tools/quality/branch_coverage.py",
             "--policy",
-            str(ROOT / ".config/quality/policy/coverage.toml"),
+            str(COVERAGE_POLICY),
             env=environment,
         )
     if output is not None:

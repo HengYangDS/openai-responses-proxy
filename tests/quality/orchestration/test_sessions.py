@@ -206,8 +206,8 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
     work = tmp_path / "work"
     work.mkdir()
     (tmp_path / "sample.py").write_text("def answer():\n    return 42\n")
-    configuration = tmp_path / "pytest.ini"
-    configuration.write_text("[pytest]\nfilterwarnings = error\n")
+    configuration = tmp_path / "pytest.toml"
+    configuration.write_text('[pytest]\nfilterwarnings = ["error"]\n')
     (tmp_path / "test_sample.py").write_text(
         "from pathlib import Path\nfrom sample import answer\n\n"
         "def test_answer():\n"
@@ -215,8 +215,8 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
         "        stream.write('one\\n')\n"
         "    assert answer() == 42\n"
     )
-    coverage = tmp_path / ".coveragerc"
-    coverage.write_text("[run]\nbranch = True\nsource_pkgs = sample\n")
+    coverage = tmp_path / "coverage.toml"
+    coverage.write_text('[run]\nbranch = true\nsource_pkgs = ["sample"]\n')
     session = mocker.Mock()
     session.name = f"tests-{sys.version_info.major}.{sys.version_info.minor}"
     session.python = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -225,6 +225,7 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
     mocker.patch.object(nox_configuration.python_quality, "ROOTS", ("sample.py", "test_sample.py"))
     mocker.patch.object(nox_configuration.python_quality, "ROOT", tmp_path)
     mocker.patch.object(nox_configuration.python_quality, "COVERAGE_CONFIG", coverage)
+    mocker.patch.object(nox_configuration.python_quality, "PYTEST_CONFIG", configuration)
     for name in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
         mocker.patch.object(nox_configuration, name)
     mocker.patch.object(nox_configuration, "_installed_executable", return_value=work / "proxy")
@@ -414,9 +415,13 @@ def test_sessions_accept_built_artifacts_before_publication(
             str(tmp_path / "assets/memory.json"),
         )
     else:
-        assert calls[behavior][-2:] == (
+        assert calls[behavior][-6:] == (
             "-m",
             "not native_distribution and not repository_toolchain",
+            "--rootdir",
+            str(nox_configuration.python_quality.ROOT),
+            "-c",
+            str(nox_configuration.python_quality.PYTEST_CONFIG),
         )
     installs = [call for call in command.call_args_list if call.args[0][1:3] == ("pip", "install")]
     assert len(installs) == 2
@@ -496,6 +501,17 @@ def test_failed_native_acceptance_cannot_publish_an_asset(
     assert raised.value is failure
     session.run.assert_called_once()
     assert session.run.call_args.args[:4] == ("python", "-m", "pytest", "-q")
+
+
+def test_every_session_pytest_run_binds_the_explicit_configuration(
+    nox_configuration: ModuleType,
+) -> None:
+    """Pytest finds no root configuration, so each Nox run names its owner and rootdir."""
+    command = nox_configuration.PYTEST_COMMAND
+
+    assert command[command.index("-c") + 1] == str(ROOT / ".config/checks/pytest/pytest.toml")
+    assert command[command.index("--rootdir") + 1] == str(ROOT)
+    assert not (ROOT / "pytest.ini").exists()
 
 
 def test_governance_reuses_the_admitted_interpreter(

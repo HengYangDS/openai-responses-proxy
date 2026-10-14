@@ -218,10 +218,7 @@ def test_release_compatibility_requires_real_predecessor_inputs_before_build(
         nox_configuration.release_compatibility(session)
         session.run.assert_called_once()
         assert session.run.call_args.args == (
-            "python",
-            "-m",
-            "pytest",
-            "-q",
+            *nox_configuration.PYTEST_COMMAND,
             "tests/release/test_native_compatibility.py",
         )
         environment = session.run.call_args.kwargs["env"]
@@ -281,10 +278,7 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
     materialize.assert_called_once_with(session, current, trust, tmp_path / "work")
     proof = session.run.call_args_list[-1]
     assert proof.args == (
-        "python",
-        "-m",
-        "pytest",
-        "-q",
+        *nox_configuration.PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
         "tests/release/test_native_lifecycle.py",

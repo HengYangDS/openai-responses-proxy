@@ -40,6 +40,21 @@ def test_governance_failure_stops_before_subsequent_commands(failure, mocker, ca
 
 
 @pytest.mark.parametrize(
+    "policy",
+    ['known_first_party = "openai_responses_proxy"\n', "package_module_name_map = []\n"],
+)
+def test_malformed_dependency_policy_stops_governance(
+    policy: str, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    path = tmp_path / "policy.toml"
+    path.write_text(policy, encoding="utf-8")
+    mocker.patch.object(governance, "DEPENDENCY_POLICY", path)
+
+    with pytest.raises(governance.GovernanceError, match="dependency policy is malformed"):
+        governance._dependency_options()
+
+
+@pytest.mark.parametrize(
     "defect",
     [
         "complete",
@@ -222,32 +237,38 @@ class TestQualityPolicyContracts:
         tool = pyproject.get("tool", {})
 
         for path in (
-            ".config/quality/native/ruff.toml",
-            "pytest.ini",
-            ".config/quality/native/ty.toml",
-            ".config/quality/native/coverage.ini",
-            ".config/quality/policy/coverage.toml",
-            ".config/quality/policy/architecture.toml",
-            ".config/quality/policy/text.toml",
-            ".config/quality/native/lychee.toml",
+            ".config/checks/ruff/ruff.toml",
+            ".config/checks/pytest/pytest.toml",
+            ".config/checks/ty/ty.toml",
+            ".config/checks/coverage/coverage.toml",
+            ".config/checks/coverage/policy.toml",
+            ".config/checks/architecture/policy.toml",
+            ".config/checks/text-layout/policy.toml",
+            ".config/checks/lychee/lychee.toml",
+            ".config/checks/deptry/policy.toml",
             ".editorconfig",
         ):
             assert (ROOT / path).is_file(), path
 
-        for duplicate in ("ruff", "pytest", "ty", "coverage"):
+        for duplicate in ("ruff", "pytest", "ty", "coverage", "deptry"):
             assert duplicate not in tool
         repository = tool.get("openai-responses-proxy", {})
         assert "quality" not in repository
+        assert not (ROOT / "pytest.ini").exists()
+        assert not (ROOT / ".gitleaks.toml").exists()
 
-        governance = (ROOT / "docs/governance/release-and-change-policy.md").read_text(
-            encoding="utf-8"
+        governance = " ".join(
+            (ROOT / "docs/governance/release-and-change-policy.md")
+            .read_text(encoding="utf-8")
+            .split()
         )
-        assert "`pytest.ini` therefore owns test discovery and warning policy" in governance
+        assert (
+            "`.config/checks/pytest/pytest.toml` therefore owns test discovery and warning policy"
+            in governance
+        )
         assert "`.config/quality/policy/` owns quality policy" not in governance
 
-        ruff = tomllib.loads(
-            (ROOT / ".config/quality/native/ruff.toml").read_text(encoding="utf-8")
-        )
+        ruff = tomllib.loads((ROOT / ".config/checks/ruff/ruff.toml").read_text(encoding="utf-8"))
         selected = ruff["lint"]["select"]
         assert len(selected) == len(set(selected))
         assert {"F", "I", "N", "PT", "UP", "B", "RET", "PERF", "RUF"} <= set(selected)
@@ -266,9 +287,9 @@ class TestQualityPolicyContracts:
             "review_condition",
         }
         for relative in (
-            ".config/quality/policy/architecture.toml",
-            ".config/quality/policy/coverage.toml",
-            ".config/quality/policy/text.toml",
+            ".config/checks/architecture/policy.toml",
+            ".config/checks/coverage/policy.toml",
+            ".config/checks/text-layout/policy.toml",
         ):
             policy = tomllib.loads((ROOT / relative).read_text(encoding="utf-8"))
             assert all(
@@ -276,16 +297,18 @@ class TestQualityPolicyContracts:
             ), relative
 
     def test_dependency_and_dead_code_policy_has_one_precise_owner(self) -> None:
-        dependency = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
-            "deptry"
-        ]
+        dependency = tomllib.loads(
+            (ROOT / ".config/checks/deptry/policy.toml").read_text(encoding="utf-8")
+        )
         assert dependency == {
             "known_first_party": ["openai_responses_proxy"],
             "package_module_name_map": {"pyinstaller": ["PyInstaller"]},
         }
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        assert "deptry" not in pyproject["tool"]
 
         dead_code = tomllib.loads(
-            (ROOT / ".config/quality/native/vulture.toml").read_text(encoding="utf-8")
+            (ROOT / ".config/checks/vulture/vulture.toml").read_text(encoding="utf-8")
         )["tool"]["vulture"]
         assert dead_code == {"min_confidence": 100, "sort_by_size": True}
 
@@ -327,7 +350,7 @@ class TestQualityPolicyContracts:
                 "prettier",
                 "--check",
                 "--config",
-                ".config/quality/native/prettier.json",
+                ".config/checks/prettier/prettier.toml",
                 "README.md",
                 ".gitlab-ci.yml",
             ),
@@ -336,7 +359,7 @@ class TestQualityPolicyContracts:
                 "format",
                 "--check",
                 "--config",
-                ".config/quality/native/taplo.toml",
+                ".config/checks/taplo/taplo.toml",
                 "mise.toml",
             ),
             ("cue", "fmt", "--check", "--files", ".config/ci/pipeline.cue"),
@@ -359,6 +382,10 @@ class TestQualityPolicyContracts:
                 "src/openai_responses_proxy",
                 "--config",
                 "pyproject.toml",
+                "--known-first-party",
+                "openai_responses_proxy",
+                "--package-module-name-map",
+                "pyinstaller=PyInstaller",
                 "--no-ansi",
             ),
             (
@@ -366,20 +393,34 @@ class TestQualityPolicyContracts:
                 "src/openai_responses_proxy",
                 "tools",
                 "--config",
-                ".config/quality/native/vulture.toml",
+                ".config/checks/vulture/vulture.toml",
             ),
-            ("gitleaks", "git", "--platform", "gitlab", "--redact", "--no-banner", "."),
+            (
+                "gitleaks",
+                "git",
+                "--config",
+                ".config/checks/gitleaks/gitleaks.toml",
+                "--platform",
+                "gitlab",
+                "--redact",
+                "--no-banner",
+                ".",
+            ),
             (
                 governance.sys.executable,
                 "-m",
                 "pytest",
                 "-q",
+                "--rootdir",
+                ".",
+                "-c",
+                ".config/checks/pytest/pytest.toml",
                 "tests/quality/secrets",
             ),
             (
                 "lychee",
                 "--config",
-                ".config/quality/native/lychee.toml",
+                ".config/checks/lychee/lychee.toml",
                 "--offline",
                 "README.md",
             ),
@@ -390,7 +431,7 @@ class TestQualityPolicyContracts:
 
     def test_structured_text_formatters_have_disjoint_native_ownership(self) -> None:
         policy = tomllib.loads(
-            (ROOT / ".config/quality/responsibility-map.toml").read_text(encoding="utf-8")
+            (ROOT / ".config/checks/responsibilities/policy.toml").read_text(encoding="utf-8")
         )
         concerns = {concern["id"]: concern for concern in policy["concerns"]}
 
@@ -399,7 +440,7 @@ class TestQualityPolicyContracts:
             "owner": "prettier",
             "scope": "prettier-formatted",
             "session": "governance",
-            "configuration": [".config/quality/native/prettier.json"],
+            "configuration": [".config/checks/prettier/prettier.toml"],
             "risk_model": concerns["markdown-yaml-format"]["risk_model"],
             "measurement": concerns["markdown-yaml-format"]["measurement"],
             "false_positive_cost": concerns["markdown-yaml-format"]["false_positive_cost"],
@@ -408,7 +449,7 @@ class TestQualityPolicyContracts:
         }
         assert concerns["toml-format"]["owner"] == "taplo"
         assert concerns["toml-format"]["scope"] == "toml-formatted"
-        assert concerns["toml-format"]["configuration"] == [".config/quality/native/taplo.toml"]
+        assert concerns["toml-format"]["configuration"] == [".config/checks/taplo/taplo.toml"]
         assert concerns["cue-format"]["owner"] == "cue"
         assert concerns["cue-format"]["scope"] == "cue-formatted"
         assert concerns["cue-format"]["configuration"] == [".config/ci/pipeline.cue"]
@@ -421,7 +462,7 @@ class TestQualityPolicyContracts:
     def test_editor_defaults_and_text_layout_policy_are_aligned(self) -> None:
         editor = (ROOT / ".editorconfig").read_text(encoding="utf-8")
         policy = tomllib.loads(
-            (ROOT / ".config/quality/policy/text.toml").read_text(encoding="utf-8")
+            (ROOT / ".config/checks/text-layout/policy.toml").read_text(encoding="utf-8")
         )
 
         assert "charset = utf-8" in editor

@@ -26,7 +26,7 @@ from tests.quality.fixtures import ROOT
 def test_complexity_threshold_uses_native_admission_for_every_role(
     path: str, excess: bool, tmp_path: Path
 ) -> None:
-    config = ROOT / ".config/quality/native/ruff.toml"
+    config = ROOT / ".config/checks/ruff/ruff.toml"
     policy = tomllib.loads(config.read_text(encoding="utf-8"))
     limit = policy["lint"]["mccabe"]["max-complexity"]
     source = "\n".join(

@@ -54,7 +54,7 @@ path = "quality-ruff-runtime.json"
 format = "python-runtime-json"
 sessions = ["quality-3.12"]
 python = "3.12"
-configuration = ".config/quality/native/ruff.toml"
+configuration = ".config/checks/ruff/ruff.toml"
 dependency_groups = ["quality"]
 
 [[proof.gates]]
@@ -111,7 +111,7 @@ path = "tests-3.12-runtime.json"
 format = "python-runtime-json"
 sessions = ["tests-3.12"]
 python = "3.12"
-configuration = "pytest.ini"
+configuration = ".config/checks/pytest/pytest.toml"
 dependency_groups = ["quality"]
 
 [[proof.gates.native_outputs]]
@@ -134,7 +134,7 @@ path = "tests-3.13-runtime.json"
 format = "python-runtime-json"
 sessions = ["tests-3.13"]
 python = "3.13"
-configuration = "pytest.ini"
+configuration = ".config/checks/pytest/pytest.toml"
 dependency_groups = ["quality"]
 
 [[proof.gates.native_outputs]]
@@ -157,5 +157,5 @@ path = "tests-3.14-runtime.json"
 format = "python-runtime-json"
 sessions = ["tests-3.14"]
 python = "3.14"
-configuration = "pytest.ini"
+configuration = ".config/checks/pytest/pytest.toml"
 dependency_groups = ["quality"]
