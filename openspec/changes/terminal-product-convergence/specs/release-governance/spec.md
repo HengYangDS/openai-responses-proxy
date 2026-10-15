@@ -2,13 +2,11 @@
 
 ### Requirement: Changelog is a release-history contract
 
-`CHANGELOG.md` SHALL follow Keep a Changelog 1.1.0 with one leading
-`Unreleased` section, canonical change categories, and released sections in
-descending SemVer order. Every local product tag SHALL appear exactly once.
-Every released section SHALL have a tag, except for at most one first section
-matching the current untagged `VERSION` during release preparation. The exact
-tag, `VERSION`, first released section, and `HEAD` SHALL agree before
-publication.
+`CHANGELOG.md` SHALL follow Keep a Changelog 1.1.0: one leading `Unreleased`
+section, canonical categories, and descending SemVer releases. Within the
+selected checkout's `VERSION` horizon, product tags and released sections SHALL
+correspond one-to-one, except for the current prepared release. Publication
+SHALL bind the exact tag, `VERSION`, first released section, and `HEAD`.
 
 #### Scenario: Development continues between releases
 
@@ -24,7 +22,7 @@ publication.
 
 #### Scenario: Release history and Git disagree
 
-- **WHEN** a product tag lacks a released section, a historical released
+- **WHEN** a product tag within the selected release horizon lacks a released section, a historical released
   section lacks its tag, or the selected tag differs from `VERSION`, the first
   released section, or `HEAD`
 - **THEN** release admission SHALL fail before construction or publication.
@@ -35,6 +33,16 @@ publication.
 - **THEN** it SHALL be the only untagged released section and the first section
   after `Unreleased`
 - **AND** every older released section SHALL already correspond to a product tag.
+
+#### Scenario: A historical checkout retains newer tags
+
+- **WHEN** a shared clone contains product tags newer than the selected
+  checkout's `VERSION`
+- **THEN** provenance validation SHALL compare tags no newer than that `VERSION`,
+  independently of commit ancestry
+- **AND** a missing historical tag SHALL still fail validation
+- **AND** release preparation SHALL refuse an existing same-name tag even when
+  its target is outside the selected checkout's ancestry.
 
 ### Requirement: One CI model covers every integration path
 

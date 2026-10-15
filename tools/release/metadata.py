@@ -60,10 +60,15 @@ def _version_key(version: str) -> tuple[int, int, int]:
 
 
 def known_release_versions() -> list[str]:
-    """Return this checkout's product tags in descending SemVer order."""
-    tags = _git("tag", "--list", "v[0-9]*", "--sort=-version:refname").splitlines()
+    """Return product tags no newer than this checkout's release version."""
+    selected = _version_key(read_version())
+    tags = _git("tag", "--list", "v[0-9]*").splitlines()
     versions = [identity.version_from_tag(tag) for tag in tags if identity.is_tag(tag)]
-    return sorted(versions, key=_version_key, reverse=True)
+    return sorted(
+        (version for version in versions if _version_key(version) <= selected),
+        key=_version_key,
+        reverse=True,
+    )
 
 
 def changelog_releases(path: Path | None = None) -> list[tuple[str, str]]:
@@ -346,7 +351,7 @@ def _command(
         pending_version=version,
     )
     if prepare_release:
-        if version in known_release_versions():
+        if _git("tag", "--list", f"v{version}"):
             raise SystemExit(f"release tag v{version} already exists; use --tag validation instead")
         current_heading = f"## [{version}] - "
         heading = next((f"## [{item}] - {date}" for item, date in releases if item == version), "")
