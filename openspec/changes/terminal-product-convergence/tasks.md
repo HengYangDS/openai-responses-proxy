@@ -102,7 +102,7 @@ This checklist retains the original task identities and completion states.
 
 ## 10. Release and Installed Product Proof
 
-- [ ] 10.1 Select SemVer from public compatibility and update version, package, Changelog, docs and asset names; verify metadata consistency and integrate the historical-checkout fix with newer shared tags present. Focused proof: `c9ab59ed`; repository proof and delivery remain pending.
+- [ ] 10.1 Select SemVer from public compatibility and update version, package, Changelog, docs and asset names; verify metadata consistency and integrate the historical-checkout fix with newer shared tags present. Repository proof: `cf35ec04`; accepted local and GitLab `dev`/`main`: `6ca568c1`. GitHub delivery and this repair's proposal/lane retirement remain pending.
 - [ ] 10.2 Build reproducible macOS, Linux, and Windows native bundles from the locked candidate; verify contents, modes, manifests, checksums, signatures, SBOM, provenance, and common-platform byte identity where applicable.
 - [x] 10.3 Verify release source is clean, signed, exact-HEAD proved and immutable, with current source-acceptance authority, before creating one signed annotated tag object.
 - [x] 10.4 Project the same signed commit and tag objects to each selected Forge through independent exact-CAS operations; verify no author, committer, parent, tree, message, or signature rewriting.
