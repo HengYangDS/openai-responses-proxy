@@ -102,7 +102,7 @@ This checklist retains the original task identities and completion states.
 
 ## 10. Release and Installed Product Proof
 
-- [ ] 10.1 Select SemVer from public compatibility and update version, package, Changelog, docs and asset names; verify metadata consistency and historical checkout validation with newer shared tags present. The release-history closure has focused acceptance; source proof and delivery remain pending.
+- [ ] 10.1 Select SemVer from public compatibility and update version, package, Changelog, docs and asset names; verify metadata consistency and integrate the historical-checkout fix with newer shared tags present. Focused proof: `c9ab59ed`; repository proof and delivery remain pending.
 - [ ] 10.2 Build reproducible macOS, Linux, and Windows native bundles from the locked candidate; verify contents, modes, manifests, checksums, signatures, SBOM, provenance, and common-platform byte identity where applicable.
 - [x] 10.3 Verify release source is clean, signed, exact-HEAD proved and immutable, with current source-acceptance authority, before creating one signed annotated tag object.
 - [x] 10.4 Project the same signed commit and tag objects to each selected Forge through independent exact-CAS operations; verify no author, committer, parent, tree, message, or signature rewriting.
@@ -146,7 +146,7 @@ This checklist retains the original task identities and completion states.
 - [x] 14.4 Close diagnosed compatibility and runtime gaps at existing owners; verify native acceptance and official upstream handling of reproducible vendor defects.
 - [x] 14.5 Deliver the product and repository rename through all active consumers; verify preserved IDs, history, permissions, content and legacy withdrawal.
 - [x] 14.6 Publish signed stable selected-platform assets; verify native upgrade, rollback, installed consumers, protected settings and original installation ownership.
-- [x] 14.7 Integrate source, release and installed-consumer evidence; verify the delivered increment's proposal, lane and lease are absent. Custody: `9e837e05`, `ae2a2f47`, `08a67153`, `c38a09db`, `1a100ad7`, `e526e585`; retirement: `3ffef5bf`. Hermes 5.0.6 compression was a protected no-op; effective compaction remains versioned 5.0.1 evidence. GitLab remains deferred without contact; review on 2026-10-15.
+- [x] 14.7 Integrate source, release and installed-consumer evidence; verify the delivered increment's proposal, lane and lease are absent. Custody: `9e837e05`, `ae2a2f47`, `08a67153`, `c38a09db`, `1a100ad7`, `e526e585`; retirement: `3ffef5bf`. GitLab catch-up custody: `2778fd09`, `43559872`, `f10232c7`. Hermes 5.0.6 compression was a protected no-op; effective compaction remains versioned 5.0.1 evidence. Historical CI failures remain preserved; their release-history repair belongs to 10.1.
 - [x] 14.8 Restore macOS Background supervision at the current owner; verify no-GUI lifecycle, migration, rollback and host preservation.
 - [x] 14.9 Align overview, package and selected Forge descriptions with qualified behavior; verify current identity and avoid universal-support claims.
 - [x] 14.10 Preserve precise stream/protocol diagnostics and committed output; verify terminal agent-argument proof through focused, released and installed behavior without attributing old unknown failures. Original native journey: custody `9e837e05`, `agent-delivery/native-terminal-journey-formal-result.json`.
