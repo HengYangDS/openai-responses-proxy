@@ -14,13 +14,14 @@ import pytest
 import yaml
 
 from tests.quality.fixtures import git
+from tools.ci.project import MODEL
 from tools.ci.project import reconcile
+from tools.ci.project import render
 from tools.git_environment import isolated_config_environment
 from tools.quality.python import source_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
-CI_MODEL = ROOT / ".config" / "ci" / "pipeline.cue"
 
 
 def _load_yaml(path: Path) -> dict[str, object]:
@@ -68,10 +69,9 @@ def _string(value: object) -> str:
 @pytest.mark.repository_toolchain
 def test_forge_workflows_are_generated_from_one_declarative_graph() -> None:
     """Keep Forge syntax as projections, never independent topology owners."""
-    projector = (ROOT / "tools" / "ci" / "project.py").read_text(encoding="utf-8")
     governance = (ROOT / "tools" / "quality" / "governance.py").read_text(encoding="utf-8")
     assert 'sys.executable, "-m", "tools.ci.project"' in governance
-    assert 'MODEL = ROOT / ".config/ci/pipeline.cue"' in projector
+    assert MODEL == ROOT / ".config/ci"
     assert reconcile(write=False) == ()
 
 
@@ -232,22 +232,10 @@ def test_reusable_branch_proof_rejects_unknown_invocation_context(event: str, re
 @pytest.mark.repository_toolchain
 def test_github_actions_consume_one_immutable_toolchain_catalog() -> None:
     """Keep action identity and revision in one CUE-owned declaration."""
-    result = subprocess.run(
-        (
-            "cue",
-            "export",
-            str(CI_MODEL),
-            "--expression",
-            "#Toolchains.githubActions",
-            "--out",
-            "json",
-        ),
-        check=True,
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-    )
-    catalog = [_string(value) for value in _mapping(json.loads(result.stdout)).values()]
+    catalog = [
+        _string(value)
+        for value in _mapping(yaml.safe_load(render("#Toolchains.githubActions"))).values()
+    ]
     assert catalog
     assert all(re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", action) for action in catalog)
     assert len({action.split("@", 1)[0] for action in catalog}) == len(catalog)
@@ -1077,7 +1065,7 @@ def test_github_verification_workflow_contract() -> None:
     source = text.split("\n  source-and-governance:", 1)[1].split("\n  python:", 1)[0]
     assert source.count("python -m tools.quality.governance --online-links") == 1
     for duplicate in (
-        "cue vet .config/ci/pipeline.cue",
+        "cue vet",
         "openspec validate --all",
         "actionlint .github/workflows",
         "gitleaks git",

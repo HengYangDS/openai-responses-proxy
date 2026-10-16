@@ -23,10 +23,13 @@ Requirements:
 - Git and OpenSSH for release-provenance work.
 
 `.config/mise/config.toml` selects the development Python, uv, Node, and standalone
-verification tools. `.config/ci/pipeline.cue` owns the compatibility matrix;
-`.python-versions` is its tracked text projection. Nox reads that projection and
-uses the uv backend to provision each isolated interpreter session. Change the
-CUE declaration, then regenerate the matrix and both Forge workflows:
+verification tools. `.config/ci/graph/` owns the shared matrix, verification
+commands and supply contract; `.config/ci/peers/` adapts them to each Forge.
+The existing projector composes every CUE source in `.config/ci/` through the
+locked native CUE executor. `.python-versions` is the tracked matrix projection.
+Nox reads it and uses the uv backend to provision each isolated interpreter
+session. Change the CUE declaration, then regenerate the matrix and both Forge
+workflows:
 
 ```bash
 mise exec -- uv run --locked --no-sync python -m tools.ci.project --write

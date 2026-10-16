@@ -150,7 +150,7 @@ class TestVerificationContracts:
         assert args[:5] == ("mise", "exec", "--locked", "--", "cue")
         assert args[5:] == (
             "export",
-            str(project.MODEL),
+            *project.model_inputs(),
             "--expression",
             "workflow",
             "--out",

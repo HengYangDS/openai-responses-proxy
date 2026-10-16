@@ -58,6 +58,8 @@ def test_governance_fix_writes_the_inputs_that_audit_checks(mocker: MockerFixtur
     mocker.patch.object(
         governance, "_tracked_current", side_effect=[("README.md",), ("pyproject.toml",)]
     )
+    inputs = (".config/ci/graph/proof.cue", ".config/ci/peers/gitlab/pipeline.cue")
+    mocker.patch.object(governance, "model_inputs", return_value=inputs)
     run = mocker.patch.object(
         governance.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
     )
@@ -77,6 +79,7 @@ def test_governance_fix_writes_the_inputs_that_audit_checks(mocker: MockerFixtur
             "README.md",
         ),
         ("taplo", "format", "--config", ".config/checks/taplo/taplo.toml", "pyproject.toml"),
+        ("cue", "fmt", "--files", *inputs),
     ]
 
 
@@ -354,6 +357,8 @@ class TestQualityPolicyContracts:
         assert "--baseline" not in quality_commands
 
     def test_governance_composition_owns_each_repository_check_once(self, mocker) -> None:
+        inputs = (".config/ci/graph/proof.cue", ".config/ci/peers/gitlab/pipeline.cue")
+        mocker.patch.object(governance, "model_inputs", return_value=inputs)
         completed = mocker.Mock(returncode=0)
         tracked = mocker.Mock(
             returncode=0,
@@ -389,8 +394,8 @@ class TestQualityPolicyContracts:
                 ".config/checks/taplo/taplo.toml",
                 ".config/mise/config.toml",
             ),
-            ("cue", "fmt", "--check", "--files", ".config/ci/pipeline.cue"),
-            ("cue", "vet", ".config/ci/pipeline.cue"),
+            ("cue", "fmt", "--check", "--files", *inputs),
+            ("cue", "vet", *inputs),
             (governance.sys.executable, "-m", "tools.ci.project"),
             (
                 "npm",
@@ -479,7 +484,10 @@ class TestQualityPolicyContracts:
         assert concerns["toml-format"]["configuration"] == [".config/checks/taplo/taplo.toml"]
         assert concerns["cue-format"]["owner"] == "cue"
         assert concerns["cue-format"]["scope"] == "cue-formatted"
-        assert concerns["cue-format"]["configuration"] == [".config/ci/pipeline.cue"]
+        assert concerns["cue-format"]["configuration"] == [
+            ".config/ci/graph/proof.cue",
+            "tools/ci/project.py",
+        ]
 
         scopes = {scope["id"]: scope["roles"] for scope in policy["scopes"]}
         assert set(scopes["prettier-formatted"]).isdisjoint(scopes["python"])

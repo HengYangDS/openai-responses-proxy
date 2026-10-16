@@ -14,7 +14,7 @@ from cyclopts import App
 from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL = ROOT / ".config/ci/pipeline.cue"
+MODEL = ROOT / ".config/ci"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +34,11 @@ PROJECTIONS = (
 )
 
 
+def model_inputs() -> tuple[str, ...]:
+    """Select all semantic CUE sources for native composition and formatting."""
+    return tuple(str(path) for path in sorted(MODEL.rglob("*.cue")))
+
+
 def render(expression: str, output_format: Literal["yaml", "text"] = "yaml") -> bytes:
     """Render one expression through the repository-locked CUE executable."""
     result = subprocess.run(
@@ -44,7 +49,7 @@ def render(expression: str, output_format: Literal["yaml", "text"] = "yaml") -> 
             "--",
             "cue",
             "export",
-            str(MODEL),
+            *model_inputs(),
             "--expression",
             expression,
             "--out",

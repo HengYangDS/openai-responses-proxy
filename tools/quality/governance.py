@@ -12,6 +12,8 @@ from typing import Annotated
 from cyclopts import App
 from cyclopts import Parameter
 
+from tools.ci.project import model_inputs
+
 ROOT = Path(__file__).resolve().parents[2]
 LINK_POLICY = ".config/checks/lychee/lychee.toml"
 PYTEST_CONFIG = ".config/checks/pytest/pytest.toml"
@@ -91,8 +93,8 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
     toml = _tracked_current((".toml",))
     return (
         *_formatter_commands(markdown_yaml, toml, write=False),
-        ("cue", "fmt", "--check", "--files", ".config/ci/pipeline.cue"),
-        ("cue", "vet", ".config/ci/pipeline.cue"),
+        ("cue", "fmt", "--check", "--files", *model_inputs()),
+        ("cue", "vet", *model_inputs()),
         (sys.executable, "-m", "tools.ci.project"),
         (
             "npm",
@@ -167,10 +169,15 @@ def audit(*, online_links: bool = False) -> None:
 
 
 def fix() -> None:
-    """Apply the Markdown, YAML and TOML formatters to the inputs that audit checks."""
+    """Apply native formatters to the exact inputs that audit checks."""
     markdown_yaml = _tracked_current((".md", ".yaml", ".yml"))
     toml = _tracked_current((".toml",))
-    _run(_formatter_commands(markdown_yaml, toml, write=True))
+    _run(
+        (
+            *_formatter_commands(markdown_yaml, toml, write=True),
+            ("cue", "fmt", "--files", *model_inputs()),
+        )
+    )
 
 
 def _command(

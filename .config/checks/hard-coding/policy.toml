@@ -55,7 +55,7 @@ rationale = "Native release construction uses one exact Python patch release."
 projections = [
   ".config/mise/config.toml",
   "pyproject.toml",
-  ".config/ci/pipeline.cue",
+  ".config/ci/",
   "tools/",
   "tests/",
 ]
@@ -74,7 +74,7 @@ kind = "supply-chain-pin"
 owner = ".config/mise/mise.lock"
 invariant = "Every standalone repository tool resolves from one integrity-locked graph."
 rationale = "Language runtimes and standalone executable versions and integrity are owned by the mise lock."
-projections = [".config/mise/config.toml", ".config/ci/pipeline.cue"]
+projections = [".config/mise/config.toml", ".config/ci/"]
 
 [[controls]]
 id = "macos-workflow-executor"
@@ -94,12 +94,12 @@ kind = "supply-chain-pin"
 owner = "package-lock.json"
 invariant = "Every Node repository tool resolves from one complete lockfile."
 rationale = "Repository Node tools and their complete transitive dependency graph are owned by the npm lock."
-projections = ["package.json", ".config/npm/npmrc", ".config/ci/pipeline.cue"]
+projections = ["package.json", ".config/npm/npmrc", ".config/ci/"]
 
 [[controls]]
 id = "ci-proof-graph"
 kind = "derived-projection"
-owner = ".config/ci/pipeline.cue"
+owner = ".config/ci/"
 invariant = "Generated Forge CI artifacts implement the same provider-neutral verification semantics and exercise every declared Python series."
 rationale = "GitHub, GitLab and Nox consume one proof graph and ordered Python compatibility matrix."
 projections = [
@@ -133,7 +133,7 @@ owner = "tools/release/artifact/format.py"
 invariant = "Every published platform has one canonical archive, manifest, checksum, and signature identity."
 surfaces = ["release-artifact"]
 rationale = "The published native platform set and asset grammar form one release-domain contract."
-projections = [".config/ci/pipeline.cue", "docs/", "tests/release/"]
+projections = [".config/ci/", "docs/", "tests/release/"]
 
 [[controls]]
 id = "public-cli"
