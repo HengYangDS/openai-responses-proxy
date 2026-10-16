@@ -7,10 +7,6 @@ not_found_system_fallback = false
 # Locked installs must not query Mise's optional version-index service.
 use_versions_host = false
 
-[vars]
-# Official stable Linux supply preserves ShellCheck and Pyflakes on macOS.
-actionlint_macos_image = "docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
-
 [tools]
 # Language runtimes
 node = "26.9.0"
@@ -28,6 +24,7 @@ cue = "0.17.1"
 # Static quality
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:rhysd/actionlint" = "1.7.12"
+"aqua:koalaman/shellcheck" = "0.11.0"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
 
 [env]
@@ -57,12 +54,17 @@ run = [
 ]
 
 [tasks.workflow-supply]
-description = "Prepare the original workflow checker for this platform"
-run = '{% if os() == "macos" %}docker pull {{vars.actionlint_macos_image}}{% else %}actionlint -version{% endif %}'
+description = "Require the original workflow checker and both native integrations"
+run = [
+  "actionlint -version",
+  "shellcheck --version",
+  'uv run --locked --no-sync --python "{{tools.python.path}}" pyflakes --version',
+]
 
 [tasks.workflow-check]
 description = "Check GitHub workflows with the complete original checker"
-run = '{% if os() == "macos" %}docker run --rm --pull=never --network=none --read-only --entrypoint /bin/busybox --mount type=bind,source="{{config_root}}",target=/repo,readonly --workdir /repo {{vars.actionlint_macos_image}} timeout -k 3 50 /usr/local/bin/actionlint{% else %}actionlint{% endif %}'
+depends = ["workflow-supply"]
+run = 'uv run --locked --no-sync --python "{{tools.python.path}}" actionlint'
 
 [tasks.quick]
 description = "Run the editing feedback loop"

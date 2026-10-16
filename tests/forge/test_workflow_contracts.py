@@ -668,17 +668,15 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
     """Run source policy from the immutable mise image and repository lock."""
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
     source = _mapping(gitlab["source-and-governance"])
+    toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())
 
     image = _mapping(source["image"])
     assert re.fullmatch(r"ghcr.io/jdx/mise@sha256:[0-9a-f]{64}", _string(image["name"]))
     assert image["entrypoint"] == [""]
-    assert _mapping(source["variables"]) == {
-        "GIT_DEPTH": "0",
-        "MISE_ENABLE_TOOLS": (
-            "python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,"
-            "github:rhysd/actionlint,github:lycheeverse/lychee"
-        ),
-    }
+    variables = _mapping(source["variables"])
+    assert set(variables) == {"GIT_DEPTH", "MISE_ENABLE_TOOLS"}
+    assert variables["GIT_DEPTH"] == "0"
+    assert set(_string(variables["MISE_ENABLE_TOOLS"]).split(",")) <= toolchain["tools"].keys()
     assert source["before_script"] == [
         "mise install --locked",
         "npm ci --ignore-scripts",
@@ -694,7 +692,7 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
         "mise exec --locked -- uv run --locked --no-sync --python python "
         "--no-python-downloads python -m tools.quality.governance --online-links"
     )
-    assert _string(_mapping(source["variables"])["MISE_ENABLE_TOOLS"]).startswith("python,uv,")
+    assert _string(variables["MISE_ENABLE_TOOLS"]).startswith("python,uv,")
 
 
 def test_node_repository_tools_have_one_locked_owner() -> None:

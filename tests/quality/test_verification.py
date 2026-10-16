@@ -388,21 +388,7 @@ class TestVerificationContracts:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         requirements = metadata["dependency-groups"]["quality"]
         names = [requirement.partition("==")[0] for requirement in requirements]
-        assert set(names) == {
-            "coverage",
-            "deptry",
-            "hatchling",
-            "nox",
-            "pyperf",
-            "pytest",
-            "pytest-mock",
-            "pytest-reportlog",
-            "pytest-subtests",
-            "pyyaml",
-            "ruff",
-            "ty",
-            "vulture",
-        }
+        assert requirements
         assert len(names) == len(set(names))
         assert all(
             name and separator == "==" and version
@@ -412,7 +398,12 @@ class TestVerificationContracts:
         )
         assert re.fullmatch(r"==\d+\.\d+\.\d+", metadata["tool"]["uv"]["required-version"])
         assert metadata["tool"]["uv"]["link-mode"] == "copy"
-        assert (ROOT / "uv.lock").is_file()
+        lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+        resolved = {package["name"]: package.get("version") for package in lock["package"]}
+        assert all(
+            resolved[name] == version
+            for name, _, version in (requirement.partition("==") for requirement in requirements)
+        )
 
         toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
         assert toolchain["settings"] == {

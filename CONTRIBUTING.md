@@ -35,14 +35,12 @@ workflows:
 mise exec -- uv run --locked --no-sync python -m tools.ci.project --write
 ```
 
-On macOS, workflow checks require an existing Docker engine. The original stable
-Actionlint 1.7.12 Darwin binary deadlocks while sending long scripts to ShellCheck
-([upstream issue 650](https://github.com/rhysd/actionlint/issues/650)); its fix is
-merged but unreleased. The native `workflow-supply` task prepares the same stable
-official Linux image pinned in `.config/mise/config.toml`. `workflow-check` mounts
-this checkout read-only, disables network access and retains ShellCheck and Pyflakes. Other
-platforms use the original mise-locked executable. Retire this platform selection
-after a stable native release fixes the exact workflow journey.
+Workflow checks use the original native Actionlint with ShellCheck and Pyflakes.
+Mise locks the standalone executables; the Python quality group locks Pyflakes.
+`workflow-supply` requires all three before `workflow-check` checks the generated
+workflows. No Docker engine or disabled integration is needed. CUE owns branch
+admission policy; `python -m tools.ci.admission` validates it without a long inline
+script, avoiding [Actionlint's stdin defect](https://github.com/rhysd/actionlint/issues/650).
 
 Bootstrap once:
 

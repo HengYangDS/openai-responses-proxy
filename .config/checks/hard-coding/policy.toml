@@ -77,11 +77,11 @@ rationale = "Language runtimes and standalone executable versions and integrity 
 projections = [".config/mise/config.toml", ".config/ci/"]
 
 [[controls]]
-id = "macos-workflow-executor"
+id = "native-workflow-executor"
 kind = "supply-chain-pin"
 owner = ".config/mise/config.toml"
-invariant = "macOS checks use one immutable official stable workflow checker with every integration enabled."
-rationale = "The stable Darwin binary's upstream stdin deadlock requires its same-version official Linux image until a fixed stable native release is available."
+invariant = "Workflow checks use the locked original Actionlint, ShellCheck and Pyflakes executables on every native platform."
+rationale = "CUE declares admission policy and Python owns its validation; short native commands avoid the long-script stdin defect without a Docker prerequisite or disabled integration."
 projections = [
   "CONTRIBUTING.md",
   "tools/quality/governance.py",

@@ -10,7 +10,7 @@ source-and-governance:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
   variables:
     GIT_DEPTH: "0"
-    MISE_ENABLE_TOOLS: python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee
   before_script:
     - mise install --locked
     - npm ci --ignore-scripts
@@ -125,7 +125,7 @@ source-and-governance-accepted:
     - if: $CI_COMMIT_BRANCH == "dev"
   variables:
     GIT_DEPTH: "0"
-    MISE_ENABLE_TOOLS: python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee
   before_script:
     - mise install --locked
     - npm ci --ignore-scripts
