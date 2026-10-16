@@ -1,8 +1,8 @@
 package ci
 
 import (
+	"encoding/json"
 	"list"
-	"strings"
 )
 
 // GitHub job identities adapt the shared proof contract to branch admission.
@@ -18,6 +18,29 @@ import (
 	"native-linux-lifecycle",
 	"release-compatibility",
 ]
+
+#BranchAdmissionRules: [{
+	when: {GITHUB_EVENT_NAME: "pull_request", GITHUB_BASE_REF: "dev"}
+	jobs: #ProductProofJobs
+}, {
+	when: {GITHUB_EVENT_NAME: "pull_request", GITHUB_BASE_REF: "main"}
+	jobs: ["promotion"]
+}, {
+	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/dev"}
+	jobs: list.Concat([#ProductProofJobs, ["accepted-source"]])
+}, {
+	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/main"}
+	jobs: ["accepted-source"]
+}, {
+	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag"}
+	jobs: []
+}, {
+	when: GITHUB_EVENT_NAME: "release"
+	jobs: []
+}, {
+	when: GITHUB_EVENT_NAME: "workflow_dispatch"
+	jobs: []
+}]
 
 githubAdmission: {
 	name: "Branch admission"
@@ -55,45 +78,17 @@ githubAdmission: {
 		"timeout-minutes": 5
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
+			with: ref: #Conditions.productSHA
 		}, {
 			uses: #Toolchains.githubActions.python
 			with: "python-version-file": ".python-release"
 		}, {
 			name: "Reject missing branch proof"
 			env: {
-				NEEDS_JSON:         "${{ toJSON(needs) }}"
-				PRODUCT_PROOF_JOBS: strings.Join(#ProductProofJobs, " ")
+				NEEDS_JSON:             "${{ toJSON(needs) }}"
+				BRANCH_ADMISSION_RULES: json.Marshal(#BranchAdmissionRules)
 			}
-			run: """
-				python - <<'PY'
-				import json
-				import os
-				product = tuple(os.environ["PRODUCT_PROOF_JOBS"].split())
-				event = os.environ["GITHUB_EVENT_NAME"]
-				ref = os.environ["GITHUB_REF"]
-				if event == "pull_request":
-				    required = {"dev": product, "main": ("promotion",)}.get(
-				        os.environ.get("GITHUB_BASE_REF", "")
-				    )
-				elif event == "push" and ref.startswith("refs/heads/"):
-				    required = {
-				        "dev": (*product, "accepted-source"),
-				        "main": ("accepted-source",),
-				    }.get(ref.removeprefix("refs/heads/"))
-				elif event == "push" and ref.startswith("refs/tags/"):
-				    required = ()
-				elif event in {"release", "workflow_dispatch"}:
-				    required = ()
-				else:
-				    required = None
-				if required is None:
-				    raise SystemExit("unsupported verification event")
-				needs = json.loads(os.environ["NEEDS_JSON"])
-				missing = [job for job in required if needs.get(job, {}).get("result") != "success"]
-				if missing:
-				    raise SystemExit("required branch proof failed: " + ", ".join(missing))
-				PY
-				"""
+			run: "python -m tools.ci.admission"
 		}]
 	}
 }

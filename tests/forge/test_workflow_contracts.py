@@ -2,7 +2,6 @@
 
 import importlib
 import json
-import os
 import re
 import shlex
 import subprocess
@@ -123,110 +122,6 @@ def test_branch_admission_rejects_any_incomplete_reusable_verification(
         trust: {"required": "true"},
         "CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY": {"required": "false"},
     }
-
-
-_PRODUCT_PROOF_JOBS = (
-    "source-and-governance",
-    "python-matrix",
-    "python",
-    "python-windows",
-    "python-quality",
-    "performance",
-    "native-assets",
-    "native-linux",
-    "native-linux-lifecycle",
-    "release-compatibility",
-)
-
-
-@pytest.mark.repository_toolchain
-@pytest.mark.parametrize(
-    ("event", "ref", "base", "required"),
-    [
-        ("pull_request", "refs/pull/1/merge", "dev", _PRODUCT_PROOF_JOBS),
-        ("push", "refs/heads/dev", "", (*_PRODUCT_PROOF_JOBS, "accepted-source")),
-        ("pull_request", "refs/pull/2/merge", "main", ("promotion",)),
-        ("push", "refs/heads/main", "", ("accepted-source",)),
-        ("push", "refs/tags/v4.0.6", "", ()),
-        ("release", "refs/tags/v4.0.6", "", ()),
-        ("workflow_dispatch", "refs/heads/main", "", ()),
-    ],
-)
-def test_reusable_branch_proof_fails_if_any_required_job_is_skipped(
-    event: str, ref: str, base: str, required: tuple[str, ...]
-) -> None:
-    """Reject an apparently green reusable run missing one required proof job."""
-    verify = _load_yaml(ROOT / ".github/workflows/verify.yml")
-    jobs = _mapping(verify["jobs"])
-    assert "branch-proof" in jobs, "reusable branch proof job is missing"
-    proof = _mapping(jobs["branch-proof"])
-    assert proof["if"] == "always()"
-    assert set(_strings(proof["needs"])) == {
-        *_PRODUCT_PROOF_JOBS,
-        "accepted-source",
-        "promotion",
-    }
-    steps = _sequence(proof["steps"])
-    step = _mapping(steps[-1])
-    script = _string(step["run"])
-    step_env = _mapping(step["env"])
-    assert step_env["PRODUCT_PROOF_JOBS"] == " ".join(_PRODUCT_PROOF_JOBS)
-    assert step_env["NEEDS_JSON"] == "${{ toJSON(needs) }}"
-    needs = {job: {"result": "skipped", "outputs": {}} for job in _strings(proof["needs"])}
-    for job in required:
-        needs[job]["result"] = "success"
-    environment = {
-        **os.environ,
-        "GITHUB_EVENT_NAME": event,
-        "GITHUB_REF": ref,
-        "GITHUB_BASE_REF": base,
-        "PRODUCT_PROOF_JOBS": " ".join(_PRODUCT_PROOF_JOBS),
-    }
-
-    def run() -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ("bash", "-e", "-c", script),
-            check=False,
-            capture_output=True,
-            text=True,
-            env={**environment, "NEEDS_JSON": json.dumps(needs)},
-        )
-
-    assert run().returncode == 0
-    for job in required:
-        needs[job]["result"] = "skipped"
-        assert run().returncode != 0, job
-        needs[job]["result"] = "success"
-
-
-@pytest.mark.repository_toolchain
-@pytest.mark.parametrize(
-    ("event", "ref"),
-    [("workflow_call", "refs/heads/dev"), ("push", "refs/other/unexpected")],
-)
-def test_reusable_branch_proof_rejects_unknown_invocation_context(event: str, ref: str) -> None:
-    """Fail if a reusable call loses the caller's branch event context."""
-    jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
-    assert "branch-proof" in jobs, "reusable branch proof job is missing"
-    proof = _mapping(jobs["branch-proof"])
-    step = _mapping(_sequence(proof["steps"])[-1])
-    script = _string(step["run"])
-    product_jobs = _string(_mapping(step["env"])["PRODUCT_PROOF_JOBS"])
-    result = subprocess.run(
-        ("bash", "-e", "-c", script),
-        check=False,
-        capture_output=True,
-        text=True,
-        env={
-            **os.environ,
-            "GITHUB_EVENT_NAME": event,
-            "GITHUB_REF": ref,
-            "GITHUB_BASE_REF": "",
-            "NEEDS_JSON": "{}",
-            "PRODUCT_PROOF_JOBS": product_jobs,
-        },
-    )
-    assert result.returncode != 0
 
 
 @pytest.mark.repository_toolchain
