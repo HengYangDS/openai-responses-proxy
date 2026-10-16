@@ -115,7 +115,7 @@ class TestVerificationContracts:
             path.write_bytes(initial)
         monkeypatch.setattr(project, "ROOT", tmp_path)
         monkeypatch.setattr(project, "PROJECTIONS", (project.Projection(path, "workflow"),))
-        monkeypatch.setattr(project, "render", lambda _expression: b"current\n")
+        monkeypatch.setattr(project, "render", lambda _expression, _format: b"current\n")
 
         if initial == b"current\n":
             project.main(())
@@ -135,12 +135,16 @@ class TestVerificationContracts:
             Path("nested/workflow.yml"),
         }
 
-    def test_ci_projection_renderer_binds_the_locked_repository(self, mocker) -> None:
+    @pytest.mark.parametrize("output_format", ["yaml", "text"])
+    def test_ci_projection_renderer_binds_the_locked_repository(
+        self, mocker, monkeypatch: pytest.MonkeyPatch, output_format
+    ) -> None:
+        monkeypatch.setenv("MISE_CONFIG_FILE", "/foreign/config.toml")
         command = mocker.patch.object(
             project.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"yaml\n")
         )
 
-        assert project.render("workflow") == b"yaml\n"
+        assert project.render("workflow", output_format) == b"yaml\n"
 
         args = command.call_args.args[0]
         assert args[:5] == ("mise", "exec", "--locked", "--", "cue")
@@ -150,11 +154,12 @@ class TestVerificationContracts:
             "--expression",
             "workflow",
             "--out",
-            "yaml",
+            output_format,
         )
         assert command.call_args.kwargs["check"] is True
         assert command.call_args.kwargs["cwd"] == project.ROOT
-        assert command.call_args.kwargs["env"]["MISE_CONFIG_FILE"] == str(project.MISE)
+        assert "MISE_CONFIG_FILE" not in command.call_args.kwargs["env"]
+        assert command.call_args.kwargs["stdin"] == subprocess.DEVNULL
         command.side_effect = subprocess.CalledProcessError(1, args)
         with pytest.raises(subprocess.CalledProcessError):
             project.render("workflow")

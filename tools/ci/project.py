@@ -8,31 +8,33 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
+from typing import Literal
 
 from cyclopts import App
 from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / ".config/ci/pipeline.cue"
-MISE = ROOT / ".config/mise/config.toml"
 
 
 @dataclass(frozen=True, slots=True)
 class Projection:
-    """One tracked Forge projection and its CUE expression."""
+    """One tracked projection, CUE expression and native output encoding."""
 
     path: Path
     expression: str
+    output_format: Literal["yaml", "text"] = "yaml"
 
 
 PROJECTIONS = (
     Projection(ROOT / ".gitlab-ci.yml", "gitlab"),
     Projection(ROOT / ".github/workflows/admission.yml", "githubAdmission"),
     Projection(ROOT / ".github/workflows/verify.yml", "githubVerify"),
+    Projection(ROOT / ".python-versions", "#PythonVersions", "text"),
 )
 
 
-def render(expression: str) -> bytes:
+def render(expression: str, output_format: Literal["yaml", "text"] = "yaml") -> bytes:
     """Render one expression through the repository-locked CUE executable."""
     result = subprocess.run(
         (
@@ -46,12 +48,13 @@ def render(expression: str) -> bytes:
             "--expression",
             expression,
             "--out",
-            "yaml",
+            output_format,
         ),
         check=True,
         cwd=ROOT,
         capture_output=True,
-        env={**os.environ, "MISE_CONFIG_FILE": str(MISE)},
+        stdin=subprocess.DEVNULL,
+        env={name: value for name, value in os.environ.items() if name != "MISE_CONFIG_FILE"},
     )
     return result.stdout
 
@@ -60,7 +63,7 @@ def reconcile(*, write: bool) -> tuple[str, ...]:
     """Write projections or return paths whose tracked bytes have drifted."""
     drift: list[str] = []
     for projection in PROJECTIONS:
-        expected = render(projection.expression)
+        expected = render(projection.expression, projection.output_format)
         if write:
             projection.path.parent.mkdir(parents=True, exist_ok=True)
             projection.path.write_bytes(expected)

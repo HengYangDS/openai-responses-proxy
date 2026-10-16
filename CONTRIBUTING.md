@@ -19,20 +19,25 @@ CLI, and repository-owned delivery system.
 
 Requirements:
 
-- `mise` at or above the minimum version declared in `mise.toml`;
+- `mise` at or above the minimum version declared in `.config/mise/config.toml`;
 - Git and OpenSSH for release-provenance work.
 
-`mise.toml` selects the default and release Python, uv, Node, and standalone
-verification tools. `.python-versions` is the compatibility-matrix authority;
-Nox reads it and uses the uv backend to provision each isolated interpreter
-session.
+`.config/mise/config.toml` selects the development Python, uv, Node, and standalone
+verification tools. `.config/ci/pipeline.cue` owns the compatibility matrix;
+`.python-versions` is its tracked text projection. Nox reads that projection and
+uses the uv backend to provision each isolated interpreter session. Change the
+CUE declaration, then regenerate the matrix and both Forge workflows:
+
+```bash
+mise exec -- uv run --locked --no-sync python -m tools.ci.project --write
+```
 
 On macOS, workflow checks require an existing Docker engine. The original stable
 Actionlint 1.7.12 Darwin binary deadlocks while sending long scripts to ShellCheck
 ([upstream issue 650](https://github.com/rhysd/actionlint/issues/650)); its fix is
 merged but unreleased. The native `workflow-supply` task prepares the same stable
-official Linux image pinned in `mise.toml`. `workflow-check` mounts this checkout
-read-only, disables network access and retains ShellCheck and Pyflakes. Other
+official Linux image pinned in `.config/mise/config.toml`. `workflow-check` mounts
+this checkout read-only, disables network access and retains ShellCheck and Pyflakes. Other
 platforms use the original mise-locked executable. Retire this platform selection
 after a stable native release fixes the exact workflow journey.
 

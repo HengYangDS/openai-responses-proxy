@@ -91,7 +91,7 @@ This checklist retains the original task identities and completion states.
 ## 9. CI and Forge Projection
 
 - [ ] 9.1 Define the quality, Python, native, lifecycle, metadata, publication and parity graph in CUE; verify each job has explicit acceptance facts.
-- [ ] 9.2 Generate GitHub Actions and GitLab CI from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
+- [ ] 9.2 Generate GitHub Actions, GitLab CI and `.python-versions` from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
 - [ ] 9.3 Cover proposal creation and update, review SHA, maintainer fast-forward, `dev`, `main`, and tag events; verify every admissible integration path triggers the required exact-SHA evidence.
 - [ ] 9.4 Separate independent jobs for fast quality, Python 3.12/3.13/3.14 compatibility, macOS, Linux, Windows, release construction, and publication; remove monolithic verification and meaningless duplicate runs.
 - [ ] 9.5 Define when exact-SHA evidence may be reused and when platform, environment, source, lock, or release changes require new execution; verify reuse cannot turn stale or partial proof green.

@@ -55,6 +55,53 @@ depending on a runner's Git default branch or text newline translation.
 - **THEN** the serialized key bytes are preserved exactly
 - **AND** `ssh-keygen` can sign the checksum inventory
 
+### Requirement: Hosted verification bootstrap is bounded and repository-owned
+
+GitLab verification MUST start from an immutable image containing the
+repository-selected UV and Python runtime. It MUST reuse one target-platform
+cache for locked package artifacts and UV-managed Python runtimes, and MUST NOT
+reinstall UV, download the job's primary Python runtime, or select a different
+Python after synchronizing the locked environment. `uv.lock` remains the sole
+authority for project and quality dependencies. The CUE CI model SHALL own the
+supported Python minor lines and generate `.python-versions` along with both
+Forge workflows. Nox and the GitHub matrix reader SHALL consume that projection.
+
+#### Scenario: A fresh GitLab job starts verification
+
+- **WHEN** an admitted GitLab runner starts a verification job with an empty
+  project workspace
+- **THEN** the selected digest-pinned image already provides UV and the job's
+  primary supported Python runtime
+- **AND** the job installs repository dependencies from `uv.lock`
+- **AND** it does not bootstrap UV through pip or download that primary Python
+  runtime before invoking the repository-owned Nox graph
+- **AND** subsequent no-sync commands use the synchronized Python identity.
+
+#### Scenario: A runner cache is empty or unavailable
+
+- **WHEN** no reusable dependency cache is present
+- **THEN** the job remains correct from the immutable image and committed lock
+- **AND** cache absence can affect duration but not dependency authority or
+  verification semantics.
+
+#### Scenario: The supported Python matrix executes
+
+- **WHEN** GitLab runs all Python compatibility sessions
+- **THEN** the CUE declaration is the only supported-version inventory
+- **AND** `.python-versions` is its tracked text projection for native consumers
+- **AND** additional matrix interpreters may be acquired by UV and stored in
+  the declared target-platform cache
+- **AND** their patch versions and installation paths do not become a second
+  repository authority.
+
+#### Scenario: The supported Python declaration changes
+
+- **WHEN** the native projection checker finds a matrix or Forge file that differs
+  from the CUE declaration
+- **THEN** it refuses without changing any file
+- **AND** explicit regeneration updates every declared projection
+- **AND** a second generation is byte-identical and unrelated files are preserved.
+
 ## ADDED Requirements
 
 ### Requirement: Clean-room verification follows the locked repository environment

@@ -10,6 +10,9 @@ import (
 
 #RuntimeMatrix: python: ["3.12", "3.13", "3.14"]
 
+// Nox and GitHub consume this tracked text projection of the same matrix.
+#PythonVersions: strings.Join(#RuntimeMatrix.python, "\n")
+
 #ProductProofJobs: [
 	"source-and-governance",
 	"python-matrix",
