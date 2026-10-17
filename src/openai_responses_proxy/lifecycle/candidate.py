@@ -141,5 +141,7 @@ def prewarm(ctx: runtime_context.RuntimeContext) -> None:
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise errors.InstallError("native bundle prewarm failed") from exc
-    if completed.returncode:
-        raise errors.InstallError("native bundle prewarm failed")
+    try:
+        completed.check_returncode()
+    except subprocess.CalledProcessError as exc:
+        raise errors.InstallError("native bundle prewarm failed") from exc

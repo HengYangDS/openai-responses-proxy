@@ -27,10 +27,6 @@ from tests.serving.handoff.fixtures import proxy_is_up
 class TestTransportDeadline(InputTransportFixture):
     @pytest.mark.parametrize("interrupt", [False, True], ids=["last-os-error", "interrupt"])
     def test_connection_setup_failure_releases_its_source_bound_socket(self, interrupt, *, mocker):
-        listener = socket.socket()
-        listener.bind(("127.0.0.1", 0))
-        port = listener.getsockname()[1]
-        listener.close()
         original_socket = socket.socket
         sockets = []
         bindings = []
@@ -47,12 +43,15 @@ class TestTransportDeadline(InputTransportFixture):
 
         mocker.patch.object(socket, "socket", side_effect=create)
         mocker.patch.object(original_socket, "bind", new=bind)
-        if interrupt:
-            mocker.patch.object(original_socket, "connect", side_effect=KeyboardInterrupt)
+        # OS refusal and deadline expiry are distinct branches. Keep socket
+        # allocation, source binding and teardown real without relying on the
+        # platform's scheduling of a closed loopback port.
+        failure = KeyboardInterrupt if interrupt else OSError(errno.ECONNREFUSED, "fixture refusal")
+        mocker.patch.object(original_socket, "connect", side_effect=failure)
         try:
             with pytest.raises(KeyboardInterrupt if interrupt else OSError) as caught:
                 upstream_transport._connect(
-                    ("127.0.0.1", port), 1, ("127.0.0.1", 0), deadline=time.monotonic() + 1
+                    ("127.0.0.1", 1), 1, ("127.0.0.1", 0), deadline=time.monotonic() + 1
                 )
 
             if not interrupt:

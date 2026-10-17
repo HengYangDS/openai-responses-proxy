@@ -162,7 +162,12 @@ class TestPayloadValidation:
         assert completed.call_args.kwargs["timeout"] == 120
 
         for effect in (
-            subprocess.CompletedProcess(("proxy", "--internal-prewarm"), 2),
+            subprocess.CompletedProcess(
+                ("proxy", "--internal-prewarm"),
+                2,
+                stdout=b"fixture stdout",
+                stderr=b"fixture native failure",
+            ),
             OSError("cannot execute"),
             subprocess.TimeoutExpired(("proxy", "--internal-prewarm"), 120),
         ):
@@ -173,8 +178,15 @@ class TestPayloadValidation:
                     side_effect=effect if isinstance(effect, BaseException) else None,
                     return_value=effect if not isinstance(effect, BaseException) else None,
                 )
-                with pytest.raises(errors.InstallError, match="prewarm failed"):
+                with pytest.raises(errors.InstallError, match="prewarm failed") as raised:
                     payload_candidate.prewarm(ctx)
+                if isinstance(effect, subprocess.CompletedProcess):
+                    cause = raised.value.__cause__
+                    assert isinstance(cause, subprocess.CalledProcessError)
+                    assert cause.returncode == 2
+                    assert cause.output == b"fixture stdout"
+                    assert cause.stderr == b"fixture native failure"
+                    assert "fixture native failure" not in str(raised.value)
 
     def test_transaction_filesystem_failures_remain_fail_closed(
         self, *, mocker, tmp_path_factory: pytest.TempPathFactory

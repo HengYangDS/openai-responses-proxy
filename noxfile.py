@@ -52,7 +52,7 @@ nox.options.reuse_existing_virtualenvs = False
 @nox.session(python=MAX_PYTHON)
 def quick(session: nox.Session) -> None:
     """Run the cheapest deterministic contract and source checks."""
-    _install_tools(session)
+    _prepare_product_session(session)
     python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
     session.run(
         *PYTEST_COMMAND,

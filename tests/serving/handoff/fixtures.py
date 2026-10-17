@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import cast
 from typing import override
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
@@ -421,7 +422,18 @@ def write_installed_payload(
     # handoff tests focused on listener transfer rather than host assessment.
     from openai_responses_proxy.lifecycle import candidate as payload_candidate
 
-    payload_candidate.prewarm(ctx)
+    try:
+        payload_candidate.prewarm(ctx)
+    except errors.InstallError as exc:
+        # Native acceptance owns diagnostics; public lifecycle output must not
+        # render subprocess bytes. Keep the actual failure for hosted diagnosis.
+        cause = exc.__cause__
+        if isinstance(cause, subprocess.CalledProcessError):
+            print(f"native candidate prewarm exit: {cause.returncode}")
+            for stream in (cause.stdout, cause.stderr):
+                if stream:
+                    print(stream.decode("utf-8", errors="replace"))
+        raise
     return ctx
 
 

@@ -21,6 +21,7 @@ from tests.serving.handoff.fixtures import http_json
 from tests.serving.handoff.fixtures import proxy_is_up
 from tests.serving.handoff.fixtures import start_real_proxy
 from tests.serving.handoff.fixtures import terminate_process
+from tests.serving.handoff.fixtures import wait_until
 from tests.serving.handoff.fixtures import write_installed_payload
 
 pytestmark = [
@@ -63,16 +64,16 @@ pytestmark = [
 )
 def test_frozen_input_recovery_preserves_required_current_turn(required, tmp_path: Path) -> None:
     """Exercise exact input-validation recovery through a frozen loopback listener."""
-    upstream = ScriptedUpstream()
     port = free_port()
     with ExitStack() as cleanup:
         root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
         ctx = write_installed_payload(
             root, release="1.0.25", port=port, upstream_url=upstream.base_url()
         )
         child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
-        cleanup.callback(upstream.close)
         upstream.start()
         error = {
             "error": {
@@ -105,7 +106,10 @@ def test_frozen_input_recovery_preserves_required_current_turn(required, tmp_pat
         assert initial == payload["input"]
         assert recovered == ([required] if required["type"] == "message" else [current, required])
         assert len(upstream.received[1]) < len(upstream.received[0])
-        assert http_json(port, "/healthz")[1]["active_responses"] == 0
+        assert wait_until(
+            lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,
+            timeout=2,
+        )
 
     assert child.poll() is not None
     assert not proxy_is_up(port)
@@ -130,7 +134,6 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
     phase: str, tmp_path: Path
 ) -> None:
     """One native request budget bounds stalled headers and both response body kinds."""
-    upstream = ScriptedUpstream()
     release = threading.Event()
     content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
 
@@ -167,10 +170,13 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
         release.wait(timeout=5)
         handler.wfile.write(b"0\r\n\r\n")
 
-    upstream.push(delayed)
     port = free_port()
     with ExitStack() as cleanup:
         root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
+        cleanup.callback(release.set)
+        upstream.push(delayed)
         ctx = write_installed_payload(
             root, release="1.0.25", port=port, upstream_url=upstream.base_url()
         )
@@ -179,8 +185,6 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
         runtime_spec.write(ctx)
         child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
-        cleanup.callback(upstream.close)
-        cleanup.callback(release.set)
         upstream.start()
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         cleanup.callback(connection.close)
@@ -210,7 +214,10 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
         assert time.monotonic() - begin < 1.2
         assert len(upstream.received) == 1
         assert not release.is_set()
-        assert http_json(port, "/healthz")[1]["active_responses"] == 0
+        assert wait_until(
+            lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,
+            timeout=2,
+        )
 
     assert child.poll() is not None
     assert not proxy_is_up(port)
@@ -221,7 +228,6 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
 
 def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Path) -> None:
     """Delayed reconnect headers cannot extend the native stream budget."""
-    upstream = ScriptedUpstream()
     release = threading.Event()
     started = threading.Event()
 
@@ -241,15 +247,19 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Pat
         handler.send_header("Content-Length", "0")
         handler.end_headers()
 
-    upstream.push(first)
-    upstream.push(second)
     port = free_port()
     with ExitStack() as cleanup:
         root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
+        cleanup.callback(release.set)
+        upstream.push(first)
+        upstream.push(second)
         ctx = write_installed_payload(
             root, release="1.0.25", port=port, upstream_url=upstream.base_url()
         )
-        ctx.upstream_timeout = 1.1
+        # Leave a full second for real reconnect scheduling after native backoff.
+        ctx.upstream_timeout = 2.0
         ctx.upstream_read_timeout = 0.1
         runtime_spec.write(ctx)
         child = start_real_proxy(
@@ -258,8 +268,6 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Pat
             log_path=root / "proxy.log",
         )
         cleanup.callback(terminate_process, child)
-        cleanup.callback(upstream.close)
-        cleanup.callback(release.set)
         upstream.start()
         begin = time.monotonic()
 
@@ -279,8 +287,13 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Pat
         assert len(upstream.received) == 2
         assert started.is_set()
         assert not release.is_set()
-        assert elapsed < 1.8
-        assert http_json(port, "/healthz")[1]["active_responses"] == 0
+        assert elapsed < 3
+        # Downstream delivery precedes the request's finally block. Observe
+        # terminal admission release, not an unrelated health request's race.
+        assert wait_until(
+            lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,
+            timeout=2,
+        )
 
     assert child.poll() is not None
     assert not proxy_is_up(port)

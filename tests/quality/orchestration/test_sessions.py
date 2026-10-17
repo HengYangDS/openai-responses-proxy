@@ -33,7 +33,7 @@ def test_nox_console_discovers_the_repository_sessions_without_pythonpath() -> N
 
 
 @pytest.mark.parametrize(
-    "session_name", ["tests", "quality", "release_asset", "release", "performance"]
+    "session_name", ["quick", "tests", "quality", "release_asset", "release", "performance"]
 )
 @pytest.mark.parametrize(
     ("system", "machine", "release_platform"),
@@ -125,6 +125,12 @@ def test_sessions_accept_built_artifacts_before_publication(
             str(tmp_path / "assets/latency.json"),
             "--memory",
             str(tmp_path / "assets/memory.json"),
+        )
+    elif session_name == "quick":
+        assert calls[behavior][-3:] == (
+            "tests/quality/test_policy.py",
+            "tests/quality/repository",
+            "tests/quality/orchestration/test_governance.py",
         )
     else:
         assert calls[behavior][-6:] == (

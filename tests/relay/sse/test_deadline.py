@@ -43,9 +43,11 @@ class TestStreamDeadline(InputTransportFixture):
     def test_real_loopback_reconnect_headers_stop_at_the_stream_deadline(self, *, mocker) -> None:
         released = threading.Event()
         second_started = threading.Event()
-        release = threading.Timer(3, released.set)
-        mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
-        mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.1)
+        release = threading.Timer(5, released.set)
+        # The real journey allows header acquisition after the native one-second
+        # backoff. The deterministic companion separately proves the 0.1s edge.
+        mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 2.0)
+        mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 2.0)
         release.start()
         try:
             with running_proxy(
@@ -74,7 +76,7 @@ class TestStreamDeadline(InputTransportFixture):
         finally:
             released.set()
             release.cancel()
-            release.join(timeout=4)
+            release.join(timeout=6)
         assert not release.is_alive()
 
     @pytest.mark.parametrize("header_delay", [0.05, 0.5])

@@ -39,7 +39,7 @@ This checklist retains the original task identities and completion states.
 - [x] 4.4 Ensure Provider-specific wire differences live only in narrow adapters selected from one manifest and policy contract; verify generic relay, lifecycle, CLI, and tests do not branch on Provider names.
 - [x] 4.5 Define the low-cost Provider extension path—manifest entry, adapter, policy, contract fixtures, conformance suite, documentation, and no core modification—and prove it with one representative non-default Provider fixture.
 - [ ] 4.6 Evaluate mature local-first gateways and protocol libraries against the exact retained differentiators; replace custom generic mechanics only where doing so reduces source, dependencies, runtime risk, and maintenance authority.
-- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries. HTTP/HTTPS: `build/evidence/exchange-deadline-20261017`; setup/write budgets: `build/evidence/exchange-setup-deadline-20261017`. System DNS cancellation, performance and three-platform acceptance remain unproved.
+- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries. Local native relay and all 10 loopback performance budgets passed; evidence: `build/evidence/exchange-setup-deadline-20261017`. System DNS cancellation and current three-platform acceptance remain unproved.
 
 ## 5. Native Lifecycle and Resource Ownership
 
@@ -98,7 +98,7 @@ This checklist retains the original task identities and completion states.
 - [x] 9.6 Make native runner availability explicit: GitHub Windows may own current Windows proof, GitLab may omit that projection, and no unavailable runner remains a false permanent blocker or a false success; verify affected native contracts and reference cleanup.
 - [ ] 9.7 Verify GitHub and GitLab authentication, SSH agent, author identity, commit signature, tag signature, protected-branch, proposal-branch, and automatic merge behavior without password prompts or private-key mutation.
 - [ ] 9.8 Ensure proposal branches are unprotected, merge automatically after required evidence for the maintainer policy, and are deleted on merge; verify no remote `work/*` or stale proposal remains.
-- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. Prior green graphs remain in Git `d7a0e3ed`; GitLab proposal pipeline `11356` stopped before tests: supplier DNS/TLS failures and three killed package installers (exit 137, cause unproved).
+- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. GitLab `11362` failed before tests on supplier DNS; GitHub `39058682463` exposed fixture timing and native prewarm failures. Fixture repairs and diagnostics require a fresh exact-SHA hosted run; evidence: `build/evidence/exchange-setup-deadline-20261017`.
 
 ## 10. Release and Installed Product Proof
 
