@@ -98,7 +98,7 @@ This checklist retains the original task identities and completion states.
 - [x] 9.6 Make native runner availability explicit: GitHub Windows may own current Windows proof, GitLab may omit that projection, and no unavailable runner remains a false permanent blocker or a false success; verify affected native contracts and reference cleanup.
 - [ ] 9.7 Verify GitHub and GitLab authentication, SSH agent, author identity, commit signature, tag signature, protected-branch, proposal-branch, and automatic merge behavior without password prompts or private-key mutation.
 - [ ] 9.8 Ensure proposal branches are unprotected, merge automatically after required evidence for the maintainer policy, and are deleted on merge; verify no remote `work/*` or stale proposal remains.
-- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. GitLab `11362` failed before tests on supplier DNS; GitHub `39058682463` exposed fixture timing and native prewarm failures. Fixture repairs and diagnostics require a fresh exact-SHA hosted run; evidence: `build/evidence/exchange-setup-deadline-20261017`.
+- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. GitLab `11363` passed all seven jobs; GitHub `39071793630` passed repaired timing cases but Windows native DLL loading rejected the nested pytest path. Short native roots require fresh hosted acceptance; evidence: `build/verification/31f467d7b6a0945b1f37f5bf06603fa25fdc2bb4/hosted`.
 
 ## 10. Release and Installed Product Proof
 

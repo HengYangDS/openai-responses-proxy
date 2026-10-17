@@ -62,11 +62,13 @@ pytestmark = [
         ),
     ],
 )
-def test_frozen_input_recovery_preserves_required_current_turn(required, tmp_path: Path) -> None:
+def test_frozen_input_recovery_preserves_required_current_turn(required) -> None:
     """Exercise exact input-validation recovery through a frozen loopback listener."""
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        # Frozen DLL loading needs a native temporary root, not pytest's nested
+        # case path; the other native handoff journeys use this same boundary.
+        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         ctx = write_installed_payload(
@@ -130,9 +132,7 @@ def test_frozen_input_recovery_preserves_required_current_turn(required, tmp_pat
         "slow-framing",
     ],
 )
-def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
-    phase: str, tmp_path: Path
-) -> None:
+def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: str) -> None:
     """One native request budget bounds stalled headers and both response body kinds."""
     release = threading.Event()
     content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
@@ -172,7 +172,7 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
 
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         cleanup.callback(release.set)
@@ -226,7 +226,7 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
     assert not root.exists()
 
 
-def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Path) -> None:
+def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     """Delayed reconnect headers cannot extend the native stream budget."""
     release = threading.Event()
     started = threading.Event()
@@ -249,7 +249,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Pat
 
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         cleanup.callback(release.set)
