@@ -124,9 +124,17 @@ event SHALL yield one structured HTTP failure.
   framing progress cannot renew the exchange or admit a late stream completion
 - **AND** HTTP and certificate-verified HTTPS use the native parser without a
   timer thread, alternate service or a patched standard library
-- **AND** DNS resolution and TLS connection setup retain the native transport's
-  timeout semantics; strict wall-clock qualification of those phases remains
-  separate from the demonstrated HTTP-read bound.
+
+#### Scenario: Connection setup and request writes spend the original budget
+
+- **WHEN** native DNS returns addresses, TCP falls back to another address, TLS
+  handshakes, or the request sends headers and body
+- **THEN** each blocking socket phase uses only the remaining monotonic budget
+- **AND** an expired resolution starts no socket or request, failed address
+  sockets close, and TLS retains the selected trust store and hostname checking
+- **AND** system DNS remains synchronous and is not cancellable by a socket
+  timeout; its wall-clock cancellation is unproved, not hidden by a worker or
+  alternate resolver.
 
 #### Scenario: Output is malformed after downstream commitment
 

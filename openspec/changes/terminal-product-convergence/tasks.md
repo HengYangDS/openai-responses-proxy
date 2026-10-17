@@ -39,7 +39,7 @@ This checklist retains the original task identities and completion states.
 - [x] 4.4 Ensure Provider-specific wire differences live only in narrow adapters selected from one manifest and policy contract; verify generic relay, lifecycle, CLI, and tests do not branch on Provider names.
 - [x] 4.5 Define the low-cost Provider extension path—manifest entry, adapter, policy, contract fixtures, conformance suite, documentation, and no core modification—and prove it with one representative non-default Provider fixture.
 - [ ] 4.6 Evaluate mature local-first gateways and protocol libraries against the exact retained differentiators; replace custom generic mechanics only where doing so reduces source, dependencies, runtime risk, and maintenance authority.
-- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries. HTTP/HTTPS deadline and macOS artifact proof: `build/evidence/exchange-deadline-20261017`; DNS/TLS setup, performance and three-platform acceptance remain required.
+- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries. HTTP/HTTPS: `build/evidence/exchange-deadline-20261017`; setup/write budgets: `build/evidence/exchange-setup-deadline-20261017`. System DNS cancellation, performance and three-platform acceptance remain unproved.
 
 ## 5. Native Lifecycle and Resource Ownership
 

@@ -10,6 +10,7 @@ import time
 import urllib.request
 from collections.abc import Buffer
 from collections.abc import Iterable
+from functools import partial
 from typing import Protocol
 from typing import cast
 from typing import override
@@ -22,6 +23,48 @@ class ExchangeDeadlineError(TimeoutError):
 
 class ResponseSizeError(ValueError):
     """A buffered upstream body exceeds its admitted byte limit."""
+
+
+def _remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise ExchangeDeadlineError("upstream exchange deadline expired during connection setup")
+    return remaining
+
+
+def _connect(
+    address: tuple[str, int],
+    timeout: float,
+    source_address: tuple[str, int] | None,
+    *,
+    deadline: float,
+) -> socket.socket:
+    """Resolve natively, then spend one budget across address attempts and TLS."""
+    _remaining(deadline)
+    addresses = socket.getaddrinfo(*address, 0, socket.SOCK_STREAM)
+    _remaining(deadline)
+    failure: OSError | None = None
+    for family, kind, protocol, _, target in addresses:
+        budget = min(timeout, _remaining(deadline))
+        sock = socket.socket(family, kind, protocol)
+        try:
+            sock.settimeout(budget)
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(target)
+            sock.settimeout(min(timeout, _remaining(deadline)))
+        except OSError as error:
+            sock.close()
+            failure = error
+            _remaining(deadline)
+        except BaseException:
+            sock.close()
+            raise
+        else:
+            return sock
+    if failure is not None:
+        raise failure
+    raise OSError("upstream address resolution returned no stream address")
 
 
 class _DeadlineReader(io.RawIOBase):
@@ -74,6 +117,37 @@ def _bind_response(connection: http.client.HTTPConnection, deadline: float) -> N
     connection.response_class = Response
 
 
+class _ReadableBody(Protocol):
+    def read(self, size: int = -1, /) -> bytes:
+        """Read native request-body bytes."""
+        ...
+
+
+class _DeadlineConnection(http.client.HTTPConnection):
+    """Spend the exchange budget at native connection, write and read boundaries."""
+
+    _deadline: float
+
+    @override
+    def connect(self) -> None:
+        self._create_connection = partial(_connect, deadline=self._deadline)
+        super().connect()
+        if self.sock is not None:
+            self.sock.settimeout(_remaining(self._deadline))
+
+    @override
+    def send(self, data: _ReadableBody | Iterable[Buffer] | Buffer | str) -> None:
+        _remaining(self._deadline)
+        if self.sock is not None:
+            self.sock.settimeout(_remaining(self._deadline))
+        super().send(data)
+
+    @override
+    def getresponse(self) -> http.client.HTTPResponse:
+        _bind_response(self, self._deadline)
+        return super().getresponse()
+
+
 class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
     """Use the official HTTP connection with deadline-aware raw reads."""
 
@@ -85,11 +159,8 @@ class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
     def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
         deadline = self._deadline
 
-        class Connection(http.client.HTTPConnection):
-            @override
-            def getresponse(self) -> http.client.HTTPResponse:
-                _bind_response(self, deadline)
-                return super().getresponse()
+        class Connection(_DeadlineConnection):
+            _deadline = deadline
 
         return self.do_open(Connection, req)
 
@@ -106,11 +177,8 @@ class _DeadlineHTTPSHandler(urllib.request.HTTPSHandler):
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
         deadline = self._deadline
 
-        class Connection(http.client.HTTPSConnection):
-            @override
-            def getresponse(self) -> http.client.HTTPResponse:
-                _bind_response(self, deadline)
-                return super().getresponse()
+        class Connection(_DeadlineConnection, http.client.HTTPSConnection):
+            _deadline = deadline
 
         return self.do_open(Connection, req, context=self._tls_context)
 
