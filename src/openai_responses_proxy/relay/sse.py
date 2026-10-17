@@ -235,7 +235,7 @@ def relay(
         if (
             result["wrote_downstream"]
             or terminal in _CLEAN_TERMINALS
-            or result["detail"] == "projection_failed"
+            or result["detail"] in {"projection_failed", "deadline"}
         ):
             break
         delay = backoffs[min(attempt, len(backoffs) - 1)]

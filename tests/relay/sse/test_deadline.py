@@ -41,6 +41,23 @@ def _exchange(handler: MemoryHandler) -> upstream_exchange.Exchange:
 
 
 class TestStreamDeadline(InputTransportFixture):
+    def test_typed_deadline_stops_pre_content_recovery_before_clock_expiry(self, *, mocker) -> None:
+        mocker.patch.object(sse.time, "monotonic", return_value=100.0)
+        mocker.patch.object(sse.time, "sleep")
+        reopen = mocker.patch.object(
+            upstream_exchange, "urlopen_direct", return_value=DirectResponse(COMPLETED)
+        )
+        handler = MemoryHandler()
+        upstream = DirectResponse(
+            upstream_transport.ExchangeDeadlineError("native deadline budget exhausted")
+        )
+
+        downstream.relay_sse(_exchange(handler), upstream)
+
+        assert handler.statuses == [504]
+        assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
+        reopen.assert_not_called()
+
     def test_typed_reconnect_deadline_is_not_a_generic_stream_failure(self, *, mocker) -> None:
         now = [100.0]
         mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
