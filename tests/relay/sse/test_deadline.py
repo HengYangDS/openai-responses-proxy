@@ -12,6 +12,7 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import sse
+from openai_responses_proxy.relay import upstream as upstream_transport
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
@@ -40,6 +41,58 @@ def _exchange(handler: MemoryHandler) -> upstream_exchange.Exchange:
 
 
 class TestStreamDeadline(InputTransportFixture):
+    def test_typed_reconnect_deadline_is_not_a_generic_stream_failure(self, *, mocker) -> None:
+        now = [100.0]
+        mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
+        mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.1)
+        mocker.patch.object(sse.time, "monotonic", side_effect=lambda: now[0])
+
+        def sleep(delay: float) -> None:
+            now[0] += delay
+
+        mocker.patch.object(sse.time, "sleep", side_effect=sleep)
+        mocker.patch.object(
+            upstream_exchange,
+            "urlopen_direct",
+            side_effect=upstream_transport.ExchangeDeadlineError(
+                "native deadline budget exhausted"
+            ),
+        )
+        handler = MemoryHandler()
+
+        downstream.relay_sse(_exchange(handler), DirectResponse(FAILED))
+
+        assert handler.statuses == [504]
+        assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
+        assert now[0] == 101.0
+
+    @pytest.mark.parametrize("committed", [False, True])
+    def test_typed_deadline_cannot_finish_a_buffered_terminal_event(
+        self, committed: bool, *, mocker
+    ) -> None:
+        mocker.patch.object(sse.time, "monotonic", return_value=100.0)
+        content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
+        chunks = [content] if committed else []
+        upstream = DirectResponse(
+            *chunks,
+            b'data: {"type":"response.completed"}',
+            upstream_transport.ExchangeDeadlineError("native deadline budget exhausted"),
+        )
+        handler = MemoryHandler()
+
+        result = sse.relay(handler, upstream, "/v1/responses", 1, deadline=100.5)
+
+        stream = result["result"]
+        assert stream is not None
+        assert stream["detail"] == "deadline"
+        assert stream["terminal"] is None
+        assert result["attempts"] == 1
+        if committed:
+            assert handler.output() == b"%X\r\n%s\r\n" % (len(content), content)
+            assert handler.close_connection
+        else:
+            assert handler.output() == b""
+
     def test_real_loopback_reconnect_headers_stop_at_the_stream_deadline(self, *, mocker) -> None:
         released = threading.Event()
         second_started = threading.Event()

@@ -75,6 +75,11 @@ class _DeadlineReader(io.RawIOBase):
         self._raw = raw
         self._sock = sock
         self._deadline = deadline
+        self._idle_timeout: float | None = None
+
+    def settimeout(self, timeout: float) -> None:
+        """Select an idle limit independently of the socket's last armed budget."""
+        self._idle_timeout = timeout
 
     @override
     def readable(self) -> bool:
@@ -85,9 +90,17 @@ class _DeadlineReader(io.RawIOBase):
         remaining = self._deadline - time.monotonic()
         if remaining <= 0:
             raise ExchangeDeadlineError("upstream deadline expired before socket read")
-        idle_timeout = self._sock.gettimeout()
-        self._sock.settimeout(min(remaining, idle_timeout) if idle_timeout else remaining)
-        return self._raw.readinto(buffer)
+        idle_timeout = self._idle_timeout
+        deadline_bound = idle_timeout is None or remaining <= idle_timeout
+        self._sock.settimeout(remaining if deadline_bound else idle_timeout)
+        try:
+            return self._raw.readinto(buffer)
+        except TimeoutError as error:
+            if deadline_bound or time.monotonic() >= self._deadline:
+                raise ExchangeDeadlineError(
+                    "upstream socket exhausted its deadline budget"
+                ) from error
+            raise
 
     @override
     def close(self) -> None:
@@ -252,6 +265,8 @@ class UpstreamResponse(Protocol):
 def set_read_timeout(response: UpstreamResponse, timeout: float) -> None:
     """Arm the standard-library response or HTTP-error socket in place."""
     for path in (
+        ("raw",),
+        ("fp", "raw"),
         ("raw", "_sock"),
         ("raw", "_fp", "fp", "raw", "_sock"),
         ("fp", "raw", "_sock"),

@@ -154,7 +154,10 @@ def _read_one_stream(
             upstream_detail = "incomplete_read"
         except TimeoutError as error:
             upstream_detail, upstream_error = "timeout", error
-            if time.monotonic() >= deadline:
+            if (
+                isinstance(error, upstream_transport.ExchangeDeadlineError)
+                or time.monotonic() >= deadline
+            ):
                 upstream_detail = "deadline"
             break
         except Exception as error:
@@ -253,7 +256,10 @@ def relay(
         try:
             current = reopen(deadline)
         except Exception as error:
-            if time.monotonic() >= deadline:
+            if (
+                isinstance(error, upstream_transport.ExchangeDeadlineError)
+                or time.monotonic() >= deadline
+            ):
                 result["detail"] = "deadline"
             operational_log.log(
                 f"req={request_id} event=sse_reconnect_failed "

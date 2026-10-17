@@ -10,6 +10,8 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 from typing import override
 
 import pytest
@@ -25,6 +27,45 @@ from tests.serving.handoff.fixtures import proxy_is_up
 
 
 class TestTransportDeadline(InputTransportFixture):
+    @pytest.mark.parametrize(
+        ("idle_timeout", "deadline_bound"),
+        [(None, True), (0.02, True), (1.0, True), (0.005, False)],
+        ids=["deadline-only", "equal-limits", "deadline-shorter", "idle-shorter"],
+    )
+    def test_native_read_timeout_keeps_its_selected_budget_identity(
+        self, idle_timeout, deadline_bound, *, mocker
+    ):
+        left, right = socket.socketpair()
+        with left, right:
+            left.settimeout(idle_timeout)
+            raw = left.makefile("rb", buffering=0)
+            with upstream_transport._DeadlineReader(raw, left, 100.02) as reader:
+                response = cast(
+                    "upstream_transport.UpstreamResponse",
+                    SimpleNamespace(fp=SimpleNamespace(raw=reader)),
+                )
+                if idle_timeout is not None:
+                    upstream_transport.set_read_timeout(response, idle_timeout)
+                # Model an OS timeout arriving before the Python deadline clock
+                # advances; keep the actual socket and SocketIO timeout native.
+                mocker.patch.object(time, "monotonic", return_value=100.0)
+                expected = (
+                    upstream_transport.ExchangeDeadlineError if deadline_bound else TimeoutError
+                )
+
+                with pytest.raises(expected) as raised:
+                    reader.readinto(bytearray(1))
+
+                assert type(raised.value) is expected
+                if deadline_bound:
+                    assert type(raised.value.__cause__) is TimeoutError
+                else:
+                    assert raised.value.__cause__ is None
+
+        assert raw.closed
+        assert reader.closed
+        assert left.fileno() == right.fileno() == -1
+
     @pytest.mark.parametrize("interrupt", [False, True], ids=["last-os-error", "interrupt"])
     def test_connection_setup_failure_releases_its_source_bound_socket(self, interrupt, *, mocker):
         original_socket = socket.socket
