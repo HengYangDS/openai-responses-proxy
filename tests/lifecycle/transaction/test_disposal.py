@@ -13,7 +13,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import transaction as payload_transaction
+from openai_responses_proxy.lifecycle.transaction import completion as transaction_completion
+from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
@@ -60,7 +61,7 @@ def test_rollback_retries_cleanup_before_becoming_terminal(
     if phase == "activated":
         transaction.activate()
     cleanup = mocker.patch.object(
-        payload_transaction,
+        transaction_completion,
         "_remove_transaction_root",
         side_effect=errors.InstallError("payload transaction cleanup failed"),
     )
@@ -108,7 +109,7 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     assert projected is not None
     runtime = recovery_runtime(projected, projected)
     root = records.transaction_root(ctx)
-    remove_tree = payload_transaction.shutil.rmtree
+    remove_tree = transaction_completion.shutil.rmtree
     unlink = Path.unlink
 
     def interrupt_cleanup(path: Path) -> None:
@@ -127,7 +128,7 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
         unlink(path, *args, **kwargs)
 
     cleanup = mocker.patch.object(
-        payload_transaction.shutil, "rmtree", side_effect=interrupt_cleanup
+        transaction_completion.shutil, "rmtree", side_effect=interrupt_cleanup
     )
     journal_cleanup = mocker.patch.object(Path, "unlink", interrupt_journal)
     finish = (
@@ -176,7 +177,7 @@ def test_terminal_recovery_finishes_partially_removed_generation(
     transaction.commit_projection()
     transaction.activate()
     discarded = oldest if outcome == "finalized" else transaction
-    remove_tree = payload_transaction.shutil.rmtree
+    remove_tree = transaction_completion.shutil.rmtree
 
     def interrupt_disposal(path: Path) -> None:
         if Path(path) == Path(discarded.context.payload_dir):
@@ -185,7 +186,7 @@ def test_terminal_recovery_finishes_partially_removed_generation(
         remove_tree(path)
 
     cleanup = mocker.patch.object(
-        payload_transaction.shutil, "rmtree", side_effect=interrupt_disposal
+        transaction_completion.shutil, "rmtree", side_effect=interrupt_disposal
     )
     finish = transaction.finalize if outcome == "finalized" else transaction.rollback
     with pytest.raises(errors.InstallError, match="generation"):
@@ -216,7 +217,7 @@ def test_purge_recovery_uses_its_inventory_in_a_fresh_process(tmp_path: Path, *,
 
     failure = mocker.patch.object(Path, "unlink", interrupt)
     with pytest.raises(errors.InstallError, match="purge failed"):
-        payload_transaction.purge(ctx)
+        transaction_completion.purge(ctx)
     mocker.stop(failure)
     assert not executable.exists()
     recovery = multiprocessing.get_context("spawn").Process(
@@ -245,7 +246,7 @@ def test_purge_accepts_a_verified_flat_payload_without_installed_state(
     payload_generation.root(ctx).rmdir()
     records.installed_path(ctx).unlink()
 
-    assert payload_transaction.purge(ctx)["state"] == "purged"
+    assert transaction_completion.purge(ctx)["state"] == "purged"
     assert not Path(ctx.install_dir).exists()
     assert records.status(ctx) is None
 
@@ -257,7 +258,7 @@ def test_pending_transaction_retains_exclusive_removal_authority(tmp_path: Path,
     pending = begin_transaction(ctx, released_artifact("1.2.4"), mocker=mocker)
     before = records.journal_path(ctx).read_bytes()
     with pytest.raises(errors.RecoveryRequiredError, match="recovery"):
-        payload_transaction.purge(ctx)
+        transaction_completion.purge(ctx)
     assert records.journal_path(ctx).read_bytes() == before
     pending.rollback()
 
@@ -276,7 +277,7 @@ def test_removal_authority_is_validated_before_disposal(
         payload_projection, "purge_owned_files", side_effect=errors.InstallError("interrupted")
     )
     with pytest.raises(errors.InstallError, match="interrupted"):
-        payload_transaction.purge(ctx)
+        transaction_completion.purge(ctx)
     mocker.stop(failure)
     journal = records.read_journal(ctx)
     files = journal["files"]
@@ -314,7 +315,7 @@ def test_purge_recovery_preserves_unowned_replacements(
         payload_projection, "purge_owned_files", side_effect=errors.InstallError("interrupted")
     )
     with pytest.raises(errors.InstallError, match="interrupted"):
-        payload_transaction.purge(ctx)
+        transaction_completion.purge(ctx)
     mocker.stop(failure)
     retained = Path(ctx.executable)
     expected = b"operator data"
@@ -355,7 +356,7 @@ def test_snapshot_failure_cleanup_remains_retryable(
         command, "write_snapshot", side_effect=errors.InstallError("snapshot failed")
     )
     cleanup = mocker.patch.object(
-        payload_transaction.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
+        transaction_completion.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
     )
     with pytest.raises(errors.InstallError, match="cleanup failed"):
         transaction.commit_projection()
@@ -381,7 +382,7 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     cleanup = mocker.patch.object(
-        payload_transaction.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
+        transaction_completion.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
     )
     with pytest.raises(errors.InstallError, match="generation removal failed"):
         transaction.rollback()
@@ -438,7 +439,7 @@ def test_finalize_reports_cleanup_failure_without_erasing_success_state(
     transaction.commit_projection()
     transaction.activate()
     mocker.patch.object(
-        payload_transaction.shutil,
+        transaction_completion.shutil,
         "rmtree",
         side_effect=OSError("cleanup blocked at /Users/private/transaction"),
     )
@@ -477,7 +478,7 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
     ctx = install_context(tmp_path / "integrity")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     mocker.patch.object(
-        payload_transaction.projection,
+        payload_projection,
         "verify_payload_manifest",
         return_value=(False, "tampered"),
     )
@@ -516,9 +517,9 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
     ctx = install_context(tmp_path / "cleanup")
     root = records.transaction_root(ctx)
     root.mkdir(parents=True)
-    mocker.patch.object(payload_transaction.shutil, "rmtree", return_value=None)
+    mocker.patch.object(transaction_completion.shutil, "rmtree", return_value=None)
     with (
         subtests.test("cleanup"),
         pytest.raises(errors.InstallError, match="cleanup did not remove"),
     ):
-        payload_transaction._remove_transaction_root(ctx)
+        transaction_completion._remove_transaction_root(ctx)

@@ -15,14 +15,13 @@ from contextlib import suppress
 from http.server import BaseHTTPRequestHandler
 from itertools import chain
 from typing import NotRequired
-from typing import Protocol
 from typing import TypedDict
-from typing import runtime_checkable
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import upstream as upstream_transport
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
 
@@ -31,15 +30,6 @@ UPSTREAM_TIMEOUT = runtime_config.load().upstream_timeout
 _HELD_TYPES = frozenset(("response.created", "response.in_progress"))
 _TERMINALS = frozenset(("response.completed", "response.failed", "response.incomplete"))
 _CLEAN_TERMINALS = {"response.completed", "response.incomplete"}
-
-
-@runtime_checkable
-class _TimeoutSocket(Protocol):
-    """Socket capability required to arm one bounded upstream read."""
-
-    def settimeout(self, timeout: float) -> None:
-        """Set the next blocking operation's deadline."""
-        ...
 
 
 class StreamResult(TypedDict):
@@ -72,19 +62,6 @@ def exhausted_payload(attempts: int) -> bytes:
     )
 
 
-def _set_read_timeout(response: UpstreamResponse, timeout: float) -> None:
-    current = response.fp
-    for path in (("raw", "_sock"), ("raw", "_fp", "fp", "raw", "_sock")):
-        candidate = current
-        for attribute in path:
-            candidate = getattr(candidate, attribute, None)
-            if candidate is None:
-                break
-        if isinstance(candidate, _TimeoutSocket):
-            candidate.settimeout(timeout)
-            return
-
-
 def _release_upstream(response: UpstreamResponse) -> None:
     """Release one upstream connection the relay will never read from again.
 
@@ -93,24 +70,6 @@ def _release_upstream(response: UpstreamResponse) -> None:
     """
     with suppress(Exception):
         response.close()
-
-
-def _arm_read_budget(
-    response: UpstreamResponse, deadline: float, armed: float | None
-) -> float | None:
-    """Clamp the per-read socket timeout to the remaining total-stream budget.
-
-    Returns the armed budget, or ``None`` once the total deadline has passed.
-    Re-arming as the deadline nears is what keeps a blocked read from
-    outliving it by a whole idle-read interval.
-    """
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        return None
-    budget = min(UPSTREAM_READ_TIMEOUT, remaining)
-    if armed is None or budget < armed:
-        _set_read_timeout(response, budget)
-    return budget
 
 
 def _pop_event(buffer: bytes) -> tuple[bytes, bytes] | None:
@@ -185,14 +144,11 @@ def _read_one_stream(
         )
         emit(event, hold=payload is None or event_type in _HELD_TYPES or retryable)
 
-    armed: float | None = None
     while True:
-        armed = _arm_read_budget(response, deadline, armed)
-        if armed is None:
-            upstream_detail = "deadline"
-            break
         try:
-            chunk = response.read1(8192)
+            chunk = upstream_transport.read_chunk(
+                response, deadline, 8192, idle_timeout=UPSTREAM_READ_TIMEOUT
+            )
         except http.client.IncompleteRead as error:
             chunk = error.partial
             upstream_detail = "incomplete_read"
@@ -215,7 +171,7 @@ def _read_one_stream(
                 break
         if terminal_event is not None or upstream_detail == "projection_failed":
             break
-    if buffer:
+    if buffer and upstream_detail != "deadline":
         process_event(buffer)
     detail = terminal_event.rpartition(".")[2] if terminal_event else upstream_detail
     return {
@@ -234,9 +190,10 @@ def relay(
     response: UpstreamResponse,
     path: str,
     request_id: int,
-    reopen: Callable[[], UpstreamResponse] | None = None,
+    reopen: Callable[[float], UpstreamResponse] | None = None,
     send_headers: Callable[[], None] | None = None,
     plaintext_agent_delivery: bool = False,
+    deadline: float | None = None,
 ) -> RelayResult:
     """Relay validated SSE with retries only before downstream commitment."""
     headers_sent = False
@@ -249,10 +206,12 @@ def relay(
 
     max_attempts = 6 if reopen is not None else 1
     backoffs = (1.0, 2.0, 4.0, 6.0, 8.0)
-    deadline = time.monotonic() + UPSTREAM_TIMEOUT
+    if deadline is None:
+        deadline = time.monotonic() + UPSTREAM_TIMEOUT
     current = response
     result: StreamResult | None = None
     attempt = 0
+    attempts_started = 1
     for attempt in range(max_attempts):
         try:
             result = _read_one_stream(
@@ -287,10 +246,15 @@ def relay(
             f"path={operational_log.safe_request_path(path)}"
         )
         time.sleep(delay)
+        if time.monotonic() >= deadline:
+            break
         assert reopen is not None
+        attempts_started += 1
         try:
-            current = reopen()
+            current = reopen(deadline)
         except Exception as error:
+            if time.monotonic() >= deadline:
+                result["detail"] = "deadline"
             operational_log.log(
                 f"req={request_id} event=sse_reconnect_failed "
                 f"exception={operational_log.safe_exception_label(error)} "
@@ -338,6 +302,6 @@ def relay(
         )
     return {
         "pre_content_exhausted": pre_content_exhausted,
-        "attempts": attempt + 1,
+        "attempts": attempts_started,
         "result": result,
     }

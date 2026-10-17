@@ -292,8 +292,20 @@ leaves the loopback listener.
 | Exhausted upstream `503`    | Relays the original error; subsequent turns briefly cool only that provider before probing again |
 | `response_failed`           | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded          |
 | Invalid `input` union       | Uses one smaller current-dialogue fallback, then stops                                           |
+| Exchange deadline           | Header acquisition, recovery waits, error/JSON reads and SSE reconnects share one total budget   |
 
 The proxy never rewrites conversation storage to obtain portability.
+
+An expired exchange returns `504 upstream_deadline_exceeded` before commitment.
+Already-delivered SSE content is preserved; the connection closes without
+replaying the request or inventing completion. Both JSON and HTTP error bodies
+are limited to 8 MiB. A malformed or unreadable error body returns a structured
+local failure rather than forwarding a partial upstream response.
+HTTP headers and chunk framing cannot extend the budget by continually sending
+small fragments. DNS resolution and TLS connection setup remain subject to the
+native transport's timeout behavior; a strict wall-clock bound on those phases
+has not been qualified. The budget starts after local request projection, not
+while receiving a client's request body.
 
 The released UCloud route selects plaintext agent delivery. This requires a
 Codex client with the native plaintext-message path, the `collaboration` tool

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 from enum import StrEnum
@@ -125,6 +126,16 @@ def is_current_turn_control(item: object) -> bool:
     }
 
 
+def is_required_current_turn_item(item: object) -> bool:
+    """Retain turn controls and native delegation without reclassifying either."""
+    if not isinstance(item, dict):
+        return False
+    policy = classify_item(item.get("type"))
+    return is_current_turn_control(item) or (
+        policy is not None and policy.projection is ProjectionStrategy.AGENT_MESSAGE
+    )
+
+
 def item_types() -> frozenset[str]:
     """Return the recognized item kinds declared by the policy."""
     return frozenset(ITEM_POLICIES)
@@ -145,6 +156,30 @@ type RelationshipIssue = Literal[
 
 
 @dataclass(slots=True)
+class InputDependencies:
+    """Carry admitted item dependencies beside, never inside, the wire payload."""
+
+    edges: list[tuple[int, int]] = field(default_factory=list)
+    required: frozenset[int] = frozenset()
+
+    def allows(self, retained: set[int]) -> bool:
+        """Require every retained dependent to keep its original call."""
+        return self.required <= retained and all(
+            dependent not in retained or call in retained for dependent, call in self.edges
+        )
+
+    def retain(self, indices: Sequence[int]) -> None:
+        """Advance request-local provenance only after a recovery is accepted."""
+        positions = {original: selected for selected, original in enumerate(indices)}
+        self.edges = [
+            (positions[dependent], positions[call])
+            for dependent, call in self.edges
+            if dependent in positions
+        ]
+        self.required = frozenset(positions[index] for index in self.required)
+
+
+@dataclass(slots=True)
 class ToolRelationships:
     """Own ordered call identity and output matching for one request projection."""
 
@@ -154,6 +189,25 @@ class ToolRelationships:
     _output_ids: set[str] = field(default_factory=set)
     _delivery_ids: set[str] = field(default_factory=set)
     _flags: set[str] = field(default_factory=set)
+    _call_positions: dict[str, int] = field(default_factory=dict)
+    _dependencies: InputDependencies = field(default_factory=InputDependencies)
+
+    def record_projection(self, item: dict[str, object], position: int) -> None:
+        """Bind one validated source item to its actual projected position."""
+        policy = classify_item(item.get("type", "message"))
+        call_id = item.get("call_id")
+        if policy is not None and isinstance(call_id, str):
+            if policy.projection is ProjectionStrategy.CALL:
+                self._call_positions[call_id] = position
+            elif policy.projection is ProjectionStrategy.OUTPUT and call_id in self._call_positions:
+                self._dependencies.edges.append((position, self._call_positions[call_id]))
+        if is_required_current_turn_item(item):
+            self._dependencies.required |= {position}
+
+    @property
+    def input_dependencies(self) -> InputDependencies:
+        """Expose request-local dependencies without guessing from assistant text."""
+        return self._dependencies
 
     def observe(
         self, item_type: object, call_id: object, *, name: object = None, item_id: object = None

@@ -267,6 +267,7 @@ def relay(
         body,
         profile,
         plaintext_agent_delivery=prepared.active,
+        input_dependencies=projection.input_dependencies,
     )
     if _cooldown_active(exchange) or not _admit(exchange):
         return

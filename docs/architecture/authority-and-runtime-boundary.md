@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:authority-and-runtime-boundary
 role: explanation
 state: canonical
 relations:
-  part_of: ../README.md
+    part_of: ../README.md
 ---
--->
 
 # Authority and Runtime Boundary
 
@@ -56,9 +54,9 @@ conversation or reads another product's configuration.
 ```mermaid
 flowchart TD
     CLI["cli"] --> LIFE["lifecycle"]
-    CLI --> VIEW["presentation"]
-    LIFE --> SERVICE["service"]
-    SERVICE --> RELAY["relay"]
+    CLI --> SERVING["serving"]
+    LIFE --> SERVING
+    SERVING --> RELAY["relay"]
     RELAY --> PROTOCOL["protocol"]
     RELAY --> PROVIDERS["providers"]
 ```

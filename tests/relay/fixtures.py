@@ -250,13 +250,13 @@ def request_body(*, stream: bool = False, secret: str = "private-current-prompt"
             "include": ["reasoning.encrypted_content", "other"],
             "input": [
                 {"type": "message", "role": "developer", "content": "current policy"},
-                {"type": "message", "role": "user", "content": secret},
                 {
                     "type": "custom_tool_call",
                     "call_id": "stale-call",
                     "name": "exec",
                     "input": "{}",
                 },
+                {"type": "message", "role": "user", "content": secret},
             ],
         },
         separators=(",", ":"),
@@ -360,3 +360,16 @@ class InputTransportFixture:
         counters = cast("dict[str, int]", status["counters"])
         classifications = cast("dict[str, int]", status["upstream_classifications"])
         return counters, classifications
+
+
+class LoopbackTransportFixture(InputTransportFixture):
+    """Run real loopback exchanges with the shared relay-state lifecycle."""
+
+    def exchange(self, scripted, body):
+        """Run one loopback exchange and return received requests and payload."""
+        with (
+            running_proxy(scripted) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.status == 200
+            return received, response.read()

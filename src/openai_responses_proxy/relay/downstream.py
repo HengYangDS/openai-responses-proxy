@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import http.client
+import time
 from http.server import BaseHTTPRequestHandler
 from typing import Protocol
 
@@ -12,6 +13,7 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import upstream as upstream_transport
 from openai_responses_proxy.relay.upstream import ResponseHeaders
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 
@@ -39,9 +41,12 @@ class Exchange(Protocol):
     is_responses: bool
     used_input_variant_dialogue: bool
     plaintext_agent_delivery: bool
+    deadline: float
 
-    def upstream(self, body: bytes | None = None) -> UpstreamResponse:
-        """Open the current upstream attempt."""
+    def upstream(
+        self, body: bytes | None = None, *, deadline: float | None = None
+    ) -> UpstreamResponse:
+        """Open the current attempt within an optional existing deadline."""
 
     def log(self, event: str, detail: str = "") -> None:
         """Record a bounded request event."""
@@ -124,8 +129,8 @@ def _send_stream_headers(handler: BaseHTTPRequestHandler, response: UpstreamResp
 def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
     """Relay one Responses SSE stream with bounded pre-content recovery."""
 
-    def reopen() -> UpstreamResponse:
-        return exchange.upstream()
+    def reopen(deadline: float) -> UpstreamResponse:
+        return exchange.upstream(deadline=deadline)
 
     try:
         result = sse.relay(
@@ -136,9 +141,16 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             reopen=None if exchange.used_input_variant_dialogue else reopen,
             send_headers=lambda: _send_stream_headers(exchange.handler, response),
             plaintext_agent_delivery=exchange.plaintext_agent_delivery,
+            deadline=exchange.deadline,
         )
         stream = result["result"]
-        if stream is not None and stream["detail"] == "projection_failed":
+        if (
+            result["pre_content_exhausted"]
+            and stream is not None
+            and (stream["detail"] == "deadline" or time.monotonic() >= exchange.deadline)
+        ):
+            deadline_exceeded(exchange)
+        elif stream is not None and stream["detail"] == "projection_failed":
             if result["pre_content_exhausted"]:
                 send_payload(
                     exchange.handler,
@@ -236,32 +248,44 @@ def _invalid_responses_success(exchange: Exchange, reason: str) -> None:
     exchange.log("invalid_responses_success_body", f"reason={reason} ")
 
 
+def deadline_exceeded(exchange: Exchange) -> None:
+    """Report one expired exchange before any downstream commitment."""
+    telemetry.record_failure("upstream_deadline_exceeded")
+    send_payload(
+        exchange.handler,
+        504,
+        live_response.error_payload(
+            "Upstream exchange exceeded its total deadline; retry the turn",
+            "upstream_unavailable",
+            "upstream_deadline_exceeded",
+        ),
+    )
+    exchange.log("upstream_deadline_exceeded")
+
+
 def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None:
     """Validate one complete non-stream Responses body before commitment."""
-    chunks: list[bytes] = []
-    total = 0
     try:
-        while True:
-            chunk, incomplete = _read_chunk(response)
-            if chunk:
-                chunks.append(chunk)
-                total += len(chunk)
-                if total > MAX_RESPONSES_JSON_BYTES:
-                    _invalid_responses_success(exchange, "response_too_large")
-                    return
-            if incomplete:
-                _invalid_responses_success(exchange, "incomplete_read")
-                return
-            if not chunk:
-                break
-        payload = live_response.validate_json_response(b"".join(chunks))
+        body = upstream_transport.read_body(response, exchange.deadline, MAX_RESPONSES_JSON_BYTES)
+        payload = live_response.validate_json_response(body)
         payload = agent_delivery.restore_response(payload, exchange.plaintext_agent_delivery)
+    except upstream_transport.ExchangeDeadlineError:
+        deadline_exceeded(exchange)
+        return
+    except upstream_transport.ResponseSizeError:
+        _invalid_responses_success(exchange, "response_too_large")
+        return
+    except http.client.IncompleteRead:
+        _invalid_responses_success(exchange, "incomplete_read")
+        return
     except ValueError:
         _invalid_responses_success(exchange, "invalid_terminal_json")
         return
     except Exception as error:
         _invalid_responses_success(exchange, operational_log.safe_exception_label(error))
         return
+    finally:
+        response.close()
 
     send_payload(exchange.handler, response.status, payload)
     telemetry.record_counter("responses_completed")

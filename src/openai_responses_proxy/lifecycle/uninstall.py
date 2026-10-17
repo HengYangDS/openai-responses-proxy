@@ -11,9 +11,10 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.supervision.native_service import adapter
+from openai_responses_proxy.lifecycle.transaction import completion as transaction_completion
+from openai_responses_proxy.lifecycle.transaction import recovery as transaction_recovery
 
 
 class ServiceAdapter(Protocol):
@@ -69,7 +70,7 @@ def uninstall_product(
             def unexpected_discard(_candidate: runtime_context.RuntimeContext) -> None:
                 raise errors.RecoveryStateError("terminal purge must not repeat native disposal")
 
-            result = transaction.recover(
+            result = transaction_recovery.recover(
                 ctx,
                 runtime=None,
                 bind_terminal=lambda _ctx: None,
@@ -109,7 +110,7 @@ def uninstall_product(
     command_removed = command.remove(command_path, Path(control_ctx.executable))
 
     if purge:
-        transaction.purge(ctx)
+        transaction_completion.purge(ctx)
     return {
         "state": "purged" if purge else "uninstalled",
         "stopped": stopped,

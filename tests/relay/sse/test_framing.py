@@ -138,7 +138,12 @@ class TestSseFraming(InputTransportFixture):
         upstream = DirectResponse(content, b'data: {"type":\n\n')
         close = mocker.spy(upstream, "close")
         handler = MemoryHandler()
-        exchange = mocker.Mock(handler=handler, request_id=1, used_input_variant_dialogue=False)
+        exchange = mocker.Mock(
+            handler=handler,
+            request_id=1,
+            used_input_variant_dialogue=False,
+            deadline=float("inf"),
+        )
 
         downstream.relay_sse(exchange, upstream)
 
@@ -330,6 +335,7 @@ class TestSseFraming(InputTransportFixture):
             handler=handler,
             request_id=7,
             used_input_variant_dialogue=False,
+            deadline=float("inf"),
         )
         mocker.patch.object(
             sse,
@@ -349,7 +355,7 @@ class TestSseFraming(InputTransportFixture):
 
     def test_unexpected_terminal_validator_failure_is_bounded(self, *, mocker) -> None:
         handler = MemoryHandler()
-        exchange = mocker.Mock(handler=handler)
+        exchange = mocker.Mock(handler=handler, deadline=float("inf"))
         mocker.patch.object(
             response_projection,
             "validate_json_response",

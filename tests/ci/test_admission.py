@@ -15,6 +15,7 @@ from tools.ci.admission import main
 
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCT_PROOF_JOBS = (
+    "commit-admission",
     "source-and-governance",
     "python-matrix",
     "python",
@@ -101,8 +102,8 @@ def test_branch_admission_is_one_native_command_with_declarative_policy(
     [
         ("pull_request", "refs/pull/1/merge", "dev", PRODUCT_PROOF_JOBS),
         ("push", "refs/heads/dev", "", (*PRODUCT_PROOF_JOBS, "accepted-source")),
-        ("pull_request", "refs/pull/2/merge", "main", ("promotion",)),
-        ("push", "refs/heads/main", "", ("accepted-source",)),
+        ("pull_request", "refs/pull/2/merge", "main", ("commit-admission", "promotion")),
+        ("push", "refs/heads/main", "", ("commit-admission", "accepted-source")),
         ("push", "refs/tags/v5.0.6", "", ()),
         ("release", "refs/tags/v5.0.6", "", ()),
         ("workflow_dispatch", "refs/heads/main", "", ()),

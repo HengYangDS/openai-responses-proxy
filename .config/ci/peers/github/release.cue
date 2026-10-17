@@ -36,14 +36,13 @@ package ci
 			run:  "uv sync --locked --all-groups"
 		}, {
 			name: "Verify exact release metadata"
-			env:  #CommitEvent
 			run:  """
 					uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module) --tag "$GITHUB_REF_NAME"
 					uv run --locked --no-sync python -m tools.quality.repository
 					"""
 		}, {
 			name: "Verify repository governance"
-			run:  "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication"
+			run:  "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_policy.py tests/quality/repository tests/quality/orchestration/test_governance.py tests/forge/workflows tests/release/publication"
 		}]
 	}
 	"release-compatibility": {
@@ -114,7 +113,7 @@ package ci
 	"release-assets": {
 		name: "Release assets"
 		if:   #Conditions.tagPush
-		needs: ["python-matrix", "tag-metadata", "native-assets", "native-linux", "native-linux-lifecycle"]
+		needs: ["commit-admission", "python-matrix", "tag-metadata", "native-assets", "native-linux", "native-linux-lifecycle"]
 		"runs-on":         "ubuntu-24.04"
 		"timeout-minutes": 10
 		steps: [{
@@ -183,7 +182,7 @@ package ci
 			}
 		}, {
 			uses: #Toolchains.githubActions.python
-			with: "python-version-file": ".python-release"
+			with: "python-version-file": ".config/mise/python-release"
 		}, {
 			#UvSetup
 		}, {

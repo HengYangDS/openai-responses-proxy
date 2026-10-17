@@ -54,7 +54,7 @@ class ResponseFailedContracts:
         assert dialogue_metrics["dropped_input_items"] == 1
         assert dialogue_metrics["retained_messages"] == 1
 
-    def test_shrinking_recovery_cannot_discard_an_encrypted_agent_task(self):
+    def test_shrinking_recovery_preserves_an_encrypted_agent_task(self):
         task = {
             "type": "agent_message",
             "author": "/root",
@@ -69,8 +69,27 @@ class ResponseFailedContracts:
             ]
         )
 
-        assert execution_recovery.compact_request(raw, COMPACTION_BUDGET) == (None, None)
-        assert execution_recovery.recover_dialogue(raw, COMPACTION_BUDGET) == (None, None)
+        for recover in (execution_recovery.compact_request, execution_recovery.recover_dialogue):
+            recovery, metrics = recover(raw, COMPACTION_BUDGET)
+            assert recovery is not None
+            assert metrics is not None
+            assert json.loads(recovery)["input"] == [task, _message("user", "Continue")]
+
+    def test_dialogue_recovery_preserves_current_tool_results_or_refuses_the_budget(self):
+        current = [
+            _message("user", "current request"),
+            _message("assistant", "calling the required tool"),
+            _call("function_call", "current-call", "{}"),
+            _output("function_call_output", "current-call", "current result"),
+        ]
+        raw = _body([_message("user", "old" * 500), *current])
+
+        recovered, metrics = execution_recovery.recover_dialogue(raw, COMPACTION_BUDGET)
+
+        assert recovered is not None
+        assert metrics is not None
+        assert json.loads(recovered)["input"] == current
+        assert execution_recovery.recover_dialogue(raw, 100) == (None, None)
 
     def assert_rejected(self, function, fixtures, subtests):
         for raw, budget in fixtures:
@@ -235,7 +254,7 @@ class ResponseFailedContracts:
         monkeypatch.setattr(execution_recovery, "tool_pair_boundary_is_safe", lambda *_args: False)
         assert execution_recovery.compact_request(body, COMPACTION_BUDGET) == (None, None)
 
-    def test_response_failed_dialogue_recovery_keeps_latest_context_without_tool_replay(
+    def test_response_failed_dialogue_recovery_keeps_latest_context_without_historical_tools(
         self,
     ):
         body = _body(
@@ -246,9 +265,9 @@ class ResponseFailedContracts:
                 _output("custom_tool_call_output", "old", "old result"),
                 _message("developer", "current policy"),
                 _message("user", "intermediate request"),
-                _message("user", "latest user request"),
                 _call("custom_tool_call", "new", "{}"),
                 _output("custom_tool_call_output", "new", "large" + "x" * 100000),
+                _message("user", "latest user request"),
             ],
             prompt_cache_key="stale-full-history-key",
         )
@@ -271,9 +290,9 @@ class ResponseFailedContracts:
             [
                 _message("user", "old request"),
                 _message("assistant", "old response"),
-                _message("user", "latest user request"),
                 _call("custom_tool_call", "new", "{}"),
                 _output("custom_tool_call_output", "new", "large" + "x" * 100000),
+                _message("user", "latest user request"),
             ]
         )
         recovery, detail = execution_recovery.recover_dialogue(body, COMPACTION_BUDGET)

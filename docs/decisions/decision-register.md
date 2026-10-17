@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:decision-record-conventions
 role: reference
 state: canonical
 relations:
-  part_of: README.md
+    part_of: README.md
 ---
--->
 
 # Decision Records
 

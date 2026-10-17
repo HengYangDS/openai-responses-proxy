@@ -90,6 +90,8 @@ class ProviderPortableHistoryTests:
                 "name": "run",
             }
             assert output == delivery["output"]
+        assert result.input_dependencies.edges == [(1, 0), (3, 0), (4, 0)]
+        assert not result.input_dependencies.allows({2, 3, 4})
         assert rewrite.sanitize_responses_body(result.body).body == result.body
 
     def test_drops_empty_assistant_placeholders_from_replay(self) -> None:

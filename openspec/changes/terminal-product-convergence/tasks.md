@@ -26,7 +26,7 @@ This checklist retains the original task identities and completion states.
 
 - [x] 3.1 Define the product domains and their boundaries; verify every public concept has one owner and excludes client configuration and AIGW control.
 - [x] 3.2 Audit all CLI commands, options, defaults, exit codes, human output, JSON schemas, and help text against real user journeys; add RED tests for every ambiguous, inaccurate, over-broad, or misleading result.
-- [x] 3.3 Converge human and machine output on one typed result model with precise problem, current state, safe next action, and bounded evidence; verify no traceback, warning, private path, credential, payload, or internal module name leaks. Evidence: `cli/outcome.py` owns the admitted result and its one next action for both renderers; leak regressions in `tests/cli`, `tests/serving/handoff/test_state_machine.py` and `tests/relay/test_relay.py`.
+- [x] 3.3 Converge human and machine output on one typed result model with precise problem, current state, safe next action, and bounded evidence; verify no traceback, warning, private path, credential, payload, or internal module name leaks. Evidence: `cli/outcome.py` owns the admitted result and its one next action for both renderers; leak regressions in `tests/cli`, `tests/serving/handoff/test_state_machine.py` and `tests/relay/transport`.
 - [x] 3.4 Verify `install`, `status`, `doctor`, `reload`, `rollback`, `recover`, and `uninstall` are semantically distinct, complete, symmetric, idempotent where declared, and free of hidden source or Forge dependencies. Evidence: lifecycle audit on `7306a1de`; `b3453210` keeps the Windows default roots disjoint (proved by regression, not a native default-root run); `d540e9cc` names only admissible `doctor` actions; the runtime-upgrade delta limits no-op results to the lifecycle lock and adds `recover`'s `purged` result.
 - [x] 3.5 Remove duplicate product, command, service and platform identities; verify each remaining identity belongs to its declared owner.
 - [x] 3.6 Prove Proxy operates independently with an ordinary explicit upstream route and loopback endpoint; verify AIGW absence, client absence, and Forge absence do not prevent local product operation. Evidence: v5.0.5 isolated native journeys on three platforms and the product import gate.
@@ -39,7 +39,7 @@ This checklist retains the original task identities and completion states.
 - [x] 4.4 Ensure Provider-specific wire differences live only in narrow adapters selected from one manifest and policy contract; verify generic relay, lifecycle, CLI, and tests do not branch on Provider names.
 - [x] 4.5 Define the low-cost Provider extension path—manifest entry, adapter, policy, contract fixtures, conformance suite, documentation, and no core modification—and prove it with one representative non-default Provider fixture.
 - [ ] 4.6 Evaluate mature local-first gateways and protocol libraries against the exact retained differentiators; replace custom generic mechanics only where doing so reduces source, dependencies, runtime risk, and maintenance authority.
-- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries.
+- [ ] 4.7 Verify request and response performance, bounded retries, cooldown monotonicity, cancellation, connection reuse, memory, and streaming latency against explicit budgets without weakening correctness or multiplying retries. HTTP/HTTPS: `build/evidence/exchange-deadline-20261017`; setup/write budgets: `build/evidence/exchange-setup-deadline-20261017`. System DNS cancellation, performance and three-platform acceptance remain unproved.
 
 ## 5. Native Lifecycle and Resource Ownership
 
@@ -91,14 +91,14 @@ This checklist retains the original task identities and completion states.
 ## 9. CI and Forge Projection
 
 - [ ] 9.1 Define the quality, Python, native, lifecycle, metadata, publication and parity graph in CUE; verify each job has explicit acceptance facts.
-- [ ] 9.2 Generate GitHub Actions, GitLab CI and `.python-versions` from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
+- [ ] 9.2 Generate GitHub Actions, GitLab CI and `.config/ci/python-versions` from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
 - [ ] 9.3 Cover proposal creation and update, review SHA, maintainer fast-forward, `dev`, `main`, and tag events; verify every admissible integration path triggers the required exact-SHA evidence.
 - [ ] 9.4 Separate independent jobs for fast quality, Python 3.12/3.13/3.14 compatibility, macOS, Linux, Windows, release construction, and publication; remove monolithic verification and meaningless duplicate runs.
 - [ ] 9.5 Define when exact-SHA evidence may be reused and when platform, environment, source, lock, or release changes require new execution; verify reuse cannot turn stale or partial proof green.
 - [x] 9.6 Make native runner availability explicit: GitHub Windows may own current Windows proof, GitLab may omit that projection, and no unavailable runner remains a false permanent blocker or a false success; verify affected native contracts and reference cleanup.
 - [ ] 9.7 Verify GitHub and GitLab authentication, SSH agent, author identity, commit signature, tag signature, protected-branch, proposal-branch, and automatic merge behavior without password prompts or private-key mutation.
 - [ ] 9.8 Ensure proposal branches are unprotected, merge automatically after required evidence for the maintainer policy, and are deleted on merge; verify no remote `work/*` or stale proposal remains.
-- [x] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output.
+- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. Prior green graphs remain in Git `d7a0e3ed`; GitLab proposal pipeline `11356` stopped before tests: supplier DNS/TLS failures and three killed package installers (exit 137, cause unproved).
 
 ## 10. Release and Installed Product Proof
 

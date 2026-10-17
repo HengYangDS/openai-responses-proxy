@@ -104,6 +104,38 @@ Every upstream attempt SHALL release its connection after success, rejection,
 exception or downstream disconnect. Before downstream commitment, a malformed
 event SHALL yield one structured HTTP failure.
 
+#### Scenario: Retries and reads share the original exchange deadline
+
+- **WHEN** one Responses exchange acquires headers, reads an HTTP error or JSON
+  body, waits for classified recovery, or reconnects an uncommitted SSE stream
+- **THEN** every operation consumes the same monotonic deadline created for
+  that exchange; a new attempt or body phase cannot reset its budget
+- **AND** an expired pre-commit exchange returns one structured failure without
+  starting another request; an expired committed stream closes without replay,
+  a second status line or a fabricated successful terminator
+- **AND** buffered JSON and error bodies remain byte-bounded and owned upstream
+  connections are released on success, rejection and read failure.
+
+#### Scenario: HTTP framing arrives one small fragment at a time
+
+- **WHEN** the upstream continually supplies partial headers, chunk sizes or
+  trailers within each idle socket timeout
+- **THEN** every raw HTTP read is clamped to the original exchange deadline;
+  framing progress cannot renew the exchange or admit a late stream completion
+- **AND** HTTP and certificate-verified HTTPS use the native parser without a
+  timer thread, alternate service or a patched standard library
+
+#### Scenario: Connection setup and request writes spend the original budget
+
+- **WHEN** native DNS returns addresses, TCP falls back to another address, TLS
+  handshakes, or the request sends headers and body
+- **THEN** each blocking socket phase uses only the remaining monotonic budget
+- **AND** an expired resolution starts no socket or request, failed address
+  sockets close, and TLS retains the selected trust store and hostname checking
+- **AND** system DNS remains synchronous and is not cancellable by a socket
+  timeout; its wall-clock cancellation is unproved, not hidden by a worker or
+  alternate resolver.
+
 #### Scenario: Output is malformed after downstream commitment
 
 - **WHEN** output is malformed or unterminated after downstream commitment
@@ -182,22 +214,19 @@ client configuration, credentials or conversation storage.
 
 ### Requirement: Every Responses request is projected to a provider-portable form
 
-Before upstream I/O, the proxy SHALL derive portability only from the current
-request and the proved protocol grammar. It SHALL remove provider-bound
-continuation state, stored-item references, replayed reasoning items, and
-optional encrypted replay content. Required encrypted `agent_message` payloads
-SHALL retain their native envelope and exact ciphertext for the selected upstream;
-this is preservation, not a claim of cross-provider decryption. An upstream
-ciphertext rejection SHALL be relayed without substituting a header-only task.
-The proxy SHALL set `store=false` and remove any request for
-`reasoning.encrypted_content` while leaving provider-neutral generation settings
-unchanged.
+Before upstream I/O, the proxy SHALL project the current request through one
+proved portability grammar, preserving portable input and generation settings.
+It SHALL remove provider-bound continuation and optional encrypted replay state,
+set `store=false`, and omit requests for `reasoning.encrypted_content`. Required
+encrypted agent tasks SHALL keep their native envelope and exact ciphertext;
+upstream rejection SHALL NOT substitute a header-only task.
 
 #### Scenario: A stored conversation changes provider
 
 - **WHEN** a request contains `previous_response_id`, `conversation`,
-  `prompt_cache_key`, an `rs_*` reasoning item, optional encrypted output, or another
-  provider-owned continuation structure
+  `prompt_cache_key`, stored-item references, replayed reasoning items such as
+  `rs_*`, optional encrypted output, or another provider-owned continuation
+  structure
 - **THEN** none of that provider-bound state is sent to the selected upstream
 - **AND** the upstream receives `store=false` with the remaining portable
   dialogue, complete tool history, and supported controls
@@ -250,23 +279,20 @@ unchanged.
 
 ### Requirement: Portable dialogue and tool relationships are preserved
 
-The proxy SHALL preserve textual system, developer, user, and assistant
-dialogue; agent author, recipient, and phase context; complete
-function/custom-tool call-output pairs; and standalone cross-task tool delivery
-results whose portable provenance is explicit. Assistant, plaintext synthesized-agent,
-and standalone delivery history SHALL use provider-neutral Easy Input Message
-strings. System, developer, user, and paired tool-output lists SHALL use
-input-content grammar. Provider IDs, statuses, annotations, namespaces, and
-opaque metadata SHALL NOT be required by a paired output's outbound form.
+The proxy SHALL preserve role-valid dialogue, agent author/recipient/phase,
+complete function/custom-tool call-output pairs, and standalone deliveries with
+explicit portable provenance. Assistant, plaintext synthesized-agent, and
+standalone history SHALL use Easy Input Message strings; instructions, user
+content, and paired output lists SHALL use input-content grammar. Paired outputs
+SHALL NOT depend on provider IDs or opaque metadata.
 
 #### Scenario: Complete requirement obligations are evaluated
 
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** Assistant, synthesized-agent,
-  and standalone delivery history SHALL use provider-neutral Easy Input Message
-  strings. System, developer, user, and paired tool-output lists SHALL use
-  input-content grammar. Provider IDs, statuses, annotations, namespaces, and
-  opaque metadata SHALL NOT be required by a paired output's outbound form.
+- **WHEN** an admitted function or custom-tool output carries provider bookkeeping
+- **THEN** its outbound pair keeps the call identity, kind, and visible output
+  using input-content grammar
+- **AND** the outbound form needs no provider item ID, status, annotation,
+  namespace, or opaque metadata.
 
 #### Scenario: Text and paired calls are replayed
 
@@ -370,26 +396,31 @@ opaque metadata SHALL NOT be required by a paired output's outbound form.
 
 ### Requirement: Unproved replay shapes fail closed
 
-Before upstream I/O, the proxy SHALL classify each Responses input item through
-one authoritative item policy shared by diagnostics and provider-portable
-projection. Malformed JSON, invalid input containers, genuinely unknown replay
-item types, unknown content block types, orphaned or mismatched tool outputs,
-duplicate call identities, repeated output item identities, unproven repeated
-outputs, invalid required fields, and incomplete local shell pairs SHALL be
-rejected locally. A later named textual delivery with a distinct item identity
-and matching original call SHALL retain its explicit delivery semantics rather
-than become a second paired output. The error SHALL identify a bounded
-structural reason without returning request text, credentials, or ciphertext.
+One item/relationship policy SHALL govern diagnostics and pre-I/O projection.
+Malformed JSON, invalid containers or required fields, unknown item
+or content types, duplicate identities, unproved repeated outputs, orphaned or
+mismatched outputs, and incomplete shell pairs SHALL fail locally. A distinct
+later named text delivery matching the original call SHALL retain delivery
+semantics. Errors SHALL expose only bounded structural reasons, never request
+text, credentials, or ciphertext.
 
 #### Scenario: Complete requirement obligations are evaluated
 
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** Malformed JSON, invalid input containers, genuinely unknown replay
-  item types, unknown content block types, orphaned or mismatched tool outputs,
-  duplicate call/output identities, invalid required fields, and incomplete local
-  shell pairs SHALL be rejected locally. The error SHALL identify a bounded
-  structural reason without returning request text, credentials, or encrypted
-  payloads.
+- **WHEN** a request contains malformed JSON, an invalid input container, an
+  unknown item or content block type, or an invalid required field
+- **THEN** the proxy rejects it before upstream I/O with a bounded structural
+  reason
+- **AND** neither the reason nor diagnostics expose request text, credentials,
+  or ciphertext.
+
+#### Scenario: A later delivery has a distinct identity
+
+- **WHEN** a later named textual delivery has a distinct item identity and
+  matches the original call
+- **THEN** it retains its explicit delivery semantics rather than becoming a
+  second paired output
+- **AND** duplicate call identities, repeated output item identities, and
+  unproved repeated outputs remain local rejections.
 
 #### Scenario: A future client introduces an unknown replay item
 

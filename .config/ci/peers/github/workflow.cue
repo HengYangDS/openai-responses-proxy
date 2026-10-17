@@ -11,8 +11,10 @@ package ci
 }
 
 #CommitEvent: {
-	OPENAI_RESPONSES_PROXY_COMMIT_BASE: "${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}"
-	OPENAI_RESPONSES_PROXY_COMMIT_HEAD: #Conditions.productSHA
+	OPENAI_RESPONSES_PROXY_COMMIT_BASE:   "${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}"
+	OPENAI_RESPONSES_PROXY_COMMIT_HEAD:   #Conditions.productSHA
+	OPENAI_RESPONSES_PROXY_COMMIT_TARGET: "${{ github.event_name == 'pull_request' && format('refs/heads/{0}', github.base_ref) || github.ref }}"
+	OPENAI_RESPONSES_PROXY_COMMIT_PEER:   "github"
 }
 #UvSetup: {
 	uses: #Toolchains.githubActions.uv
@@ -48,6 +50,7 @@ githubVerify: {
 	jobs: {
 		"python-matrix":                   #SourceJobs."python-matrix"
 		"source-and-governance":           #SourceJobs."source-and-governance"
+		"commit-admission":                #SourceJobs."commit-admission"
 		python:                            #SourceJobs.python
 		"python-windows":                  #SourceJobs."python-windows"
 		"accepted-source":                 #SourceJobs."accepted-source"

@@ -29,6 +29,157 @@ PROVIDERS = provider_registry.load()
 
 
 class TestInputRecovery(InputTransportFixture):
+    def test_exact_error_does_not_recover_a_delivery_without_its_original_call(self) -> None:
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    {"type": "function_call", "call_id": "job", "name": "run", "arguments": "{}"},
+                    {
+                        "type": "function_call_output",
+                        "id": "initial",
+                        "call_id": "job",
+                        "output": "started",
+                    },
+                    {"type": "message", "role": "user", "content": "current request"},
+                    {
+                        "type": "function_call_output",
+                        "id": "later",
+                        "call_id": "job",
+                        "name": "run",
+                        "output": "completed",
+                    },
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+
+        with running_proxy(
+            [(400, EXACT_ERROR), (200, b'{"id":"unexpected","status":"completed"}')]
+        ) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body)
+            with raised.value as error:
+                assert error.code == 400
+                assert error.read() == EXACT_ERROR
+
+        assert len(received) == 1
+
+    def test_response_failed_dialogue_does_not_repeat_an_identical_compacted_attempt(self) -> None:
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    {"type": "message", "role": "user", "content": "current request"},
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+        failed = b'{"error":{"type":"server_error","code":"response_failed"}}'
+
+        with running_proxy(
+            [(400, failed), (400, failed), (200, b'{"id":"unexpected","status":"completed"}')]
+        ) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body)
+            with raised.value as error:
+                assert error.code == 503
+                assert (
+                    json.loads(error.read())["error"]["code"]
+                    == "response_failed_recovery_exhausted"
+                )
+
+        assert len(received) == 2
+        assert len(received[1]) < len(received[0])
+
+    def test_exact_error_after_compaction_does_not_repeat_a_nonreducing_attempt(self) -> None:
+        current = [
+            {"type": "message", "role": "user", "content": "current request"},
+            {"type": "function_call", "call_id": "c", "name": "f", "arguments": "{}"},
+            {"type": "function_call_output", "call_id": "c", "output": "required result"},
+        ]
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    *current,
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+        failed = b'{"error":{"type":"server_error","code":"response_failed"}}'
+        success = b'{"id":"unexpected_retry","status":"completed"}'
+
+        with running_proxy([(400, failed), (400, EXACT_ERROR), (200, success)]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body)
+            with raised.value as error:
+                assert error.code == 400
+                assert error.read() == EXACT_ERROR
+
+        assert len(received) == 2
+        assert json.loads(received[1])["input"] == current
+
+    @pytest.mark.parametrize(
+        "required",
+        [
+            pytest.param(
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_image",
+                            "image_url": "https://example.invalid/current.png",
+                            "detail": "high",
+                        },
+                        {"type": "input_text", "text": "Explain this current image"},
+                    ],
+                },
+                id="current-image",
+            ),
+            pytest.param(
+                {
+                    "type": "agent_message",
+                    "author": "/root",
+                    "recipient": "/root/reviewer",
+                    "content": [
+                        {"type": "input_text", "text": "Review the complete task"},
+                        {"type": "encrypted_content", "encrypted_content": "fixture-task"},
+                    ],
+                },
+                id="encrypted-delegation",
+            ),
+        ],
+    )
+    def test_exact_error_recovery_preserves_required_current_turn_input(
+        self, required: dict[str, object]
+    ) -> None:
+        success = b'{"id":"resp_recovered","status":"completed"}'
+        current = {"type": "message", "role": "user", "content": "current request"}
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 100},
+                    current,
+                    required,
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+        with (
+            running_proxy([(400, EXACT_ERROR), (200, success)]) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.status == 200
+            assert response.read() == success
+
+        assert len(received) == 2
+        assert required in json.loads(received[0])["input"]
+        recovered = json.loads(received[1])["input"]
+        assert recovered == ([required] if required["type"] == "message" else [current, required])
+        assert len(received[1]) < len(received[0])
+
     def test_exact_error_recovers_once_with_fresh_content_length(self) -> None:
         success = b'{"id":"resp_recovered","status":"completed"}'
         body = request_body()
@@ -212,12 +363,12 @@ class TestInputRecovery(InputTransportFixture):
             real_urlopen = upstream_exchange.urlopen_direct
             calls = 0
 
-            def fail_second(outbound: urllib.request.Request, timeout: float):
+            def fail_second(outbound: urllib.request.Request, timeout: float, *, deadline: float):
                 nonlocal calls
                 calls += 1
                 if calls == 2:
                     raise transport_error
-                return real_urlopen(outbound, timeout)
+                return real_urlopen(outbound, timeout, deadline=deadline)
 
             mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=fail_second)
             with pytest.raises(urllib.error.HTTPError) as raised:

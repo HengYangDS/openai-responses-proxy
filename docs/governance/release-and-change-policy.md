@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:release-and-change-policy
 role: policy
 state: canonical
 relations:
-  part_of: ../README.md
+    part_of: ../README.md
 ---
--->
 
 # Release and Change Policy
 
@@ -73,25 +71,17 @@ flowchart LR
 
 ## Commit admission
 
-The `[commit_policy]` table in `.ethos/workspace.toml` owns the complete subject
-expression and SSH-signing requirement. Installed ETHOS hooks consume that
-policy before commit and push; the repository quality check reads the same
-expression without rebuilding a second grammar. Change the expression when a
-new semantic scope is justified, not a parallel type or scope list.
+ETHOS owns the common Conventional Commit grammar and requires an SSH signature
+on every commit. `.ethos/workspace.toml` restricts only the repository's semantic
+`scopes`; it does not restate the grammar, signing policy, or branch roles.
+`.ethos/release.toml` selects the release mirror and independent publication peers.
 
-The local quality check validates the range after an available integration
-base. When that base already equals HEAD, it still validates the tip rather
-than treating an empty range as proof. When the selected ref exists but is no
-longer an ancestor of HEAD, the range starts at their fork point, so a lane
-behind its moved base reports its own subjects instead of the whole reachable
-history. It is not a whole-history signature audit. Hosted audits receive exact
-event objects through `COMMIT_BASE` and `COMMIT_HEAD` variables under the
-product environment prefix. Pull requests use their base and head objects;
-branch pushes use the before and after objects; tag checks validate the tagged
-tip. Missing, malformed, unavailable or checkout-mismatched objects fail rather
-than fall back to a moving branch. A new branch with an all-zero before object
-checks its reachable history. These subject checks do not establish signature
-trust or replace native platform and release acceptance.
+The original ETHOS commit-msg, integration, replay and pre-push consumers enforce
+this policy against exact objects and an external trust anchor. Repository source
+quality does not reimplement Git admission. Hosted commit admission must use
+`ethos hook commit-range` with exact event objects and operator-managed trust;
+source tests, a parsed signature envelope, or a green quality job cannot replace
+that evidence. Native product and release acceptance remain separate.
 
 ## Decision records and names
 
@@ -118,10 +108,8 @@ the ETHOS repository paradigm, tool configuration lives under
 `.config/checks/<tool>/` with the tool's native file name, and repository-owned
 parameters live beside it as `policy.toml`; `.config/checks/pytest/pytest.toml`
 therefore owns test discovery and warning policy. Every invocation passes these
-paths explicitly. The only root pointer is `.gitleaks.toml`, which extends the
-canonical secret-scanning policy for the selected ETHOS pre-commit runtime that
-discovers only that name; it is removed in the batch that switches to a runtime
-reading the canonical path. Nox executes those owners,
+paths explicitly. ETHOS and Nox read the canonical secret-scanning policy directly,
+without a root pointer or a second configuration owner. Nox executes those owners,
 `.ethos/profile.toml` registers gates, and CI/hooks only project them.
 
 Required local evidence includes:

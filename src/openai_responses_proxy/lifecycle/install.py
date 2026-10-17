@@ -13,9 +13,9 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import runtime_spec
-from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
+from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
 
 

@@ -2,13 +2,11 @@
 
 ### Requirement: Python compatibility and native release prove distinct facts
 
-Each supported Python minor line SHALL build and install the wheel, then run
-the complete non-native behavior inventory. The release session SHALL be the
-only native executable build owner and SHALL black-box test the
-target-platform executable through one portable process-environment contract.
-That contract SHALL preserve the native host execution substrate, redirect
-Proxy-owned user, payload, state, and command roots to test-owned locations,
-and make Python undiscoverable through the product `PATH`.
+Each supported Python minor SHALL build and install the wheel and run the
+complete non-native behavior inventory. Only the release session SHALL build
+and black-box test the target-platform executable. One portable child-environment
+contract SHALL preserve the native host substrate, isolate Proxy-owned roots,
+and exclude Python discovery through the product `PATH`.
 
 #### Scenario: The supported matrix runs
 
@@ -57,14 +55,12 @@ depending on a runner's Git default branch or text newline translation.
 
 ### Requirement: Hosted verification bootstrap is bounded and repository-owned
 
-GitLab verification MUST start from an immutable image containing the
-repository-selected UV and Python runtime. It MUST reuse one target-platform
-cache for locked package artifacts and UV-managed Python runtimes, and MUST NOT
-reinstall UV, download the job's primary Python runtime, or select a different
-Python after synchronizing the locked environment. `uv.lock` remains the sole
-authority for project and quality dependencies. The CUE CI model SHALL own the
-supported Python minor lines and generate `.python-versions` along with both
-Forge workflows. Nox and the GitHub matrix reader SHALL consume that projection.
+Hosted verification SHALL use repository-owned locked supply. GitLab SHALL start
+from an immutable image containing the selected UV and primary Python runtime;
+jobs SHALL retain that synchronized identity and use one target-platform cache.
+`uv.lock` SHALL own project and quality dependencies. CUE SHALL own supported
+Python minors and generate both Forge workflows and `.config/ci/python-versions`,
+consumed by Nox and the GitHub matrix reader.
 
 #### Scenario: A fresh GitLab job starts verification
 
@@ -76,6 +72,8 @@ Forge workflows. Nox and the GitHub matrix reader SHALL consume that projection.
 - **AND** it does not bootstrap UV through pip or download that primary Python
   runtime before invoking the repository-owned Nox graph
 - **AND** subsequent no-sync commands use the synchronized Python identity.
+- **AND** locked packages and UV-managed interpreters reuse one target-platform
+  cache.
 
 #### Scenario: A runner cache is empty or unavailable
 
@@ -88,7 +86,7 @@ Forge workflows. Nox and the GitHub matrix reader SHALL consume that projection.
 
 - **WHEN** GitLab runs all Python compatibility sessions
 - **THEN** the CUE declaration is the only supported-version inventory
-- **AND** `.python-versions` is its tracked text projection for native consumers
+- **AND** `.config/ci/python-versions` is its tracked text projection for native consumers
 - **AND** additional matrix interpreters may be acquired by UV and stored in
   the declared target-platform cache
 - **AND** their patch versions and installation paths do not become a second

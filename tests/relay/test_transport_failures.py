@@ -19,7 +19,6 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
-from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
@@ -225,8 +224,6 @@ class TestTransportFailures(InputTransportFixture):
         downstream.relay_body(exchange, DirectResponse(b""))
         assert handler.output() == b"0\r\n\r\n"
         exchange.input_variant_accepted.assert_called_once_with()
-
-        assert sse._arm_read_budget(DirectResponse(), sse.time.monotonic() - 1, None) is None
 
     def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(self, *, mocker) -> None:
         partial = http.client.IncompleteRead(b"partial")

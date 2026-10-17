@@ -14,6 +14,18 @@ _DECISION_STATUSES = frozenset({"accepted", "amended", "deprecated", "proposed",
 _DECISION_REGISTER = "decision-register.md"
 
 
+def _record_body(text: str) -> str:
+    """Select Markdown prose; the shared metadata gate owns YAML validation."""
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return text
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        return text
+    return "\n".join(lines[end + 1 :])
+
+
 def decision_record_gaps(root: Path) -> list[str]:
     """Validate the one Decision Record register and its semantic file grammar."""
     directory = root / "docs/decisions"
@@ -41,7 +53,7 @@ def decision_record_gaps(root: Path) -> list[str]:
         "## Revisit Trigger",
     )
     for sequence, path in records:
-        text = path.read_text(encoding="utf-8")
+        text = _record_body(path.read_text(encoding="utf-8"))
         tokens = [token for token in Markdown(text).parsed if token.type != "html_block"]
         expected_title = f"DR-{sequence:04d}: "
         if (

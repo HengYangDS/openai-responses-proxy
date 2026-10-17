@@ -13,7 +13,7 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
-from openai_responses_proxy.lifecycle import transaction as payload_transaction
+from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory

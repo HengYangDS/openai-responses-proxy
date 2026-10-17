@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:forge-operations
 role: how-to
 state: canonical
 relations:
-  part_of: ../README.md
+    part_of: ../README.md
 ---
--->
 
 # Forge Operations
 
@@ -81,6 +79,23 @@ Each request reports an immutable receipt; apply it with the `--receipt` form
 exactly as ETHOS reports it. Repeat `--peer <id>` to select only some declared
 peers; a selected-peer result does not claim that another peer received the
 object.
+
+### Hosted commit trust
+
+Each selected peer needs an operator-managed `ETHOS_COMMIT_ALLOWED_SIGNERS`
+variable containing the complete public SSH allowed-signers file, including
+principal, key and line boundaries. GitHub supplies it as an Actions variable;
+GitLab supplies it as a project or inherited group environment variable available
+to unprotected proposal jobs. It is public trust material, never a private key.
+
+The CUE-owned commit-admission job rejects an absent, empty or whitespace-only
+input before installing tools or fetching the ETHOS supplier. That check proves
+only input presence. The pinned native ETHOS binder and `hook commit-range` then
+validate and use the external trust against the exact introduced Git objects;
+product source must not nominate its own trusted key. After provisioning, read
+back the selected peer's variable and compare its complete bytes with the
+approved public source. A successful local signature check does not prove that
+hosted binding or branch admission.
 
 ## Tags and releases
 
@@ -222,14 +237,14 @@ mise exec --locked -- uv run --locked --no-sync python -m tools.forge.audit \
   --commit-anchor "$PRODUCT_COMMIT_ALLOWED_SIGNERS" \
   --author-email "$PRODUCT_EMAIL" \
   --tag-anchor "$PRODUCT_TAG_ALLOWED_SIGNERS" \
-  --peer origin --peer github \
+  --peer gitlab --peer github \
   --json
 ```
 
 Each `--peer` names one configured Git remote, not a Forge type. Supply one
 peer for single-Forge delivery or omit the option for local-only verification;
-unselected peers are not contacted. Persistent branch roles come from
-`.ethos/workspace.toml`, not hard-coded branch names.
+unselected peers are not contacted. Persistent branch roles come from the original `ethos lane status` projection,
+not a second parser or a retired workspace declaration.
 
 | Compared          | Required result                                        |
 | ----------------- | ------------------------------------------------------ |

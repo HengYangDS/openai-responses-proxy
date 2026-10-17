@@ -14,63 +14,6 @@ import pytest
 import yaml
 
 from tests.quality.fixtures import ROOT
-from tools.ci import project
-from tools.quality import python_matrix
-
-
-@pytest.mark.parametrize("explicit", [False, True])
-def test_matrix_cli_projects_to_exact_selected_output(explicit, tmp_path, monkeypatch):
-    output = tmp_path / "output"
-    args = (
-        "--versions",
-        str(ROOT / ".python-versions"),
-        "--release",
-        str(ROOT / ".python-release"),
-        "--metadata",
-        str(ROOT / "pyproject.toml"),
-    )
-    if explicit:
-        monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-        python_matrix.main((*args, "--output", str(output)))
-    else:
-        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
-        python_matrix.main(args)
-    values = dict(line.split("=", 1) for line in output.read_text().splitlines())
-    assert json.loads(values["value"]) == (ROOT / ".python-versions").read_text().splitlines()
-    assert values["release"] == (ROOT / ".python-release").read_text().strip()
-
-
-def test_matrix_cli_requires_an_output_and_nonempty_unique_versions(tmp_path, monkeypatch):
-    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-    with pytest.raises(SystemExit, match="output path is unavailable"):
-        python_matrix.main(())
-    versions = tmp_path / "versions"
-    versions.write_text("")
-    with pytest.raises(ValueError, match="matrix is unavailable"):
-        python_matrix.write(
-            versions=versions,
-            release=ROOT / ".python-release",
-            metadata=ROOT / "pyproject.toml",
-            output=tmp_path / "output",
-        )
-
-
-@pytest.mark.parametrize(
-    ("versions", "requirement"),
-    [("3.12\n3.13\n3.14\n", ">=3.12,<3.15"), ("3.13\n3.14\n", ">=3.13,<3.15")],
-)
-def test_package_python_bounds_derive_from_the_selected_matrix(tmp_path, versions, requirement):
-    path = tmp_path / "versions"
-    path.write_text(versions)
-    assert python_matrix.supported_requirement(path) == requirement
-
-
-@pytest.mark.parametrize("versions", ["3.12\n3.12\n", "3.12.7\n", "3.12\n3.14\n"])
-def test_package_python_bounds_require_an_ordered_contiguous_matrix(tmp_path, versions):
-    path = tmp_path / "versions"
-    path.write_text(versions)
-    with pytest.raises(ValueError, match="matrix is unavailable or invalid"):
-        python_matrix.supported_requirement(path)
 
 
 def _load_yaml(path: Path) -> dict[str, object]:
@@ -102,67 +45,6 @@ def _required_uv_version() -> str:
 
 class TestVerificationContracts:
     """Keep verification on mature tools and the released product artifact."""
-
-    @pytest.mark.parametrize("initial", [None, b"stale\n", b"current\n"])
-    def test_ci_projection_checks_then_restores_only_owned_files(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial: bytes | None
-    ) -> None:
-        path = tmp_path / "nested" / "workflow.yml"
-        foreign = tmp_path / "notes.txt"
-        foreign.write_bytes(b"user owned\n")
-        if initial is not None:
-            path.parent.mkdir()
-            path.write_bytes(initial)
-        monkeypatch.setattr(project, "ROOT", tmp_path)
-        monkeypatch.setattr(project, "PROJECTIONS", (project.Projection(path, "workflow"),))
-        monkeypatch.setattr(project, "render", lambda _expression, _format: b"current\n")
-
-        if initial == b"current\n":
-            project.main(())
-        else:
-            with pytest.raises(
-                SystemExit, match=re.escape("projection drift: nested/workflow.yml")
-            ):
-                project.main(())
-        assert (path.read_bytes() if path.exists() else None) == initial
-        project.main(("--write",))
-        assert path.read_bytes() == b"current\n"
-        project.main(())
-        assert foreign.read_bytes() == b"user owned\n"
-        assert {p.relative_to(tmp_path) for p in tmp_path.rglob("*")} == {
-            Path("notes.txt"),
-            Path("nested"),
-            Path("nested/workflow.yml"),
-        }
-
-    @pytest.mark.parametrize("output_format", ["yaml", "text"])
-    def test_ci_projection_renderer_binds_the_locked_repository(
-        self, mocker, monkeypatch: pytest.MonkeyPatch, output_format
-    ) -> None:
-        monkeypatch.setenv("MISE_CONFIG_FILE", "/foreign/config.toml")
-        command = mocker.patch.object(
-            project.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"yaml\n")
-        )
-
-        assert project.render("workflow", output_format) == b"yaml\n"
-
-        args = command.call_args.args[0]
-        assert args[:5] == ("mise", "exec", "--locked", "--", "cue")
-        assert args[5:] == (
-            "export",
-            *project.model_inputs(),
-            "--expression",
-            "workflow",
-            "--out",
-            output_format,
-        )
-        assert command.call_args.kwargs["check"] is True
-        assert command.call_args.kwargs["cwd"] == project.ROOT
-        assert "MISE_CONFIG_FILE" not in command.call_args.kwargs["env"]
-        assert command.call_args.kwargs["stdin"] == subprocess.DEVNULL
-        command.side_effect = subprocess.CalledProcessError(1, args)
-        with pytest.raises(subprocess.CalledProcessError):
-            project.render("workflow")
 
     def test_pytest_is_the_only_behavior_test_runner(self) -> None:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -353,36 +235,29 @@ class TestVerificationContracts:
             (ROOT / ".config/checks/pytest/pytest.toml").read_text(encoding="utf-8")
         )["pytest"]["markers"]
         assert "native_distribution: requires the self-contained released executable" in markers
-        source = (ROOT / "tests/serving/handoff/test_subprocess.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        pytestmark = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "pytestmark"
-                for target in node.targets
+        carriers = [
+            *sorted((ROOT / "tests/serving/handoff/subprocess").glob("test_*.py")),
+            *sorted((ROOT / "tests/release/lifecycle").glob("test_*.py")),
+        ]
+        assert len(carriers) == 6
+        for path in carriers:
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+            pytestmark = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "pytestmark"
+                    for target in node.targets
+                )
             )
-        )
-        assert isinstance(pytestmark.value, ast.List)
-        markers = {ast.unparse(element) for element in pytestmark.value.elts}
-
-        lifecycle = (ROOT / "tests/release/test_native_lifecycle.py").read_text(encoding="utf-8")
-        lifecycle_tree = ast.parse(lifecycle)
-        lifecycle_marks = next(
-            node
-            for node in lifecycle_tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "pytestmark"
-                for target in node.targets
-            )
-        )
-        assert isinstance(lifecycle_marks.value, ast.List)
-        assert not any("skipif" in ast.unparse(element) for element in lifecycle_marks.value.elts)
-        assert "pytest.skip" not in lifecycle
-        assert "pytest.mark.native_distribution" in markers
-        assert "pytest.mark.usefixtures(preserve_native_host_projection.__name__)" in markers
+            assert isinstance(pytestmark.value, ast.List)
+            marks = {ast.unparse(element) for element in pytestmark.value.elts}
+            assert not any("skipif" in mark for mark in marks)
+            assert "pytest.skip" not in source
+            assert "pytest.mark.native_distribution" in marks
+            assert "pytest.mark.usefixtures(preserve_native_host_projection.__name__)" in marks
 
     def test_quality_environment_is_repository_owned_and_locked(self) -> None:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -511,7 +386,7 @@ class TestVerificationContracts:
     def test_repository_declares_the_supported_python_matrix_once(self) -> None:
         github = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
         gitlab = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-        supported = (ROOT / ".python-versions").read_text(encoding="utf-8").splitlines()
+        supported = (ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines()
         uv_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
             "uv"
         ]["required-version"].removeprefix("==")

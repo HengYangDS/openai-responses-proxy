@@ -18,7 +18,7 @@ provider-adaptation = "src/openai_responses_proxy/providers/registry.py"
 relay-transport = "src/openai_responses_proxy/relay/exchange.py"
 runtime-configuration = "src/openai_responses_proxy/runtime/config.py"
 payload-generations = "src/openai_responses_proxy/lifecycle/generation.py"
-lifecycle-transactions = "src/openai_responses_proxy/lifecycle/transaction.py"
+lifecycle-transactions = "src/openai_responses_proxy/lifecycle/transaction/execution.py"
 native-supervision = "src/openai_responses_proxy/lifecycle/supervision/native_service.py"
 cli-presentation = "src/openai_responses_proxy/cli/presentation.py"
 

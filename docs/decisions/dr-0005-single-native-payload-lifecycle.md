@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:decision-0005-single-native-payload-lifecycle
 role: decision
 state: canonical
 relations:
-  part_of: README.md
+    part_of: README.md
 ---
--->
 
 # DR-0005: Maintain One Native Payload and Lifecycle Model
 

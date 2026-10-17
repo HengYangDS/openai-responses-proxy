@@ -6,7 +6,6 @@ import json
 import subprocess
 import sys
 import tempfile
-import tomllib
 from pathlib import Path
 from typing import Annotated
 
@@ -15,9 +14,9 @@ from cyclopts import Parameter
 
 from openai_responses_proxy import product_identity
 from tools.git_environment import isolated_config_environment
+from tools.governance import observation
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKSPACE_POLICY = ROOT / ".ethos/workspace.toml"
 
 
 def command(*args: str, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -40,22 +39,15 @@ def output(*args: str, cwd: Path = ROOT) -> str:
     return command(*args, cwd=cwd).stdout.strip()
 
 
-def branches_for_audit(
-    path: Path = WORKSPACE_POLICY,
-) -> tuple[frozenset[str], frozenset[str]]:
-    """Return persistent local and remote branches from repository policy."""
-    try:
-        document: object = tomllib.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(document, dict):
-            raise TypeError
-        roles: object = document.get("branch_roles")
-        if not isinstance(roles, dict):
-            raise TypeError
-        release: object = roles.get("release_branch")
-        accepted: object = roles.get("accepted_branch")
-        candidate: object = roles.get("candidate_branch")
-    except (KeyError, OSError, TypeError, tomllib.TOMLDecodeError) as error:
-        raise RuntimeError("repository branch-role policy is unavailable or invalid") from error
+def branches_for_audit(root: Path = ROOT) -> tuple[frozenset[str], frozenset[str]]:
+    """Read persistent roles from the native topology owner, not retired bindings."""
+    document = observation.read(root, "lane", "status")
+    roles = document.get("role_policy")
+    if not isinstance(roles, dict):
+        raise RuntimeError("repository branch-role policy is unavailable or invalid")
+    release = roles.get("release_branch")
+    accepted = roles.get("accepted_branch")
+    candidate = roles.get("candidate_branch")
     if not all(isinstance(branch, str) and branch for branch in (release, accepted, candidate)):
         raise RuntimeError("repository branch-role policy is incomplete")
     assert isinstance(release, str)
@@ -235,7 +227,7 @@ def audit(
     configured = set(output("git", "remote", cwd=root).splitlines())
     if len(set(peers)) != len(peers) or "local" in peers or not set(peers) <= configured:
         raise RuntimeError("peer selection must name distinct configured remotes")
-    local_roles, remote_roles = branches_for_audit(root / ".ethos/workspace.toml")
+    local_roles, remote_roles = branches_for_audit(root)
     local_refs = local_branch_oids(root, remote_roles)
     peer_refs = {peer: remote_branch_oids(root, peer, remote_roles) for peer in peers}
     branches_equal = exact_branch_parity(local_refs, *peer_refs.values())

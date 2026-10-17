@@ -2,6 +2,43 @@ package ci
 
 // Source and compatibility jobs share the provider-neutral verification contract.
 #SourceJobs: {
+	"commit-admission": {
+		name:              "Native commit admission"
+		if:                "github.event_name == 'pull_request' || github.event_name == 'push'"
+		"runs-on":         "ubuntu-24.04"
+		"timeout-minutes": 15
+		env: {
+			ETHOS_COMMIT_ALLOWED_SIGNERS:       "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
+			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "${{ github.workspace }}"
+		}
+		steps: [{
+			name: "Require external public commit trust"
+			run:  #CommitTrustPreflight
+		}, {
+			uses: #Toolchains.githubActions.checkout
+			with: {
+				"fetch-depth": 0
+				"fetch-tags":  true
+				ref:           #Conditions.productSHA
+			}
+		}, {
+			#UvSetup
+		}, {
+			name: "Install native ETHOS Linux prerequisites"
+			run:  "sudo apt-get update -qq\nsudo \(#EthosSupply.linuxInstall)"
+		}, {
+			name: "Select the exact native ETHOS source"
+			run:  #EthosSupply.checkout
+		}, {
+			name:                "Prepare locked native ETHOS supply and external commit trust"
+			"working-directory": #EthosSupply.root
+			run:                 #EthosSupply.prepare
+		}, {
+			name: "Admit the exact introduced commit range"
+			env:  #CommitEvent
+			run:  #CommitAdmission
+		}]
+	}
 	"python-matrix": {
 		name:              "Resolve supported Python versions"
 		if:                #Conditions.nativeProof
@@ -16,6 +53,7 @@ package ci
 		}
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
+			with: ref: #Conditions.productSHA
 		}, {
 			#UvSetup
 		}, {
@@ -41,7 +79,7 @@ package ci
 			}
 		}, {
 			uses: #Toolchains.githubActions.python
-			with: "python-version-file": ".python-release"
+			with: "python-version-file": ".config/mise/python-release"
 		}, {
 			#UvSetup
 		}, {
@@ -58,7 +96,6 @@ package ci
 				"""
 		}, {
 			name: "Confirm source identity and repository governance"
-			env:  #CommitEvent
 			run:  """
 					uv sync --locked --all-groups
 					uv run --locked --no-sync python -m \(#VerificationJobs.governance.module) --online-links
@@ -132,12 +169,11 @@ package ci
 			}
 		}, {
 			uses: #Toolchains.githubActions.python
-			with: "python-version-file": ".python-release"
+			with: "python-version-file": ".config/mise/python-release"
 		}, {
 			#UvSetup
 		}, {
 			name: "Confirm accepted source and metadata"
-			env:  #CommitEvent
 			run:  """
 					uv sync --locked --all-groups
 					uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module)
@@ -160,12 +196,11 @@ package ci
 			}
 		}, {
 			uses: #Toolchains.githubActions.python
-			with: "python-version-file": ".python-release"
+			with: "python-version-file": ".config/mise/python-release"
 		}, {
 			#UvSetup
 		}, {
 			name: "Prove exact dev-to-main promotion"
-			env:  #CommitEvent
 			run:  """
 					git fetch origin main dev --tags --force --prune --prune-tags
 					git merge-base --is-ancestor origin/main "${{ github.event.pull_request.head.sha }}"

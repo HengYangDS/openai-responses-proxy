@@ -7,6 +7,7 @@ import (
 
 // GitHub job identities adapt the shared proof contract to branch admission.
 #ProductProofJobs: [
+	"commit-admission",
 	"source-and-governance",
 	"python-matrix",
 	"python",
@@ -24,13 +25,13 @@ import (
 	jobs: #ProductProofJobs
 }, {
 	when: {GITHUB_EVENT_NAME: "pull_request", GITHUB_BASE_REF: "main"}
-	jobs: ["promotion"]
+	jobs: ["commit-admission", "promotion"]
 }, {
 	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/dev"}
 	jobs: list.Concat([#ProductProofJobs, ["accepted-source"]])
 }, {
 	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/main"}
-	jobs: ["accepted-source"]
+	jobs: ["commit-admission", "accepted-source"]
 }, {
 	when: {GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag"}
 	jobs: []
@@ -81,7 +82,7 @@ githubAdmission: {
 			with: ref: #Conditions.productSHA
 		}, {
 			uses: #Toolchains.githubActions.python
-			with: "python-version-file": ".python-release"
+			with: "python-version-file": ".config/mise/python-release"
 		}, {
 			name: "Reject missing branch proof"
 			env: {
