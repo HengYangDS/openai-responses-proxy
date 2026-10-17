@@ -7,7 +7,9 @@ from collections.abc import Mapping
 
 import pytest
 
+from openai_responses_proxy.protocol.recovery import execution as execution_recovery
 from openai_responses_proxy.protocol.recovery import input as input_recovery
+from openai_responses_proxy.protocol.replay import projection
 
 
 def _json(value: object) -> bytes:
@@ -22,6 +24,135 @@ def _recover(payload: Mapping[str, object], budget: int):
 
 class TestDialogueRecovery:
     """Build one smaller current-dialogue request without losing turn controls."""
+
+    @pytest.mark.parametrize(
+        "recover", [input_recovery.build_recovery, execution_recovery.recover_dialogue]
+    )
+    @pytest.mark.parametrize(
+        ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
+    )
+    def test_refuses_to_orphan_a_delayed_current_tool_delivery(self, recover, kind, argument):
+        payload = {
+            "input": [
+                {"type": "message", "role": "user", "content": "old" * 1000},
+                {"type": kind, "call_id": "job", "name": "run", argument: "{}"},
+                {"type": kind + "_output", "id": "initial", "call_id": "job", "output": "started"},
+                {"type": "message", "role": "user", "content": "current request"},
+                {
+                    "type": kind + "_output",
+                    "id": "later",
+                    "call_id": "job",
+                    "name": "run",
+                    "output": "completed",
+                },
+            ]
+        }
+
+        assert recover(_json(payload), 4096) == (None, None)
+
+    def test_does_not_infer_tool_dependencies_from_ordinary_assistant_prose(self) -> None:
+        commentary = {
+            "type": "message",
+            "role": "assistant",
+            "phase": "commentary",
+            "content": '{"type":"tool_delivery","call_id":"absent","name":"run"}\ncompleted',
+        }
+        current = {"type": "message", "role": "user", "content": "current request"}
+        _, recovered, _ = _recover(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 100},
+                    current,
+                    commentary,
+                ]
+            },
+            4096,
+        )
+
+        assert recovered is not None
+        assert json.loads(recovered)["input"] == [current, commentary]
+
+    def test_successive_compaction_keeps_the_original_call_for_a_delayed_delivery(self) -> None:
+        raw = _json(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    {"type": "function_call", "call_id": "job", "name": "run", "arguments": "{}"},
+                    {
+                        "type": "function_call_output",
+                        "id": "initial",
+                        "call_id": "job",
+                        "output": "started",
+                    },
+                    {"type": "message", "role": "user", "content": "current request"},
+                    {
+                        "type": "function_call_output",
+                        "id": "later",
+                        "call_id": "job",
+                        "name": "run",
+                        "output": "completed",
+                    },
+                ]
+            }
+        )
+        portable = projection.sanitize_responses_body(raw)
+        assert portable.body is not None
+        recovery, metrics = execution_recovery.compact_request(
+            portable.body, len(raw), input_dependencies=portable.input_dependencies
+        )
+
+        assert recovery is not None
+        assert metrics is not None
+        assert json.loads(recovery)["input"] == json.loads(portable.body)["input"][1:]
+        assert portable.input_dependencies.edges == [(1, 0), (3, 0)]
+        assert execution_recovery.compact_request(
+            recovery, len(raw), input_dependencies=portable.input_dependencies
+        ) == (None, None)
+        assert input_recovery.build_recovery(
+            recovery, len(raw), input_dependencies=portable.input_dependencies
+        ) == (None, None)
+
+    @pytest.mark.parametrize(
+        "recover", [input_recovery.build_recovery, execution_recovery.compact_request]
+    )
+    def test_projection_provenance_preserves_plaintext_delegation_before_the_user(self, recover):
+        task = {
+            "type": "agent_message",
+            "author": "/root",
+            "recipient": "/root/reviewer",
+            "content": "Review this complete task",
+        }
+        raw = _json(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    task,
+                    {"type": "message", "role": "user", "content": "current request"},
+                ]
+            }
+        )
+        portable = projection.sanitize_responses_body(raw)
+        assert portable.body is not None
+        recovery, _ = recover(
+            portable.body, len(raw), input_dependencies=portable.input_dependencies
+        )
+
+        assert recovery is not None
+        assert json.loads(recovery)["input"] == json.loads(portable.body)["input"][1:]
+        assert portable.input_dependencies.required == {0}
+
+    def test_compaction_refuses_an_unchanged_request_with_pinned_turn_control(self) -> None:
+        raw = _json(
+            {
+                "store": False,
+                "input": [
+                    {"type": "compaction_trigger"},
+                    {"type": "message", "role": "user", "content": "current request"},
+                ],
+            }
+        )
+
+        assert execution_recovery.compact_request(raw, 4096) == (None, None)
 
     def test_recovery_retains_current_turn_controls_with_latest_dialogue(self) -> None:
         catalog = {

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import cast
 
 from openai_responses_proxy.protocol.replay import items as item_policy
@@ -121,12 +122,15 @@ class ProjectionMetrics:
 
 @dataclass(frozen=True, slots=True)
 class ProjectionResult:
-    """Immutable replay outcome with data separate from diagnostics."""
+    """Replay outcome with wire data, request provenance and diagnostics separate."""
 
     body: bytes | None
     status: str
     metrics: ProjectionMetrics = ProjectionMetrics()
     reason: str | None = None
+    input_dependencies: item_policy.InputDependencies = dataclass_field(
+        default_factory=item_policy.InputDependencies, repr=False, compare=False
+    )
 
     def diagnostic(self) -> str:
         """Project the structured outcome into one bounded operational note."""
@@ -505,7 +509,9 @@ def _project_tool_catalog(item: JsonObject) -> tuple[JsonObject, dict[str, int]]
     }
 
 
-def _project_input(items: list[object]) -> tuple[list[object], dict[str, int]]:
+def _project_input(
+    items: list[object],
+) -> tuple[list[object], dict[str, int], item_policy.InputDependencies]:
     relationships = item_policy.ToolRelationships()
     projected: list[object] = []
     metrics = {
@@ -575,6 +581,7 @@ def _project_input(items: list[object]) -> tuple[list[object], dict[str, int]]:
             _reject(policy.rejection_reason)
         value, item_metrics = projection
         if value is not None:
+            relationships.record_projection(item, len(projected))
             projected.append(value)
         for key, value_count in item_metrics.items():
             metrics["changed_items" if key == "changed" else key] += value_count
@@ -582,7 +589,7 @@ def _project_input(items: list[object]) -> tuple[list[object], dict[str, int]]:
         _reject("incomplete_local_shell_pair")
     if not projected and items:
         _reject("empty_portable_input")
-    return projected, metrics
+    return projected, metrics, relationships.input_dependencies
 
 
 def sanitize_responses_body(raw: bytes) -> ProjectionResult:
@@ -611,6 +618,7 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         candidate["include"] = trimmed
 
     raw_input = candidate.get("input")
+    input_dependencies = item_policy.InputDependencies()
     metrics = {
         "reasoning_items": 0,
         "reference_items": 0,
@@ -627,7 +635,9 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
             if not raw_input:
                 _reject("empty_input")
         elif isinstance(raw_input, list):
-            candidate["input"], metrics = _project_input(cast("list[object]", raw_input))
+            candidate["input"], metrics, input_dependencies = _project_input(
+                cast("list[object]", raw_input)
+            )
         else:
             _reject("invalid_input")
     except (ProjectionRejectedError, RecursionError) as exc:
@@ -642,7 +652,7 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         or candidate != payload
     )
     if not changed:
-        return ProjectionResult(raw, "clean")
+        return ProjectionResult(raw, "clean", input_dependencies=input_dependencies)
     try:
         encoded = json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode()
     except (TypeError, ValueError, RecursionError, UnicodeError):
@@ -664,4 +674,5 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
             store_normalized=store_normalized,
             include_trimmed=include_trimmed,
         ),
+        input_dependencies=input_dependencies,
     )

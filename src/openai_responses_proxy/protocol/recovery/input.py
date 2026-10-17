@@ -157,7 +157,12 @@ def format_diagnostic(diagnostic: InputDiagnostic | dict[str, object]) -> str:
     return " ".join(f"{key}={value}" for key, value in fields.items())[:768]
 
 
-def build_recovery(raw: bytes, budget: int) -> tuple[bytes | None, RecoveryMetrics | None]:
+def build_recovery(
+    raw: bytes,
+    budget: int,
+    *,
+    input_dependencies: item_policy.InputDependencies | None = None,
+) -> tuple[bytes | None, RecoveryMetrics | None]:
     """Keep admitted current-turn semantics in one strictly smaller request."""
     if isinstance(budget, bool) or budget <= 0:
         return None, None
@@ -172,9 +177,14 @@ def build_recovery(raw: bytes, budget: int) -> tuple[bytes | None, RecoveryMetri
     input_items = payload.get("input")
     if not isinstance(original_items, list) or not isinstance(input_items, list):
         return None, None
-    dialogue = _current_dialogue(input_items)
-    if dialogue is None:
+    dependencies = portable.input_dependencies if input_dependencies is None else input_dependencies
+    retained = _current_dialogue(input_items)
+    if retained is None:
         return None, None
+    retained = sorted(set(retained) | dependencies.required)
+    if not dependencies.allows(set(retained)):
+        return None, None
+    dialogue = [cast(JsonObject, input_items[index]) for index in retained]
     candidate = dict(payload)
     candidate["input"] = dialogue
     try:
@@ -184,6 +194,7 @@ def build_recovery(raw: bytes, budget: int) -> tuple[bytes | None, RecoveryMetri
     recovery = sanitize_responses_body(encoded).body
     if recovery is None or len(recovery) > budget or len(recovery) >= len(raw):
         return None, None
+    dependencies.retain(retained)
     return recovery, RecoveryMetrics(
         original_bytes=len(raw),
         recovery_bytes=len(recovery),
@@ -205,7 +216,7 @@ _DIAGNOSTIC_FLAGS: Final = (
 )
 
 
-def _current_dialogue(items: Sequence[object]) -> list[JsonObject] | None:
+def _current_dialogue(items: Sequence[object]) -> list[int] | None:
     latest: dict[str, int] = {}
     for index, item in enumerate(items):
         match item:
@@ -218,7 +229,7 @@ def _current_dialogue(items: Sequence[object]) -> list[JsonObject] | None:
     retained.update(
         index for index, item in enumerate(items) if item_policy.is_required_current_turn_item(item)
     )
-    return [cast(JsonObject, items[index]) for index in sorted(retained)]
+    return sorted(retained)
 
 
 def _shape(value: object, depth: int = 0) -> object:

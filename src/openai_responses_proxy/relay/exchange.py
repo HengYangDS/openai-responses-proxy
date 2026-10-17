@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from dataclasses import field
 from http.server import BaseHTTPRequestHandler
 from typing import TypedDict
 from typing import cast
@@ -17,6 +18,7 @@ import certifi
 from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.protocol.recovery import execution as execution_recovery
 from openai_responses_proxy.protocol.recovery import input as input_recovery
+from openai_responses_proxy.protocol.replay import items as item_policy
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
@@ -72,8 +74,12 @@ def _request(url: str, body: bytes, method: str, headers: dict[str, str]) -> url
 
 def _input_variant_recovery(
     raw: bytes,
+    *,
+    input_dependencies: item_policy.InputDependencies | None = None,
 ) -> tuple[bytes | None, InputVariantMetrics | None]:
-    recovery, metrics = input_recovery.build_recovery(raw, RESPONSE_FAILED_COMPACTION_BUDGET)
+    recovery, metrics = input_recovery.build_recovery(
+        raw, RESPONSE_FAILED_COMPACTION_BUDGET, input_dependencies=input_dependencies
+    )
     if metrics is None:
         return recovery, None
     return recovery, {
@@ -117,6 +123,9 @@ class Exchange:
     used_input_variant_dialogue: bool = False
     input_variant_metrics: InputVariantMetrics | None = None
     response: UpstreamResponse | None = None
+    input_dependencies: item_policy.InputDependencies = field(
+        default_factory=item_policy.InputDependencies
+    )
 
     def upstream(
         self, body: bytes | None = None, *, deadline: float | None = None
@@ -226,7 +235,9 @@ def _recover_input_variant(exchange: Exchange) -> bool:
         "input_variant_validation_error",
         f"{input_recovery.format_diagnostic(diagnostic)} ",
     )
-    recovery, metrics = _input_variant_recovery(exchange.attempt_body)
+    recovery, metrics = _input_variant_recovery(
+        exchange.attempt_body, input_dependencies=exchange.input_dependencies
+    )
     if recovery is None or metrics is None:
         return False
     telemetry.record_counter("input_variant_dialogue_recovery_attempts")
@@ -249,7 +260,9 @@ def _recover_response_failed(exchange: Exchange, status_code: int, disposition: 
         return False
     if exchange.response_failed_stages < RESPONSE_FAILED_MAX_STAGES:
         compact, metrics = execution_recovery.compact_request(
-            exchange.attempt_body, RESPONSE_FAILED_COMPACTION_BUDGET
+            exchange.attempt_body,
+            RESPONSE_FAILED_COMPACTION_BUDGET,
+            input_dependencies=exchange.input_dependencies,
         )
         if compact is not None and metrics is not None:
             telemetry.record_counter("response_failed_compaction_attempts")
@@ -271,7 +284,9 @@ def _recover_response_failed(exchange: Exchange, status_code: int, disposition: 
     if exchange.used_response_failed_dialogue:
         return False
     recovery, metrics = execution_recovery.recover_dialogue(
-        exchange.body, RESPONSE_FAILED_COMPACTION_BUDGET
+        exchange.attempt_body,
+        RESPONSE_FAILED_COMPACTION_BUDGET,
+        input_dependencies=exchange.input_dependencies,
     )
     if recovery is None or metrics is None:
         return False

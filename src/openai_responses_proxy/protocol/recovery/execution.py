@@ -112,23 +112,35 @@ def tool_pair_boundary_is_safe(items: Sequence[object], start: int) -> bool:
     return True
 
 
-def compact_request(raw: bytes, budget: int) -> Recovery:
+def compact_request(
+    raw: bytes,
+    budget: int,
+    *,
+    input_dependencies: item_policy.InputDependencies | None = None,
+) -> Recovery:
     """Build the oldest-prefix-only, pair-safe fallback for one failed request."""
     bounded_budget = _budget(raw, budget)
-    request = _request(raw, minimum_items=2)
+    portable = sanitize_responses_body(raw)
+    request = _request(portable.body, minimum_items=2) if portable.body is not None else None
     if bounded_budget is None or request is None:
         return None, None
     payload, input_items, latest_user_index = request
+    dependencies = portable.input_dependencies if input_dependencies is None else input_dependencies
 
     smallest = None
     for start in range(1, latest_user_index + 1):
         if not tool_pair_boundary_is_safe(input_items, start):
             continue
-        retained = [
-            item
+        indices = [
+            index
             for index, item in enumerate(input_items)
-            if index >= start or item_policy.is_required_current_turn_item(item)
+            if index >= start
+            or item_policy.is_required_current_turn_item(item)
+            or index in dependencies.required
         ]
+        if not dependencies.allows(set(indices)):
+            continue
+        retained = [input_items[index] for index in indices]
         candidate = dict(payload)
         candidate["input"] = retained
         candidate["store"] = False
@@ -146,22 +158,31 @@ def compact_request(raw: bytes, budget: int) -> Recovery:
             "prompt_cache_key_removed": "prompt_cache_key" in payload,
         }
         if len(compact) <= bounded_budget:
+            dependencies.retain(indices)
             return compact, metrics
         if len(compact) < len(raw) and (smallest is None or len(compact) < len(smallest[0])):
-            smallest = (compact, metrics)
+            smallest = (compact, metrics, indices)
     if smallest is not None:
-        compact, metrics = smallest
+        compact, metrics, indices = smallest
         metrics["budget_met"] = False
+        dependencies.retain(indices)
         return compact, metrics
     return None, None
 
 
-def recover_dialogue(raw: bytes, budget: int) -> Recovery:
+def recover_dialogue(
+    raw: bytes,
+    budget: int,
+    *,
+    input_dependencies: item_policy.InputDependencies | None = None,
+) -> Recovery:
     """Apply the shared current-turn recovery within the execution-failure budget."""
     bounded_budget = _budget(raw, budget)
     if bounded_budget is None:
         return None, None
-    recovery, metrics = input_recovery.build_recovery(raw, bounded_budget)
+    recovery, metrics = input_recovery.build_recovery(
+        raw, bounded_budget, input_dependencies=input_dependencies
+    )
     if recovery is None or metrics is None:
         return None, None
     return recovery, {

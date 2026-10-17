@@ -287,8 +287,18 @@ class TestProxyTransport:
                     },
                     {
                         "type": "message",
+                        "role": "system",
+                        "content": "old system policy" * 1000,
+                    },
+                    {
+                        "type": "message",
                         "role": "user",
                         "content": "latest user context",
+                    },
+                    {
+                        "type": "message",
+                        "role": "system",
+                        "content": "current system policy",
                     },
                     {
                         "type": "custom_tool_call",
@@ -326,6 +336,7 @@ class TestProxyTransport:
         assert recovery["input"] == [
             {"type": "message", "role": "developer", "content": "current policy"},
             {"type": "message", "role": "user", "content": "latest user context"},
+            {"type": "message", "role": "system", "content": "current system policy"},
             {"type": "custom_tool_call", "call_id": "call_new", "name": "tool", "input": "{}"},
             {"type": "custom_tool_call_output", "call_id": "call_new", "output": "tool result"},
         ]
