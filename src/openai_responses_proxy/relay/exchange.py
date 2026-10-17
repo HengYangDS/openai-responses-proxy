@@ -226,7 +226,7 @@ def _recover_input_variant(exchange: Exchange) -> bool:
         "input_variant_validation_error",
         f"{input_recovery.format_diagnostic(diagnostic)} ",
     )
-    recovery, metrics = _input_variant_recovery(exchange.body)
+    recovery, metrics = _input_variant_recovery(exchange.attempt_body)
     if recovery is None or metrics is None:
         return False
     telemetry.record_counter("input_variant_dialogue_recovery_attempts")

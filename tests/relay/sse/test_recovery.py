@@ -256,7 +256,7 @@ class TestSseRecovery(InputTransportFixture):
             reopen=mocker.Mock(side_effect=OSError("private")),
         )
         assert result["pre_content_exhausted"]
-        assert result["attempts"] == 1
+        assert result["attempts"] == 2
 
         admission.reset_for_test()
         telemetry.reset_for_test()

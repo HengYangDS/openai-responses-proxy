@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import threading
+import urllib.error
+
 import pytest
 
 from openai_responses_proxy.providers import registry as provider_registry
@@ -11,6 +15,8 @@ from openai_responses_proxy.relay import sse
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import request
+from tests.relay.fixtures import running_proxy
 
 FAILED = b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
 COMPLETED = b'data: {"type":"response.completed"}\n\n'
@@ -34,6 +40,43 @@ def _exchange(handler: MemoryHandler) -> upstream_exchange.Exchange:
 
 
 class TestStreamDeadline(InputTransportFixture):
+    def test_real_loopback_reconnect_headers_stop_at_the_stream_deadline(self, *, mocker) -> None:
+        released = threading.Event()
+        second_started = threading.Event()
+        release = threading.Timer(3, released.set)
+        mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
+        release.start()
+        try:
+            with running_proxy(
+                [
+                    {"payload": FAILED, "content_type": "text/event-stream"},
+                    {
+                        "payload": b"",
+                        "content_type": "text/event-stream",
+                        "started_event": second_started,
+                        "release_event": released,
+                    },
+                ]
+            ) as (port, received):
+                try:
+                    with pytest.raises(urllib.error.HTTPError) as raised:
+                        request(port, b'{"input":"current","stream":true}')
+                    with raised.value as error:
+                        assert error.code == 503
+                        payload = json.loads(error.read())
+                        assert payload["error"]["code"] == "stream_pre_content_exhausted"
+                        assert payload["error"]["attempts"] == 2
+                    assert second_started.is_set()
+                    assert not released.is_set()
+                finally:
+                    released.set()
+            assert len(received) == 2
+        finally:
+            released.set()
+            release.cancel()
+            release.join(timeout=4)
+        assert not release.is_alive()
+
     @pytest.mark.parametrize("header_delay", [0.05, 0.5])
     def test_reconnect_header_acquisition_uses_the_remaining_stream_budget(
         self, header_delay: float, *, mocker
@@ -73,6 +116,7 @@ class TestStreamDeadline(InputTransportFixture):
         else:
             assert handler.statuses == [503]
             assert b"stream_pre_content_exhausted" in handler.output()
+            assert json.loads(handler.output())["error"]["attempts"] == 2
             successor_close.assert_not_called()
 
     def test_expiry_during_backoff_never_starts_another_upstream_attempt(self, *, mocker) -> None:

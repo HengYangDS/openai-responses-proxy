@@ -253,6 +253,7 @@ def relay(
     current = response
     result: StreamResult | None = None
     attempt = 0
+    attempts_started = 1
     for attempt in range(max_attempts):
         try:
             result = _read_one_stream(
@@ -290,6 +291,7 @@ def relay(
         if time.monotonic() >= deadline:
             break
         assert reopen is not None
+        attempts_started += 1
         try:
             current = reopen(deadline)
         except Exception as error:
@@ -340,6 +342,6 @@ def relay(
         )
     return {
         "pre_content_exhausted": pre_content_exhausted,
-        "attempts": attempt + 1,
+        "attempts": attempts_started,
         "result": result,
     }

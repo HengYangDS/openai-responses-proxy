@@ -29,6 +29,34 @@ PROVIDERS = provider_registry.load()
 
 
 class TestInputRecovery(InputTransportFixture):
+    def test_exact_error_after_compaction_does_not_repeat_a_nonreducing_attempt(self) -> None:
+        current = [
+            {"type": "message", "role": "user", "content": "current request"},
+            {"type": "function_call", "call_id": "c", "name": "f", "arguments": "{}"},
+            {"type": "function_call_output", "call_id": "c", "output": "required result"},
+        ]
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    *current,
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+        failed = b'{"error":{"type":"server_error","code":"response_failed"}}'
+        success = b'{"id":"unexpected_retry","status":"completed"}'
+
+        with running_proxy([(400, failed), (400, EXACT_ERROR), (200, success)]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body)
+            with raised.value as error:
+                assert error.code == 400
+                assert error.read() == EXACT_ERROR
+
+        assert len(received) == 2
+        assert json.loads(received[1])["input"] == current
+
     @pytest.mark.parametrize(
         "required",
         [
