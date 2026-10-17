@@ -90,6 +90,13 @@ jobs:
       ETHOS_COMMIT_ALLOWED_SIGNERS: ${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}
       OPENAI_RESPONSES_PROXY_COMMIT_ROOT: ${{ github.workspace }}
     steps:
+      - name: Require external public commit trust
+        run: |-
+          case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
+            *[![:space:]]*) ;;
+            *) printf '%s
+          ' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0

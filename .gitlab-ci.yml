@@ -243,6 +243,12 @@ commit-admission:
     OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
   before_script:
     - |-
+      case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
+        *[![:space:]]*) ;;
+        *) printf '%s
+      ' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
+      esac
+    - |-
       UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
       UV_VERSION="$(uv --version)"
       UV_VERSION="${UV_VERSION#uv }"
@@ -288,6 +294,12 @@ commit-admission-accepted:
     GIT_DEPTH: "0"
     OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
   before_script:
+    - |-
+      case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
+        *[![:space:]]*) ;;
+        *) printf '%s
+      ' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
+      esac
     - |-
       UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
       UV_VERSION="$(uv --version)"

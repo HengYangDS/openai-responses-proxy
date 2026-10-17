@@ -27,7 +27,7 @@ gitlab: {
 			GIT_DEPTH:                          "0"
 			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "$CI_PROJECT_DIR"
 		}
-		before_script: list.Concat([#systemBootstrap, [
+		before_script: list.Concat([[#CommitTrustPreflight], #systemBootstrap, [
 			#EthosSupply.linuxInstall,
 			#EthosSupply.checkout,
 			"cd \(#EthosSupply.root)\n" + #EthosSupply.prepare + "\ncd \"$CI_PROJECT_DIR\"",

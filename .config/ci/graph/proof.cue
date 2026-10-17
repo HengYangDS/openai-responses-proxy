@@ -16,6 +16,14 @@ import "strings"
 	metadata: module:       "tools.release.metadata"
 }
 
+// Presence is checked before supply; ETHOS remains the public-key trust owner.
+#CommitTrustPreflight: """
+	case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
+	  *[![:space:]]*) ;;
+	  *) printf '%s\n' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
+	esac
+	"""
+
 // The invoking ETHOS identity selects one native source build on each runner.
 #EthosSupply: {
 	source: "https://github.com/HengYangDS/ethos.git"

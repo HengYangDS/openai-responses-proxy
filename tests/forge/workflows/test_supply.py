@@ -1,8 +1,12 @@
 """Locked runner and repository-tool supply in each Forge projection."""
 
 import json
+import os
 import re
+import subprocess
 import tomllib
+from pathlib import Path
+from typing import Literal
 
 import pytest
 import yaml
@@ -191,3 +195,43 @@ def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
     assert install.removeprefix("sudo ") in before
     assert _string(checkout["run"]) in before
     assert commands in "\n".join(before)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Both selected Forge jobs execute POSIX sh")
+@pytest.mark.parametrize("peer", ["github", "gitlab"])
+@pytest.mark.parametrize(
+    ("trust", "expected_exit"),
+    [(None, 1), ("", 1), (" \t\n", 1), ("public-trust-fixture", 0)],
+)
+def test_commit_trust_presence_precedes_supply_commands(
+    tmp_path: Path,
+    peer: Literal["github", "gitlab"],
+    trust: str | None,
+    expected_exit: int,
+) -> None:
+    if peer == "github":
+        workflow = _load_yaml(ROOT / ".github/workflows/verify.yml")
+        job = _mapping(_mapping(workflow["jobs"])["commit-admission"])
+        steps = tuple(_mapping(step) for step in _sequence(job["steps"]))
+        commands = [_string(step["run"]) for step in steps if "run" in step]
+    else:
+        workflow = _load_yaml(ROOT / ".gitlab-ci.yml")
+        commands = _strings(_mapping(workflow["commit-admission"])["before_script"])
+    environment = {"PATH": "", "HOME": str(tmp_path), "LC_ALL": "C"}
+    if trust is not None:
+        environment["ETHOS_COMMIT_ALLOWED_SIGNERS"] = trust
+    # Empty PATH traps any attempted supply command; nonempty input only proves presence.
+    result = subprocess.run(
+        ("/bin/sh", "-eu", "-c", commands[0] if expected_exit == 0 else "\n".join(commands)),
+        cwd=tmp_path,
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == expected_exit, result.stderr
+    assert not tuple(tmp_path.iterdir())
+    if expected_exit:
+        assert "ETHOS_COMMIT_ALLOWED_SIGNERS" in result.stderr

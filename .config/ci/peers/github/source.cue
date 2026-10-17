@@ -12,6 +12,9 @@ package ci
 			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "${{ github.workspace }}"
 		}
 		steps: [{
+			name: "Require external public commit trust"
+			run:  #CommitTrustPreflight
+		}, {
 			uses: #Toolchains.githubActions.checkout
 			with: {
 				"fetch-depth": 0
