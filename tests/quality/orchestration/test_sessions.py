@@ -396,6 +396,7 @@ def test_sessions_accept_built_artifacts_before_publication(
         assert ("tests/release/test_native_lifecycle.py" in tests) == (session_name == "release")
         assert "tests/cli/test_interface.py" in tests
         assert "tests/serving/handoff/test_subprocess.py" in tests
+        assert "tests/relay/native/test_recovery.py" in tests
         assert calls[pack][-2:] == ("--output", orchestration_session.posargs[0])
         assert calls[pack][calls[pack].index("--platform") + 1] == release_platform
     elif session_name == "performance":

@@ -281,6 +281,7 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
         *nox_configuration.PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
+        "tests/relay/native/test_recovery.py",
         "tests/release/test_native_lifecycle.py",
         "tests/release/test_native_compatibility.py",
         "--basetemp=/short/proxy-test",

@@ -226,6 +226,7 @@ def release_asset(session: nox.Session) -> None:
         *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
+        "tests/relay/native/test_recovery.py",
         env=environment,
     )
     _package_release_asset(session, bundle, work)
@@ -245,6 +246,7 @@ def release(session: nox.Session) -> None:
         "tests/cli/test_interface.py",
         "tests/release/test_native_lifecycle.py",
         "tests/serving/handoff/test_subprocess.py",
+        "tests/relay/native/test_recovery.py",
         env=environment,
     )
     _package_release_asset(session, bundle, work)
@@ -327,6 +329,7 @@ def published_release_compatibility(session: nox.Session) -> None:
         *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
         "tests/serving/handoff/test_subprocess.py",
+        "tests/relay/native/test_recovery.py",
         "tests/release/test_native_lifecycle.py",
         "tests/release/test_native_compatibility.py",
         *session.posargs,
