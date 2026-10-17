@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:forge-operations
 role: how-to
 state: canonical
 relations:
-  part_of: ../README.md
+    part_of: ../README.md
 ---
--->
 
 # Forge Operations
 
@@ -222,14 +220,14 @@ mise exec --locked -- uv run --locked --no-sync python -m tools.forge.audit \
   --commit-anchor "$PRODUCT_COMMIT_ALLOWED_SIGNERS" \
   --author-email "$PRODUCT_EMAIL" \
   --tag-anchor "$PRODUCT_TAG_ALLOWED_SIGNERS" \
-  --peer origin --peer github \
+  --peer gitlab --peer github \
   --json
 ```
 
 Each `--peer` names one configured Git remote, not a Forge type. Supply one
 peer for single-Forge delivery or omit the option for local-only verification;
-unselected peers are not contacted. Persistent branch roles come from
-`.ethos/workspace.toml`, not hard-coded branch names.
+unselected peers are not contacted. Persistent branch roles come from the original `ethos lane status` projection,
+not a second parser or a retired workspace declaration.
 
 | Compared          | Required result                                        |
 | ----------------- | ------------------------------------------------------ |

@@ -26,7 +26,7 @@ Requirements:
 verification tools. `.config/ci/graph/` owns the shared matrix, verification
 commands and supply contract; `.config/ci/peers/` adapts them to each Forge.
 The existing projector composes every CUE source in `.config/ci/` through the
-locked native CUE executor. `.python-versions` is the tracked matrix projection.
+locked native CUE executor. `.config/ci/python-versions` is the tracked matrix projection.
 Nox reads it and uses the uv backend to provision each isolated interpreter
 session. Change the CUE declaration, then regenerate the matrix and both Forge
 workflows:

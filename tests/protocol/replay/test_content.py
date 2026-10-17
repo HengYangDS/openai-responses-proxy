@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 import pytest
 
@@ -206,3 +207,96 @@ class ProviderPortableRequestEdgeTests:
                 assert projected["type"] == "agent_message"
                 assert projected["content"] == content
                 assert projected["encrypted_content"] == "agent-secret"
+
+    def test_drops_unreplayable_images_and_keeps_text_and_https(self):
+        body = json.dumps(
+            {
+                "input": [
+                    {
+                        "type": "custom_tool_call",
+                        "call_id": "image-call",
+                        "name": "inspect",
+                        "input": "{}",
+                    },
+                    {
+                        "type": "custom_tool_call_output",
+                        "call_id": "image-call",
+                        "output": [
+                            {"type": "input_text", "text": "before"},
+                            {"type": "input_image", "image_url": "/tmp/example.png"},
+                            {"type": "input_text", "text": "after"},
+                        ],
+                    },
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_image",
+                                "image_url": "https://example.test/valid.png",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": "data:image/png;base64,not-supported",
+                            },
+                        ],
+                    },
+                ]
+            }
+        ).encode()
+
+        _projection = rewrite.sanitize_responses_body(body)
+        out = _projection.body
+        note = _projection.diagnostic()
+        obj = json.loads(cast("bytes", out))
+
+        assert "local_image_items=2" in note
+        assert obj["input"][1]["output"] == [
+            {"type": "input_text", "text": "before"},
+            {"type": "input_text", "text": "after"},
+        ]
+        assert obj["input"][2]["content"] == [
+            {"type": "input_image", "image_url": "https://example.test/valid.png"}
+        ]
+
+    def test_drops_malformed_http_like_image_urls(self):
+        bad_urls = [
+            "https://",
+            "https://bad host/example.png",
+            "http:///missing-host",
+            "https://example.test:not-a-port/image.png",
+            "https://example.test/has space.png",
+        ]
+        body = json.dumps(
+            {
+                "input": [
+                    {
+                        "type": "custom_tool_call",
+                        "call_id": "image-call",
+                        "name": "inspect",
+                        "input": "{}",
+                    },
+                    {
+                        "type": "custom_tool_call_output",
+                        "call_id": "image-call",
+                        "output": [{"type": "input_image", "image_url": url} for url in bad_urls]
+                        + [
+                            {
+                                "type": "input_image",
+                                "image_url": "https://example.test/valid.png",
+                            },
+                        ],
+                    },
+                ],
+            }
+        ).encode()
+
+        _projection = rewrite.sanitize_responses_body(body)
+        out = _projection.body
+        note = _projection.diagnostic()
+        obj = json.loads(cast("bytes", out))
+
+        assert f"local_image_items={len(bad_urls)}" in note
+        assert obj["input"][1]["output"] == [
+            {"type": "input_image", "image_url": "https://example.test/valid.png"}
+        ]

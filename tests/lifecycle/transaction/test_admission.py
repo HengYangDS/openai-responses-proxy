@@ -14,7 +14,8 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
-from openai_responses_proxy.lifecycle import transaction as payload_transaction
+from openai_responses_proxy.lifecycle.transaction import completion as transaction_completion
+from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
@@ -319,4 +320,4 @@ def test_transaction_state_machine_rejects_invalid_order_and_duplicate_commit(
         mocker=mocker,
     )
     fresh.rollback()
-    payload_transaction._remove_transaction_root(fresh._ctx)
+    transaction_completion._remove_transaction_root(fresh._ctx)

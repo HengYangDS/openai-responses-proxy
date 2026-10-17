@@ -5,14 +5,32 @@ context: |
   3.13, and 3.14. GitLab and GitHub are independent publication planes.
 rules:
   proposal:
+    - Follow the official proposal template. State why the change is needed, what changes, the
+      affected capabilities and the impact; mark breaking changes and name the out-of-scope boundary
+      without copying implementation or execution history.
     - Distinguish local proof, hosted CI, publication, installation, and runtime acceptance.
     - Keep authority boundaries explicit and list non-goals.
   specs:
-    - State requirements with observable WHEN, THEN, and AND scenarios.
+    - Use the native delta operations ADDED, MODIFIED, REMOVED and RENAMED at exact capability
+      paths. A MODIFIED requirement restates its complete block with every retained scenario; main
+      specs keep only Purpose and Requirements.
+    - State each requirement as an observable SHALL or MUST obligation with at least one Scenario
+      whose WHEN and THEN clauses can falsify it; describe behavior and its boundaries, not
+      implementation names.
     - Keep provider projections subordinate to the repository-owned command.
   design:
-    - Assign each failure and repair to one semantic owner.
+    - Follow the official design template for a non-trivial change. Explain its architecture,
+      alternatives, rationale, authority boundaries and migration risks, give each behavior one
+      semantic owner, and reference the proposal and specs instead of restating them.
+    - Keep execution history, logs and acceptance reports with their Git, CI and native evidence
+      owners, not in design prose.
     - Preserve rollback, evidence, and external-state boundaries.
   tasks:
-    - Keep dependency-ordered numbered checkboxes with stable identities, bounded actions, observable completion conditions and truthful states.
-    - Keep only short evidence references or current dependencies in tasks; preserve execution history and originals with existing Git, CI and native evidence owners.
+    - Use official checkboxes under numbered groups in dependency order, with numbering and nesting
+      expressing one hierarchy. Each task keeps a stable identity, states one bounded action with
+      its observable completion condition, and carries a truthful state.
+    - Keep only short evidence references or current dependencies in tasks. Preserve execution
+      history, logs and originals with their Git, CI and native evidence owners, never in tasks,
+      design prose or a parallel ledger.
+    - Separate implementation tasks from lifecycle preconditions and effects; a Change never records
+      its own landing, archive or Lane retirement as a completed task.

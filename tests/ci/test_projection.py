@@ -1,5 +1,9 @@
 """Actual CUE journeys for the shared CI graph and its tracked projections."""
 
+from __future__ import annotations
+
+import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -61,7 +65,7 @@ def test_native_cue_projects_one_matrix_and_refuses_drift_without_mutation(
     )
 
     project.main(("--write",))
-    versions = tmp_path / ".python-versions"
+    versions = tmp_path / ".config/ci/python-versions"
     assert versions.read_bytes() == b"3.12\n3.13\n3.14\n"
     before = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
     project.main(())
@@ -69,7 +73,7 @@ def test_native_cue_projects_one_matrix_and_refuses_drift_without_mutation(
         MODEL.replace(', "3.14"', "").replace('session: "quality"', 'session: "quick"'),
         encoding="utf-8",
     )
-    with pytest.raises(SystemExit, match=r"projection drift: .*\.python-versions"):
+    with pytest.raises(SystemExit, match=r"projection drift: .*\.config/ci/python-versions"):
         project.main(())
     assert {path: path.read_bytes() for path in before} == before
 
@@ -144,4 +148,65 @@ def test_native_cue_ignores_an_inherited_config_file(
 ) -> None:
     monkeypatch.setenv("MISE_CONFIG_FILE", str(tmp_path / "foreign.toml"))
     value = project.render('strings.Join(#RuntimeMatrix.python, "\\n")', "text")
-    assert value == (project.ROOT / ".python-versions").read_bytes()
+    assert value == (project.ROOT / ".config/ci/python-versions").read_bytes()
+
+
+@pytest.mark.parametrize("initial", [None, b"stale\n", b"current\n"])
+def test_ci_projection_checks_then_restores_only_owned_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial: bytes | None
+) -> None:
+    path = tmp_path / "nested" / "workflow.yml"
+    foreign = tmp_path / "notes.txt"
+    foreign.write_bytes(b"user owned\n")
+    if initial is not None:
+        path.parent.mkdir()
+        path.write_bytes(initial)
+    monkeypatch.setattr(project, "ROOT", tmp_path)
+    monkeypatch.setattr(project, "PROJECTIONS", (project.Projection(path, "workflow"),))
+    monkeypatch.setattr(project, "render", lambda _expression, _format: b"current\n")
+
+    if initial == b"current\n":
+        project.main(())
+    else:
+        with pytest.raises(SystemExit, match=re.escape("projection drift: nested/workflow.yml")):
+            project.main(())
+    assert (path.read_bytes() if path.exists() else None) == initial
+    project.main(("--write",))
+    assert path.read_bytes() == b"current\n"
+    project.main(())
+    assert foreign.read_bytes() == b"user owned\n"
+    assert {p.relative_to(tmp_path) for p in tmp_path.rglob("*")} == {
+        Path("notes.txt"),
+        Path("nested"),
+        Path("nested/workflow.yml"),
+    }
+
+
+@pytest.mark.parametrize("output_format", ["yaml", "text"])
+def test_ci_projection_renderer_binds_the_locked_repository(
+    mocker, monkeypatch: pytest.MonkeyPatch, output_format
+) -> None:
+    monkeypatch.setenv("MISE_CONFIG_FILE", "/foreign/config.toml")
+    command = mocker.patch.object(
+        project.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"yaml\n")
+    )
+
+    assert project.render("workflow", output_format) == b"yaml\n"
+
+    args = command.call_args.args[0]
+    assert args[:5] == ("mise", "exec", "--locked", "--", "cue")
+    assert args[5:] == (
+        "export",
+        *project.model_inputs(),
+        "--expression",
+        "workflow",
+        "--out",
+        output_format,
+    )
+    assert command.call_args.kwargs["check"] is True
+    assert command.call_args.kwargs["cwd"] == project.ROOT
+    assert "MISE_CONFIG_FILE" not in command.call_args.kwargs["env"]
+    assert command.call_args.kwargs["stdin"] == subprocess.DEVNULL
+    command.side_effect = subprocess.CalledProcessError(1, args)
+    with pytest.raises(subprocess.CalledProcessError):
+        project.render("workflow")

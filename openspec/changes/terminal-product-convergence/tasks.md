@@ -26,7 +26,7 @@ This checklist retains the original task identities and completion states.
 
 - [x] 3.1 Define the product domains and their boundaries; verify every public concept has one owner and excludes client configuration and AIGW control.
 - [x] 3.2 Audit all CLI commands, options, defaults, exit codes, human output, JSON schemas, and help text against real user journeys; add RED tests for every ambiguous, inaccurate, over-broad, or misleading result.
-- [x] 3.3 Converge human and machine output on one typed result model with precise problem, current state, safe next action, and bounded evidence; verify no traceback, warning, private path, credential, payload, or internal module name leaks. Evidence: `cli/outcome.py` owns the admitted result and its one next action for both renderers; leak regressions in `tests/cli`, `tests/serving/handoff/test_state_machine.py` and `tests/relay/test_relay.py`.
+- [x] 3.3 Converge human and machine output on one typed result model with precise problem, current state, safe next action, and bounded evidence; verify no traceback, warning, private path, credential, payload, or internal module name leaks. Evidence: `cli/outcome.py` owns the admitted result and its one next action for both renderers; leak regressions in `tests/cli`, `tests/serving/handoff/test_state_machine.py` and `tests/relay/transport`.
 - [x] 3.4 Verify `install`, `status`, `doctor`, `reload`, `rollback`, `recover`, and `uninstall` are semantically distinct, complete, symmetric, idempotent where declared, and free of hidden source or Forge dependencies. Evidence: lifecycle audit on `7306a1de`; `b3453210` keeps the Windows default roots disjoint (proved by regression, not a native default-root run); `d540e9cc` names only admissible `doctor` actions; the runtime-upgrade delta limits no-op results to the lifecycle lock and adds `recover`'s `purged` result.
 - [x] 3.5 Remove duplicate product, command, service and platform identities; verify each remaining identity belongs to its declared owner.
 - [x] 3.6 Prove Proxy operates independently with an ordinary explicit upstream route and loopback endpoint; verify AIGW absence, client absence, and Forge absence do not prevent local product operation. Evidence: v5.0.5 isolated native journeys on three platforms and the product import gate.
@@ -91,7 +91,7 @@ This checklist retains the original task identities and completion states.
 ## 9. CI and Forge Projection
 
 - [ ] 9.1 Define the quality, Python, native, lifecycle, metadata, publication and parity graph in CUE; verify each job has explicit acceptance facts.
-- [ ] 9.2 Generate GitHub Actions, GitLab CI and `.python-versions` from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
+- [ ] 9.2 Generate GitHub Actions, GitLab CI and `.config/ci/python-versions` from the CUE model, verify semantic parity and provider-specific deltas, and reject hand-edited projection drift.
 - [ ] 9.3 Cover proposal creation and update, review SHA, maintainer fast-forward, `dev`, `main`, and tag events; verify every admissible integration path triggers the required exact-SHA evidence.
 - [ ] 9.4 Separate independent jobs for fast quality, Python 3.12/3.13/3.14 compatibility, macOS, Linux, Windows, release construction, and publication; remove monolithic verification and meaningless duplicate runs.
 - [ ] 9.5 Define when exact-SHA evidence may be reused and when platform, environment, source, lock, or release changes require new execution; verify reuse cannot turn stale or partial proof green.

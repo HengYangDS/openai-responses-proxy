@@ -24,18 +24,14 @@ policy rather than the common Responses grammar. Other clients require their
 own real request, replay, stream, error, and installed-client acceptance before
 the product claims support.
 
-The operator-approved target public name is **OpenAI Responses Proxy**, with
-the product, command, package, repository and release slug
-`openai-responses-proxy`. OpenAI identifies the Responses protocol; it does not
-claim upstream affiliation or assign every failure to the official service.
-Change the package, command, service, release identity, local repository family
-and both existing remote repository names together at a major release only
-after a non-Codex Responses client passes that bar. Preserve remote repository
-IDs, history, permissions, Issues, proposals and published releases. Remove the
-old active identity in the accepted transition rather than maintain aliases.
-Until then, retain the truthful shipped name **OpenAI Responses Proxy**. Naming
-does not expand the protocol surface or move Account, credential, model, or
-client-projection authority out of AIGW or another control plane.
+The public identity is **OpenAI Responses Proxy**, with command, package,
+repository and release slug `openai-responses-proxy`. OpenAI names the protocol,
+not affiliation or fault attribution. A public identity migration changes these
+surfaces, native services and both remote repository names together at a major
+release, qualified by a non-Codex client. Preserve remote IDs, history,
+permissions, Issues, proposals and immutable releases; retire old active aliases.
+Naming changes neither protocol scope nor Account, credential, model or client
+projection ownership.
 
 ### Bounded compatibility delivery
 
@@ -45,13 +41,10 @@ does not make unrelated repository-wide quality, topology or dependency work a
 prerequisite. The existing tasks remain the only progress authority; section 14
 binds this increment to those obligations without marking broader tasks done.
 
-First reconcile the AIGW maintenance obligations and recorded upstream failures
-with their actual evidence. Then refine the existing route/client compatibility
-intersection under AIGW and the protocol decisions under Proxy in parallel.
-Client requirements, provider wire facts and Proxy transformations retain their
-owning implementations; no new control plane or compatibility registry is
-introduced. Preserve indispensable encrypted state, and qualify its issuer and
-model boundaries rather than treat opaque content as disposable corruption.
+Client requirements and route selection remain with their control plane;
+provider wire facts and transformations remain with Proxy's protocol owners.
+No new compatibility registry is introduced. Preserve indispensable encrypted
+state and qualify its issuer/model boundaries rather than discard opaque content.
 
 Qualify Codex on its selected UCloud route, installed Hermes on its selected
 DMXAPI route, and an ordinary installed OpenAI-SDK Responses client. Their real
@@ -154,27 +147,18 @@ projection and release-tag selection and publication; repository settings,
 runner admission, and tag verification remain Forge concerns rather than a
 second release publication mechanism.
 
-Publication identity includes what users can download, not merely a matching
-asset-name inventory. The GitLab adapter compares the complete expected link
-records (name, URL, type), allowing only response ordering and server-assigned
-metadata to vary. Every success path ends by reading and validating the
-persisted Release after verifying package bytes, including first creation,
-existing Release reuse, and concurrent creation. Signed package verification
-and Release-link verification protect different boundaries; neither replaces
-the other. An isolated HTTP store proves these adapter contracts without
-claiming real Forge publication or changing an installed product.
+Publication admits downloadable bytes and complete Release links, not names
+alone. GitLab compares link name, URL and type, allowing only ordering and
+server-assigned metadata to vary. Creation, reuse and concurrent creation all
+finish with persisted Release readback after signed-byte verification. Isolated
+HTTP fixtures prove adapter behavior, not hosted publication or installation.
 
-Release construction has one semantic owner under `tools/release/artifact`.
-`bundle` normalizes frozen inputs and packages one native target; `format` owns
-archive, manifest, and checksum grammar; `assembly` admits one complete release
-set; `signing` owns the external OpenSSH trust boundary. One command tree exposes
-`normalize`, `pack`, `assemble`, and `verify`. Publication adapters consume these
-owners without creating another asset grammar or coordinating build internals.
-The `verify` operation authenticates the signature against explicit external
-trust before reporting success; signature-file presence is not authentication.
-Both Forge publishers consume that same complete verification boundary.
-Tests follow bundle, format, assembly, and signing semantics. The former flat
-asset entrypoints and declaration-only publication initializer are removed.
+`tools/release/artifact` owns frozen-input normalization, native packaging,
+archive/manifest/checksum grammar, complete-set assembly and external OpenSSH
+trust. Its `normalize`, `pack`, `assemble` and `verify` commands serve both
+publishers; neither publisher reconstructs asset grammar or build internals.
+Verification authenticates the signature against explicit external trust before
+success. Tests follow these owners; flat entrypoints and empty facades retire.
 
 Repository-specific quality checks share the `tools.quality.repository` package:
 topology, names, and decision records feed its existing audit command. Tests
@@ -209,15 +193,11 @@ baselines and permanent suppressions are not admission.
 
 ### Mature tools own generic mechanics
 
-Ruff, Ty, pytest and focused plugins, coverage.py, Bandit or another selected
-Python security analyzer, deptry, markdownlint, a Markdown formatter, lychee,
-Taplo, actionlint, CUE, gitleaks, pip-audit or OSV-compatible scanning, Syft,
-Git, OpenSSH, uv, mise, and Nox are evaluated against their supported scope.
-Custom repository code remains only for product semantics, cross-file authority,
-release identity, exact native ownership, or CI projection that an upstream tool
-cannot express. Adoption requires net reduction in custom code and authorities;
-a tool is rejected when configuration and maintenance exceed the mechanism it
-would replace.
+Native tools own generic analysis, formatting, testing, dependency/secret audit,
+CI validation, signing, resolution and execution. Repository code remains only
+for product semantics, cross-file authority, release identity, exact native
+ownership or projections unsupported by admitted tools. Adoption must reduce
+custom code and authorities; reject tools whose upkeep exceeds their benefit.
 
 ### Quality acceptance protects product invariants, not a green dashboard
 
@@ -236,37 +216,19 @@ index and producing a plausible but unauthorized scope. Structure, names, text,
 responsibility mapping, and native formatter inputs use this same boundary;
 each retains its own explicitly declared tracked or pending-file semantics.
 
-The review at source `268ce99f` established these gaps:
+Maintainability uses one blocking Ruff `C901` policy across product, tools,
+tests and Nox. The reviewed bound of 20 protects cohesive state transitions;
+the evaluated bound of 15 needs a semantic benefit before splitting legitimate
+payload validation or transaction admission. Ruff configuration owns the value.
+File and function ELOC share code-line semantics: remove comments and docstrings,
+not inline executable code. Metrics and enforcement remain distinct obligations.
 
-- Structural inventory still reports size observations without ELOC vetoes;
-  function size, arguments and statement admission remain open. McCabe complexity
-  now has one blocking Ruff `C901` policy across product, tools, tests and Nox.
-  The stream reader drops duplicated prelude state and two closure layers;
-  declaration identity validation has one owner instead of three copies.
-  Their complexity decreases from 24 to 20 and from 22 to 16 respectively.
-  The current bound of 20 is a reviewed maintainability guard, not a claim that
-  every smaller value is better. A bound of 15 identifies nine additional
-  operations, including payload validation and transaction-state admission;
-  review their semantic risk before fragmenting their state or adding facades.
-  The numeric authority remains Ruff configuration, not this explanation.
-- Function ELOC used a physical line span, while file ELOC removed entire lines
-  carrying inline comments. The two measures were neither accurate nor equal.
-  Commit `6110515b` repairs that measurement with focused regression evidence;
-  this does not complete structural enforcement or the quality system.
-- Top-level package admission and a complete file-role inventory did not prove
-  cohesion within a package. Lifecycle control and CLI contracts now follow
-  their operation boundaries rather than stateless umbrella classes. CLI parsing
-  and presentation remain distinct from lifecycle observation, mutation and
-  locking; one CLI fixture owns output capture. Relocation preserves test bodies
-  and parameterization, rather than manufacturing additional tests or introducing
-  a fixture framework. Lifecycle transaction tests, relay fixtures and native
-  compatibility journeys remain concrete review targets.
-- The former Python coverage configuration omitted repository tools and Nox
-  orchestration. Real coverage.py conformance now includes those sources and
-  unexecuted namespace modules. The admission command consumes that same native
-  configuration and evaluates each source independently; a product aggregate
-  cannot establish tool or orchestration coverage. This exposes existing test
-  gaps rather than completing them.
+File-role coverage does not prove package cohesion. CLI parsing/presentation and
+lifecycle observation/mutation/locking retain separate owners, with output capture
+in one fixture. Test relocation preserves bodies and parameterization. Native
+coverage.py includes product, repository tools, Nox and unexecuted namespace
+modules; admission evaluates their declared source scopes independently, never
+substituting a product aggregate for tooling or orchestration evidence.
 
 The terminal acceptance scopes are explicit:
 
@@ -282,24 +244,17 @@ The terminal acceptance scopes are explicit:
 | Environment and delivery   | The released executable works outside this checkout and shell                    | Locked lane bootstrap, installed-wheel tests, native build and lifecycle acceptance, exact-source CI and assets               |
 | Control effectiveness      | A declared failure reaches a nonzero decision everywhere it is required          | Isolated conformance cases run the real tool and configured command; inspect local hooks and CUE event routes                 |
 
-Structural limits are engineering decisions, not universal constants. First
-measure with named semantics; then assess the protected risk, current
-percentiles, worst legitimate cohesive examples, and native tool guidance.
-Reject both a bound chosen just above the current maximum and a number that
-forces forwarding helpers or state fragmentation. Product and tooling branches
-are executable risk; a long declarative test table is not equivalent, but test
-setup, control flow, assertions, and teardown still need bounded ownership.
-Any distinct scope needs a semantic reason, never a filename exception for a
-current offender. Existing gaps remain open until the chosen final policy
-passes; an informational probe is never called a blocking gate.
+Structural limits protect engineering risks, not a scoreboard. Evaluate measured
+semantics, percentiles, legitimate cohesive examples and native tool guidance.
+Reject limits chosen merely above today's maximum or forcing facades and state
+fragmentation. Declarative tables differ from executable branches; test setup,
+assertions and teardown still need bounded ownership. Scope differences require
+semantic reasons, not filename exceptions. Informational probes are not gates.
 
-Ruff remains the first owner for its native complexity rules, documented in the
-[rule catalog](https://docs.astral.sh/ruff/rules/). ELOC and logical statements
-must be named separately. Module size is reviewed with cohesion and dependency
-edges; moving half a function into an alias package does not satisfy either.
-Do not add another analyzer until its required metric or behavior is absent
-from the admitted tools and its maintenance cost is lower than the displaced
-custom implementation.
+Ruff owns its native complexity rules ([catalog](https://docs.astral.sh/ruff/rules/)).
+ELOC and logical statements remain distinct. Cohesion and caller edges determine
+module boundaries; introduce another analyzer only for an unmet metric or behavior
+with lower maintenance cost than the custom mechanism it replaces.
 
 Complexity conformance runs the locked Ruff module with the actual repository
 configuration against each Python role. Boundary and over-bound inputs differ
@@ -311,46 +266,35 @@ bodies and parameterization, and cover byte-order preservation for fragmented
 input. Downstream commitment is one irreversible state; it does not need a
 second prelude-flushed flag or an extra terminal flush.
 
-Topology changes follow complete semantic operations. Review payload admission,
-generation transition, rollback/recovery, cleanup, portable replay, and streaming
-as distinct invariants. Keep each state transition's validation, effect, and
-compensation together. Tests follow those behaviors and separate unit, integration,
-native, and release evidence without copying product implementation structure.
-Platform filenames may remain when they express real platform dispatch; generic
-suffix clusters and fixture buckets must instead be absorbed, narrowed, or
-split around real consumers. The acceptance proof is preserved behavior, fewer
-parallel owners, and understandable dependencies, not directory depth.
+Topology follows admission, generation transition, rollback/recovery, cleanup,
+replay and streaming invariants. Keep each transition's validation, effect and
+compensation together. Tests separate unit, integration, native and release
+claims; platform names express real dispatch. Retire generic suffix clusters
+through consumer-owned consolidation, not directory depth or forwarding aliases.
+Acceptance proves preserved behavior and fewer parallel owners.
 
-Quality repair proceeds in this order within the existing task groups:
+Quality repair follows the existing task dependency order:
 
-1. Correct measurement and scope errors, record current effective tool settings,
-   and reopen unsupported completion claims. Keep the installed service intact.
-2. Consolidate native rule ownership and test the complete invocation/exit path.
-   Document selected bounds before changing them; keep unproved scopes open.
-3. Resolve product hotspots by invariant, then organize their behavioral tests
-   and fixtures in the same closure. Delete displaced code and imports before
-   moving to the next owner. Review tooling and non-code carriers by the same rule.
-4. Enable the agreed blocking policies with no blanket exclusions or permanent
-   violation baseline. Run focused checks after each closure; batch independent
-   formatter fixes before running expensive proof.
-5. Exercise all CI event classes, cold bootstrap, native artifacts and lifecycle,
-   security and performance, then freeze one exact candidate for full acceptance.
-   Exact applicable proof and current source authority permit a releasable increment.
-   Delivery and actual-use obligations consume that release; whole-Change archive
-   and lane retirement follow their observed completion. Preserve immutable release
-   identity when later task evidence updates the active Change.
+1. Repair measurement/scope errors and unsupported completion claims; preserve
+   the installed service.
+2. Consolidate rule ownership and prove the actual invocation and failure exit.
+   Record justified bounds; leave unproved scopes open.
+3. Close product, test and fixture owners together; delete displaced paths and
+   imports before advancing. Apply the same rule to tools and non-code carriers.
+4. Enable the agreed policies without blanket exclusions or permanent baselines;
+   focused checks precede expensive proof.
+5. Freeze an exact candidate for CI events, cold bootstrap, native lifecycle,
+   security and performance acceptance. Release identity stays immutable while
+   later delivery evidence completes tasks, archive and retirement.
 
 Generic ETHOS scope, lifecycle, hook dispatch, and capability-reporting defects
 belong to ETHOS. Product policy, native tool configuration, tests, and CI remain
 this repository's responsibility and continue without waiting for ETHOS changes.
 
-The coverage repair is deliberately limited to that owning boundary: no new
-scanner, waiver baseline, product mutation, or quality configuration is added.
-Coverage.py owns file discovery and executable counts; the existing admission
-command owns the independent source-root decision and its nonzero exit. Product,
-tooling, and orchestration each retain the current floor. Their measured gaps
-must be resolved through meaningful tests, deletion, or simpler responsibilities,
-not by combining denominators or silently reusing a product-only green proof.
+Coverage.py owns discovery and executable counts; the existing admission command
+owns nonzero decisions for independent product, tooling and orchestration scopes.
+Keep their floors and resolve gaps with meaningful tests, deletion or simpler
+responsibilities, not combined denominators or product-only green evidence.
 
 ### One development and supply-chain control plane
 
@@ -369,23 +313,16 @@ prior audit said so. Pixi, Nix, Bazel, Just, Task, shell wrappers, and another
 update bot are not added unless a proved requirement cannot be carried by this
 control plane.
 
-Nox's native session installation API owns the target environment and selected
-installer. Repository code exports the locked dependency set and requests its
-installation; it does not reinterpret `session.python`, which is a version
-selector rather than an environment path. The installed-product probe requires
-the imported package to resolve beneath that interpreter's installed-package
-directory and its manifest beneath the same product package. Merely resolving
-outside a temporary working directory does not prove source independence:
-an editable `.pth` projection can still point back into the checkout.
+Nox owns target environments and installer selection. Repository code exports
+locked dependencies rather than treating `session.python` as an environment
+path. Installed-product admission requires imports and manifests beneath that
+interpreter's installed package directory; an editable `.pth` into the checkout
+cannot qualify merely because execution uses another working directory.
 
-Orchestration contracts execute the declared sessions through Nox and observe
-their command boundary, environment ownership, ordering, and failure exits.
-Artifact admission additionally runs the actual isolated interpreter against
-installed and source-linked fixtures. These contracts replace source-string
-assertions; they prove orchestration, not native product operation. Artifact
-admission and session execution have separate test owners under
-`tests/quality/orchestration`, with domain-local fixtures in pytest's native
-`conftest.py` carrier.
+Orchestration tests observe real Nox command ordering, environment ownership and
+failure exits. Artifact tests run isolated installed and source-linked fixtures.
+These distinct owners under `tests/quality/orchestration` share native pytest
+fixtures, replace source-string assertions and do not claim native operation.
 
 ### One native process environment contract
 
@@ -493,79 +430,37 @@ when there was no live listener to stop. The existing outcome owner rejects
 inconsistent evidence before either human or machine rendering, without a
 second result schema or a change to valid lifecycle output.
 
-A stopped installation has one supported start path, owned by `reload` rather
-than `recover` or a new command. `status` classifies `stopped` only when the
-selected payload, installed record and command are verified, no transaction
-exists, the native service is declared but not running, its declaration binds
-the lifecycle control executable, and nothing listens on the installed port the
-request names. Reload reuses that classification, binds the supervisor through
-the adapter's existing installation operation, and proves the selected payload's
-serving identity within the operator deadline before returning `started`. A
-failed proof leaves the declared supervisor bound: no predecessor runtime exists
-to restore. macOS, Linux and Windows share this path through the adapter
-protocol. `doctor` names `reload` only for this state or a verified live runtime
-that can hand off, and never names it when no verified runtime exists outside
-this state, so diagnosis and reload cannot send an operator around a loop. The
-`stopped` state and `started` result replace the former blanket reload
-recommendation; `recover` remains bound to interrupted transactions.
+Lifecycle convergence selects one operation from verified installed state.
+Except transaction recovery, it requires a verified selected payload, installed
+record and command, no pending transaction, and the requested installed port.
 
-A serving installation whose native supervisor stopped converges through the
-same `reload`. A same-payload handoff alone never touched supervision, so after
-an operator bootout or a lost supervisor registration `doctor` kept naming
-`reload` while the watchdog stayed stopped. Reload therefore admits a live
-runtime only with the proof an upgrade requires, an owned declaration that binds
-the lifecycle control executable, and after the proven handoff binds supervision
-through the adapter's installation operation, as an upgrade's handoff does. It
-rebinds on every reload, so the installed command's adapter also replaces a
-definition that an older installer rendered. A rebind failure after the handoff
-is one bounded error that names the serving successor and reverses nothing.
-With a live runtime, `doctor` names `reload` only when supervision is declared
-but not running, and read-only `status --json` when supervision is
-unobservable. An absent declaration may remain from an interrupted removal, so
-recreating it is not reload's decision.
+| Admitted state                                                                   | Command         | Required result                                                    |
+| -------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------ |
+| No listener; owned stopped supervisor; port free                                 | `reload`        | Bind supervision, prove selected listener, return `started`.       |
+| Verified live runtime; owned stopped/outdated supervisor                         | `reload`        | Prove handoff, then bind installed adapter rendering.              |
+| Same signed artifact; absent/stopped supervision; matching listener or free port | `install`       | Restore command/supervision, prove serving, retain rollback state. |
+| Answering verified successor and admitted retained predecessor                   | `rollback`      | Create the reverse transaction; stopped state needs reload first.  |
+| Interrupted admitted transaction                                                 | `recover`       | Complete only recorded restoration/disposal, never start intent.   |
+| Unobservable or mismatched supervision                                           | `status --json` | Read-only diagnosis, no inferred rebind.                           |
 
-An absent declaration converges through `install`, which expresses
-installation intent. `uninstall` deliberately preserves the verified payload,
-yet the same signed artifact was then refused as "not the verified active
-installation" while `doctor` named `install --help`, so only `uninstall --purge`
-followed by a fresh installation restored service. `install` now admits a third
-state beside a fresh target and a verified current listener: the exact
-artifact's verified, transaction-free installation whose native supervision is
-absent or declared but not running, and whose listener either serves that
-artifact or is absent with the installed port free. It restores the command
-projection, binds supervision through the adapter's installation operation and
-proves the serving listener before returning `installed`, without a payload
-transaction, so the retained rollback predecessor survives. A running or
-unobservable service, another artifact, an unverified payload or command,
-another port and a foreign listener stay refused. `doctor` names
-`install --help` whenever supervision is absent.
+A failed start proof leaves its declaration bound because no predecessor serves.
+A rebind failure after proved handoff names the successor and reverses nothing.
 
-Rollback states its own precondition before any change. It reuses the upgrade
-machinery, whose fresh-installation branch also admits an installation that
-nothing serves, so rolling back such an installation activated and started the
-predecessor and only then failed its "verified running successor" check.
-Rollback now requires an answering runtime before it creates the reverse
-transaction; a `stopped` installation is started with `reload` first.
+The three adapters share these preconditions and operator deadlines. Reload
+rebinds after every proved handoff, not merely after a payload change. Absent
+supervision requires explicit installation intent; `doctor` selects
+`install --help`, never reload. Same-artifact reconciliation refuses running or
+unobservable supervision, another artifact, unverified payload/command, another
+port or a foreign listener. It does not erase retained state through purge.
 
-A running supervisor can still carry a definition that another release
-rendered. An upgrade binds supervision with the invoking installer's adapter, so
-a 5.0.1 or 5.0.2 command that installs 5.0.3 keeps the Background-only launch
-agent, and same-release installation then reports `unchanged`. `status`
-therefore asks the native adapter for one read-only projection observation and
-reports the service as `outdated` when the owned declaration binds the
-lifecycle control executable but differs from the installed release's
-rendering; `doctor` names `reload`, whose rebind renders the current
-definition. macOS and Linux compare the owned carrier byte for byte. Windows
-compares the registered task action, because Task Scheduler normalizes the rest
-of an exported task, so an outdated Windows definition is observable only
-through its action. A running supervisor whose declaration does not bind the
-lifecycle control executable is `degraded` with that detail, and `doctor` names
-`status --json`, matching the refusal of both upgrade and reload. launchd itself
-keeps one label out of a second domain: with a GUI login, bootstrapping a label
-into `gui/<uid>` after `user/<uid>`, or the reverse, fails with exit 5 on
-macOS 27, so the adapter's refusal of a registration in both domains is a guard
-rather than a reachable state. A registration in the unselected domain alone is
-replaced by the next bind and by a restart.
+`status` observes native projection through the adapter. An owned declaration
+bound to the control executable but differing from installed rendering is
+`outdated`; `doctor` selects reload. macOS/Linux compare carrier bytes. Windows
+compares the task action because Task Scheduler normalizes exported task XML,
+so other Windows definition drift remains outside that observation. A mismatched
+executable is `degraded`, not restart authority. launchd enforces label exclusion
+between user and GUI domains; binding replaces an owned registration in the
+unselected domain rather than treating both domains as independent services.
 
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
@@ -606,13 +501,9 @@ CI, Release records, and asset transport. A missing GitLab Windows runner does
 not erase Windows evidence already proved by the GitHub native runner, but the
 GitLab projection must state that it does not provide that platform proof.
 
-At source `93aecba5`, GitHub Verify run `35885350727` executed its Windows
-Server 2025 native asset job (45 passed, one skip), Python 3.12–3.14 jobs, and
-published-predecessor compatibility. GitLab MR pipeline `8003` completed six
-Linux ARM64 jobs on project runner `35`. Its active tag and project variable
-match CUE's `linux-arm64` target; the macOS ARM64 Docker host is not presented
-as a Linux x86_64 or Windows runner. No unavailable runner gates this review,
-and GitLab does not claim Windows proof it did not execute.
+Runner admission binds the actual execution OS and architecture to the CUE
+target. A macOS ARM64 Docker host does not prove Linux x86_64 or Windows.
+Historical CI runs remain Forge evidence, not standing proof of current source.
 
 ### Evidence and documentation are reader paths, not residue stores
 
@@ -650,20 +541,14 @@ first-class task, not deferred housekeeping.
 
 ### Bounded live-validation diagnosis
 
-Request40032 exposed an evidence gap in the existing SSE boundary: response
-parsing and selected plaintext restoration both raised ValueError, so the
-operational outcome retained only an exception class. The retained log does not
-prove which validation failed or whether the original decryption incident
-returned. Live response validation now owns a fixed reason type consumed by the
-relay; arbitrary exceptions remain unknown and no exception prose is logged.
-The committed-response regression covers malformed events, rejected ciphertext
-and unknown validation failures while preserving emitted bytes, exact connection
-closure, no reopen and privacy. This repairs diagnostic fidelity without
-changing admission, readable-message requirements, retry policy or client state.
-Focused predecessor RED and successor GREEN, affected protocol/relay acceptance
-and current-source native proof remain separate from published/installed
-acceptance. The existing5.0.1 service stays the accepted serving generation
-until this increment completes its declared release and native transition.
+Live validation owns fixed structural reason types consumed by the relay;
+arbitrary exceptions remain `unknown`, never logged exception prose. A historical
+ValueError does not identify its failing validator or prove a decryption relapse.
+Committed-response acceptance covers malformed events, rejected ciphertext and
+unknown failures while preserving emitted bytes, closure, privacy and no reopen.
+It changes neither admission nor retries nor client state. Source/native proof
+is distinct from release and installed acceptance; the current serving generation
+remains untouched until the successor passes its declared transition.
 
 - **The broad Change becomes an excuse for an unreviewable patch** → keep one
   Change but use ordered atomic commits, focused proofs, and task-level

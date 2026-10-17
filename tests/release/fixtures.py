@@ -411,3 +411,20 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
         process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES) == []
         for owned_ctx in process_contexts
     )
+
+
+def signing_inputs(root: Path) -> tuple[Path, str, Path]:
+    """Create test-owned native signing and external trust inputs once."""
+    key = root / "release-key"
+    subprocess.run(
+        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
+        check=True,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=COMMAND_TIMEOUT_SECONDS,
+    )
+    public_key = key.with_suffix(".pub").read_text(encoding="ascii").strip()
+    trust = f'{signing.PRINCIPAL} namespaces="{signing.NAMESPACE}" {public_key}'
+    anchor = root / "allowed-signers"
+    anchor.write_text(trust + "\n", encoding="ascii")
+    return key, trust, anchor

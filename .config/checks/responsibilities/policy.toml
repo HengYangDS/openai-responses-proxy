@@ -163,7 +163,6 @@ files = [
   ".config/checks/taplo/taplo.toml",
   ".config/checks/ty/ty.toml",
   ".config/checks/vulture/vulture.toml",
-  ".gitleaks.toml",
 ]
 
 [[roles]]
@@ -175,7 +174,7 @@ source_of_truth = "cross-editor text conventions supported by repository format 
 change_condition = "portable text-layout conventions change"
 dependency_direction = "editor defaults conform to formatter-owned syntax"
 retirement_condition = "all consuming editors and format checks cease to use the carrier"
-files = [".editorconfig"]
+files = [".editorconfig", ".gitattributes"]
 
 [[roles]]
 id = "toolchain"
@@ -187,8 +186,7 @@ change_condition = "a supported runtime or verified stable dependency changes"
 dependency_direction = "bootstrap and automation consume the lock-backed declarations"
 retirement_condition = "the declared tool or dependency loses its final verified consumer"
 files = [
-  ".python-release",
-  ".python-versions",
+  ".config/mise/python-release",
   ".config/mise/config.toml",
   ".config/mise/mise.lock",
   ".config/miserc.toml",
@@ -523,12 +521,12 @@ review_condition = "Reassess when the OpenSpec schema or lifecycle model changes
 
 [[concerns]]
 id = "commit-message-grammar"
-owner = "tools.quality.commits"
+owner = "ethos"
 scope = "all-carriers"
-session = "quick"
+session = "git-admission"
 configuration = [".ethos/workspace.toml"]
 risk_model = "Unstructured commit subjects make release history difficult to search, automate, and audit."
-measurement = "Parse each governed commit subject against the tracked type, scope, and concise subject grammar."
+measurement = "Original ETHOS commit, integration and publication admission against its shared grammar, local scope constraints and external signature trust."
 false_positive_cost = "A legitimate new semantic scope requires an intentional policy update."
 remediation = "Choose the nearest existing semantic scope or add one reviewed scope with the behavior that needs it."
 review_condition = "Reassess when the product gains a durable semantic owner."

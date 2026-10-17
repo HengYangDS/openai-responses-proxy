@@ -49,7 +49,7 @@ projections = ["README.md", "src/", "tests/"]
 [[controls]]
 id = "release-python"
 kind = "supply-chain-pin"
-owner = ".python-release"
+owner = ".config/mise/python-release"
 invariant = "Every native release is built by one exact reproducible Python runtime."
 rationale = "Native release construction uses one exact Python patch release."
 projections = [
@@ -103,7 +103,7 @@ owner = ".config/ci/"
 invariant = "Generated Forge CI artifacts implement the same provider-neutral verification semantics and exercise every declared Python series."
 rationale = "GitHub, GitLab and Nox consume one proof graph and ordered Python compatibility matrix."
 projections = [
-  ".python-versions",
+  ".config/ci/python-versions",
   ".github/workflows/admission.yml",
   ".github/workflows/verify.yml",
   ".gitlab-ci.yml",

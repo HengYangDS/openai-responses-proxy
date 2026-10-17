@@ -69,10 +69,7 @@ def urlopen_direct(
 
 def open_readonly(url: str, method: str, headers: dict[str, str]) -> UpstreamResponse:
     """Open one non-Responses request exactly once without recovery policy."""
-    request = urllib.request.Request(url, method=method)
-    for name, value in headers.items():
-        request.add_header(name, value)
-    return urlopen_direct(request, timeout=UPSTREAM_TIMEOUT)
+    return urlopen_direct(_request(url, b"", method, headers), timeout=UPSTREAM_TIMEOUT)
 
 
 def _request(url: str, body: bytes, method: str, headers: dict[str, str]) -> urllib.request.Request:

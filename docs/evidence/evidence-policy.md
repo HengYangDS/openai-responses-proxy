@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:evidence-policy
 role: policy
 state: canonical
 relations:
-  part_of: README.md
+    part_of: README.md
 ---
--->
 
 # Evidence Policy
 

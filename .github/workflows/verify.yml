@@ -65,7 +65,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version-file: .python-release
+          python-version-file: .config/mise/python-release
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
@@ -78,12 +78,52 @@ jobs:
           npm ci --ignore-scripts
           npm audit signatures
       - name: Confirm source identity and repository governance
-        env:
-          OPENAI_RESPONSES_PROXY_COMMIT_BASE: ${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}
-          OPENAI_RESPONSES_PROXY_COMMIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |-
           uv sync --locked --all-groups
           uv run --locked --no-sync python -m tools.quality.governance --online-links
+  commit-admission:
+    name: Native commit admission
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ETHOS_COMMIT_ALLOWED_SIGNERS: ${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}
+      OPENAI_RESPONSES_PROXY_COMMIT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+      - name: Install native ETHOS Linux prerequisites
+        run: |-
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
+      - name: Select the exact native ETHOS source
+        run: |-
+          git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
+          git -C build/runtime/ethos-source checkout --detach efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
+          test "$(git -C build/runtime/ethos-source rev-parse HEAD)" = efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
+          test "$(git -C build/runtime/ethos-source rev-parse 'HEAD^{tree}')" = 3583262bf6c50731af5f9d9716056cd0e00d857d
+      - name: Prepare locked native ETHOS supply and external commit trust
+        working-directory: build/runtime/ethos-source
+        run: |-
+          uv sync --locked --no-install-project --group dev
+          PYTHONPATH=src .venv/bin/python -B -c 'from pathlib import Path; from tools.ci.toolchain.native import prepare_mise, prepare; root = Path.cwd(); prepare(root, "node", mise=prepare_mise(root))'
+          PYTHONPATH=src .venv/bin/python -B -c 'import os, subprocess; from pathlib import Path; from ethos.adapters.repo.runtime.materialization.node.supply import NodeRuntime, NodeSupply; root = Path.cwd(); native = NodeRuntime.read(NodeSupply.read(root).installed_root(root), windows=os.name == "nt"); subprocess.run([str(native.executable), str(native.npm), "ci", "--ignore-scripts"], env=dict(os.environ, PATH=str(native.executable.parent) + os.pathsep + os.environ["PATH"], npm_config_audit="false", npm_config_fund="false", npm_config_update_notifier="false"), stdin=subprocess.DEVNULL, timeout=120, check=True)'
+          .venv/bin/python -B -I -m uv sync --locked --group dev --no-editable
+          .venv/bin/python -B -I -m ethos.cli --version
+          .venv/bin/python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
+      - name: Admit the exact introduced commit range
+        env:
+          OPENAI_RESPONSES_PROXY_COMMIT_BASE: ${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}
+          OPENAI_RESPONSES_PROXY_COMMIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          OPENAI_RESPONSES_PROXY_COMMIT_TARGET: ${{ github.event_name == 'pull_request' && format('refs/heads/{0}', github.base_ref) || github.ref }}
+          OPENAI_RESPONSES_PROXY_COMMIT_PEER: github
+        run: build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
   python:
     name: Python ${{ matrix.python-version }}
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -144,14 +184,11 @@ jobs:
           fetch-tags: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version-file: .python-release
+          python-version-file: .config/mise/python-release
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
       - name: Confirm accepted source and metadata
-        env:
-          OPENAI_RESPONSES_PROXY_COMMIT_BASE: ${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}
-          OPENAI_RESPONSES_PROXY_COMMIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           uv sync --locked --all-groups
           uv run --locked --no-sync python -m tools.release.metadata
@@ -169,14 +206,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version-file: .python-release
+          python-version-file: .config/mise/python-release
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
       - name: Prove exact dev-to-main promotion
-        env:
-          OPENAI_RESPONSES_PROXY_COMMIT_BASE: ${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}
-          OPENAI_RESPONSES_PROXY_COMMIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |-
           git fetch origin main dev --tags --force --prune --prune-tags
           git merge-base --is-ancestor origin/main "${{ github.event.pull_request.head.sha }}"
@@ -211,14 +245,11 @@ jobs:
       - name: Install the complete locked tool environment
         run: uv sync --locked --all-groups
       - name: Verify exact release metadata
-        env:
-          OPENAI_RESPONSES_PROXY_COMMIT_BASE: ${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}
-          OPENAI_RESPONSES_PROXY_COMMIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |-
           uv run --locked --no-sync python -m tools.release.metadata --tag "$GITHUB_REF_NAME"
           uv run --locked --no-sync python -m tools.quality.repository
       - name: Verify repository governance
-        run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_contract.py tests/forge/test_workflow_contracts.py tests/release/publication
+        run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_policy.py tests/quality/repository tests/quality/orchestration/test_governance.py tests/forge/workflows tests/release/publication
   python-quality:
     name: Python quality
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -378,7 +409,7 @@ jobs:
         env:
           OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE: ${{ runner.temp }}/native-linux/runtime/bin/openai-responses-proxy
           OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE: ${{ runner.temp }}/native-linux/runtime/bin
-        run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/test_native_lifecycle.py
+        run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/lifecycle
   release-compatibility:
     name: Published release compatibility (${{ matrix.platform }})
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -436,6 +467,7 @@ jobs:
     name: Release assets
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs:
+      - commit-admission
       - python-matrix
       - tag-metadata
       - native-assets
@@ -497,7 +529,7 @@ jobs:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version-file: .python-release
+          python-version-file: .config/mise/python-release
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
@@ -536,6 +568,7 @@ jobs:
     name: Branch proof
     if: always()
     needs:
+      - commit-admission
       - source-and-governance
       - python-matrix
       - python
@@ -556,9 +589,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version-file: .python-release
+          python-version-file: .config/mise/python-release
       - name: Reject missing branch proof
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          BRANCH_ADMISSION_RULES: '[{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"dev"},"jobs":["source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility"]},{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"main"},"jobs":["promotion"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/dev"},"jobs":["source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/main"},"jobs":["accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF_TYPE":"tag"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"release"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"workflow_dispatch"},"jobs":[]}]'
+          BRANCH_ADMISSION_RULES: '[{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility"]},{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"main"},"jobs":["commit-admission","promotion"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/main"},"jobs":["commit-admission","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF_TYPE":"tag"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"release"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"workflow_dispatch"},"jobs":[]}]'
         run: python -m tools.ci.admission

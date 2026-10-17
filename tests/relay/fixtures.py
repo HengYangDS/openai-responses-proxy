@@ -360,3 +360,16 @@ class InputTransportFixture:
         counters = cast("dict[str, int]", status["counters"])
         classifications = cast("dict[str, int]", status["upstream_classifications"])
         return counters, classifications
+
+
+class LoopbackTransportFixture(InputTransportFixture):
+    """Run real loopback exchanges with the shared relay-state lifecycle."""
+
+    def exchange(self, scripted, body):
+        """Run one loopback exchange and return received requests and payload."""
+        with (
+            running_proxy(scripted) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.status == 200
+            return received, response.read()

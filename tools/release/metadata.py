@@ -40,9 +40,11 @@ def check_python_metadata() -> None:
     """Keep Python support metadata aligned without duplicating release ownership."""
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = metadata.get("project", {})
-    requirement = supported_requirement(ROOT / ".python-versions")
+    requirement = supported_requirement(ROOT / ".config/ci/python-versions")
     if project.get("requires-python") != requirement:
-        raise ValueError(f"pyproject.toml must require Python {requirement} from .python-versions")
+        raise ValueError(
+            f"pyproject.toml must require Python {requirement} from .config/ci/python-versions"
+        )
     if project.get("dynamic") != ["version"]:
         raise ValueError("pyproject.toml must keep VERSION as the sole version owner")
     hatch_version = metadata.get("tool", {}).get("hatch", {}).get("version", {})

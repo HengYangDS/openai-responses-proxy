@@ -57,8 +57,8 @@ def write(*, versions: Path, release: Path, metadata: Path, output: Path) -> Non
 
 def _command(
     *,
-    versions: Path = Path(".python-versions"),
-    release: Path = Path(".python-release"),
+    versions: Path = Path(".config/ci/python-versions"),
+    release: Path = Path(".config/mise/python-release"),
     metadata: Path = Path("pyproject.toml"),
     output: Path | None = None,
 ) -> None:

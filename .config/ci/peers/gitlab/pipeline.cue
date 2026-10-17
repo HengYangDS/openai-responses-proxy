@@ -2,7 +2,12 @@ package ci
 
 import "list"
 
-#GitLabCommitEvent: "export OPENAI_RESPONSES_PROXY_COMMIT_BASE=\"${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}\" OPENAI_RESPONSES_PROXY_COMMIT_HEAD=\"$CI_COMMIT_SHA\"; if [ -n \"$CI_COMMIT_TAG\" ]; then export OPENAI_RESPONSES_PROXY_COMMIT_BASE=\"$CI_COMMIT_SHA\"; fi; "
+#GitLabCommitEvent: """
+	export OPENAI_RESPONSES_PROXY_COMMIT_BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}" OPENAI_RESPONSES_PROXY_COMMIT_HEAD="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/heads/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_COMMIT_REF_NAME}" OPENAI_RESPONSES_PROXY_COMMIT_PEER=gitlab
+	if [ -n "$CI_COMMIT_TAG" ]; then
+	  export OPENAI_RESPONSES_PROXY_COMMIT_BASE="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/tags/$CI_COMMIT_TAG"
+	fi
+	"""
 
 gitlab: {
 	workflow: rules: [{
@@ -15,6 +20,30 @@ gitlab: {
 		if:   "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
 		when: "never"
 	}]
+	#commitAdmission: {
+		stage:   "verify"
+		timeout: "15m"
+		variables: {
+			GIT_DEPTH:                          "0"
+			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "$CI_PROJECT_DIR"
+		}
+		before_script: list.Concat([#systemBootstrap, [
+			#EthosSupply.linuxInstall,
+			#EthosSupply.checkout,
+			"cd \(#EthosSupply.root)\n" + #EthosSupply.prepare + "\ncd \"$CI_PROJECT_DIR\"",
+		]])
+		script: [#GitLabCommitEvent + "\n" + #CommitAdmission]
+		tags: [...string]
+		rules: [...{...}]
+	}
+	"commit-admission": #commitAdmission & {
+		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
+		rules: [{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\""}]
+	}
+	"commit-admission-accepted": #commitAdmission & {
+		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
+		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\" || $CI_COMMIT_BRANCH == \"main\" || $CI_COMMIT_TAG"}]
+	}
 	stages: ["verify", "release"]
 	variables: {
 		DEBIAN_FRONTEND:                           "noninteractive"
@@ -83,7 +112,7 @@ gitlab: {
 				"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
 			]
 			script: [
-				#GitLabCommitEvent + "mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.governance.module) --online-links",
+				"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.governance.module) --online-links",
 			]
 		}
 		"verify-python": {
@@ -143,7 +172,7 @@ gitlab: {
 		before_script: #qualityBootstrap
 		script: [
 			"uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.metadata.module)",
-			#GitLabCommitEvent + "uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
+			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
 		]
 	}
 	"verify-promotion": {
@@ -160,7 +189,7 @@ gitlab: {
 		script: [
 			"git merge-base --is-ancestor origin/main \"$CI_COMMIT_SHA\"",
 			"uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.metadata.module)",
-			#GitLabCommitEvent + "uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
+			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
 		]
 	}
 	"verify-release-tag": {
@@ -173,7 +202,7 @@ gitlab: {
 		script: [
 			"uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.metadata.module) --tag \"$CI_COMMIT_TAG\"",
 			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.release.tag_signature . \"$CI_COMMIT_TAG\" \"$OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST\"",
-			#GitLabCommitEvent + "uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
+			"uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.repository",
 		]
 	}
 }

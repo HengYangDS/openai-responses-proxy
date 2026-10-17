@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:decisions
 role: index
 state: canonical
 relations:
-  part_of: ../README.md
+    part_of: ../README.md
 ---
--->
 
 # Decisions
 

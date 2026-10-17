@@ -6,7 +6,7 @@ local_installation_command = "uv run --locked --no-sync nox -s release"
 id = "gitlab"
 provider = "gitlab"
 role = "organization_collaboration"
-git_remote = "origin"
+git_remote = "gitlab"
 capabilities = ["repository", "ci_cd", "publication"]
 ci_surface = ".gitlab-ci.yml"
 
@@ -32,3 +32,6 @@ installation = "README.md"
 [attestation]
 formats = ["spdx-2.3-json"]
 signing = "ssh-signature"
+
+[release]
+mirror = "accepted_ff"

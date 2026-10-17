@@ -19,7 +19,6 @@ from typing import TypedDict
 
 from cyclopts import App
 
-from tools.quality.commits import commit_subject_gaps
 from tools.quality.python_matrix import supported_requirement
 from tools.quality.repository.decisions import decision_record_gaps
 from tools.quality.repository.names import semantic_name_gaps
@@ -330,7 +329,7 @@ def audit() -> AuditReport:
     repository = tool.get(project_name, {}) if isinstance(project_name, str) else {}
     policy_errors: list[str] = []
     if not isinstance(project, dict) or project.get("requires-python") != supported_requirement(
-        ROOT / ".python-versions"
+        ROOT / ".config/ci/python-versions"
     ):
         policy_errors.append("requires_python_must_match_supported_matrix")
     hatch_version = tool.get("hatch", {}).get("version", {})
@@ -354,7 +353,6 @@ def audit() -> AuditReport:
             *repository_inventory.gaps,
             *gaps,
             *architecture_gaps(ROOT, policy),
-            *commit_subject_gaps(ROOT),
             *decision_record_gaps(ROOT),
             *semantic_name_gaps(ROOT),
         ]

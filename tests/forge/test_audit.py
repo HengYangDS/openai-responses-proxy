@@ -44,10 +44,21 @@ def run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.fixture
-def forge_fixture(tmp_path: Path) -> ForgeFixture:
+def forge_fixture(tmp_path: Path, mocker) -> ForgeFixture:
     """Create a portable signed source and two empty peer repositories."""
     if shutil.which("ssh-keygen") is None:
         pytest.skip("OpenSSH signing is unavailable")
+    mocker.patch.object(
+        audit.observation,
+        "read",
+        return_value={
+            "role_policy": {
+                "release_branch": "main",
+                "accepted_branch": "dev",
+                "candidate_branch": "candidate/dev",
+            }
+        },
+    )
     source = tmp_path / "source"
     gitlab = tmp_path / "gitlab.git"
     github = tmp_path / "github.git"
@@ -112,24 +123,23 @@ class TestForgeAuditContracts:
         unsigned["v1.0.0"]["signature_verified"] = False
         assert not exact_tag_parity(unsigned, unsigned, unsigned)
 
-    def test_branch_inventory_follows_declared_repository_roles(self, tmp_path: Path) -> None:
-        policy = tmp_path / "workspace.toml"
-        policy.write_text(
-            """\
-[branch_roles]
-release_branch = "stable"
-accepted_branch = "integration"
-candidate_branch = "candidate/integration"
-work_branch_prefix = "work/"
-proposal_branch_prefix = "proposal/"
-""",
-            encoding="utf-8",
+    def test_branch_inventory_follows_original_projected_roles(self, tmp_path, mocker) -> None:
+        read = mocker.patch.object(
+            audit.observation,
+            "read",
+            return_value={
+                "role_policy": {
+                    "release_branch": "stable",
+                    "accepted_branch": "integration",
+                    "candidate_branch": "candidate/integration",
+                }
+            },
         )
-
-        assert branches_for_audit(policy) == (
+        assert branches_for_audit(tmp_path) == (
             frozenset({"stable", "integration", "candidate/integration"}),
             frozenset({"stable", "integration"}),
         )
+        read.assert_called_once_with(tmp_path, "lane", "status")
 
     def test_remote_branch_reader_requires_main_and_dev(self, tmp_path: Path) -> None:
         remote = tmp_path / "remote.git"
@@ -158,11 +168,6 @@ proposal_branch_prefix = "proposal/"
 @pytest.mark.parametrize("peers", [(), ("origin",), ("github",), ("origin", "github")])
 def test_selected_peers_are_optional_and_object_preserving(forge_fixture: ForgeFixture, peers):
     source = forge_fixture["source"]
-    policy = source / ".ethos" / "workspace.toml"
-    policy.parent.mkdir()
-    policy.write_text(
-        '[branch_roles]\nrelease_branch="main"\naccepted_branch="dev"\ncandidate_branch="candidate/dev"\n'
-    )
     run("git", "tag", "-s", "v1.0.0", "-m", "Release", cwd=source)
     for remote in ("origin", "github"):
         if remote in peers:
@@ -188,14 +193,20 @@ def test_selected_peers_are_optional_and_object_preserving(forge_fixture: ForgeF
     assert refs_before == run("git", "show-ref", cwd=source).stdout
 
 
-def test_audit_uses_declared_roles_instead_of_main_dev(forge_fixture: ForgeFixture):
+def test_audit_uses_original_role_observation(forge_fixture: ForgeFixture, mocker):
     source = forge_fixture["source"]
     run("git", "branch", "-m", "main", "stable", cwd=source)
     run("git", "branch", "-m", "dev", "integration", cwd=source)
-    policy = source / ".ethos" / "workspace.toml"
-    policy.parent.mkdir()
-    policy.write_text(
-        '[branch_roles]\nrelease_branch="stable"\naccepted_branch="integration"\ncandidate_branch="candidate/integration"\n'
+    mocker.patch.object(
+        audit.observation,
+        "read",
+        return_value={
+            "role_policy": {
+                "release_branch": "stable",
+                "accepted_branch": "integration",
+                "candidate_branch": "candidate/integration",
+            }
+        },
     )
     run("git", "tag", "-s", "v1.0.0", "-m", "Release", cwd=source)
     report = audit.audit(
@@ -234,24 +245,25 @@ def test_branch_parity_rejects_missing_or_different_roles(local, peer):
 
 
 @pytest.mark.parametrize(
-    "text",
+    "roles",
     [
-        "[broken",
-        "",
-        "[branch_roles]\n",
-        '[branch_roles]\nrelease_branch=""\naccepted_branch="dev"\ncandidate_branch="candidate/dev"',
+        None,
+        {},
+        {"release_branch": "", "accepted_branch": "dev", "candidate_branch": "candidate/dev"},
     ],
 )
-def test_branch_role_policy_must_be_complete(text, tmp_path):
-    policy = tmp_path / "workspace.toml"
-    policy.write_text(text)
+def test_native_branch_roles_must_be_complete(roles, tmp_path, mocker):
+    mocker.patch.object(audit.observation, "read", return_value={"role_policy": roles})
     with pytest.raises(RuntimeError, match="policy"):
-        branches_for_audit(policy)
+        branches_for_audit(tmp_path)
 
 
-def test_missing_policy_is_reported_without_guessing(tmp_path):
-    with pytest.raises(RuntimeError, match="policy"):
-        branches_for_audit(tmp_path / "missing")
+def test_unavailable_native_roles_are_not_guessed(tmp_path, mocker):
+    mocker.patch.object(
+        audit.observation, "read", side_effect=audit.observation.ObservationError("unavailable")
+    )
+    with pytest.raises(audit.observation.ObservationError):
+        branches_for_audit(tmp_path)
 
 
 def test_subprocess_failure_is_bounded_and_checked(tmp_path):

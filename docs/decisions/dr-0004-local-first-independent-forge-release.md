@@ -1,12 +1,10 @@
-<!--
 ---
 subject: openai-responses-proxy:decision-0004-local-first-independent-forge-release
 role: decision
 state: canonical
 relations:
-  part_of: README.md
+    part_of: README.md
 ---
--->
 
 # DR-0004: Publish One Signed Product Bundle through Independent Forges
 

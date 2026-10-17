@@ -30,7 +30,7 @@ PROJECTIONS = (
     Projection(ROOT / ".gitlab-ci.yml", "gitlab"),
     Projection(ROOT / ".github/workflows/admission.yml", "githubAdmission"),
     Projection(ROOT / ".github/workflows/verify.yml", "githubVerify"),
-    Projection(ROOT / ".python-versions", "#PythonVersions", "text"),
+    Projection(ROOT / ".config/ci/python-versions", "#PythonVersions", "text"),
 )
 
 

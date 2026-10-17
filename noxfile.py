@@ -29,9 +29,9 @@ _python_quality_spec = importlib.machinery.ModuleSpec(
 _python_quality_spec.has_location = True
 python_quality = importlib.util.module_from_spec(_python_quality_spec)
 _python_quality_loader.exec_module(python_quality)
-PYTHONS = tuple((ROOT / ".python-versions").read_text(encoding="utf-8").splitlines())
+PYTHONS = tuple((ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines())
 MIN_PYTHON, *_, MAX_PYTHON = PYTHONS
-RELEASE_PYTHON = (ROOT / ".python-release").read_text(encoding="utf-8").strip()
+RELEASE_PYTHON = (ROOT / ".config/mise/python-release").read_text(encoding="utf-8").strip()
 PERFORMANCE_POLICY = ROOT / ".config/checks/performance/policy.toml"
 PYTEST_COMMAND = (
     "python",
@@ -54,17 +54,19 @@ def quick(session: nox.Session) -> None:
     """Run the cheapest deterministic contract and source checks."""
     _install_tools(session)
     python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
-    session.run(*PYTEST_COMMAND, "tests/quality/test_contract.py", env=_environment())
+    session.run(
+        *PYTEST_COMMAND,
+        "tests/quality/test_policy.py",
+        "tests/quality/repository",
+        "tests/quality/orchestration/test_governance.py",
+        env=_environment(),
+    )
 
 
 @nox.session(python=PYTHONS)
 def tests(session: nox.Session) -> None:
     """Compile and run the complete behavior inventory on one Python."""
-    _install_tools(session)
-    work = Path(session.create_tmp()).resolve()
-    wheel = _build_wheel(session, work)
-    _install_wheel(session, wheel)
-    _assert_installed_product(session, work)
+    work = _prepare_product_session(session)
     environment: dict[str, str | None] = {
         **_environment(),
         product_identity.environment_name("EXECUTABLE"): str(_installed_executable(session)),
@@ -83,11 +85,7 @@ def tests(session: nox.Session) -> None:
 @nox.session(python=MIN_PYTHON)
 def quality(session: nox.Session) -> None:
     """Run static analysis and branch-aware coverage at the compatibility floor."""
-    _install_tools(session)
-    work = Path(session.create_tmp()).resolve()
-    wheel = _build_wheel(session, work)
-    _install_wheel(session, wheel)
-    _assert_installed_product(session, work)
+    _prepare_product_session(session)
     environment: dict[str, str | None] = {
         **_environment(),
         product_identity.environment_name("EXECUTABLE"): str(_installed_executable(session)),
@@ -97,7 +95,7 @@ def quality(session: nox.Session) -> None:
     if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR"):
         session.run(
             *PYTEST_COMMAND,
-            "tests/quality/orchestration/test_sessions.py",
+            "tests/quality/orchestration/test_observation.py",
             "-k",
             "native_behavior_reports_share_one_actual_pytest_attempt "
             "or native_static_report_observes_one_original_ruff_launch",
@@ -108,11 +106,7 @@ def quality(session: nox.Session) -> None:
 @nox.session(python=RELEASE_PYTHON)
 def performance(session: nox.Session) -> None:
     """Measure deterministic product overhead and emit machine-readable evidence."""
-    _install_tools(session)
-    work = Path(session.create_tmp()).resolve()
-    wheel = _build_wheel(session, work)
-    _install_wheel(session, wheel)
-    _assert_installed_product(session, work)
+    _prepare_product_session(session)
     output = Path(session.posargs[0] if session.posargs else session.create_tmp()).resolve()
     output.mkdir(parents=True, exist_ok=True)
     benchmark_log = output / "benchmark.log"
@@ -216,25 +210,17 @@ def full(session: nox.Session) -> None:
 @nox.session(python=RELEASE_PYTHON)
 def release_asset(session: nox.Session) -> None:
     """Build and accept a native asset without requiring a host service manager."""
-    work, bundle, executable = _build_native_candidate(session)
-    environment = {
-        **_environment(),
-        product_identity.environment_name("EXECUTABLE"): str(executable),
-        product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
-    }
-    session.run(
-        *PYTEST_COMMAND,
-        "tests/cli/test_interface.py",
-        "tests/serving/handoff/test_subprocess.py",
-        "tests/relay/native/test_recovery.py",
-        env=environment,
-    )
-    _package_release_asset(session, bundle, work)
+    _verify_native_candidate(session)
 
 
 @nox.session(python=RELEASE_PYTHON)
 def release(session: nox.Session) -> None:
     """Build and accept this platform's asset and native service lifecycle."""
+    _verify_native_candidate(session, "tests/release/lifecycle")
+
+
+def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> None:
+    """Accept shared artifact behavior and selected lifecycle cases before packaging."""
     work, bundle, executable = _build_native_candidate(session)
     environment = {
         **_environment(),
@@ -244,8 +230,8 @@ def release(session: nox.Session) -> None:
     session.run(
         *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
-        "tests/release/test_native_lifecycle.py",
-        "tests/serving/handoff/test_subprocess.py",
+        *lifecycle_cases,
+        "tests/serving/handoff/subprocess",
         "tests/relay/native/test_recovery.py",
         env=environment,
     )
@@ -287,7 +273,7 @@ def release_compatibility(session: nox.Session) -> None:
     _work, bundle, executable = _build_native_candidate(session)
     session.run(
         *PYTEST_COMMAND,
-        "tests/release/test_native_compatibility.py",
+        "tests/release/compatibility",
         env={
             **_environment(),
             product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
@@ -328,10 +314,10 @@ def published_release_compatibility(session: nox.Session) -> None:
     session.run(
         *PYTEST_COMMAND,
         "tests/cli/test_interface.py",
-        "tests/serving/handoff/test_subprocess.py",
+        "tests/serving/handoff/subprocess",
         "tests/relay/native/test_recovery.py",
-        "tests/release/test_native_lifecycle.py",
-        "tests/release/test_native_compatibility.py",
+        "tests/release/lifecycle",
+        "tests/release/compatibility",
         *session.posargs,
         env={
             **_environment(),
@@ -412,6 +398,16 @@ def _install_tools(session: nox.Session, *groups: str) -> None:
         env={"PYTHONNOUSERSITE": "1", "UV_NO_PROGRESS": "1"},
     )
     python_quality.install_native_helpers(session)
+
+
+def _prepare_product_session(session: nox.Session, *groups: str) -> Path:
+    """Supply locked tools, install one built wheel, and prove its exact source bytes."""
+    _install_tools(session, *groups)
+    work = Path(session.create_tmp()).resolve()
+    wheel = _build_wheel(session, work)
+    _install_wheel(session, wheel)
+    _assert_installed_product(session, work)
+    return work
 
 
 def _build_wheel(session: nox.Session, work: Path) -> Path:
@@ -584,7 +580,8 @@ def _package_release_asset(session: nox.Session, bundle: Path, work: Path) -> No
 
 
 def _environment() -> dict[str, str]:
-    """Return the deterministic environment shared by every session."""
+    """Return deterministic session settings and only explicitly selected overrides."""
+    optional = (product_identity.environment_name("RELEASE_TAG_REMOTE"), "COVERAGE_FILE")
     return {
         "PYTHONHASHSEED": "0",
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -592,14 +589,5 @@ def _environment() -> dict[str, str]:
         "PYTHONWARNINGS": "error",
         "SOURCE_DATE_EPOCH": "315532800",
         "UV_LINK_MODE": "copy",
-        **(
-            {
-                product_identity.environment_name("RELEASE_TAG_REMOTE"): os.environ[
-                    product_identity.environment_name("RELEASE_TAG_REMOTE")
-                ]
-            }
-            if product_identity.environment_name("RELEASE_TAG_REMOTE") in os.environ
-            else {}
-        ),
-        **({"COVERAGE_FILE": os.environ["COVERAGE_FILE"]} if "COVERAGE_FILE" in os.environ else {}),
+        **{name: os.environ[name] for name in optional if name in os.environ},
     }

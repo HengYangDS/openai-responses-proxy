@@ -9,7 +9,7 @@ from pathlib import Path
 
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation as payload_generation
-from openai_responses_proxy.lifecycle import transaction as payload_transaction
+from openai_responses_proxy.lifecycle.transaction import recovery as payload_transaction
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import executable_relative
 

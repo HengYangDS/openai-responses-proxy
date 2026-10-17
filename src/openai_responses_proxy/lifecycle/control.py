@@ -17,12 +17,12 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
-from openai_responses_proxy.lifecycle import transaction
 from openai_responses_proxy.lifecycle import uninstall
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.supervision.native_service import adapter
+from openai_responses_proxy.lifecycle.transaction import recovery as transaction
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
 from openai_responses_proxy.serving import identity
