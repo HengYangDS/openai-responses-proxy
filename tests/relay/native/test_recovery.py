@@ -207,8 +207,11 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: 
                     "IncompleteRead" if phase == "error-framing" else "response_too_large"
                 )
             else:
-                assert response.status == 504
                 payload = json.loads(response.read())
+                assert response.status == 504, (
+                    payload,
+                    f"elapsed_seconds={time.monotonic() - begin:.6f}",
+                )
                 assert payload["error"]["code"] == "upstream_deadline_exceeded"
 
         assert time.monotonic() - begin < 1.2
