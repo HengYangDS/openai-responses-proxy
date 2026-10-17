@@ -40,8 +40,10 @@ class Exchange(Protocol):
     used_input_variant_dialogue: bool
     plaintext_agent_delivery: bool
 
-    def upstream(self, body: bytes | None = None) -> UpstreamResponse:
-        """Open the current upstream attempt."""
+    def upstream(
+        self, body: bytes | None = None, *, deadline: float | None = None
+    ) -> UpstreamResponse:
+        """Open the current attempt within an optional existing deadline."""
 
     def log(self, event: str, detail: str = "") -> None:
         """Record a bounded request event."""
@@ -124,8 +126,8 @@ def _send_stream_headers(handler: BaseHTTPRequestHandler, response: UpstreamResp
 def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
     """Relay one Responses SSE stream with bounded pre-content recovery."""
 
-    def reopen() -> UpstreamResponse:
-        return exchange.upstream()
+    def reopen(deadline: float) -> UpstreamResponse:
+        return exchange.upstream(deadline=deadline)
 
     try:
         result = sse.relay(

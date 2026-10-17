@@ -39,13 +39,14 @@ class TestSseRecovery(InputTransportFixture):
         handler = MemoryHandler()
         reopen = mocker.Mock(return_value=DirectResponse(completed))
         mocker.patch.object(sse.time, "sleep", return_value=None)
+        mocker.patch.object(sse.time, "monotonic", return_value=100.0)
 
         result = sse.relay(
             handler, DirectResponse(failed), "/ucloud/v1/responses", 1, reopen=reopen
         )
 
         assert result["attempts"] == 2
-        reopen.assert_called_once_with()
+        reopen.assert_called_once_with(100.0 + sse.UPSTREAM_TIMEOUT)
         assert b"response.failed" not in handler.output()
         assert handler.output().count(b"response.completed") == 1
 
@@ -160,7 +161,7 @@ class TestSseRecovery(InputTransportFixture):
             b"data: [DONE]\n\n"
         )
         handler = MemoryHandler()
-        reopen = mocker.Mock(side_effect=lambda: DirectResponse(raw))
+        reopen = mocker.Mock(side_effect=lambda _deadline: DirectResponse(raw))
         mocker.patch.object(sse.time, "sleep", return_value=None)
 
         result = sse.relay(handler, DirectResponse(raw), "/ucloud/v1/responses", 1, reopen=reopen)

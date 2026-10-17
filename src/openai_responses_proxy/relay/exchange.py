@@ -118,8 +118,15 @@ class Exchange:
     input_variant_metrics: InputVariantMetrics | None = None
     response: UpstreamResponse | None = None
 
-    def upstream(self, body: bytes | None = None) -> UpstreamResponse:
-        """Open one upstream attempt using the current or replacement body."""
+    def upstream(
+        self, body: bytes | None = None, *, deadline: float | None = None
+    ) -> UpstreamResponse:
+        """Open one attempt, clamping header acquisition to a supplied deadline."""
+        timeout = UPSTREAM_TIMEOUT
+        if deadline is not None:
+            timeout = min(timeout, deadline - time.monotonic())
+            if timeout <= 0:
+                raise TimeoutError("upstream deadline expired before header acquisition")
         return urlopen_direct(
             _request(
                 self.url,
@@ -127,7 +134,7 @@ class Exchange:
                 self.method,
                 self.headers,
             ),
-            timeout=UPSTREAM_TIMEOUT,
+            timeout=timeout,
         )
 
     def log(self, event: str, detail: str = "") -> None:

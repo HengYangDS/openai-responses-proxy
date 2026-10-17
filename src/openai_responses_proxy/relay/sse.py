@@ -234,7 +234,7 @@ def relay(
     response: UpstreamResponse,
     path: str,
     request_id: int,
-    reopen: Callable[[], UpstreamResponse] | None = None,
+    reopen: Callable[[float], UpstreamResponse] | None = None,
     send_headers: Callable[[], None] | None = None,
     plaintext_agent_delivery: bool = False,
 ) -> RelayResult:
@@ -287,9 +287,11 @@ def relay(
             f"path={operational_log.safe_request_path(path)}"
         )
         time.sleep(delay)
+        if time.monotonic() >= deadline:
+            break
         assert reopen is not None
         try:
-            current = reopen()
+            current = reopen(deadline)
         except Exception as error:
             operational_log.log(
                 f"req={request_id} event=sse_reconnect_failed "
