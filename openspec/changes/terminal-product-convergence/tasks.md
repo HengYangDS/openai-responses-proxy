@@ -98,7 +98,7 @@ This checklist retains the original task identities and completion states.
 - [x] 9.6 Make native runner availability explicit: GitHub Windows may own current Windows proof, GitLab may omit that projection, and no unavailable runner remains a false permanent blocker or a false success; verify affected native contracts and reference cleanup.
 - [ ] 9.7 Verify GitHub and GitLab authentication, SSH agent, author identity, commit signature, tag signature, protected-branch, proposal-branch, and automatic merge behavior without password prompts or private-key mutation.
 - [ ] 9.8 Ensure proposal branches are unprotected, merge automatically after required evidence for the maintainer policy, and are deleted on merge; verify no remote `work/*` or stale proposal remains.
-- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. Prior green graphs remain in Git `d7a0e3ed`; current GitLab proposal pipeline `11356` failed during supplier DNS/TLS setup before tests.
+- [ ] 9.9 Run both generated CI projections for the exact candidate and verify `dev`, `main`, and the final tag receive the intended green graph with readable, bounded job output. Prior green graphs remain in Git `d7a0e3ed`; GitLab proposal pipeline `11356` stopped before tests: supplier DNS/TLS failures and three killed package installers (exit 137, cause unproved).
 
 ## 10. Release and Installed Product Proof
 
