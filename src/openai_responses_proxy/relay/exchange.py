@@ -24,6 +24,8 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import upstream as upstream_transport
+from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
 
@@ -46,15 +48,23 @@ def _upstream_tls_context() -> ssl.SSLContext:
     return ssl.create_default_context(cafile=certifi.where())
 
 
+_TLS_CONTEXT = _upstream_tls_context()
 _DIRECT_OPENER = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
-    urllib.request.HTTPSHandler(context=_upstream_tls_context()),
+    urllib.request.HTTPSHandler(context=_TLS_CONTEXT),
 )
 
 
-def urlopen_direct(request: urllib.request.Request, timeout: float) -> UpstreamResponse:
+def urlopen_direct(
+    request: urllib.request.Request, timeout: float, *, deadline: float | None = None
+) -> UpstreamResponse:
     """Open one upstream request without system or environment HTTP proxies."""
-    return cast(UpstreamResponse, _DIRECT_OPENER.open(request, timeout=timeout))
+    opener = (
+        _DIRECT_OPENER
+        if deadline is None
+        else upstream_transport.deadline_opener(deadline, _TLS_CONTEXT)
+    )
+    return cast(UpstreamResponse, opener.open(request, timeout=timeout))
 
 
 def open_readonly(url: str, method: str, headers: dict[str, str]) -> UpstreamResponse:
@@ -126,25 +136,45 @@ class Exchange:
     input_dependencies: item_policy.InputDependencies = field(
         default_factory=item_policy.InputDependencies
     )
+    deadline: float = field(default_factory=lambda: time.monotonic() + UPSTREAM_TIMEOUT)
 
     def upstream(
         self, body: bytes | None = None, *, deadline: float | None = None
     ) -> UpstreamResponse:
-        """Open one attempt, clamping header acquisition to a supplied deadline."""
-        timeout = UPSTREAM_TIMEOUT
-        if deadline is not None:
-            timeout = min(timeout, deadline - time.monotonic())
-            if timeout <= 0:
-                raise TimeoutError("upstream deadline expired before header acquisition")
-        return urlopen_direct(
-            _request(
-                self.url,
-                self.attempt_body if body is None else body,
-                self.method,
-                self.headers,
-            ),
-            timeout=timeout,
-        )
+        """Open one attempt within the original exchange and any narrower deadline."""
+        deadline = self.deadline if deadline is None else min(self.deadline, deadline)
+        timeout = min(UPSTREAM_TIMEOUT, deadline - time.monotonic())
+        if timeout <= 0:
+            raise ExchangeDeadlineError("upstream deadline expired before header acquisition")
+        try:
+            response = urlopen_direct(
+                _request(
+                    self.url,
+                    self.attempt_body if body is None else body,
+                    self.method,
+                    self.headers,
+                ),
+                timeout=timeout,
+                deadline=deadline,
+            )
+        except Exception as error:
+            if time.monotonic() >= deadline:
+                if isinstance(error, urllib.error.HTTPError):
+                    error.close()
+                raise ExchangeDeadlineError("upstream header deadline expired") from error
+            raise
+        if time.monotonic() >= deadline:
+            response.close()
+            raise ExchangeDeadlineError("upstream header deadline expired")
+        return response
+
+    def pause(self, delay: float) -> None:
+        """Wait for recovery only when a subsequent attempt still fits the budget."""
+        if time.monotonic() + delay >= self.deadline:
+            raise ExchangeDeadlineError("upstream deadline cannot admit the retry delay")
+        time.sleep(delay)
+        if time.monotonic() >= self.deadline:
+            raise ExchangeDeadlineError("upstream deadline expired during retry delay")
 
     def log(self, event: str, detail: str = "") -> None:
         """Record one request-scoped operational event without sensitive payloads."""
@@ -353,7 +383,6 @@ def _retry_wire_failure(exchange: Exchange) -> bool:
         exchange_response = exchange.upstream()
     except urllib.error.HTTPError as error:
         try:
-            error.read()
             status = error.code
         finally:
             error.close()
@@ -365,6 +394,8 @@ def _retry_wire_failure(exchange: Exchange) -> bool:
             f"upstream_status={status} attempts=2 ",
         )
         return True
+    except ExchangeDeadlineError:
+        raise
     except Exception as error:
         _reject_wire_failure(
             exchange,
@@ -382,7 +413,33 @@ def _retry_wire_failure(exchange: Exchange) -> bool:
 
 def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int) -> str:
     try:
-        payload, status_code, headers = error.read(), error.code, error.headers
+        payload = upstream_transport.read_body(
+            cast(UpstreamResponse, error), exchange.deadline, downstream.MAX_RESPONSES_JSON_BYTES
+        )
+        status_code, headers = error.code, error.headers
+    except ExchangeDeadlineError:
+        raise
+    except Exception as failure:
+        reason = (
+            "response_too_large"
+            if isinstance(failure, upstream_transport.ResponseSizeError)
+            else operational_log.safe_exception_label(failure)
+        )
+        telemetry.record_failure("upstream_error_body_unreadable")
+        downstream.send_payload(
+            exchange.handler,
+            502,
+            live_response.error_payload(
+                "Upstream error body could not be read safely; retry the turn",
+                "upstream_unavailable",
+                "upstream_error_body_unreadable",
+                reason=reason,
+            ),
+        )
+        exchange.log(
+            "upstream_error_body_unreadable", f"upstream_status={error.code} reason={reason} "
+        )
+        return "terminal"
     finally:
         error.close()
     portable = execution_recovery.retry_disposition(status_code, payload)
@@ -424,7 +481,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
             f"status={status_code} disposition={disposition} attempt={attempt + 1}/{retry_ceiling} "
             f"delay_seconds={delay} ",
         )
-        time.sleep(delay)
+        exchange.pause(delay)
         return "retry"
     if wire_failure:
         return "terminal" if _retry_wire_failure(exchange) else "accepted"
@@ -461,7 +518,7 @@ def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
             "upstream_transport_retry",
             f"attempt={attempt + 1} {operational_log.safe_exception_context(error)} ",
         )
-        time.sleep(_BACKOFFS[min(attempt, len(_BACKOFFS) - 1)])
+        exchange.pause(_BACKOFFS[min(attempt, len(_BACKOFFS) - 1)])
         return "retry"
     telemetry.record_failure("upstream_transport_error")
     downstream.send_payload(
@@ -485,22 +542,28 @@ def open_upstream(exchange: Exchange) -> UpstreamResponse | None:
     stages = RESPONSE_FAILED_MAX_STAGES if exchange.is_responses else 0
     dialogue_slots = RESPONSE_FAILED_DIALOGUE_SLOTS if exchange.is_responses else 0
     input_slots = INPUT_VARIANT_DIALOGUE_SLOTS if exchange.is_responses else 0
-    for attempt in range(
-        (_MAX_ATTEMPTS if exchange.is_responses else 1) + stages + dialogue_slots + input_slots
-    ):
-        try:
-            response = exchange.upstream()
-        except urllib.error.HTTPError as error:
-            outcome = _http_error(exchange, error, attempt)
-            if outcome == "retry":
-                continue
-            return exchange.response if outcome == "accepted" else None
-        except Exception as error:
-            if _transport_error(exchange, error, attempt) == "retry":
-                continue
-            return None
-        exchange.accepted_recovery()
-        return response
+    try:
+        for attempt in range(
+            (_MAX_ATTEMPTS if exchange.is_responses else 1) + stages + dialogue_slots + input_slots
+        ):
+            try:
+                response = exchange.upstream()
+            except urllib.error.HTTPError as error:
+                outcome = _http_error(exchange, error, attempt)
+                if outcome == "retry":
+                    continue
+                return exchange.response if outcome == "accepted" else None
+            except ExchangeDeadlineError:
+                raise
+            except Exception as error:
+                if _transport_error(exchange, error, attempt) == "retry":
+                    continue
+                return None
+            exchange.accepted_recovery()
+            return response
+    except ExchangeDeadlineError:
+        downstream.deadline_exceeded(exchange)
+        return None
     telemetry.record_failure("upstream_transport_error")
     downstream.send_payload(
         exchange.handler,

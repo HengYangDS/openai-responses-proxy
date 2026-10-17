@@ -276,10 +276,10 @@ class TestSseRecovery(InputTransportFixture):
 
     def test_sse_deadline_and_reconnect_deadline_are_bounded(self, *, mocker) -> None:
         handler = MemoryHandler()
-        read_budget = mocker.patch.object(sse, "_arm_read_budget", return_value=None)
-        result = sse._read_one_stream(handler, DirectResponse(), lambda: None)
+        result = sse._read_one_stream(
+            handler, DirectResponse(), lambda: None, deadline=sse.time.monotonic() - 1
+        )
         assert result["detail"] == "deadline"
-        mocker.stop(read_budget)
 
         handler = MemoryHandler()
         mocker.patch.object(

@@ -104,6 +104,30 @@ Every upstream attempt SHALL release its connection after success, rejection,
 exception or downstream disconnect. Before downstream commitment, a malformed
 event SHALL yield one structured HTTP failure.
 
+#### Scenario: Retries and reads share the original exchange deadline
+
+- **WHEN** one Responses exchange acquires headers, reads an HTTP error or JSON
+  body, waits for classified recovery, or reconnects an uncommitted SSE stream
+- **THEN** every operation consumes the same monotonic deadline created for
+  that exchange; a new attempt or body phase cannot reset its budget
+- **AND** an expired pre-commit exchange returns one structured failure without
+  starting another request; an expired committed stream closes without replay,
+  a second status line or a fabricated successful terminator
+- **AND** buffered JSON and error bodies remain byte-bounded and owned upstream
+  connections are released on success, rejection and read failure.
+
+#### Scenario: HTTP framing arrives one small fragment at a time
+
+- **WHEN** the upstream continually supplies partial headers, chunk sizes or
+  trailers within each idle socket timeout
+- **THEN** every raw HTTP read is clamped to the original exchange deadline;
+  framing progress cannot renew the exchange or admit a late stream completion
+- **AND** HTTP and certificate-verified HTTPS use the native parser without a
+  timer thread, alternate service or a patched standard library
+- **AND** DNS resolution and TLS connection setup retain the native transport's
+  timeout semantics; strict wall-clock qualification of those phases remains
+  separate from the demonstrated HTTP-read bound.
+
 #### Scenario: Output is malformed after downstream commitment
 
 - **WHEN** output is malformed or unterminated after downstream commitment

@@ -2,8 +2,135 @@
 
 from __future__ import annotations
 
+import http.client
+import io
+import socket
+import ssl
+import time
+import urllib.request
+from collections.abc import Buffer
 from collections.abc import Iterable
 from typing import Protocol
+from typing import cast
+from typing import override
+from typing import runtime_checkable
+
+
+class ExchangeDeadlineError(TimeoutError):
+    """The original upstream exchange budget has expired."""
+
+
+class ResponseSizeError(ValueError):
+    """A buffered upstream body exceeds its admitted byte limit."""
+
+
+class _DeadlineReader(io.RawIOBase):
+    """Clamp every native socket read, including HTTP header and chunk framing."""
+
+    def __init__(self, raw: socket.SocketIO, sock: socket.socket, deadline: float) -> None:
+        super().__init__()
+        self._raw = raw
+        self._sock = sock
+        self._deadline = deadline
+
+    @override
+    def readable(self) -> bool:
+        return self._raw.readable()
+
+    @override
+    def readinto(self, buffer: Buffer) -> int | None:
+        remaining = self._deadline - time.monotonic()
+        if remaining <= 0:
+            raise ExchangeDeadlineError("upstream deadline expired before socket read")
+        idle_timeout = self._sock.gettimeout()
+        self._sock.settimeout(min(remaining, idle_timeout) if idle_timeout else remaining)
+        return self._raw.readinto(buffer)
+
+    @override
+    def close(self) -> None:
+        try:
+            self._raw.close()
+        finally:
+            super().close()
+
+
+def _bind_response(connection: http.client.HTTPConnection, deadline: float) -> None:
+    """Select the native response-class extension without changing HTTP parsing."""
+
+    class Response(http.client.HTTPResponse):
+        @override
+        def __init__(
+            self,
+            sock: socket.socket,
+            debuglevel: int = 0,
+            method: str | None = None,
+            url: str | None = None,
+        ) -> None:
+            super().__init__(sock, debuglevel, method, url)
+            buffered = cast(io.BufferedReader, self.fp)
+            raw = cast(socket.SocketIO, buffered.detach())
+            self.fp = io.BufferedReader(_DeadlineReader(raw, sock, deadline))
+
+    connection.response_class = Response
+
+
+class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
+    """Use the official HTTP connection with deadline-aware raw reads."""
+
+    def __init__(self, deadline: float) -> None:
+        super().__init__()
+        self._deadline = deadline
+
+    @override
+    def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        deadline = self._deadline
+
+        class Connection(http.client.HTTPConnection):
+            @override
+            def getresponse(self) -> http.client.HTTPResponse:
+                _bind_response(self, deadline)
+                return super().getresponse()
+
+        return self.do_open(Connection, req)
+
+
+class _DeadlineHTTPSHandler(urllib.request.HTTPSHandler):
+    """Preserve native certificate verification and bound decrypted HTTP reads."""
+
+    def __init__(self, deadline: float, context: ssl.SSLContext) -> None:
+        super().__init__(context=context)
+        self._deadline = deadline
+        self._tls_context = context
+
+    @override
+    def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        deadline = self._deadline
+
+        class Connection(http.client.HTTPSConnection):
+            @override
+            def getresponse(self) -> http.client.HTTPResponse:
+                _bind_response(self, deadline)
+                return super().getresponse()
+
+        return self.do_open(Connection, req, context=self._tls_context)
+
+
+def deadline_opener(deadline: float, context: ssl.SSLContext) -> urllib.request.OpenerDirector:
+    """Create one proxy-free native opener scoped to this request's deadline."""
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
+        _DeadlineHTTPHandler(deadline),
+        _DeadlineHTTPSHandler(deadline, context),
+    )
+
+
+@runtime_checkable
+class _TimeoutSocket(Protocol):
+    """Transport capability for bounding the next blocking socket operation."""
+
+    def settimeout(self, timeout: float) -> None:
+        """Set the next blocking operation's timeout."""
+        ...
 
 
 class ResponseHeaders(Protocol):
@@ -52,3 +179,56 @@ class UpstreamResponse(Protocol):
     def close(self) -> None:
         """Release the upstream transport."""
         ...
+
+
+def set_read_timeout(response: UpstreamResponse, timeout: float) -> None:
+    """Arm the standard-library response or HTTP-error socket in place."""
+    for path in (
+        ("raw", "_sock"),
+        ("raw", "_fp", "fp", "raw", "_sock"),
+        ("fp", "raw", "_sock"),
+        ("fp", "raw", "_fp", "fp", "raw", "_sock"),
+    ):
+        candidate = response.fp
+        for attribute in path:
+            candidate = getattr(candidate, attribute, None)
+            if candidate is None:
+                break
+        if isinstance(candidate, _TimeoutSocket):
+            candidate.settimeout(timeout)
+            return
+
+
+def read_chunk(
+    response: UpstreamResponse,
+    deadline: float,
+    max_bytes: int,
+    *,
+    idle_timeout: float | None = None,
+) -> bytes:
+    """Read one chunk within the original deadline and an optional narrower idle limit."""
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise ExchangeDeadlineError("upstream exchange deadline expired during body read")
+    set_read_timeout(response, min(remaining, idle_timeout) if idle_timeout else remaining)
+    try:
+        chunk = response.read1(max_bytes)
+    except Exception as error:
+        if time.monotonic() >= deadline:
+            raise ExchangeDeadlineError("upstream exchange body deadline expired") from error
+        raise
+    if time.monotonic() >= deadline:
+        raise ExchangeDeadlineError("upstream exchange body deadline expired")
+    return chunk
+
+
+def read_body(response: UpstreamResponse, deadline: float, max_bytes: int) -> bytes:
+    """Read a complete bounded body without refunding header or retry time."""
+    payload = bytearray()
+    while True:
+        chunk = read_chunk(response, deadline, min(8192, max_bytes + 1 - len(payload)))
+        if not chunk:
+            return bytes(payload)
+        payload.extend(chunk)
+        if len(payload) > max_bytes:
+            raise ResponseSizeError("upstream body exceeds its admitted byte limit")

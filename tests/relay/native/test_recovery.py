@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import tempfile
 import threading
@@ -113,6 +114,111 @@ def test_frozen_input_recovery_preserves_required_current_turn(required, tmp_pat
     assert not root.exists()
 
 
+@pytest.mark.parametrize(
+    "phase",
+    [
+        "headers",
+        "json",
+        "error",
+        "committed-stream",
+        "error-framing",
+        "error-oversized",
+        "slow-framing",
+    ],
+)
+def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(
+    phase: str, tmp_path: Path
+) -> None:
+    """One native request budget bounds stalled headers and both response body kinds."""
+    upstream = ScriptedUpstream()
+    release = threading.Event()
+    content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
+
+    def delayed(handler):
+        if phase == "slow-framing":
+            handler.connection.sendall(b"HTTP/1.1 200 OK\r\nX-Progress: ")
+            for _ in range(20):
+                if release.wait(timeout=0.08):
+                    return
+                handler.connection.sendall(b"x")
+            handler.connection.sendall(b"\r\nContent-Length: 2\r\n\r\n{}")
+            return
+        if phase in {"headers", "json", "error", "committed-stream"}:
+            release.wait(timeout=5 if phase == "headers" else 0.2)
+        handler.send_response(400 if phase.startswith("error") else 200)
+        handler.send_header(
+            "Content-Type",
+            "text/event-stream" if phase == "committed-stream" else "application/json",
+        )
+        handler.send_header("Transfer-Encoding", "chunked")
+        handler.end_headers()
+        if phase == "error-framing":
+            handler.wfile.write(b"not-a-chunk\r\n")
+            handler.wfile.flush()
+            return
+        if phase == "error-oversized":
+            payload = b"x" * (8 * 1024 * 1024 + 1)
+            handler.wfile.write(b"%X\r\n%s\r\n" % (len(payload), payload))
+            handler.wfile.flush()
+            return
+        prefix = content if phase == "committed-stream" else b'{"id":"partial",'
+        handler.wfile.write(b"%X\r\n%s\r\n" % (len(prefix), prefix))
+        handler.wfile.flush()
+        release.wait(timeout=5)
+        handler.wfile.write(b"0\r\n\r\n")
+
+    upstream.push(delayed)
+    port = free_port()
+    with ExitStack() as cleanup:
+        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory(dir=tmp_path)))
+        ctx = write_installed_payload(
+            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
+        )
+        ctx.upstream_timeout = 0.5
+        ctx.upstream_read_timeout = 2.0
+        runtime_spec.write(ctx)
+        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        cleanup.callback(terminate_process, child)
+        cleanup.callback(upstream.close)
+        cleanup.callback(release.set)
+        upstream.start()
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        cleanup.callback(connection.close)
+        begin = time.monotonic()
+        connection.request(
+            "POST", "/dmxapi/v1/responses", json.dumps({"input": "current", "stream": True})
+        )
+
+        with connection.getresponse() as response:
+            if phase == "committed-stream":
+                assert response.status == 200
+                with pytest.raises(http.client.IncompleteRead) as raised:
+                    response.read()
+                assert raised.value.partial == content
+            elif phase in {"error-framing", "error-oversized"}:
+                assert response.status == 502
+                error = json.loads(response.read())["error"]
+                assert error["code"] == "upstream_error_body_unreadable"
+                assert error["reason"] == (
+                    "IncompleteRead" if phase == "error-framing" else "response_too_large"
+                )
+            else:
+                assert response.status == 504
+                payload = json.loads(response.read())
+                assert payload["error"]["code"] == "upstream_deadline_exceeded"
+
+        assert time.monotonic() - begin < 1.2
+        assert len(upstream.received) == 1
+        assert not release.is_set()
+        assert http_json(port, "/healthz")[1]["active_responses"] == 0
+
+    assert child.poll() is not None
+    assert not proxy_is_up(port)
+    assert not proxy_is_up(upstream.port)
+    assert not upstream.thread.is_alive()
+    assert not root.exists()
+
+
 def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Path) -> None:
     """Delayed reconnect headers cannot extend the native stream budget."""
     upstream = ScriptedUpstream()
@@ -167,10 +273,9 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline(tmp_path: Pat
             )
         elapsed = time.monotonic() - begin
         with raised.value as error:
-            assert error.code == 503
+            assert error.code == 504
             payload = json.loads(error.read())
-        assert payload["error"]["code"] == "stream_pre_content_exhausted"
-        assert payload["error"]["attempts"] == 2
+        assert payload["error"]["code"] == "upstream_deadline_exceeded"
         assert len(upstream.received) == 2
         assert started.is_set()
         assert not release.is_set()

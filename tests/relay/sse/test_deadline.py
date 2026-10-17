@@ -45,6 +45,7 @@ class TestStreamDeadline(InputTransportFixture):
         second_started = threading.Event()
         release = threading.Timer(3, released.set)
         mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
+        mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.1)
         release.start()
         try:
             with running_proxy(
@@ -62,10 +63,9 @@ class TestStreamDeadline(InputTransportFixture):
                     with pytest.raises(urllib.error.HTTPError) as raised:
                         request(port, b'{"input":"current","stream":true}')
                     with raised.value as error:
-                        assert error.code == 503
+                        assert error.code == 504
                         payload = json.loads(error.read())
-                        assert payload["error"]["code"] == "stream_pre_content_exhausted"
-                        assert payload["error"]["attempts"] == 2
+                        assert payload["error"]["code"] == "upstream_deadline_exceeded"
                     assert second_started.is_set()
                     assert not released.is_set()
                 finally:
@@ -89,12 +89,14 @@ class TestStreamDeadline(InputTransportFixture):
         first_close = mocker.spy(first, "close")
         successor_close = mocker.spy(successor, "close")
         mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
+        mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.1)
         mocker.patch.object(sse.time, "monotonic", side_effect=lambda: now[0])
 
         def sleep(delay: float) -> None:
             now[0] += delay
 
-        def open_headers(_request: object, timeout: float) -> DirectResponse:
+        def open_headers(_request: object, timeout: float, *, deadline: float) -> DirectResponse:
+            del deadline
             timeouts.append(timeout)
             now[0] += min(header_delay, timeout)
             if header_delay > timeout:
@@ -114,9 +116,8 @@ class TestStreamDeadline(InputTransportFixture):
             assert COMPLETED in handler.output()
             successor_close.assert_called_once_with()
         else:
-            assert handler.statuses == [503]
-            assert b"stream_pre_content_exhausted" in handler.output()
-            assert json.loads(handler.output())["error"]["attempts"] == 2
+            assert handler.statuses == [504]
+            assert b"upstream_deadline_exceeded" in handler.output()
             successor_close.assert_not_called()
 
     def test_expiry_during_backoff_never_starts_another_upstream_attempt(self, *, mocker) -> None:

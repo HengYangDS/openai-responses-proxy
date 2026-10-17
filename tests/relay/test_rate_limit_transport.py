@@ -189,12 +189,17 @@ class TestRateLimitTransport(InputTransportFixture):
 
     def test_direct_transport_terminal_branches_emit_bounded_results(self, *, mocker) -> None:
         handler = MemoryHandler()
-        exchange = mocker.Mock(
+        exchange = upstream_exchange.Exchange(
             handler=handler,
+            method="POST",
+            request_id=1,
+            body=b'{"input":"current"}',
+            url="https://upstream.invalid/v1/responses",
+            headers={},
             is_responses=True,
-            used_input_variant_dialogue=False,
+            attempt_body=b'{"input":"current"}',
+            profile=PROVIDERS.profiles["ucloud"],
         )
-        exchange.profile.wire_policy = None
 
         with pytest.raises(RuntimeError, match="wire recovery requires a provider policy"):
             upstream_exchange._reject_wire_failure(exchange, "fingerprint", 2, "event", "")

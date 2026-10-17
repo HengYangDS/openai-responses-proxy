@@ -363,12 +363,12 @@ class TestInputRecovery(InputTransportFixture):
             real_urlopen = upstream_exchange.urlopen_direct
             calls = 0
 
-            def fail_second(outbound: urllib.request.Request, timeout: float):
+            def fail_second(outbound: urllib.request.Request, timeout: float, *, deadline: float):
                 nonlocal calls
                 calls += 1
                 if calls == 2:
                     raise transport_error
-                return real_urlopen(outbound, timeout)
+                return real_urlopen(outbound, timeout, deadline=deadline)
 
             mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=fail_second)
             with pytest.raises(urllib.error.HTTPError) as raised:
