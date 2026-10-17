@@ -125,6 +125,16 @@ def is_current_turn_control(item: object) -> bool:
     }
 
 
+def is_required_current_turn_item(item: object) -> bool:
+    """Retain turn controls and native delegation without reclassifying either."""
+    if not isinstance(item, dict):
+        return False
+    policy = classify_item(item.get("type"))
+    return is_current_turn_control(item) or (
+        policy is not None and policy.projection is ProjectionStrategy.AGENT_MESSAGE
+    )
+
+
 def item_types() -> frozenset[str]:
     """Return the recognized item kinds declared by the policy."""
     return frozenset(ITEM_POLICIES)

@@ -53,7 +53,6 @@ _VALUE_KINDS: Final = {
     dict: "dict",
 }
 _SIZE_BUCKETS: Final = ((0, "0"), (1, "1"), (4, "2-4"), (16, "5-16"))
-_TEXT_CONTENT_TYPES: Final = frozenset(("input_text", "output_text"))
 _BUCKETS: Final = frozenset(("0", "1", "2-4", "5-16", "17+"))
 
 
@@ -159,43 +158,41 @@ def format_diagnostic(diagnostic: InputDiagnostic | dict[str, object]) -> str:
 
 
 def build_recovery(raw: bytes, budget: int) -> tuple[bytes | None, RecoveryMetrics | None]:
-    """Keep current dialogue and turn controls in one smaller request."""
+    """Keep admitted current-turn semantics in one strictly smaller request."""
     if isinstance(budget, bool) or budget <= 0:
         return None, None
-    payload = _load_json(raw)
-    if not isinstance(payload, dict):
+    portable = sanitize_responses_body(raw)
+    if portable.body is None:
         return None, None
-    original_items = payload.get("input")
-    if not isinstance(original_items, list) or not original_items:
+    original = _load_json(raw)
+    payload = _load_json(portable.body)
+    if not isinstance(original, dict) or not isinstance(payload, dict):
         return None, None
-    dialogue = _current_dialogue(original_items)
+    original_items = original.get("input")
+    input_items = payload.get("input")
+    if not isinstance(original_items, list) or not isinstance(input_items, list):
+        return None, None
+    dialogue = _current_dialogue(input_items)
     if dialogue is None:
         return None, None
     candidate = dict(payload)
     candidate["input"] = dialogue
-    candidate["store"] = False
-    removed_bindings = sum(key in candidate for key in _PROVIDER_BINDINGS)
-    for key in _PROVIDER_BINDINGS:
-        candidate.pop(key, None)
-    include_removed = _remove_reasoning_include(candidate)
     try:
-        recovery = json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode()
+        encoded = json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode()
     except (TypeError, ValueError, RecursionError, UnicodeError):
         return None, None
-    dropped_items = len(original_items) - len(dialogue)
-    materially_changed = dropped_items > 0 or removed_bindings > 0 or include_removed
-    if not materially_changed or len(recovery) > budget or len(recovery) >= len(raw):
+    recovery = sanitize_responses_body(encoded).body
+    if recovery is None or len(recovery) > budget or len(recovery) >= len(raw):
         return None, None
     return recovery, RecoveryMetrics(
         original_bytes=len(raw),
         recovery_bytes=len(recovery),
         retained_messages=sum(item.get("type") == "message" for item in dialogue),
-        dropped_input_items=dropped_items,
-        prompt_cache_key_removed="prompt_cache_key" in payload,
+        dropped_input_items=len(original_items) - len(dialogue),
+        prompt_cache_key_removed="prompt_cache_key" in original,
     )
 
 
-_PROVIDER_BINDINGS: Final = ("previous_response_id", "conversation", "prompt_cache_key")
 _DIAGNOSTIC_FLAGS: Final = (
     "matched_pairs",
     "unmatched_calls",
@@ -217,48 +214,11 @@ def _current_dialogue(items: Sequence[object]) -> list[JsonObject] | None:
     if "user" not in latest:
         return None
     retained = set(latest.values())
+    retained.update(range(latest["user"], len(items)))
     retained.update(
-        index for index, item in enumerate(items) if item_policy.is_current_turn_control(item)
+        index for index, item in enumerate(items) if item_policy.is_required_current_turn_item(item)
     )
-    dialogue: list[JsonObject] = []
-    for index in sorted(retained):
-        item = items[index]
-        if item_policy.is_current_turn_control(item):
-            dialogue.append(cast(JsonObject, item))
-            continue
-        match item:
-            case {"role": str(role), "content": value} if content := _text_content(value):
-                dialogue.append({"type": "message", "role": role, "content": content})
-            case _:
-                return None
-    return dialogue
-
-
-def _text_content(value: object) -> str | list[JsonObject] | None:
-    match value:
-        case str() if value:
-            return value
-        case list():
-            projected: list[JsonObject] = [
-                {"type": "input_text", "text": text}
-                for block in value
-                if isinstance(block, dict)
-                and block.get("type") in _TEXT_CONTENT_TYPES
-                and isinstance((text := block.get("text")), str)
-                and text
-            ]
-            return projected or None
-        case _:
-            return None
-
-
-def _remove_reasoning_include(candidate: JsonObject) -> bool:
-    include = candidate.get("include")
-    if not isinstance(include, list):
-        return False
-    filtered = [value for value in include if value != "reasoning.encrypted_content"]
-    candidate["include"] = filtered
-    return len(filtered) != len(include)
+    return [cast(JsonObject, items[index]) for index in sorted(retained)]
 
 
 def _shape(value: object, depth: int = 0) -> object:

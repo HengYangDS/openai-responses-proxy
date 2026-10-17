@@ -250,13 +250,13 @@ def request_body(*, stream: bool = False, secret: str = "private-current-prompt"
             "include": ["reasoning.encrypted_content", "other"],
             "input": [
                 {"type": "message", "role": "developer", "content": "current policy"},
-                {"type": "message", "role": "user", "content": secret},
                 {
                     "type": "custom_tool_call",
                     "call_id": "stale-call",
                     "name": "exec",
                     "input": "{}",
                 },
+                {"type": "message", "role": "user", "content": secret},
             ],
         },
         separators=(",", ":"),

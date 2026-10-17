@@ -29,6 +29,66 @@ PROVIDERS = provider_registry.load()
 
 
 class TestInputRecovery(InputTransportFixture):
+    @pytest.mark.parametrize(
+        "required",
+        [
+            pytest.param(
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_image",
+                            "image_url": "https://example.invalid/current.png",
+                            "detail": "high",
+                        },
+                        {"type": "input_text", "text": "Explain this current image"},
+                    ],
+                },
+                id="current-image",
+            ),
+            pytest.param(
+                {
+                    "type": "agent_message",
+                    "author": "/root",
+                    "recipient": "/root/reviewer",
+                    "content": [
+                        {"type": "input_text", "text": "Review the complete task"},
+                        {"type": "encrypted_content", "encrypted_content": "fixture-task"},
+                    ],
+                },
+                id="encrypted-delegation",
+            ),
+        ],
+    )
+    def test_exact_error_recovery_preserves_required_current_turn_input(
+        self, required: dict[str, object]
+    ) -> None:
+        success = b'{"id":"resp_recovered","status":"completed"}'
+        current = {"type": "message", "role": "user", "content": "current request"}
+        body = json.dumps(
+            {
+                "input": [
+                    {"type": "message", "role": "user", "content": "old" * 100},
+                    current,
+                    required,
+                ]
+            },
+            separators=(",", ":"),
+        ).encode()
+        with (
+            running_proxy([(400, EXACT_ERROR), (200, success)]) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.status == 200
+            assert response.read() == success
+
+        assert len(received) == 2
+        assert required in json.loads(received[0])["input"]
+        recovered = json.loads(received[1])["input"]
+        assert recovered == ([required] if required["type"] == "message" else [current, required])
+        assert len(received[1]) < len(received[0])
+
     def test_exact_error_recovers_once_with_fresh_content_length(self) -> None:
         success = b'{"id":"resp_recovered","status":"completed"}'
         body = request_body()

@@ -13,7 +13,9 @@ from collections.abc import Sequence
 from typing import cast
 
 from openai_responses_proxy.protocol import response
+from openai_responses_proxy.protocol.recovery import input as input_recovery
 from openai_responses_proxy.protocol.replay import items as item_policy
+from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
 
 type JsonObject = dict[str, object]
 type Request = tuple[JsonObject, list[object], int]
@@ -34,8 +36,6 @@ def _request(raw: bytes, minimum_items: int = 1) -> Request | None:
     payload: JsonObject = {key: value for key, value in decoded.items() if isinstance(key, str)}
     items = payload.get("input")
     if not isinstance(items, list) or len(items) < minimum_items:
-        return None
-    if any(isinstance(item, dict) and item.get("type") == "agent_message" for item in items):
         return None
     latest_user = next(
         (
@@ -127,13 +127,16 @@ def compact_request(raw: bytes, budget: int) -> Recovery:
         retained = [
             item
             for index, item in enumerate(input_items)
-            if index >= start or item_policy.is_current_turn_control(item)
+            if index >= start or item_policy.is_required_current_turn_item(item)
         ]
         candidate = dict(payload)
         candidate["input"] = retained
         candidate["store"] = False
         candidate.pop("prompt_cache_key", None)
         compact = json.dumps(candidate, separators=(",", ":")).encode("utf-8")
+        compact = sanitize_responses_body(compact).body
+        if compact is None:
+            continue
         metrics = {
             "original_bytes": len(raw),
             "budget_bytes": bounded_budget,
@@ -154,42 +157,18 @@ def compact_request(raw: bytes, budget: int) -> Recovery:
 
 
 def recover_dialogue(raw: bytes, budget: int) -> Recovery:
-    """Keep current instructions, user request, and turn controls in the final recovery."""
+    """Apply the shared current-turn recovery within the execution-failure budget."""
     bounded_budget = _budget(raw, budget)
-    request = _request(raw)
-    if bounded_budget is None or request is None:
+    if bounded_budget is None:
         return None, None
-    payload, input_items, latest_user_index = request
-
-    start = latest_user_index
-    for index in range(latest_user_index, -1, -1):
-        item = input_items[index]
-        if (
-            isinstance(item, dict)
-            and cast(JsonObject, item).get("type") == "message"
-            and cast(JsonObject, item).get("role") in ("developer", "system")
-        ):
-            start = index
-            break
-
-    retained = {start, latest_user_index}
-    retained.update(
-        index for index, item in enumerate(input_items) if item_policy.is_current_turn_control(item)
-    )
-    dialogue = [input_items[index] for index in sorted(retained)]
-
-    candidate = dict(payload)
-    candidate["input"] = dialogue
-    candidate["store"] = False
-    candidate.pop("prompt_cache_key", None)
-    recovery = json.dumps(candidate, separators=(",", ":")).encode("utf-8")
-    if len(recovery) > bounded_budget or len(recovery) >= len(raw):
+    recovery, metrics = input_recovery.build_recovery(raw, bounded_budget)
+    if recovery is None or metrics is None:
         return None, None
     return recovery, {
-        "original_bytes": len(raw),
-        "recovery_bytes": len(recovery),
+        "original_bytes": metrics.original_bytes,
+        "recovery_bytes": metrics.recovery_bytes,
         "budget_bytes": bounded_budget,
-        "retained_messages": 1 + int(start != latest_user_index),
-        "dropped_input_items": len(input_items) - len(dialogue),
-        "prompt_cache_key_removed": "prompt_cache_key" in payload,
+        "retained_messages": metrics.retained_messages,
+        "dropped_input_items": metrics.dropped_input_items,
+        "prompt_cache_key_removed": metrics.prompt_cache_key_removed,
     }

@@ -262,7 +262,7 @@ class TestProxyTransport:
         classifications = cast("dict[str, int]", snapshot["upstream_classifications"])
         assert classifications["provider_bound_encrypted_content"] == 1
 
-    def test_recovers_response_failed_with_dialogue_only_last_resort(self, *, mocker):
+    def test_response_failed_final_recovery_retains_the_current_tool_pair(self, *, mocker):
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
             b'response_failed - Response failed",'
@@ -326,6 +326,8 @@ class TestProxyTransport:
         assert recovery["input"] == [
             {"type": "message", "role": "developer", "content": "current policy"},
             {"type": "message", "role": "user", "content": "latest user context"},
+            {"type": "custom_tool_call", "call_id": "call_new", "name": "tool", "input": "{}"},
+            {"type": "custom_tool_call_output", "call_id": "call_new", "output": "tool result"},
         ]
         assert "event=response_failed_dialogue_recovery_accepted" in logs
         assert "event=response_failed_compact_recovery_accepted" not in logs
