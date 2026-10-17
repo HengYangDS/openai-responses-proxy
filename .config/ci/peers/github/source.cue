@@ -16,6 +16,7 @@ package ci
 		}
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
+			with: ref: #Conditions.productSHA
 		}, {
 			#UvSetup
 		}, {

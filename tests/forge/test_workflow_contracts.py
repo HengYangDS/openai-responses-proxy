@@ -187,6 +187,7 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
     assert compatibility["if"] == product_proof
     product_sha = "${{ github.event.pull_request.head.sha || github.sha }}"
     for job_id in (
+        "python-matrix",
         "source-and-governance",
         "python",
         "python-windows",
