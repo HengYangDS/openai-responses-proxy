@@ -1,5 +1,6 @@
 """Event, trust-role and branch admission across the peer projections."""
 
+import os
 import re
 import subprocess
 
@@ -256,6 +257,7 @@ def test_commit_event_inputs_reach_each_governance_context() -> None:
     assert '--remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER"' in command
 
 
+@pytest.mark.skipif(os.name == "nt", reason="The selected GitLab jobs execute POSIX sh on Linux")
 @pytest.mark.parametrize("event", ["review", "push", "api", "tag"])
 def test_gitlab_commit_projection_executes_native_event_values(event, monkeypatch) -> None:
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
