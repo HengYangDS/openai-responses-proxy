@@ -192,7 +192,10 @@ class TestTransportDeadline(InputTransportFixture):
         assert all(sock.fileno() == -1 for sock in sockets)
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_verified_tls_cannot_refund_time_spent_connecting(self, tls_context, *, mocker):
+    @pytest.mark.parametrize("handshake_delay", [0.0, 0.15], ids=["immediate", "scheduled"])
+    def test_verified_tls_cannot_refund_time_spent_connecting(
+        self, tls_context, handshake_delay: float, *, mocker
+    ):
         upstream = ScriptedUpstream()
         server_context, client_context = tls_context
         upstream.server.socket = server_context.wrap_socket(
@@ -207,24 +210,32 @@ class TestTransportDeadline(InputTransportFixture):
         )
         original_connect = socket.socket.connect
         original_wrap = client_context.wrap_socket
+        original_server_wrap = server_context.wrap_socket
         now = [time.monotonic()]
         tls_budgets = []
 
         def connect(sock, address):
             original_connect(sock, address)
-            now[0] += 0.16
+            now[0] += 3.2
 
         def wrap(sock, *args, **kwargs):
             tls_budgets.append(sock.gettimeout())
             return original_wrap(sock, *args, **kwargs)
+
+        def server_wrap(sock, *args, **kwargs):
+            time.sleep(handshake_delay)
+            return original_server_wrap(sock, *args, **kwargs)
 
         upstream.start()
         try:
             mocker.patch.object(time, "monotonic", side_effect=lambda: now[0])
             mocker.patch.object(socket.socket, "connect", new=connect)
             mocker.patch.object(client_context, "wrap_socket", side_effect=wrap)
+            mocker.patch.object(server_context, "wrap_socket", side_effect=server_wrap)
             mocker.patch.object(upstream_exchange, "_TLS_CONTEXT", client_context)
-            mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.25)
+            # This case proves budget arithmetic with real verified TLS, not
+            # runner scheduling. Keep wall-clock expiry in the stalled-TLS case.
+            mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 5.0)
             base_url = upstream.base_url().replace("http://", "https://")
             providers = provider_registry.Registry(
                 {"fixture": provider_registry.Profile("fixture", base_url + "/v1")}
@@ -235,7 +246,7 @@ class TestTransportDeadline(InputTransportFixture):
 
             assert handler.statuses == [200]
             assert len(upstream.received) == 1
-            assert tls_budgets == [pytest.approx(0.09)]
+            assert tls_budgets == [pytest.approx(1.8)]
             assert self._status_snapshot()["active_responses"] == 0
         finally:
             upstream.close()
