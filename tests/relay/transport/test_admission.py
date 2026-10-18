@@ -15,11 +15,35 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import LoopbackTransportFixture
+from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 
 
 class TestProxyTransport(LoopbackTransportFixture):
+    def test_json_depth_failure_returns_local_400_and_keeps_listener_usable(self):
+        body = b'{"input":"private-depth-prompt","metadata":' + b"[" * 100_000 + b"0"
+        raw = (
+            b"POST /aihubmix/v1/responses HTTP/1.1\r\nHost: localhost\r\n"
+            + f"Content-Length: {len(body)}\r\n".encode()
+            + b"Connection: close\r\n\r\n"
+            + body
+        )
+        success = b'{"id":"resp_after_rejection","status":"completed"}'
+        current = b'{"input":"current","store":false}'
+        with running_proxy([(200, success)]) as (port, received):
+            reply = raw_exchange(port, raw)
+            assert reply.startswith(b"HTTP/1.1 400 ")
+            assert reply.count(b"HTTP/1.1 ") == 1
+            error = json.loads(reply.split(b"\r\n\r\n", 1)[1])["error"]
+            assert error["code"] == "provider_portable_projection_rejected"
+            assert error["reason"] == "invalid_json"
+            assert b"private-depth-prompt" not in reply
+            assert received == []
+            with request(port, current, path="/aihubmix/v1/responses") as response:
+                assert response.read() == success
+            assert received == [current]
+
     def test_same_provider_requests_overlap_without_a_proxy_concurrency_gate(self):
         started = [threading.Event(), threading.Event()]
         release = threading.Event()

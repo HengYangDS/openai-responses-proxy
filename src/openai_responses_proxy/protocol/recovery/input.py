@@ -117,7 +117,7 @@ def diagnose(raw: bytes) -> InputDiagnostic:
 
 def _load_json(raw: bytes) -> object:
     payload: object = _INVALID_JSON
-    with suppress(TypeError, ValueError, json.JSONDecodeError):
+    with suppress(TypeError, ValueError, RecursionError, UnicodeError):
         payload = json.loads(raw)
     return payload
 

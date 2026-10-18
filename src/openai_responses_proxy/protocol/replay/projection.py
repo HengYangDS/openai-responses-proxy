@@ -88,7 +88,7 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         payload = json.loads(
             raw, parse_float=_finite_json_number, parse_constant=_finite_json_number
         )
-    except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+    except (TypeError, ValueError, RecursionError, UnicodeError):
         return ProjectionResult(None, "rejected", reason="invalid_json")
     if not isinstance(payload, dict):
         return ProjectionResult(None, "rejected", reason="request_not_object")

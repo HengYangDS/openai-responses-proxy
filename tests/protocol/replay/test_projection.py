@@ -118,6 +118,13 @@ class RequestSanitizationContracts:
         assert out is None
         assert note == "rejected invalid_json"
 
+    def test_json_parser_depth_failure_is_structural_rejection(self):
+        raw = b'{"input":"private-current-prompt","metadata":' + b"[" * 100_000 + b"0"
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body is None
+        assert projection.diagnostic() == "rejected invalid_json"
+        assert recovery.diagnose(raw).first_incompatible_reason == "invalid_json"
+
     @pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999", b"-1e9999"])
     @pytest.mark.parametrize("store", [b"", b',"store":false'])
     def test_nonfinite_numbers_fail_closed_before_projection(self, number: bytes, store: bytes):
