@@ -70,6 +70,18 @@ class TimedResponse(io.BytesIO):
 
 
 class TestExchangeDeadline(InputTransportFixture):
+    @pytest.mark.parametrize("deadline", [100.0, 99.0], ids=["at-expiry", "after-expiry"])
+    def test_expired_catalog_budget_never_starts_upstream_lookup(self, deadline, *, mocker):
+        mocker.patch.object(time, "monotonic", return_value=100.0)
+        opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
+
+        with pytest.raises(upstream_transport.ExchangeDeadlineError):
+            upstream_exchange.open_readonly(
+                "https://upstream.test/models", "GET", {}, deadline=deadline
+            )
+
+        opened.assert_not_called()
+
     def test_catalog_stalled_native_writer_cannot_hold_upstream_past_the_deadline(self, *, mocker):
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False
