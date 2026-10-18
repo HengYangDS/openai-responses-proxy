@@ -358,6 +358,18 @@ remediation = "Move behavior to its existing owner or declare the new owner and 
 review_condition = "Reassess when product topology changes."
 
 [[concerns]]
+id = "python-control-depth"
+owner = "tools.quality.repository"
+scope = "python"
+session = "quick"
+configuration = [".config/checks/architecture/policy.toml"]
+risk_model = "Deeply nested guards obscure validation, effects and cleanup ownership even when cyclomatic complexity is bounded."
+measurement = "Measure control blocks independently in every module, class and function; same-indent elif clauses are siblings. The single max_depth value is enforced across product, tools, tests and Nox."
+false_positive_cost = "The bound follows Ruff's native five-block guidance, not the current maximum. Its nesting rule is preview-only; enabling preview changes unrelated rule semantics, so the existing audit owns this gap until stable."
+remediation = "Flatten guards or simplify the responsible transition without moving recovery and teardown into forwarding helpers; preserve valid byte-for-byte and lifecycle journeys."
+review_condition = "Reassess when Ruff's nesting rule becomes stable or a cohesive transition cannot retain its invariant at the declared depth."
+
+[[concerns]]
 id = "python-tests"
 owner = "pytest"
 scope = "python"

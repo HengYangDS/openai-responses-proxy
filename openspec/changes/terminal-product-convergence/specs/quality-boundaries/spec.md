@@ -53,3 +53,32 @@ disabled rules SHALL fail admission.
   becomes blocking
 - **THEN** the threshold derives from an explicit risk and observed distribution
 - **AND** a stricter number is not accepted merely because it is smaller.
+
+### Requirement: Source structure has trustworthy bounded admission
+
+Repository quality SHALL enforce one declared control-depth boundary across
+product, tooling, test and Nox source. Syntax measurements SHALL preserve sibling
+branches, independent scopes, executable decorator lines and semicolon-separated
+statements. Native tool policy SHALL own complexity; the shared ETHOS paradigm
+SHALL remain the sole file-size threshold owner.
+
+#### Scenario: A control-depth boundary is evaluated
+
+- **WHEN** the repository audit evaluates the selected Python scope
+- **THEN** module, class and function bodies are measured independently
+- **AND** same-indent elif clauses do not deepen the preceding if block
+- **AND** exceeding the declared boundary yields an exact-path nonzero result.
+
+#### Scenario: A syntax count is reviewed
+
+- **WHEN** a comment, docstring, decorator, wrapped expression or semicolon occurs
+- **THEN** ELOC excludes only comments and actual documentation spans
+- **AND** function ELOC includes its executable decorators
+- **AND** logical statement counts follow syntax nodes rather than physical lines.
+
+#### Scenario: A linear native journey remains cohesive
+
+- **WHEN** review finds many statements in one continuous lifecycle journey
+- **THEN** its identity, transitions, assertions and teardown remain together
+- **AND** a statement ceiling requires demonstrated benefit, not a passing maximum
+- **AND** complexity, control depth and the shared file-size gate still apply.

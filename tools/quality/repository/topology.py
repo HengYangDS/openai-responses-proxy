@@ -31,6 +31,7 @@ _POLICY_FIELDS = frozenset(
         "product_concepts",
         "external_responsibilities",
         "allowed_package_edges",
+        "control_nesting",
     }
 )
 

@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import tomllib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,10 +64,14 @@ def quality_inventory(root: Path):
     return repository_audit._repository_inventory(root, ("src",), ("tests",))
 
 
-def audit_source(source_text: str):
+def audit_source(source_text: str, relative: str = "source.py"):
     """Audit one isolated Python owner and return its observed structure."""
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        source = root / "source.py"
+        source = root / relative
+        source.parent.mkdir(parents=True, exist_ok=True)
         source.write_text(source_text, encoding="utf-8")
-        return repository_audit.audit_paths(root, [source])
+        policy = tomllib.loads(repository_audit.CONFIG.read_text(encoding="utf-8"))
+        return repository_audit.audit_paths(
+            root, [source], max_nesting_depth=policy["control_nesting"]["max_depth"]
+        )

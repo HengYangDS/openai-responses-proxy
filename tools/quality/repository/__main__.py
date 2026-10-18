@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tokenize
 import tomllib
+from bisect import bisect_right
 from collections.abc import Iterable
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -210,16 +211,17 @@ def _docstring_expressions(tree: ast.Module) -> Iterable[ast.Expr]:
             yield node.body[0]
 
 
-def _effective_line_numbers(path: Path, tree: ast.Module) -> set[int]:
+def _effective_line_numbers(
+    source: bytes, tree: ast.Module, tokens: Iterable[tokenize.TokenInfo]
+) -> set[int]:
     """Select code lines after removing only comment and docstring spans."""
-    source = path.read_bytes()
     lines = source.splitlines()
     spans = [
         ((node.lineno, node.col_offset), (node.end_lineno, node.end_col_offset))
         for node in _docstring_expressions(tree)
         if node.end_lineno is not None and node.end_col_offset is not None
     ]
-    for token in tokenize.tokenize(BytesIO(source).readline):
+    for token in tokens:
         if token.type == tokenize.COMMENT:
             number, column = token.start
             offset = len(lines[number - 1].decode()[:column].encode())
@@ -234,7 +236,7 @@ def _effective_line_numbers(path: Path, tree: ast.Module) -> set[int]:
 
 
 def _nesting_depth(node: ast.AST) -> int:
-    """Return the deepest control-flow nesting below one syntax node."""
+    """Measure control blocks with sibling elif clauses at their own indentation."""
     control = (
         ast.AsyncFor,
         ast.AsyncWith,
@@ -248,39 +250,54 @@ def _nesting_depth(node: ast.AST) -> int:
     )
 
     def visit(current: ast.AST, depth: int) -> int:
-        if current is not node and isinstance(
-            current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        ):
+        if current is not node and isinstance(current, _DEFINITION_TYPES):
             return depth
         next_depth = depth + isinstance(current, control)
-        return max(
-            (visit(child, next_depth) for child in ast.iter_child_nodes(current)),
-            default=next_depth,
-        )
+        deepest = next_depth
+        for child in ast.iter_child_nodes(current):
+            child_depth = next_depth
+            if (
+                isinstance(current, ast.If)
+                and isinstance(child, ast.If)
+                and child in current.orelse
+                and child.col_offset == current.col_offset
+            ):
+                child_depth = depth
+            deepest = max(deepest, visit(child, child_depth))
+        return deepest
 
     return visit(node, 0)
 
 
-def _function_structure(tree: ast.Module, effective_lines: set[int]) -> tuple[int, int]:
-    """Return the largest function ELOC and control-flow nesting depth."""
-    metrics = [
-        (
-            sum(node.lineno <= line <= node.end_lineno for line in effective_lines),
-            _nesting_depth(node),
-        )
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.end_lineno is not None
-    ]
-    return (
-        max((lines for lines, _ in metrics), default=0),
-        max((depth for _, depth in metrics), default=0),
+def _source_structure(
+    tree: ast.Module, effective_lines: set[int], tokens: Iterable[tokenize.TokenInfo]
+) -> tuple[int, int]:
+    """Measure function ELOC and independent module, class and function control depth."""
+    decorator_starts = tuple(
+        token.start for token in tokens if token.type == tokenize.OP and token.string == "@"
     )
+    function_lines = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.end_lineno is None:
+            continue
+        start = node.lineno
+        if node.decorator_list:
+            first = node.decorator_list[0]
+            start = decorator_starts[
+                bisect_right(decorator_starts, (first.lineno, first.col_offset)) - 1
+            ][0]
+        function_lines.append(sum(start <= line <= node.end_lineno for line in effective_lines))
+    depths = (
+        _nesting_depth(node)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, *_DEFINITION_TYPES))
+    )
+    return max(function_lines, default=0), max(depths, default=0)
 
 
-def _logical_statements(path: Path, tree: ast.Module) -> int:
-    """Count non-docstring logical statements independently of formatter wrapping."""
-    tokens = tokenize.tokenize(BytesIO(path.read_bytes()).readline)
-    return sum(token.type == tokenize.NEWLINE for token in tokens) - sum(
+def _logical_statements(tree: ast.Module) -> int:
+    """Count syntax statements, excluding only actual documentation nodes."""
+    return sum(isinstance(node, ast.stmt) for node in ast.walk(tree)) - sum(
         1 for _ in _docstring_expressions(tree)
     )
 
@@ -288,17 +305,26 @@ def _logical_statements(path: Path, tree: ast.Module) -> int:
 def audit_paths(
     root: Path,
     paths: Iterable[Path],
+    *,
+    max_nesting_depth: int,
 ) -> tuple[list[str], list[SourceMetrics]]:
-    """Audit semantic contracts and report descriptive source metrics."""
+    """Enforce the declared control-depth boundary and report exact source metrics."""
     gaps: list[str] = []
     inventory: list[SourceMetrics] = []
     selected = sorted(set(paths))
     for path in selected:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source = path.read_bytes()
+        tree = ast.parse(source, filename=str(path))
+        tokens = tuple(tokenize.tokenize(BytesIO(source).readline))
         relative = path.relative_to(root).as_posix()
-        logical = _logical_statements(path, tree)
-        effective_lines = _effective_line_numbers(path, tree)
-        function_eloc, nesting_depth = _function_structure(tree, effective_lines)
+        logical = _logical_statements(tree)
+        effective_lines = _effective_line_numbers(source, tree, tokens)
+        function_eloc, nesting_depth = _source_structure(tree, effective_lines, tokens)
+        if nesting_depth > max_nesting_depth:
+            gaps.append(
+                f"quality_nesting_depth_exceeds_limit:{relative}:"
+                f"{nesting_depth}>{max_nesting_depth}"
+            )
         inventory.append(
             {
                 "path": relative,
@@ -339,9 +365,21 @@ def audit() -> AuditReport:
         policy_errors.append("distribution_must_be_native_executable")
     source_roots = _string_list(policy, "source_roots", policy_errors)
     test_roots = _string_list(policy, "test_roots", policy_errors)
-    repository_inventory = _repository_inventory(ROOT, source_roots, test_roots)
-    gaps, inventory = audit_paths(ROOT, repository_inventory.paths)
-    configured_paths = {"source_roots": source_roots, "test_roots": test_roots}
+    configuration_roots = _string_list(policy, "root_configuration_modules", policy_errors)
+    nesting = policy.get("control_nesting")
+    max_depth = nesting.get("max_depth") if isinstance(nesting, dict) else None
+    if type(max_depth) is not int or max_depth < 1:
+        policy_errors.append("quality_policy_control_nesting_max_depth_must_be_positive_integer")
+        max_depth = 0
+    repository_inventory = _repository_inventory(
+        ROOT, [*source_roots, *configuration_roots], test_roots
+    )
+    gaps, inventory = audit_paths(ROOT, repository_inventory.paths, max_nesting_depth=max_depth)
+    configured_paths = {
+        "source_roots": source_roots,
+        "test_roots": test_roots,
+        "root_configuration_modules": configuration_roots,
+    }
     for key, values in configured_paths.items():
         for value in values:
             matches = ROOT.glob(value) if any(char in value for char in "*?[") else (ROOT / value,)

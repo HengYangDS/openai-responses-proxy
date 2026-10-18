@@ -11,6 +11,9 @@ root_configuration_modules = ["noxfile.py"]
 package_root_modules = ["errors", "json_value", "product_identity"]
 package_initializers = "declarations-only"
 
+[control_nesting]
+max_depth = 5
+
 [product_concepts]
 request-admission = "src/openai_responses_proxy/relay/admission.py"
 portable-responses = "src/openai_responses_proxy/protocol/replay/projection.py"

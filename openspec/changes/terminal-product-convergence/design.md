@@ -216,12 +216,16 @@ index and producing a plausible but unauthorized scope. Structure, names, text,
 responsibility mapping, and native formatter inputs use this same boundary;
 each retains its own explicitly declared tracked or pending-file semantics.
 
-Maintainability uses one blocking Ruff `C901` policy across product, tools,
-tests and Nox. The reviewed bound of 20 protects cohesive state transitions;
-the evaluated bound of 15 needs a semantic benefit before splitting legitimate
-payload validation or transaction admission. Ruff configuration owns the value.
-File and function ELOC share code-line semantics: remove comments and docstrings,
-not inline executable code. Metrics and enforcement remain distinct obligations.
+Ruff owns blocking `C901` complexity across product, tools, tests and Nox. Keep
+20: the 15 probe flags ten validation, transaction and streaming owners without
+proving that splitting their invariants lowers risk. ETHOS alone owns the 512
+file-ELOC bound; do not duplicate it locally. Function ELOC includes decorators
+and excludes only comments and actual docstrings. Syntax statements count
+semicolon-separated nodes, not physical newlines. The existing audit measures
+module, class and function control depth independently; same-indent `elif` is a
+sibling. Architecture policy owns a five-block bound, matching Ruff's guidance.
+`PLR1702` is preview-only, so retain this owner until stable rather than alter
+unrelated lint semantics. Missing or invalid depth policy cannot admit source.
 
 File-role coverage does not prove package cohesion. CLI parsing/presentation and
 lifecycle observation/mutation/locking retain separate owners, with output capture
@@ -232,29 +236,29 @@ substituting a product aggregate for tooling or orchestration evidence.
 
 The terminal acceptance scopes are explicit:
 
-| Concern                    | Protected invariant                                                              | Executable owner and acceptance                                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Semantics and topology     | One responsibility, state owner, and dependency direction                        | Product ontology plus architecture checks; review real caller edges and mutation ownership, not file counts                   |
-| Source correctness         | Typed boundaries, explicit errors, safe concurrency and resource lifetime        | Ruff, Ty, focused behavior tests, then native platform contracts                                                              |
-| Structural maintainability | A change remains locally understandable without caller-coordinated recovery      | Native complexity, branches, statements, arguments, and nesting checks; trustworthy ELOC locates module and function hotspots |
-| Test quality               | Assertions exercise a product invariant at the correct evidence scope            | Domain tests, failure-path contracts, and native artifact journeys; fixtures own exact cleanup                                |
-| Coverage                   | Missing behavior cannot disappear in aggregation or omitted roots                | Coverage configuration declares product and tooling scopes separately; report each supported measurement honestly             |
-| Dependencies and security  | No unowned dependency, exposed secret, unsafe update, or unsupported trust claim | Locked dependency, dead-code, secret, vulnerability, license, SBOM, and signature checks at their native owners               |
-| Non-code carriers          | Configuration and documentation are current, valid, navigable, and readable      | Native format/lint/schema/link tools plus narrow cross-carrier product contracts                                              |
-| Environment and delivery   | The released executable works outside this checkout and shell                    | Locked lane bootstrap, installed-wheel tests, native build and lifecycle acceptance, exact-source CI and assets               |
-| Control effectiveness      | A declared failure reaches a nonzero decision everywhere it is required          | Isolated conformance cases run the real tool and configured command; inspect local hooks and CUE event routes                 |
+| Concern                    | Protected invariant                                                              | Executable owner and acceptance                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Semantics and topology     | One responsibility, state owner, and dependency direction                        | Product ontology plus architecture checks; review real caller edges and mutation ownership, not file counts                  |
+| Source correctness         | Typed boundaries, explicit errors, safe concurrency and resource lifetime        | Ruff, Ty, focused behavior tests, then native platform contracts                                                             |
+| Structural maintainability | A change remains locally understandable without caller-coordinated recovery      | Ruff complexity, shared file ELOC and repository control-depth admission; trustworthy syntax counts locate semantic hotspots |
+| Test quality               | Assertions exercise a product invariant at the correct evidence scope            | Domain tests, failure-path contracts, and native artifact journeys; fixtures own exact cleanup                               |
+| Coverage                   | Missing behavior cannot disappear in aggregation or omitted roots                | Coverage configuration declares product and tooling scopes separately; report each supported measurement honestly            |
+| Dependencies and security  | No unowned dependency, exposed secret, unsafe update, or unsupported trust claim | Locked dependency, dead-code, secret, vulnerability, license, SBOM, and signature checks at their native owners              |
+| Non-code carriers          | Configuration and documentation are current, valid, navigable, and readable      | Native format/lint/schema/link tools plus narrow cross-carrier product contracts                                             |
+| Environment and delivery   | The released executable works outside this checkout and shell                    | Locked lane bootstrap, installed-wheel tests, native build and lifecycle acceptance, exact-source CI and assets              |
+| Control effectiveness      | A declared failure reaches a nonzero decision everywhere it is required          | Isolated conformance cases run the real tool and configured command; inspect local hooks and CUE event routes                |
 
-Structural limits protect engineering risks, not a scoreboard. Evaluate measured
-semantics, percentiles, legitimate cohesive examples and native tool guidance.
-Reject limits chosen merely above today's maximum or forcing facades and state
-fragmentation. Declarative tables differ from executable branches; test setup,
-assertions and teardown still need bounded ownership. Scope differences require
-semantic reasons, not filename exceptions. Informational probes are not gates.
-
-Ruff owns its native complexity rules ([catalog](https://docs.astral.sh/ruff/rules/)).
-ELOC and logical statements remain distinct. Cohesion and caller edges determine
-module boundaries; introduce another analyzer only for an unmet metric or behavior
-with lower maintenance cost than the custom mechanism it replaces.
+Reject a universal statement/function-ELOC veto for this increment, not their
+measurement or semantic review. Ruff's stable `PLR0915` default of 50 reports
+seven product, twelve test and two tool functions; 100 was probed, not selected.
+The two longest native journeys continuously bind predecessor identity, held
+traffic, upgrade, rollback, restoration and exact teardown. Moving those steps
+into one-use helpers would hide their contract. Other findings cover bounded
+CLI diagnostics, replay projection and stream recovery. Complexity, depth and
+shared file size remain blocking; review hotspots by invariant and caller edges,
+not by setting a value above today's maximum. The [native rule catalog](https://docs.astral.sh/ruff/rules/)
+owns tool guidance. Reassess when a stable rule or escaped defect demonstrates
+net benefit; no filename exemption, suppression or diagnostic baseline is added.
 
 Complexity conformance runs the locked Ruff module with the actual repository
 configuration against each Python role. Boundary and over-bound inputs differ

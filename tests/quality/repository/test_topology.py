@@ -177,6 +177,7 @@ class TestArchitectureContracts:
                 "package_root_modules": [],
                 "root_configuration_modules": [],
                 "package_initializers": "ordinary-modules",
+                "control_nesting": {"max_depth": 5},
                 "product_concepts": {
                     "relay": "src/openai_responses_proxy/relay/owner.py",
                     "runtime": "src/openai_responses_proxy/runtime/owner.py",
@@ -228,6 +229,7 @@ class TestArchitectureContracts:
             "package_root_modules": [],
             "root_configuration_modules": [],
             "package_initializers": "ordinary-modules",
+            "control_nesting": {"max_depth": 5},
             "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
             "external_responsibilities": {"credentials": "client-control-plane"},
             "allowed_package_edges": {"relay": []},
@@ -267,6 +269,7 @@ class TestArchitectureContracts:
             "package_root_modules": [],
             "root_configuration_modules": [],
             "package_initializers": "ordinary-modules",
+            "control_nesting": {"max_depth": 5},
             "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
             "external_responsibilities": {"credentials": "client-control-plane"},
             "allowed_package_edges": {"relay": []},
@@ -277,7 +280,7 @@ class TestArchitectureContracts:
             "architecture_test_import:tests:tools/quality/audit.py",
         ]
 
-    def test_repository_policy_declares_positive_owners_without_numeric_vetoes(
+    def test_repository_policy_declares_positive_owners_and_one_control_depth_boundary(
         self,
     ) -> None:
         policy = tomllib.loads(
@@ -331,6 +334,7 @@ class TestArchitectureContracts:
             "product_concepts",
             "external_responsibilities",
             "allowed_package_edges",
+            "control_nesting",
         }
         assert all(
             isinstance(policy[field], str) and policy[field].strip()
@@ -365,6 +369,7 @@ class TestArchitectureContracts:
                 "package_root_modules": [],
                 "root_configuration_modules": [],
                 "package_initializers": "declarations-only",
+                "control_nesting": {"max_depth": 5},
                 "product_concepts": {
                     "native-supervision": "src/openai_responses_proxy/serving/native.py"
                 },
@@ -441,6 +446,7 @@ class TestArchitectureContracts:
             "package_root_modules": [],
             "root_configuration_modules": [],
             "package_initializers": "ordinary-modules",
+            "control_nesting": {"max_depth": 5},
             "product_concepts": {"relay": "src/openai_responses_proxy/relay/owner.py"},
             "external_responsibilities": {"credentials": "client-control-plane"},
             "allowed_package_edges": {"relay": []},

@@ -70,6 +70,7 @@ def test_current_repository_policy_is_internally_consistent() -> None:
         "src/openai_responses_proxy/lifecycle/supervision/watchdog.py",
         "tools/release/metadata.py",
         "tests/governance/test_repository.py",
+        "noxfile.py",
     ):
         assert path in inventoried
 
