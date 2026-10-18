@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import http.client
 import json
+import socket
 import urllib.error
 from pathlib import Path
 
@@ -196,6 +198,79 @@ class ProviderRouteTests:
                     assert wire.count(b"HTTP/1.1 ") == 1
                     assert b"HTTP/1.1 404 " in wire
                     assert b"HTTP/1.1 400 " not in wire
+            assert received == []
+
+    @pytest.mark.parametrize(
+        ("headers", "reason"),
+        [
+            (b"Content-Length: not-a-length", "invalid_content_length"),
+            (b"Content-Length: 999999999999999999999999", "invalid_content_length"),
+            (b"Content-Length: -2", "invalid_content_length"),
+            (b"Content-Length: +2", "invalid_content_length"),
+            (b"Content-Length: 2, 2", "invalid_content_length"),
+            (b"Content-Length: 2\r\nContent-Length: 2", "ambiguous_content_length"),
+            (b"Transfer-Encoding: chunked\r\nContent-Length: 2", "unsupported_transfer_encoding"),
+            (b"Transfer-Encoding: chunked", "unsupported_transfer_encoding"),
+            (b"", "missing_content_length"),
+        ],
+    )
+    def test_invalid_request_framing_is_rejected_before_upstream_io(
+        self, headers: bytes, reason: str, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with running_proxy([]) as (port, received):
+            wire = raw_exchange(
+                port,
+                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                + headers
+                + b"\r\nConnection: keep-alive\r\n\r\n{}"
+                + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            )
+            assert wire.count(b"HTTP/1.1 ") == 1
+            assert b"HTTP/1.1 400 " in wire
+            assert b"Connection: close\r\n" in wire
+            payload = json.loads(wire.partition(b"\r\n\r\n")[2])
+            assert payload["error"]["code"] == "request_framing_rejected"
+            assert payload["error"]["reason"] == reason
+            assert b"not-a-length" not in wire
+            assert received == []
+        assert "Traceback" not in capsys.readouterr().err
+
+    def test_valid_request_framing_preserves_one_keep_alive_request(self) -> None:
+        success = b'{"id":"resp_framed","status":"completed"}'
+        captures: list[dict[str, object]] = []
+        with running_proxy([(200, success)], captures=captures) as (port, received):
+            wire = raw_exchange(
+                port,
+                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                b"Content-Length: 17\r\nContent-Type: application/json\r\n\r\n"
+                b'{"input":"hello"}'
+                b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            )
+            assert wire.count(b"HTTP/1.1 200 ") == 2
+            assert success in wire
+            assert json.loads(received[0]) == {"input": "hello", "store": False}
+            headers = captures[0]["headers"]
+            assert isinstance(headers, dict)
+            assert headers["Content-Length"] == str(len(received[0]))
+
+    def test_truncated_request_does_not_forward_a_valid_json_prefix(self) -> None:
+        success = b'{"id":"resp_not_admitted","status":"completed"}'
+        with running_proxy([(200, success)]) as (port, received):
+            with socket.create_connection(("127.0.0.1", port), timeout=2) as client:
+                client.sendall(
+                    b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                    b"Content-Length: 18\r\nConnection: close\r\n\r\n"
+                    b'{"input":"hello"}'
+                )
+                client.shutdown(socket.SHUT_WR)
+                with http.client.HTTPResponse(client) as response:
+                    response.begin()
+                    assert response.status == 400
+                    raw = response.read()
+            payload = json.loads(raw)
+            assert payload["error"]["code"] == "request_framing_rejected"
+            assert payload["error"]["reason"] == "incomplete_request_body"
+            assert b"hello" not in raw
             assert received == []
 
     def test_all_three_catalog_routes_relay_once_without_responses_policy(self, subtests) -> None:

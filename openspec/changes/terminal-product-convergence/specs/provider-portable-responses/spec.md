@@ -64,6 +64,33 @@ SHALL NOT branch on Provider names.
   error, retry, cooldown, and redaction behavior
 - **AND** no existing generic product module requires Provider-specific code.
 
+### Requirement: HTTP request framing precedes Responses interpretation
+
+Responses admission SHALL read exactly one body framed by a single ASCII
+decimal `Content-Length`. Unsupported transfer encodings, absent, ambiguous or
+invalid lengths, and incomplete bodies SHALL receive one secret-free local
+failure before projection or upstream I/O. Rejection SHALL close the connection
+so unread bytes cannot become another request.
+
+#### Scenario: A caller supplies unproved framing
+
+- **WHEN** a Responses request supplies an unsupported transfer encoding or
+  missing, repeated, nondecimal, negative or unrepresentable body length
+- **THEN** it receives HTTP 400 with `request_framing_rejected` and a fixed reason
+- **AND** no header value, request content, traceback or upstream request is emitted.
+
+#### Scenario: The caller closes its write side before the declared body ends
+
+- **WHEN** the available bytes form valid JSON but are fewer than the declared length
+- **THEN** HTTP 400 identifies `incomplete_request_body` without forwarding that prefix
+- **AND** the connection closes rather than interpreting another request.
+
+#### Scenario: A complete request is followed by another keep-alive request
+
+- **WHEN** the caller supplies one complete length-framed Responses body
+- **THEN** projection consumes only that body and computes the upstream length
+- **AND** a subsequent complete request remains independently parseable.
+
 ### Requirement: Sustained upstream unavailability does not amplify demand
 
 Responses SHALL retain bounded request-local recovery for a transient upstream

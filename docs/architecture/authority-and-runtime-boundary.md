@@ -129,6 +129,13 @@ it must not be represented as a Bearer-compatible route.
 
 ## Responses projection
 
+HTTP body framing is admitted before replay interpretation. One decimal length
+and exactly that many bytes identify the body; unsupported transfer encodings,
+ambiguous lengths and truncated bodies receive a fixed local error and close the
+connection before upstream I/O. A valid body remains separate from the next
+keep-alive request. This proves framing identity, not a total request-size or
+slow-client deadline budget.
+
 ```mermaid
 sequenceDiagram
     participant Codex

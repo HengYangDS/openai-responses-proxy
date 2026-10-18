@@ -137,6 +137,26 @@ def _request_headers(handler: BaseHTTPRequestHandler) -> dict[str, str]:
     return headers
 
 
+def _read_responses_body(handler: BaseHTTPRequestHandler) -> tuple[bytes | None, str]:
+    """Read one unambiguous length-framed body before protocol or upstream admission."""
+    if handler.headers.get_all("Transfer-Encoding"):
+        return None, "unsupported_transfer_encoding"
+    lengths = handler.headers.get_all("Content-Length", [])
+    if not lengths:
+        return None, "missing_content_length"
+    if len(lengths) != 1:
+        return None, "ambiguous_content_length"
+    value = lengths[0].strip()
+    if not value.isascii() or not value.isdecimal():
+        return None, "invalid_content_length"
+    try:
+        length = int(value)
+        body = handler.rfile.read(length)
+    except (ValueError, OverflowError):
+        return None, "invalid_content_length"
+    return (body, "") if len(body) == length else (None, "incomplete_request_body")
+
+
 def _relay_catalog(
     handler: BaseHTTPRequestHandler,
     request_id: int,
@@ -202,8 +222,26 @@ def relay(
     if is_catalog:
         _relay_catalog(handler, request_id, profile, upstream_url, headers)
         return
-    length = int(handler.headers.get("Content-Length") or 0)
-    body = handler.rfile.read(length) if length else b""
+    body, framing_reason = _read_responses_body(handler)
+    if body is None:
+        downstream.send_payload(
+            handler,
+            400,
+            replay_response.error_payload(
+                "Responses request body framing is invalid or incomplete",
+                "invalid_request_error",
+                "request_framing_rejected",
+                reason=framing_reason,
+            ),
+            close=True,
+        )
+        telemetry.record_counter("request_framing_rejected")
+        telemetry.record_failure("request_framing_rejected")
+        operational_log.log(
+            f"req={request_id} event=request_framing_rejected provider={profile.name} "
+            f"reason={framing_reason} path={operational_log.safe_request_path(handler.path)}"
+        )
+        return
     projection = replay_request.sanitize_responses_body(body)
     note = projection.diagnostic()
     telemetry.record_sanitization(projection.metrics)
