@@ -18,6 +18,7 @@ RUFF_CONFIG = ROOT / ".config/checks/ruff/ruff.toml"
 TY_CONFIG = ROOT / ".config/checks/ty/ty.toml"
 COVERAGE_CONFIG = ROOT / ".config/checks/coverage/coverage.toml"
 COVERAGE_POLICY = ROOT / ".config/checks/coverage/policy.toml"
+COVERAGE_TOOL = ROOT / "tools/quality/branch_coverage.py"
 PYTEST_CONFIG = ROOT / ".config/checks/pytest/pytest.toml"
 OBSERVER_REQUIREMENT = "ETHOS_NATIVE_OBSERVER_REQUIREMENT"
 OBSERVER_MODULE = "ethos.domain.quality.nox"
@@ -128,21 +129,29 @@ def behavior(
         env=environment,
     )
     if require_coverage:
-        session.run("coverage", "report", "--rcfile", str(COVERAGE_CONFIG), env=environment)
         session.run(
             "python",
-            "tools/quality/branch_coverage.py",
+            str(COVERAGE_TOOL),
+            "report",
+            "--configuration",
+            str(COVERAGE_CONFIG),
+            env=environment,
+        )
+        session.run(
+            "python",
+            str(COVERAGE_TOOL),
             "--policy",
             str(COVERAGE_POLICY),
             env=environment,
         )
     if output is not None:
         session.run(
-            "coverage",
-            "xml",
-            "--rcfile",
+            "python",
+            str(COVERAGE_TOOL),
+            "report",
+            "--configuration",
             str(COVERAGE_CONFIG),
-            "-o",
+            "--xml",
             str(output / f"{session.name}-coverage.xml"),
             env=environment,
         )

@@ -163,8 +163,7 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     assert "--ethos-runtime-output" not in nested.args
     assert "tests/quality/orchestration/test_observation.py" in nested.args
     assert any(
-        call.args[:2] == ("coverage", "xml")
-        and call.args[-1] == str(output / "quality-coverage.xml")
+        "--xml" in call.args and call.args[-1] == str(output / "quality-coverage.xml")
         for call in session.run.call_args_list
     )
 
@@ -200,7 +199,9 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
         "    assert answer() == 42\n"
     )
     coverage = tmp_path / "coverage.toml"
-    coverage.write_text('[run]\nbranch = true\nsource_pkgs = ["sample"]\n')
+    coverage.write_text(
+        '[run]\nbranch = true\nsource_pkgs = ["sample"]\n\n[paths]\nsample = ["."]\n'
+    )
     session = mocker.Mock()
     session.name = f"tests-{sys.version_info.major}.{sys.version_info.minor}"
     session.python = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -220,8 +221,8 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
             if args[0] == "coverage"
             else (sys.executable, *args[1:])
         )
-        environment = {**os.environ, **(env or {})}
-        return subprocess.run(
+        environment = {**os.environ, "PYTHONWARNINGS": "error", **(env or {})}
+        result = subprocess.run(
             command,
             cwd=tmp_path,
             env={key: value for key, value in environment.items() if value is not None},
@@ -229,7 +230,9 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
             capture_output=True,
             text=True,
             timeout=45,
-        ).stdout
+        )
+        assert "ResourceWarning" not in result.stderr
+        return result.stdout
 
     session.run.side_effect = execute
     nox_configuration.tests(session)

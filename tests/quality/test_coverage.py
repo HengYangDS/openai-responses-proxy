@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -107,6 +108,55 @@ def test_cli_requires_native_source_inventory_and_returns_measured_success(sourc
     else:
         with pytest.raises(ValueError, match="must declare source roots"):
             branch_coverage.main(("--policy", str(path)))
+
+
+@pytest.mark.parametrize("output_kind", ["summary", "xml", "unwritable"])
+def test_native_reporting_closes_mapped_database_even_if_export_fails(
+    output_kind: str, tmp_path: Path
+) -> None:
+    configuration = tmp_path / "coverage.toml"
+    configuration.write_text('[run]\nbranch = true\nsource = ["."]\n\n[paths]\nsample = ["."]\n')
+    (tmp_path / "sample.py").write_text("def answer():\n    return 42\n\nanswer()\n")
+    environment = {**os.environ, "COVERAGE_FILE": str(tmp_path / ".coverage")}
+    measurement = subprocess.run(
+        (sys.executable, "-m", "coverage", "run", "--rcfile", str(configuration), "sample.py"),
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert measurement.returncode == 0, measurement.stderr
+    destination = tmp_path if output_kind == "unwritable" else tmp_path / "coverage.xml"
+    result = subprocess.run(
+        (
+            sys.executable,
+            str(ROOT / "tools/quality/branch_coverage.py"),
+            "report",
+            "--configuration",
+            str(configuration),
+            *(("--xml", str(destination)) if output_kind != "summary" else ()),
+        ),
+        cwd=tmp_path,
+        env={**environment, "PYTHONWARNINGS": "error"},
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert "ResourceWarning" not in result.stderr
+    if output_kind == "unwritable":
+        assert result.returncode != 0
+        assert result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        if output_kind == "summary":
+            assert "TOTAL" in result.stdout
+            assert "100%" in result.stdout
+        else:
+            measured = ET.parse(destination)
+            assert any(item.get("filename") == "sample.py" for item in measured.iter("class"))
 
 
 class TestCoverageContracts:

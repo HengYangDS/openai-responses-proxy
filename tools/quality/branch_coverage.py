@@ -1,4 +1,4 @@
-"""Enforce independent source-root coverage and semantic-package observation."""
+"""Report native coverage and enforce source-root and semantic-package evidence."""
 
 from __future__ import annotations
 
@@ -253,11 +253,28 @@ def _command(
     return 0 if not gaps else 1
 
 
+def _report(
+    *,
+    configuration: Path,
+    xml: Path | None = None,
+) -> None:
+    """Export retained native data and close report-only mapped databases."""
+    coverage = Coverage(config_file=str(configuration))
+    try:
+        coverage.load()
+        if xml is None:
+            coverage.report()
+        else:
+            coverage.xml_report(outfile=str(xml))
+    finally:
+        coverage.get_data().close(force=True)
+
+
 def main(argv: tuple[str, ...] | None = None) -> None:
     """Run the coverage policy through the repository parser stack."""
-    result = App(default_command=_command, help=__doc__, result_action="return_value")(
-        tuple(sys.argv[1:] if argv is None else argv)
-    )
+    app = App(default_command=_command, help=__doc__, result_action="return_value")
+    app.command(_report, name="report")
+    result = app(tuple(sys.argv[1:] if argv is None else argv))
     if isinstance(result, int):
         raise SystemExit(result)
 
