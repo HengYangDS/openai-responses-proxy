@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import cast
 
 import pytest
 
@@ -165,9 +164,8 @@ class TestInputDiagnostic:
                 "private-field": secret,
             }
         )
-        projected = input_recovery.diagnostic_dict(diagnostic)
-        rendered = input_recovery.format_diagnostic(projected)
-        disclosure = rendered + json.dumps(projected, sort_keys=True)
+        rendered = input_recovery.format_diagnostic(diagnostic)
+        disclosure = rendered + repr(diagnostic)
         assert not {secret, "private-extension-name", "private-field"} & set(disclosure.split())
 
         def diagnostic_for(repetitions: int) -> input_recovery.InputDiagnostic:
@@ -193,18 +191,14 @@ class TestInputDiagnostic:
                 ]
             return input_recovery.diagnose(_json({"input": items}))
 
-        projected = [
-            input_recovery.diagnostic_dict(diagnostic_for(repetitions)) for repetitions in (2, 4)
-        ]
-        assert [
-            cast("dict[str, str]", item["item_types"])["custom_tool_call"] for item in projected
-        ] == ["2-4", "5-16"]
-        for item in projected:
-            assert item["input_items_bucket"] == "5-16"
-            assert item["matched_pairs"]
-            assert item["unmatched_calls"]
-            assert item["missing_call_ids"]
-            assert "first_incompatible_index" not in item
+        diagnostics = [diagnostic_for(repetitions) for repetitions in (2, 4)]
+        assert [item.item_types["custom_tool_call"] for item in diagnostics] == ["2-4", "5-16"]
+        for item in diagnostics:
+            assert item.input_items_bucket == "5-16"
+            assert item.matched_pairs
+            assert item.unmatched_calls
+            assert item.missing_call_ids
+            assert "first_incompatible_index" not in input_recovery.format_diagnostic(item)
         rendered = input_recovery.format_diagnostic(diagnostic_for(2))
         assert "input_items=" not in rendered
         assert not re.search(r"(?:matched_pairs|unmatched_calls|missing_call_ids)=\d", rendered)
@@ -330,20 +324,25 @@ class TestInputDiagnostic:
     def test_raw_item_type_is_categorical(self, item_type: object, label: str) -> None:
         assert _diagnose({"type": item_type}).item_types == {label: "1"}
 
-    def test_mapping_projection_rejects_untrusted_buckets_and_flags(self) -> None:
-        rendered = input_recovery.format_diagnostic(
-            {
-                "input_items_bucket": "private",
-                "item_types": {"message": "1", "secret": "private", 1: "1"},
-                "content_types": "not-a-mapping",
-                "matched_pairs": True,
-                "unmatched_calls": "true",
-                "first_incompatible_reason": "invalid",
-            }
+    def test_typed_diagnostic_preserves_the_categorical_log_contract(self) -> None:
+        diagnostic = input_recovery.diagnose(
+            _json(
+                {
+                    "input": [
+                        {"type": "message", "role": "user", "content": "private"},
+                        {"type": "function_call", "call_id": "c", "name": "f", "arguments": "{}"},
+                        {"type": "function_call_output", "call_id": "c", "output": "private"},
+                    ]
+                }
+            )
         )
-        assert "input_items_bucket=0" in rendered
-        assert "item_types=message:1" in rendered
-        assert "content_types=-" in rendered
-        assert "matched_pairs=present" in rendered
-        assert "unmatched_calls=absent" in rendered
-        assert "secret" not in rendered
+        rendered = input_recovery.format_diagnostic(diagnostic)
+        assert rendered == (
+            "input_items_bucket=2-4 "
+            "item_types=function_call:1,function_call_output:1,message:1 "
+            "content_types=string:1 matched_pairs=present unmatched_calls=absent "
+            "unmatched_outputs=absent outputs_before_calls=absent duplicate_calls=absent "
+            "duplicate_outputs=absent missing_call_ids=absent mismatched_output_types=absent "
+            "first_incompatible_reason=- "
+            "shape_sha256=ffde30a4dd14faa7e6d2e2179624efe22037c708abfba2cc12e131f0f746e5d2"
+        )

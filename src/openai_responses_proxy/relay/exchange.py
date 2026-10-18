@@ -10,7 +10,6 @@ import urllib.request
 from dataclasses import dataclass
 from dataclasses import field
 from http.server import BaseHTTPRequestHandler
-from typing import TypedDict
 from typing import cast
 
 import certifi
@@ -79,35 +78,6 @@ def _request(url: str, body: bytes, method: str, headers: dict[str, str]) -> url
     return request
 
 
-def _input_variant_recovery(
-    raw: bytes,
-    *,
-    input_dependencies: item_policy.InputDependencies | None = None,
-) -> tuple[bytes | None, InputVariantMetrics | None]:
-    recovery, metrics = input_recovery.build_recovery(
-        raw, RESPONSE_FAILED_COMPACTION_BUDGET, input_dependencies=input_dependencies
-    )
-    if metrics is None:
-        return recovery, None
-    return recovery, {
-        "original_bytes": metrics.original_bytes,
-        "recovery_bytes": metrics.recovery_bytes,
-        "retained_messages": metrics.retained_messages,
-        "dropped_input_items": metrics.dropped_input_items,
-        "prompt_cache_key_removed": metrics.prompt_cache_key_removed,
-    }
-
-
-class InputVariantMetrics(TypedDict):
-    """Metrics emitted by the final input-variant recovery."""
-
-    original_bytes: int
-    recovery_bytes: int
-    retained_messages: int
-    dropped_input_items: int
-    prompt_cache_key_removed: bool
-
-
 @dataclass(slots=True)
 class Exchange:
     """Carry one request through bounded upstream recovery attempts."""
@@ -128,7 +98,7 @@ class Exchange:
     used_response_failed_dialogue: bool = False
     dialogue_metrics: execution_recovery.RecoveryMetrics | None = None
     used_input_variant_dialogue: bool = False
-    input_variant_metrics: InputVariantMetrics | None = None
+    input_variant_metrics: input_recovery.RecoveryMetrics | None = None
     response: UpstreamResponse | None = None
     input_dependencies: item_policy.InputDependencies = field(
         default_factory=item_policy.InputDependencies
@@ -213,9 +183,9 @@ class Exchange:
         m = self.input_variant_metrics
         self.log(
             "input_variant_dialogue_recovery_accepted",
-            f"bytes={m['original_bytes']}->{m['recovery_bytes']} "
-            f"retained_messages={m['retained_messages']} "
-            f"dropped_input_items={m['dropped_input_items']} ",
+            f"bytes={m.original_bytes}->{m.recovery_bytes} "
+            f"retained_messages={m.retained_messages} "
+            f"dropped_input_items={m.dropped_input_items} ",
         )
 
     def input_variant_exhausted(self, detail: str) -> None:
@@ -257,13 +227,15 @@ def _classification(
 
 
 def _recover_input_variant(exchange: Exchange) -> bool:
-    diagnostic = input_recovery.diagnostic_dict(input_recovery.diagnose(exchange.attempt_body))
+    diagnostic = input_recovery.diagnose(exchange.attempt_body)
     exchange.log(
         "input_variant_validation_error",
         f"{input_recovery.format_diagnostic(diagnostic)} ",
     )
-    recovery, metrics = _input_variant_recovery(
-        exchange.attempt_body, input_dependencies=exchange.input_dependencies
+    recovery, metrics = input_recovery.build_recovery(
+        exchange.attempt_body,
+        RESPONSE_FAILED_COMPACTION_BUDGET,
+        input_dependencies=exchange.input_dependencies,
     )
     if recovery is None or metrics is None:
         return False
@@ -274,10 +246,10 @@ def _recover_input_variant(exchange: Exchange) -> bool:
     exchange.attempt_body = recovery
     exchange.log(
         "input_variant_dialogue_recovery",
-        f"bytes={previous_bytes}->{metrics['recovery_bytes']} "
-        f"retained_messages={metrics['retained_messages']} "
-        f"dropped_input_items={metrics['dropped_input_items']} "
-        f"cache_key_removed={metrics['prompt_cache_key_removed']} ",
+        f"bytes={previous_bytes}->{metrics.recovery_bytes} "
+        f"retained_messages={metrics.retained_messages} "
+        f"dropped_input_items={metrics.dropped_input_items} "
+        f"cache_key_removed={metrics.prompt_cache_key_removed} ",
     )
     return True
 

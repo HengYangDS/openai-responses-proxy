@@ -180,7 +180,9 @@ class TestInputRecovery(InputTransportFixture):
         assert recovered == ([required] if required["type"] == "message" else [current, required])
         assert len(received[1]) < len(received[0])
 
-    def test_exact_error_recovers_once_with_fresh_content_length(self) -> None:
+    def test_exact_error_recovers_once_with_fresh_content_length(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         success = b'{"id":"resp_recovered","status":"completed"}'
         body = request_body()
         with (
@@ -190,9 +192,15 @@ class TestInputRecovery(InputTransportFixture):
             assert response.status == 200
             assert response.read() == success
 
+        logs = capsys.readouterr().err
         assert len(received) == 2
         recovery = received[1]
         assert len(recovery) < len(body)
+        assert (
+            f"event=input_variant_dialogue_recovery_accepted provider=dmxapi "
+            f"bytes={len(received[0])}->{len(recovery)} "
+            "retained_messages=2 dropped_input_items=1 "
+        ) in logs
         recovered = json.loads(recovery)
         assert recovered["store"] is False
         assert recovered["instructions"] == "top-level-current-policy"

@@ -14,7 +14,6 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from contextlib import suppress
-from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Final
@@ -53,7 +52,6 @@ _VALUE_KINDS: Final = {
     dict: "dict",
 }
 _SIZE_BUCKETS: Final = ((0, "0"), (1, "1"), (4, "2-4"), (16, "5-16"))
-_BUCKETS: Final = frozenset(("0", "1", "2-4", "5-16", "17+"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,35 +122,15 @@ def _load_json(raw: bytes) -> object:
     return payload
 
 
-def diagnostic_dict(diagnostic: InputDiagnostic) -> dict[str, object]:
-    """Project an immutable diagnostic to the stable runtime mapping contract."""
-    return {
-        "input_items_bucket": diagnostic.input_items_bucket,
-        "item_types": diagnostic.item_types,
-        "content_types": diagnostic.content_types,
-        "matched_pairs": diagnostic.matched_pairs,
-        "unmatched_calls": diagnostic.unmatched_calls,
-        "unmatched_outputs": diagnostic.unmatched_outputs,
-        "outputs_before_calls": diagnostic.outputs_before_calls,
-        "duplicate_calls": diagnostic.duplicate_calls,
-        "duplicate_outputs": diagnostic.duplicate_outputs,
-        "missing_call_ids": diagnostic.missing_call_ids,
-        "mismatched_output_types": diagnostic.mismatched_output_types,
-        "first_incompatible_reason": diagnostic.first_incompatible_reason,
-        "shape_sha256": diagnostic.shape_sha256,
-    }
-
-
-def format_diagnostic(diagnostic: InputDiagnostic | dict[str, object]) -> str:
+def format_diagnostic(diagnostic: InputDiagnostic) -> str:
     """Render a bounded, content-free diagnostic fragment."""
-    values = asdict(diagnostic) if isinstance(diagnostic, InputDiagnostic) else diagnostic
-    fields: dict[str, object] = {
-        "input_items_bucket": _size_bucket_value(values.get("input_items_bucket")),
-        "item_types": _format_counts(_bucket_counts(values.get("item_types"))),
-        "content_types": _format_counts(_bucket_counts(values.get("content_types"))),
-        **{key: _presence(values.get(key) is True) for key in _DIAGNOSTIC_FLAGS},
-        "first_incompatible_reason": str(values.get("first_incompatible_reason", "")) or "-",
-        "shape_sha256": str(values.get("shape_sha256", "-")),
+    fields = {
+        "input_items_bucket": diagnostic.input_items_bucket,
+        "item_types": _format_counts(diagnostic.item_types),
+        "content_types": _format_counts(diagnostic.content_types),
+        **{key: _presence(getattr(diagnostic, key)) for key in _DIAGNOSTIC_FLAGS},
+        "first_incompatible_reason": diagnostic.first_incompatible_reason or "-",
+        "shape_sha256": diagnostic.shape_sha256,
     }
     return " ".join(f"{key}={value}" for key, value in fields.items())[:768]
 
@@ -346,17 +324,3 @@ class _DiagnosticState:
             first_incompatible_reason=self.first_reason,
             shape_sha256=self.shape_sha256,
         )
-
-
-def _bucket_counts(value: object) -> dict[str, str]:
-    if not isinstance(value, dict):
-        return {}
-    return {
-        key: cast(str, bucket)
-        for key, bucket in value.items()
-        if isinstance(key, str) and bucket in _BUCKETS
-    }
-
-
-def _size_bucket_value(value: object) -> str:
-    return cast(str, value) if value in _BUCKETS else "0"
