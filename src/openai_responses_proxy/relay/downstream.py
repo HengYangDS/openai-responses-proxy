@@ -191,44 +191,27 @@ def _read_chunk(response: ReadableResponse) -> tuple[bytes, bool]:
         return error.partial, True
 
 
-def relay_body(exchange: Exchange, response: UpstreamResponse) -> None:
-    """Relay one length-unknown upstream body as chunked downstream data."""
-    _send_stream_headers(exchange.handler, response)
-    try:
-        while True:
-            chunk, terminal = _read_chunk(response)
-            if chunk:
-                exchange.handler.wfile.write(b"%X\r\n%s\r\n" % (len(chunk), chunk))
-            if not chunk or terminal:
-                break
-        exchange.handler.wfile.write(b"0\r\n\r\n")
-        if exchange.is_responses:
-            telemetry.record_counter("responses_completed")
-        exchange.input_variant_accepted()
-    except (BrokenPipeError, ConnectionResetError):
-        exchange.log("downstream_client_closed")
-    except Exception as error:
-        exchange.log(
-            "stream_handler_exception",
-            f"exception={operational_log.safe_exception_label(error)} ",
-        )
-
-
 def relay_readonly_body(handler: BaseHTTPRequestHandler, response: UpstreamResponse) -> None:
     """Relay one non-Responses body without replay or recovery side effects."""
-    _send_stream_headers(handler, response)
     try:
+        _send_stream_headers(handler, response)
         while True:
             chunk, terminal = _read_chunk(response)
             if chunk:
                 handler.wfile.write(b"%X\r\n%s\r\n" % (len(chunk), chunk))
-            if not chunk or terminal:
+            # Bounded stdlib reads can return EOF with Content-Length still unmet.
+            if terminal or (
+                not chunk and isinstance(response, http.client.HTTPResponse) and response.length
+            ):
+                handler.close_connection = True
+                return
+            if not chunk:
                 break
         handler.wfile.write(b"0\r\n\r\n")
-    except (BrokenPipeError, ConnectionResetError):
-        pass
     except Exception:
-        pass
+        handler.close_connection = True
+    finally:
+        response.close()
 
 
 def _invalid_responses_success(exchange: Exchange, reason: str) -> None:

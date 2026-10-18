@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
 import ssl
 import urllib.request
 from pathlib import Path
@@ -75,6 +76,54 @@ class TestTransportFailures(InputTransportFixture):
         responses.relay(handler, "GET", PROVIDERS)
         assert handler.statuses == [502]
         assert b"catalog_transport_error" in handler.output()
+
+    @pytest.mark.parametrize(
+        ("stage", "failure"),
+        [
+            ("headers", BrokenPipeError()),
+            ("headers", ConnectionResetError()),
+            ("headers", RuntimeError("private header failure")),
+            ("body", BrokenPipeError()),
+            ("read", OSError("private upstream failure")),
+        ],
+    )
+    def test_catalog_failure_closes_the_real_upstream_response(
+        self, stage: str, failure: Exception, *, mocker
+    ) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        upstream_socket, peer = socket.socketpair()
+        with upstream_socket, peer:
+            upstream_socket.settimeout(1)
+            peer.settimeout(1)
+            peer.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+            peer.sendall(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                b"Content-Length: 9000\r\n\r\n" + b"x" * 9000
+            )
+            with http.client.HTTPResponse(upstream_socket) as response:
+                response.begin()
+                closed = mocker.spy(response, "close")
+                opened = mocker.patch.object(
+                    upstream_exchange, "open_readonly", return_value=response
+                )
+                match stage:
+                    case "headers":
+                        mocker.patch.object(handler, "end_headers", side_effect=failure)
+                    case "body":
+                        mocker.patch.object(handler.wfile, "write", side_effect=failure)
+                    case "read":
+                        mocker.patch.object(response, "read", side_effect=failure)
+
+                responses.relay(handler, "GET", PROVIDERS)
+
+                assert response.isclosed()
+                closed.assert_called_once_with()
+                assert handler.statuses == [200]
+                assert b"private" not in handler.output()
+                opened.assert_called_once()
+                counters, classifications = self._status_maps()
+                assert counters.get("responses_received", 0) == 0
+                assert classifications == {}
 
     def test_direct_relay_covers_retry_and_fallback_transport_failure(self, *, mocker) -> None:
         transient = http_error(503, "failure", b"temporary")
@@ -191,40 +240,52 @@ class TestTransportFailures(InputTransportFixture):
         responses.relay(handler, "POST", PROVIDERS)
         assert handler.statuses == [200]
 
-    def test_direct_non_responses_body_covers_empty_and_terminal_chunks(self, *, mocker) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/health")
-        exchange = mocker.Mock(handler=handler, is_responses=True)
-        exchange.input_variant_accepted = mocker.Mock()
-        downstream.relay_body(exchange, DirectResponse(b"", b""))
+    @pytest.mark.parametrize(
+        ("body", "length", "expected", "disconnected"),
+        [
+            (b"", 0, b"0\r\n\r\n", False),
+            (b"complete", 8, b"8\r\ncomplete\r\n0\r\n\r\n", False),
+            (b"partial", 16, b"7\r\npartial\r\n", True),
+        ],
+        ids=["empty", "complete", "truncated"],
+    )
+    def test_catalog_terminates_only_a_complete_upstream_body(
+        self, body: bytes, length: int, expected: bytes, *, disconnected: bool, mocker
+    ) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler.close_connection = False
+        upstream_socket, peer = socket.socketpair()
+        with upstream_socket, peer:
+            upstream_socket.settimeout(1)
+            peer.settimeout(1)
+            peer.sendall(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                + f"Content-Length: {length}\r\n\r\n".encode()
+                + body
+            )
+            peer.shutdown(socket.SHUT_WR)
+            with http.client.HTTPResponse(upstream_socket) as response:
+                response.begin()
+                closed = mocker.spy(response, "close")
+                mocker.patch.object(upstream_exchange, "open_readonly", return_value=response)
+
+                responses.relay(handler, "GET", PROVIDERS)
+
+                assert response.isclosed()
+                closed.assert_called_once_with()
+
         assert handler.statuses == [200]
-        assert handler.output() == b"0\r\n\r\n"
-        exchange.input_variant_accepted.assert_called_once_with()
+        assert handler.output() == expected
+        assert handler.close_connection is disconnected
+        counters, classifications = self._status_maps()
+        assert counters.get("responses_completed", 0) == 0
+        assert classifications == {}
 
-        admission.reset_for_test()
-        telemetry.reset_for_test()
-        handler = MemoryHandler(path="/dmxapi/v1/health")
-        exchange = mocker.Mock(handler=handler, is_responses=True)
-        exchange.input_variant_accepted = mocker.Mock()
-        downstream.relay_body(
-            exchange,
-            DirectResponse(b"partial", http.client.IncompleteRead(b"terminal")),
-        )
-        assert b"partial" in handler.output()
-        assert b"terminal" in handler.output()
-        counters = cast("dict[str, int]", self._status_snapshot()["counters"])
-        assert counters["responses_completed"] == 1
-        exchange.input_variant_accepted.assert_called_once_with()
-
-    def test_non_responses_helpers_bypass_responses_only_policy(self, *, mocker) -> None:
+    def test_non_responses_admission_bypasses_responses_only_policy(self, *, mocker) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         exchange = mocker.Mock(handler=handler, is_responses=False)
-        exchange.input_variant_accepted = mocker.Mock()
-
         assert responses._admit(exchange)
         assert not responses._cooldown_active(exchange)
-        downstream.relay_body(exchange, DirectResponse(b""))
-        assert handler.output() == b"0\r\n\r\n"
-        exchange.input_variant_accepted.assert_called_once_with()
 
     def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(self, *, mocker) -> None:
         partial = http.client.IncompleteRead(b"partial")
@@ -234,7 +295,8 @@ class TestTransportFailures(InputTransportFixture):
         )
         responses.relay(handler, "GET", PROVIDERS)
         assert handler.statuses == [200]
-        assert b"partial" in handler.output()
+        assert handler.output() == b"7\r\npartial\r\n"
+        assert handler.close_connection
 
         statuses = []
         for error in (BrokenPipeError(), RuntimeError("private")):
