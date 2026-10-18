@@ -334,7 +334,6 @@ class ProviderRouteTests:
                 finally:
                     stopped.set()
                     worker.join(timeout=1)
-                    client.shutdown(socket.SHUT_WR)
                     assert not worker.is_alive()
             assert received == []
         assert "Traceback" not in capsys.readouterr().err
