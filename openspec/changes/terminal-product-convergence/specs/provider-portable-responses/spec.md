@@ -449,6 +449,15 @@ text, credentials, or ciphertext.
 - **AND** duplicate call identities, repeated output item identities, and
   unproved repeated outputs remain local rejections.
 
+#### Scenario: A JSON number has no finite native representation
+
+- **WHEN** a request contains `NaN`, `Infinity`, `-Infinity`, or a numeric
+  exponent that overflows the native JSON number representation at any depth
+- **THEN** projection and diagnosis report `invalid_json` before normalization
+  or upstream I/O, including in otherwise removed provider state
+- **AND** finite numbers and numeric-looking strings retain their semantics;
+  a clean request retains its exact bytes.
+
 #### Scenario: A future client introduces an unknown replay item
 
 - **WHEN** the input list contains an item not recognized by the item policy

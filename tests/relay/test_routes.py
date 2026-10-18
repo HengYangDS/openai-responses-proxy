@@ -273,6 +273,23 @@ class ProviderRouteTests:
             assert b"hello" not in raw
             assert received == []
 
+    @pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999"])
+    def test_nonfinite_json_is_rejected_without_upstream_io(self, number: bytes) -> None:
+        body = b'{"input":"private-current-prompt","temperature":' + number + b"}"
+        success = b'{"id":"resp_not_admitted","status":"completed"}'
+        with running_proxy([(200, success)]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body, path="/ucloud/v1/responses")
+            with raised.value as response:
+                assert response.code == 400
+                assert response.headers.get("Retry-After") is None
+                raw = response.read()
+            error = json.loads(raw)["error"]
+            assert error["code"] == "provider_portable_projection_rejected"
+            assert error["reason"] == "invalid_json"
+            assert b"private-current-prompt" not in raw
+            assert received == []
+
     def test_all_three_catalog_routes_relay_once_without_responses_policy(self, subtests) -> None:
         payload = b'{"object":"list","data":[]}'
         captures: list[dict[str, object]] = []

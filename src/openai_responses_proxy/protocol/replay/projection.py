@@ -7,6 +7,7 @@ Request-local normalization never changes the client's conversation history.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import cast
@@ -73,10 +74,20 @@ class ProjectionResult:
         )
 
 
+def _finite_json_number(value: str) -> float:
+    """Require a finite native representation for every decoded JSON number."""
+    number = float(value)
+    if not math.isfinite(number):
+        _reject("invalid_json")
+    return number
+
+
 def sanitize_responses_body(raw: bytes) -> ProjectionResult:
     """Return portable request data and typed secret-free projection metrics."""
     try:
-        payload = json.loads(raw)
+        payload = json.loads(
+            raw, parse_float=_finite_json_number, parse_constant=_finite_json_number
+        )
     except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
         return ProjectionResult(None, "rejected", reason="invalid_json")
     if not isinstance(payload, dict):
@@ -135,7 +146,9 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
     if not changed:
         return ProjectionResult(raw, "clean", input_dependencies=input_dependencies)
     try:
-        encoded = json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode()
+        encoded = json.dumps(
+            candidate, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode()
     except (TypeError, ValueError, RecursionError, UnicodeError):
         return ProjectionResult(None, "rejected", reason="serialization_failed")
     return ProjectionResult(

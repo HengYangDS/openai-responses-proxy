@@ -6,6 +6,9 @@ import json
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
+
+from openai_responses_proxy.protocol.recovery import input as recovery
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
 
@@ -114,6 +117,41 @@ class RequestSanitizationContracts:
         note = _projection.diagnostic()
         assert out is None
         assert note == "rejected invalid_json"
+
+    @pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999", b"-1e9999"])
+    @pytest.mark.parametrize("store", [b"", b',"store":false'])
+    def test_nonfinite_numbers_fail_closed_before_projection(self, number: bytes, store: bytes):
+        raw = b'{"input":"private-current-prompt","temperature":' + number + store + b"}"
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body is None
+        assert projection.diagnostic() == "rejected invalid_json"
+        assert recovery.diagnose(raw).first_incompatible_reason == "invalid_json"
+
+    def test_nested_nonfinite_number_is_rejected_even_in_removed_provider_state(self):
+        raw = b'{"input":"current","previous_response_id":{"nested":[NaN]},"store":false}'
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body is None
+        assert projection.diagnostic() == "rejected invalid_json"
+
+    def test_finite_json_numbers_preserve_clean_request_bytes(self):
+        raw = (
+            b'{ "input" : "current", "store" : false, "temperature" : 0.5, '
+            b'"metadata" : {"numbers":[0,-0.0,1e308,1e-320],"text":"NaN Infinity"} }'
+        )
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body == raw
+        assert projection.diagnostic() == "clean portable_replay"
+
+    def test_finite_json_numbers_survive_request_normalization(self):
+        raw = b'{"input":"current","temperature":0.5,"metadata":{"numbers":[0,-0.0,1e308,1e-320]}}'
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body is not None
+        assert json.loads(projection.body) == {
+            "input": "current",
+            "store": False,
+            "temperature": 0.5,
+            "metadata": {"numbers": [0, -0.0, 1e308, 1e-320]},
+        }
 
     def test_fail_closed_on_json_values_that_are_not_response_objects(self, subtests):
         for raw in (b"[]", b"null", b'"text"'):
