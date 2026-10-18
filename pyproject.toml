@@ -26,7 +26,7 @@ linux-release-image = "python:3.14.7-bookworm@sha256:ecac9e212daacda8a702eae372f
 
 [dependency-groups]
 quality = [
-  "coverage==7.16.1",
+  "coverage==7.16.2",
   "deptry==0.25.1",
   "hatchling==1.32.4",
   "nox==2026.8.17",
