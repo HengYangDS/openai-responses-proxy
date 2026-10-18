@@ -304,8 +304,8 @@ scope = "python"
 session = "quick"
 configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."
-measurement = "Ruff static analysis over every Python carrier, including C901 McCabe complexity at the bound declared in its native configuration; real tool probes cover product, tooling, test and Nox roles."
-false_positive_cost = "An inapplicable rule can force an obscuring rewrite, so applicability is changed only through this role contract."
+measurement = "Ruff checks every Python carrier, native C901 complexity, and explicit public/special-method returns for product, tooling and Nox; real-tool probes verify admission."
+false_positive_cost = "Pytest owns fixture injection, so tests omit missing-return rules but retain type checking. Other applicability changes require review."
 remediation = "Correct or simplify the owning implementation; change applicability only with a reviewed responsibility-map update."
 review_condition = "Reassess when Ruff adds a relevant stable rule family or repeated cohesive operations exceed the native complexity bound; review lower-bound findings semantically rather than forcing forwarding helpers."
 

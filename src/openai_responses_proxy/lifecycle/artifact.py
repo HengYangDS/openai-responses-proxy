@@ -217,7 +217,9 @@ def mint(
     return _AUTHORITY.mint(blobs, receipt, sidecar)
 
 
-def claim(candidate: object):
+def claim(
+    candidate: object,
+) -> tuple[tuple[ArtifactFile, ...], str, str, FrozenJsonObject, FrozenJsonObject]:
     """Consume one live admitted verified-artifact authority."""
     return _AUTHORITY.claim(candidate)
 

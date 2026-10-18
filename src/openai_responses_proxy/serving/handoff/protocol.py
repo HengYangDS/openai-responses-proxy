@@ -137,7 +137,7 @@ def _decode_control_message(
 class HandoffChild:
     """One launcher-owned control channel to a replacement runtime."""
 
-    def __init__(self, process: subprocess.Popen[bytes]):
+    def __init__(self, process: subprocess.Popen[bytes]) -> None:
         """Bind the launcher's exact child process and control pipes."""
         if process.stdin is None or process.stdout is None:
             raise HandoffError("handoff child pipes are unavailable")

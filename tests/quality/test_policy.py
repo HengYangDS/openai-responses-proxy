@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import tomllib
+from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
@@ -110,12 +113,13 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     selected = ruff["lint"]["select"]
     assert len(selected) == len(set(selected))
     assert {"F", "I", "N", "PT", "UP", "B", "RET", "PERF", "RUF"} <= set(selected)
+    assert {"ANN201", "ANN204"} <= set(selected)
     assert "ANN" not in selected
     assert any(rule == "S" or rule.startswith("S") for rule in selected)
     assert "D" in selected
     assert "ignore" not in ruff["lint"]
     assert ruff["lint"]["pydocstyle"] == {"convention": "google"}
-    assert ruff["lint"]["per-file-ignores"] == {"tests/**": ["D1"]}
+    assert ruff["lint"]["per-file-ignores"] == {"tests/**": ["D1", "ANN201", "ANN204"]}
 
     rationale = {
         "risk_model",
@@ -133,6 +137,44 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         assert all(
             isinstance(policy.get(field), str) and policy[field].strip() for field in rationale
         ), relative
+
+
+@pytest.mark.parametrize("valid", [False, True])
+def test_native_ty_enforces_the_declared_boundary_without_mutation(
+    tmp_path: Path, valid: bool
+) -> None:
+    source = tmp_path / "probe.py"
+    content = f"def answer() -> {'int' if valid else 'str'}:\n    return 42\n"
+    source.write_text(content, encoding="utf-8")
+    result = subprocess.run(
+        (
+            "ty",
+            "check",
+            "--config-file",
+            str(ROOT / ".config/checks/ty/ty.toml"),
+            "--python-version",
+            "3.12",
+            "--python-platform",
+            "all",
+            "--error-on-warning",
+            "--no-progress",
+            "--output-format",
+            "gitlab",
+            str(source),
+        ),
+        cwd=ROOT,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.stderr == ""
+    assert result.returncode == int(not valid)
+    assert {entry["check_name"] for entry in json.loads(result.stdout)} == (
+        set() if valid else {"invalid-return-type"}
+    )
+    assert source.read_text(encoding="utf-8") == content
 
 
 def test_editor_defaults_and_text_layout_policy_are_aligned() -> None:

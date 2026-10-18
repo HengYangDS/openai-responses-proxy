@@ -347,10 +347,26 @@ class TestVerificationContracts:
             (
                 "src/openai_responses_proxy/probe.py",
                 "def answer():\n    return 42\n",
-                {"D100", "D103"},
+                {"D100", "D103", "ANN201"},
             ),
-            ("tools/probe.py", "def answer():\n    return 42\n", {"D100", "D103"}),
-            ("noxfile.py", "def answer():\n    return 42\n", {"D100", "D103"}),
+            ("tools/probe.py", "def answer():\n    return 42\n", {"D100", "D103", "ANN201"}),
+            ("noxfile.py", "def answer():\n    return 42\n", {"D100", "D103", "ANN201"}),
+            (
+                "src/openai_responses_proxy/probe.py",
+                '"""Native annotation probe."""\n'
+                "def answer() -> int:\n"
+                '    """Return the answer."""\n    return 42\n',
+                set(),
+            ),
+            (
+                "tools/probe.py",
+                '"""Native annotation probe."""\n'
+                "class Input:\n"
+                '    """One public input."""\n'
+                "    def __init__(self, value: int):\n"
+                '        """Bind the selected value."""\n        self.value = value\n',
+                {"ANN204"},
+            ),
             ("tests/probe.py", "def answer():\n    return 42\n", set()),
             (
                 "tests/probe.py",
@@ -359,7 +375,7 @@ class TestVerificationContracts:
             ),
         ],
     )
-    def test_native_ruff_applies_documentation_policy_by_semantic_role(
+    def test_native_ruff_applies_public_interface_policy_by_semantic_role(
         self, relative: str, source: str, expected: set[str]
     ) -> None:
         result = subprocess.run(

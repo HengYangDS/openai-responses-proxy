@@ -23,6 +23,8 @@ select = [
   "D",
   "I",
   "N",
+  "ANN201",
+  "ANN204",
   "ARG",
   "A",
   "ASYNC",
@@ -74,5 +76,5 @@ select = [
 ]
 
 [lint.per-file-ignores]
-# Behavior-named tests need no obligatory docstrings; existing prose is still checked.
-"tests/**" = ["D1"]
+# Fixtures use pytest's inferred injection types; existing annotations and prose are checked.
+"tests/**" = ["D1", "ANN201", "ANN204"]
