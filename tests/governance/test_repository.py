@@ -122,6 +122,8 @@ class TestInstallationInputValidation:
             log_dir="/var/state/proxy",
             port=8808,
             upstream_timeout=45.0,
+            catalog_timeout=0.25,
+            catalog_max_bytes=8192,
         )
         environment = runtime_spec.environment(runtime_spec.write(context))
         assert set(environment) == {
@@ -136,6 +138,8 @@ class TestInstallationInputValidation:
             runtime_config.WATCHDOG_LOG_BACKUP_COUNT_ENV,
             runtime_config.UPSTREAM_TIMEOUT_ENV,
             runtime_config.UPSTREAM_READ_TIMEOUT_ENV,
+            runtime_config.CATALOG_TIMEOUT_ENV,
+            runtime_config.CATALOG_MAX_BYTES_ENV,
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES",
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT",
             runtime_config.UPSTREAM_BASE_URL_ENV,
@@ -148,6 +152,9 @@ class TestInstallationInputValidation:
         assert environment[runtime_config.STATE_HOME_ENV] == "/var/state/proxy"
         assert runtime_config.load(environment).listener == ("127.0.0.1", 8808)
         assert environment[runtime_config.UPSTREAM_TIMEOUT_ENV] == "45.0"
+        settings = runtime_config.load(environment)
+        assert settings.catalog_timeout == 0.25
+        assert settings.catalog_max_bytes == 8192
 
     def test_runtime_settings_expose_only_the_owned_configuration_model(self):
         assert set(runtime_config.Settings.__dataclass_fields__) == {
@@ -157,6 +164,8 @@ class TestInstallationInputValidation:
             "watchdog_log",
             "upstream_timeout",
             "upstream_read_timeout",
+            "catalog_timeout",
+            "catalog_max_bytes",
             "request_body_max_bytes",
             "request_body_timeout",
             "watchdog_interval",
