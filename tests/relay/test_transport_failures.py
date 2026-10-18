@@ -20,6 +20,7 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.runtime import config
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
@@ -290,6 +291,82 @@ class TestTransportFailures(InputTransportFixture):
 
         assert handler.statuses == [400]
         assert b"provider_portable_projection_rejected" in handler.output()
+        opened.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("ticks", "consumed"),
+        [([0.0, 1.1], 0), ([0.0, 0.1, 1.1], 7)],
+        ids=["expired-before-read", "expired-on-completion"],
+    )
+    def test_body_deadline_rejects_expiry_and_restores_socket_timeout(
+        self, ticks: list[float], consumed: int, *, mocker
+    ) -> None:
+        handler = MemoryHandler(b"private")
+        handler.connection.settimeout(0.25)
+        settings = config.load({config.REQUEST_BODY_TIMEOUT_ENV: "1"})
+        mocker.patch.object(responses, "_SETTINGS", settings)
+        mocker.patch.object(responses.time, "monotonic", side_effect=ticks)
+
+        assert responses._read_responses_body(handler) == (None, "request_body_timeout")
+        assert handler.rfile.tell() == consumed
+        assert handler.connection.gettimeout() == 0.25
+
+    @pytest.mark.parametrize("previous", [None, 0.25, 2.0])
+    def test_body_read_clamps_and_restores_the_original_socket_timeout(
+        self, previous: float | None, *, mocker
+    ) -> None:
+        handler = MemoryHandler(b"complete")
+        handler.connection.settimeout(previous)
+        settings = config.load({config.REQUEST_BODY_TIMEOUT_ENV: "1"})
+        mocker.patch.object(responses, "_SETTINGS", settings)
+        mocker.patch.object(responses.time, "monotonic", return_value=0.0)
+        armed = mocker.spy(handler.connection, "settimeout")
+
+        assert responses._read_responses_body(handler) == (b"complete", "")
+        assert armed.call_args_list == [
+            mocker.call(1.0 if previous is None else min(previous, 1.0)),
+            mocker.call(previous),
+        ]
+        assert handler.connection.gettimeout() == previous
+
+    @pytest.mark.parametrize(
+        ("failure", "status", "reason"),
+        [
+            (TimeoutError("private timeout"), 408, "request_body_timeout"),
+            (OSError("private read failure"), 400, "request_body_unreadable"),
+        ],
+    )
+    def test_failed_body_reads_reject_before_upstream_without_disclosure(
+        self, failure: OSError, status: int, reason: str, *, mocker
+    ) -> None:
+        handler = MemoryHandler(b"private body")
+        handler.connection.settimeout(0.25)
+        mocker.patch.object(handler.rfile, "read1", side_effect=failure)
+        opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
+
+        responses.relay(handler, "POST", PROVIDERS)
+
+        assert handler.statuses == [status]
+        assert ("Connection", "close") in handler.sent_headers
+        assert handler.connection.gettimeout() == 0.25
+        error = json.loads(handler.output())["error"]
+        assert error["code"] == "request_body_rejected"
+        assert error["reason"] == reason
+        assert b"private" not in handler.output()
+        opened.assert_not_called()
+
+    def test_unparseable_body_length_fails_without_reading_or_upstream_io(self, *, mocker) -> None:
+        handler = MemoryHandler(b"private body")
+        del handler.headers["Content-Length"]
+        handler.headers["Content-Length"] = "9" * 5000
+        opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
+
+        responses.relay(handler, "POST", PROVIDERS)
+
+        assert handler.statuses == [400]
+        assert handler.rfile.tell() == 0
+        assert ("Connection", "close") in handler.sent_headers
+        assert json.loads(handler.output())["error"]["reason"] == "invalid_content_length"
         opened.assert_not_called()
 
     def test_invalid_successful_responses_fail_before_downstream_commit(
