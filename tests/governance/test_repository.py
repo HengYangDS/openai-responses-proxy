@@ -136,6 +136,8 @@ class TestInstallationInputValidation:
             runtime_config.WATCHDOG_LOG_BACKUP_COUNT_ENV,
             runtime_config.UPSTREAM_TIMEOUT_ENV,
             runtime_config.UPSTREAM_READ_TIMEOUT_ENV,
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES",
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT",
             runtime_config.UPSTREAM_BASE_URL_ENV,
             runtime_config.WATCHDOG_INTERVAL_ENV,
             runtime_config.WATCHDOG_MAX_BACKOFF_ENV,
@@ -155,6 +157,8 @@ class TestInstallationInputValidation:
             "watchdog_log",
             "upstream_timeout",
             "upstream_read_timeout",
+            "request_body_max_bytes",
+            "request_body_timeout",
             "watchdog_interval",
             "watchdog_max_backoff",
             "response_failed_compaction_budget",
@@ -175,6 +179,8 @@ class TestInstallationInputValidation:
             runtime_config.WATCHDOG_LOG_BACKUP_COUNT_ENV: "5",
             runtime_config.UPSTREAM_TIMEOUT_ENV: "30",
             runtime_config.UPSTREAM_READ_TIMEOUT_ENV: "15.5",
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "16384",
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "2.5",
             runtime_config.WATCHDOG_INTERVAL_ENV: "3",
             runtime_config.WATCHDOG_MAX_BACKOFF_ENV: "12",
             runtime_config.RESPONSE_FAILED_COMPACTION_BUDGET_ENV: "65536",
@@ -188,6 +194,8 @@ class TestInstallationInputValidation:
         assert settings.watchdog_log.backup_count == 5
         assert settings.upstream_timeout == 30
         assert settings.upstream_read_timeout == 15.5
+        assert settings.request_body_max_bytes == 16384
+        assert settings.request_body_timeout == 2.5
         assert settings.watchdog_interval == 3
         assert settings.watchdog_max_backoff == 12
         assert settings.response_failed_compaction_budget == 65536
@@ -199,6 +207,10 @@ class TestInstallationInputValidation:
             (runtime_config.PROXY_LOG_BACKUP_COUNT_ENV, "11"),
             (runtime_config.UPSTREAM_TIMEOUT_ENV, "0"),
             (runtime_config.UPSTREAM_READ_TIMEOUT_ENV, "infinity"),
+            ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES", "4095"),
+            ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES", "268435457"),
+            ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT", "0"),
+            ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT", "nan"),
             (runtime_config.WATCHDOG_INTERVAL_ENV, "-1"),
             (runtime_config.WATCHDOG_MAX_BACKOFF_ENV, "not-a-number"),
             (runtime_config.WATCHDOG_MAX_BACKOFF_ENV, False),

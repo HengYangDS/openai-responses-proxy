@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.client
 import json
 import socket
+import threading
 import urllib.error
 from pathlib import Path
 
@@ -12,7 +13,9 @@ import pytest
 
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
+from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.runtime import config
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
@@ -204,7 +207,6 @@ class ProviderRouteTests:
         ("headers", "reason"),
         [
             (b"Content-Length: not-a-length", "invalid_content_length"),
-            (b"Content-Length: 999999999999999999999999", "invalid_content_length"),
             (b"Content-Length: -2", "invalid_content_length"),
             (b"Content-Length: +2", "invalid_content_length"),
             (b"Content-Length: 2, 2", "invalid_content_length"),
@@ -272,6 +274,87 @@ class ProviderRouteTests:
             assert payload["error"]["reason"] == "incomplete_request_body"
             assert b"hello" not in raw
             assert received == []
+
+    @pytest.mark.parametrize("length", ["4097", "999999999999999999999999"])
+    def test_oversized_request_is_rejected_before_reading_its_body(
+        self, length: str, *, mocker
+    ) -> None:
+        settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "4096"})
+        mocker.patch.object(responses, "_SETTINGS", settings)
+        with running_proxy([]) as (port, received):
+            wire = raw_exchange(
+                port,
+                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                + f"Content-Length: {length}\r\n".encode()
+                + b"Connection: keep-alive\r\n\r\nprivate-unread-content"
+                + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            )
+            assert wire.count(b"HTTP/1.1 ") == 1
+            assert b"HTTP/1.1 413 " in wire
+            assert b"Connection: close\r\n" in wire
+            error = json.loads(wire.partition(b"\r\n\r\n")[2])["error"]
+            assert error["code"] == "request_body_rejected"
+            assert error["reason"] == "request_body_too_large"
+            assert b"private-unread-content" not in wire
+            assert received == []
+
+    @pytest.mark.parametrize("trickle", [False, True])
+    def test_body_progress_cannot_extend_the_total_admission_deadline(
+        self, trickle: bool, capsys: pytest.CaptureFixture[str], *, mocker
+    ) -> None:
+        settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "0.25"})
+        mocker.patch.object(responses, "_SETTINGS", settings)
+        stopped = threading.Event()
+        with running_proxy([]) as (port, received):
+            with socket.create_connection(("127.0.0.1", port), timeout=1) as client:
+                client.sendall(
+                    b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                    b"Content-Length: 4096\r\nConnection: close\r\n\r\nprivate-prefix"
+                )
+
+                def progress() -> None:
+                    while trickle and not stopped.wait(0.05):
+                        try:
+                            client.sendall(b" ")
+                        except OSError:
+                            return
+
+                worker = threading.Thread(target=progress)
+                worker.start()
+                try:
+                    with http.client.HTTPResponse(client) as response:
+                        response.begin()
+                        assert response.status == 408
+                        assert response.headers["Connection"] == "close"
+                        raw = response.read()
+                        error = json.loads(raw)["error"]
+                        assert error["code"] == "request_body_rejected"
+                        assert error["reason"] == "request_body_timeout"
+                        assert b"private-prefix" not in raw
+                finally:
+                    stopped.set()
+                    worker.join(timeout=1)
+                    client.shutdown(socket.SHUT_WR)
+                    assert not worker.is_alive()
+            assert received == []
+        assert "Traceback" not in capsys.readouterr().err
+
+    def test_body_at_the_limit_preserves_bytes_and_keep_alive(self, *, mocker) -> None:
+        settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "4096"})
+        mocker.patch.object(responses, "_SETTINGS", settings)
+        raw = b'{"store":false,"input":"hello"}'
+        body = raw + b" " * (4096 - len(raw))
+        success = b'{"id":"resp_bounded","status":"completed"}'
+        with running_proxy([(200, success)]) as (port, received):
+            wire = raw_exchange(
+                port,
+                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                b"Content-Length: 4096\r\n\r\n"
+                + body
+                + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            )
+            assert wire.count(b"HTTP/1.1 200 ") == 2
+            assert received == [body]
 
     @pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999"])
     def test_nonfinite_json_is_rejected_without_upstream_io(self, number: bytes) -> None:

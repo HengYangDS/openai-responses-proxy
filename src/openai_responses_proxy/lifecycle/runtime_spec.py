@@ -23,6 +23,10 @@ if TYPE_CHECKING:
 
 FILENAME = inventory.RUNTIME_CONFIG_FILENAME
 SCHEMA_VERSION = 1
+_REQUEST_BODY_DEFAULTS = {
+    "request_body_max_bytes": config.DEFAULT_REQUEST_BODY_MAX_BYTES,
+    "request_body_timeout": config.DEFAULT_REQUEST_BODY_TIMEOUT,
+}
 
 _FIELDS = (
     "install_dir",
@@ -38,6 +42,7 @@ _FIELDS = (
     "watchdog_max_backoff",
     "response_failed_compaction_budget",
     "response_failed_max_stages",
+    *_REQUEST_BODY_DEFAULTS,
 )
 
 
@@ -118,6 +123,8 @@ def _project(value: JsonObject) -> dict[str, str]:
         config.WATCHDOG_LOG_BACKUP_COUNT_ENV: str(value["watchdog_log_backup_count"]),
         config.UPSTREAM_TIMEOUT_ENV: str(value["upstream_timeout"]),
         config.UPSTREAM_READ_TIMEOUT_ENV: str(value["upstream_read_timeout"]),
+        config.REQUEST_BODY_MAX_BYTES_ENV: str(value["request_body_max_bytes"]),
+        config.REQUEST_BODY_TIMEOUT_ENV: str(value["request_body_timeout"]),
         config.WATCHDOG_INTERVAL_ENV: str(value["watchdog_interval"]),
         config.WATCHDOG_MAX_BACKOFF_ENV: str(value["watchdog_max_backoff"]),
         config.RESPONSE_FAILED_COMPACTION_BUDGET_ENV: str(
@@ -148,12 +155,15 @@ def activate(executable: str | os.PathLike[str]) -> Path:
 
 def _read(target: Path) -> JsonObject:
     value = owned_files.read_canonical_json(target, "native runtime configuration")
-    expected_fields = {"schema_version", *_FIELDS}
-    if value.get("schema_version") != SCHEMA_VERSION or set(value) not in (
-        expected_fields,
-        expected_fields | {"upstream_base_url"},
+    required_fields = {"schema_version", *_FIELDS} - _REQUEST_BODY_DEFAULTS.keys()
+    optional_fields = {*_REQUEST_BODY_DEFAULTS, "upstream_base_url"}
+    if (
+        value.get("schema_version") != SCHEMA_VERSION
+        or not required_fields <= value.keys()
+        or not value.keys() <= required_fields | optional_fields
     ):
         raise errors.InstallError("native runtime configuration schema is unsupported")
+    value = {**_REQUEST_BODY_DEFAULTS, **value}
     if "upstream_base_url" in value:
         upstream = value["upstream_base_url"]
         if not isinstance(upstream, str) or not upstream:

@@ -304,8 +304,8 @@ local failure rather than forwarding a partial upstream response.
 HTTP headers and chunk framing cannot extend the budget by continually sending
 small fragments. DNS resolution and TLS connection setup remain subject to the
 native transport's timeout behavior; a strict wall-clock bound on those phases
-has not been qualified. The budget starts after local request projection, not
-while receiving a client's request body.
+has not been qualified. The upstream budget starts after local request projection;
+client-body reception has its own finite budget.
 
 The released UCloud route selects plaintext agent delivery. This requires a
 Codex client with the native plaintext-message path, the `collaboration` tool
@@ -332,6 +332,22 @@ Encoded path material, dot segments, duplicate separators, absolute targets,
 fragments, and unrelated endpoints are rejected before remote I/O. Provider
 origins come from the product manifest or the explicit installed upstream;
 headers, bodies, and query parameters cannot select another host.
+
+Each Responses body requires one ASCII decimal `Content-Length` and must
+finish within 30 seconds without exceeding 64 MiB. The body deadline starts
+after header parsing, does not renew with partial progress and is independent
+of inference or streaming. Over-limit bodies receive HTTP 413; expired bodies
+receive HTTP 408, both with `request_body_rejected` and a fixed reason before
+upstream I/O. Rejection closes the connection without exposing body content.
+Header-reception and downstream-write deadlines are not established by this
+body-admission contract.
+
+For a fresh installation, choose alternate budgets with
+`OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES` (4096–268435456 bytes) and
+`OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT` (0.001–300 seconds) in the
+installer's environment. Its native configuration owns the persisted values;
+upgrades retain them instead of taking a later shell's environment. Older
+configuration files receive these defaults without read-time mutation.
 
 ## Runtime evidence
 

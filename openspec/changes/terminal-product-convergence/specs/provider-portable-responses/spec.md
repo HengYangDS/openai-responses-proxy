@@ -91,6 +91,43 @@ so unread bytes cannot become another request.
 - **THEN** projection consumes only that body and computes the upstream length
 - **AND** a subsequent complete request remains independently parseable.
 
+### Requirement: Responses body admission has finite byte and time budgets
+
+Responses admission SHALL reject a declared body above its configured byte
+limit before reading it. Every body read SHALL spend one monotonic deadline;
+partial progress SHALL NOT renew it. Over-limit, expired and unreadable bodies
+SHALL receive one secret-free local failure before projection or upstream I/O,
+close the connection and leave other requests usable. Native runtime settings
+SHALL own and validate these budgets independently of upstream inference.
+
+#### Scenario: A body length exceeds the selected limit
+
+- **WHEN** a single valid decimal length exceeds the body limit, even if it
+  exceeds the platform's native read-size range
+- **THEN** HTTP 413 reports `request_body_rejected` and `request_body_too_large`
+- **AND** no body read, projection, upstream request or second HTTP reply occurs.
+
+#### Scenario: The caller stalls or continually sends small body fragments
+
+- **WHEN** the body cannot finish within its original monotonic deadline
+- **THEN** HTTP 408 reports `request_body_rejected` and `request_body_timeout`
+- **AND** no partial body, credential or traceback appears in the error or log;
+  the original socket timeout is restored before the connection closes.
+
+#### Scenario: A complete body fits the limit and its deadline
+
+- **WHEN** the caller sends exactly the admitted byte limit before expiry
+- **THEN** only those bytes enter portable projection, unchanged when already portable
+- **AND** a subsequent keep-alive request remains parseable; the body deadline
+  does not shorten inference, streamed output or the next request.
+
+#### Scenario: A successor reads retained native runtime settings
+
+- **WHEN** an installed configuration predates body-budget fields
+- **THEN** the reader supplies validated defaults without rewriting that file
+- **AND** a fresh installation persists selected budgets; later contexts preserve
+  its stored values rather than taking unrelated ambient replacements.
+
 ### Requirement: Sustained upstream unavailability does not amplify demand
 
 Responses SHALL retain bounded request-local recovery for a transient upstream

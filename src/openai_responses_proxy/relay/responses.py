@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import urllib.error
 from http.server import BaseHTTPRequestHandler
 
@@ -16,6 +17,9 @@ from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay.upstream import header_value
+from openai_responses_proxy.runtime import config as runtime_config
+
+_SETTINGS = runtime_config.load()
 
 
 def resolve_upstream(
@@ -151,10 +155,40 @@ def _read_responses_body(handler: BaseHTTPRequestHandler) -> tuple[bytes | None,
         return None, "invalid_content_length"
     try:
         length = int(value)
-        body = handler.rfile.read(length)
     except (ValueError, OverflowError):
         return None, "invalid_content_length"
-    return (body, "") if len(body) == length else (None, "incomplete_request_body")
+    if length > _SETTINGS.request_body_max_bytes:
+        return None, "request_body_too_large"
+    return _read_bounded_body(handler, length)
+
+
+def _read_bounded_body(handler: BaseHTTPRequestHandler, length: int) -> tuple[bytes | None, str]:
+    """Spend one body deadline without reading beyond the declared frame."""
+    deadline = time.monotonic() + _SETTINGS.request_body_timeout
+    connection = handler.connection
+    previous_timeout = connection.gettimeout()
+    body = bytearray()
+    try:
+        while len(body) < length:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None, "request_body_timeout"
+            connection.settimeout(
+                remaining if previous_timeout is None else min(previous_timeout, remaining)
+            )
+            chunk = handler.rfile.read1(min(length - len(body), 64 * 1024))
+            if not chunk:
+                return None, "incomplete_request_body"
+            body.extend(chunk)
+        if time.monotonic() >= deadline:
+            return None, "request_body_timeout"
+    except TimeoutError:
+        return None, "request_body_timeout"
+    except OSError:
+        return None, "request_body_unreadable"
+    finally:
+        connection.settimeout(previous_timeout)
+    return bytes(body), ""
 
 
 def _relay_catalog(
@@ -224,21 +258,29 @@ def relay(
         return
     body, framing_reason = _read_responses_body(handler)
     if body is None:
+        status, code = 400, "request_framing_rejected"
+        match framing_reason:
+            case "request_body_too_large":
+                status, code = 413, "request_body_rejected"
+            case "request_body_timeout":
+                status, code = 408, "request_body_rejected"
+            case "request_body_unreadable":
+                code = "request_body_rejected"
         downstream.send_payload(
             handler,
-            400,
+            status,
             replay_response.error_payload(
-                "Responses request body framing is invalid or incomplete",
+                "Responses request body admission failed",
                 "invalid_request_error",
-                "request_framing_rejected",
+                code,
                 reason=framing_reason,
             ),
             close=True,
         )
-        telemetry.record_counter("request_framing_rejected")
-        telemetry.record_failure("request_framing_rejected")
+        telemetry.record_counter(code)
+        telemetry.record_failure(code)
         operational_log.log(
-            f"req={request_id} event=request_framing_rejected provider={profile.name} "
+            f"req={request_id} event={code} provider={profile.name} "
             f"reason={framing_reason} path={operational_log.safe_request_path(handler.path)}"
         )
         return

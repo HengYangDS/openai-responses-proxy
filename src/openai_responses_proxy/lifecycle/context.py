@@ -52,6 +52,8 @@ class RuntimeContext:
     watchdog_log_backup_count: int = config.DEFAULT_WATCHDOG_LOG_BACKUP_COUNT
     upstream_timeout: float = config.DEFAULT_UPSTREAM_TIMEOUT
     upstream_read_timeout: float = config.DEFAULT_UPSTREAM_READ_TIMEOUT
+    request_body_max_bytes: int = config.DEFAULT_REQUEST_BODY_MAX_BYTES
+    request_body_timeout: float = config.DEFAULT_REQUEST_BODY_TIMEOUT
     watchdog_interval: float = config.DEFAULT_WATCHDOG_INTERVAL
     watchdog_max_backoff: float = config.DEFAULT_WATCHDOG_MAX_BACKOFF
     response_failed_compaction_budget: int = config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
@@ -135,11 +137,18 @@ def create(
     from openai_responses_proxy.lifecycle import runtime_spec
 
     selected = generation.selected_context(projected)
+    carrier = runtime_spec.path(selected)
+    try:
+        environment = runtime_spec.environment(carrier) if carrier.exists() else None
+        settings = config.load(environment)
+    except config.ConfigurationError as exc:
+        raise errors.InstallError(str(exc)) from exc
+    selected.request_body_max_bytes = settings.request_body_max_bytes
+    selected.request_body_timeout = settings.request_body_timeout
     if upstream_base_url is None:
-        carrier = runtime_spec.path(selected)
         upstream_base_url = (
-            runtime_spec.environment(carrier)[config.UPSTREAM_BASE_URL_ENV]
-            if carrier.exists()
+            environment[config.UPSTREAM_BASE_URL_ENV]
+            if environment is not None
             else config.os.environ.get(config.UPSTREAM_BASE_URL_ENV, "")
         )
     try:

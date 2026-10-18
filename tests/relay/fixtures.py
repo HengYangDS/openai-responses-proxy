@@ -263,6 +263,21 @@ def request_body(*, stream: bool = False, secret: str = "private-current-prompt"
     ).encode()
 
 
+class _MemoryConnection(socket.socket):
+    """Model timeout selection without allocating a native socket descriptor."""
+
+    def __init__(self) -> None:
+        self._memory_timeout: float | None = None
+
+    @override
+    def gettimeout(self) -> float | None:
+        return self._memory_timeout
+
+    @override
+    def settimeout(self, value: float | None) -> None:
+        self._memory_timeout = value
+
+
 class MemoryHandler(BaseHTTPRequestHandler):
     """Small handler surface for direct transport branch contracts."""
 
@@ -274,6 +289,7 @@ class MemoryHandler(BaseHTTPRequestHandler):
         self.headers["Connection"] = "close"
         self.rfile = io.BytesIO(body)
         self.wfile = io.BytesIO()
+        self.connection = _MemoryConnection()
         self.statuses: list[int] = []
         self.sent_headers: list[tuple[str, str]] = []
 

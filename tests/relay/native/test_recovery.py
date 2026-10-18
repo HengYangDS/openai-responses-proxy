@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
 import tempfile
 import threading
 import time
@@ -28,6 +29,54 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
+
+
+@pytest.mark.parametrize("oversized", [False, True])
+def test_frozen_body_admission_uses_the_persisted_budgets(oversized: bool) -> None:
+    """Refuse incomplete or oversized input without leaking a native listener."""
+    port = free_port()
+    with ExitStack() as cleanup:
+        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
+        ctx = write_installed_payload(
+            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
+        )
+        ctx.request_body_max_bytes = 4096
+        ctx.request_body_timeout = 0.25
+        runtime_spec.write(ctx)
+        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        cleanup.callback(terminate_process, child)
+        upstream.start()
+        with socket.create_connection(("127.0.0.1", port), timeout=2) as client:
+            length = 4097 if oversized else 4096
+            client.sendall(
+                b"POST /dmxapi/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                + f"Content-Length: {length}\r\nConnection: close\r\n\r\n".encode()
+                + b"private-native-prefix"
+            )
+            try:
+                with http.client.HTTPResponse(client) as response:
+                    response.begin()
+                    assert response.status == (413 if oversized else 408)
+                    assert response.headers["Connection"] == "close"
+                    raw = response.read()
+                    error = json.loads(raw)["error"]
+                    assert error["code"] == "request_body_rejected"
+                    assert error["reason"] == (
+                        "request_body_too_large" if oversized else "request_body_timeout"
+                    )
+                    assert b"private-native-prefix" not in raw
+            finally:
+                client.shutdown(socket.SHUT_WR)
+        assert upstream.received == []
+        assert http_json(port, "/healthz", timeout=1)[0] == 200
+        assert "private-native-prefix" not in (root / "proxy.log").read_text()
+    assert child.poll() is not None
+    assert not proxy_is_up(port)
+    assert not proxy_is_up(upstream.port)
+    assert not upstream.thread.is_alive()
+    assert not root.exists()
 
 
 @pytest.mark.parametrize(

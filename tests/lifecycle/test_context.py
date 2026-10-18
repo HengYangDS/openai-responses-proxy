@@ -294,6 +294,56 @@ class TestRuntimeContext:
         assert {name: os.environ[name] for name in config.RUNTIME_ENVIRONMENT} == expected
         assert os.environ["UNRELATED_SETTING"] == "preserved"
 
+    def test_initial_body_budgets_persist_across_later_contexts(self, tmp_path, *, mocker):
+        mocker.patch.object(config, "data_dir", return_value=str(tmp_path / "payload"))
+        mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
+        mocker.patch.dict(
+            os.environ,
+            {
+                "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "16384",
+                "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "2.5",
+            },
+            clear=True,
+        )
+        initial = context.create()
+        target = runtime_spec.write(initial)
+        original = target.read_bytes()
+        environment = runtime_spec.environment(target)
+
+        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "16384"
+        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "2.5"
+        mocker.patch.dict(
+            os.environ,
+            {
+                "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "32768",
+                "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "10",
+            },
+        )
+        successor = context.create()
+        assert successor.request_body_max_bytes == 16384
+        assert successor.request_body_timeout == 2.5
+        assert runtime_spec.write(successor).read_bytes() == original
+
+    def test_retained_carrier_gets_body_defaults_without_rewriting_it(self, tmp_path):
+        ctx = context.RuntimeContext(
+            install_dir=str(tmp_path / "payload"),
+            executable=str(tmp_path / "payload" / "bin" / "openai-responses-proxy"),
+            command=str(tmp_path / "command"),
+            log_dir=str(tmp_path / "state"),
+        )
+        target = runtime_spec.write(ctx)
+        retained = json.loads(target.read_bytes())
+        retained.pop("request_body_max_bytes", None)
+        retained.pop("request_body_timeout", None)
+        original = digest.canonical_json(retained)
+        target.write_bytes(original)
+
+        environment = runtime_spec.environment(target)
+
+        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "67108864"
+        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "30.0"
+        assert target.read_bytes() == original
+
     def test_runtime_activation_rejects_missing_carrier(self, tmp_path):
         executable = tmp_path / "payload" / "bin" / "openai-responses-proxy"
         executable.parent.mkdir(parents=True)
