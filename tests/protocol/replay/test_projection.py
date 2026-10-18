@@ -153,6 +153,47 @@ class RequestSanitizationContracts:
             "metadata": {"numbers": [0, -0.0, 1e308, 1e-320]},
         }
 
+    @pytest.mark.parametrize("selector", [[], {}])
+    @pytest.mark.parametrize(
+        ("item", "field", "reason"),
+        [
+            (
+                {"type": "message", "role": "user", "content": "private-current-prompt"},
+                "role",
+                "invalid_message_role",
+            ),
+            (
+                {"type": "message", "role": "assistant", "content": "private-current-prompt"},
+                "phase",
+                "invalid_message_phase",
+            ),
+            (
+                {
+                    "type": "agent_message",
+                    "author": "/root",
+                    "recipient": "/root/child",
+                    "content": "private-current-prompt",
+                },
+                "phase",
+                "invalid_agent_phase",
+            ),
+            (
+                {"type": "local_shell_call", "call_id": "call-1", "action": {"type": "exec"}},
+                "status",
+                "invalid_local_shell_call",
+            ),
+        ],
+    )
+    def test_nonstring_replay_selectors_have_one_bounded_rejection(
+        self, selector: object, item: dict[str, object], field: str, reason: str
+    ) -> None:
+        raw = _request_body([{**item, field: selector}])
+        projection = rewrite.sanitize_responses_body(raw)
+        assert projection.body is None
+        assert projection.diagnostic() == f"rejected {reason}"
+        assert recovery.diagnose(raw).first_incompatible_reason == reason
+        assert "private-current-prompt" not in projection.diagnostic()
+
     def test_fail_closed_on_json_values_that_are_not_response_objects(self, subtests):
         for raw in (b"[]", b"null", b'"text"'):
             with subtests.test(raw=raw):

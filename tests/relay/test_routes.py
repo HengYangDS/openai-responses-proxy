@@ -290,6 +290,24 @@ class ProviderRouteTests:
             assert b"private-current-prompt" not in raw
             assert received == []
 
+    @pytest.mark.parametrize("route", ["dmxapi", "ucloud", "aihubmix"])
+    def test_nonstring_replay_role_is_rejected_before_upstream_io(
+        self, route: str, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        body = _body({"input": [{"role": [], "content": "private-current-prompt"}]})
+        with running_proxy([]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body, path=f"/{route}/v1/responses")
+            with raised.value as response:
+                assert response.code == 400
+                raw = response.read()
+            error = json.loads(raw)["error"]
+            assert error["code"] == "provider_portable_projection_rejected"
+            assert error["reason"] == "invalid_message_role"
+            assert b"private-current-prompt" not in raw
+            assert received == []
+        assert "Traceback" not in capsys.readouterr().err
+
     def test_all_three_catalog_routes_relay_once_without_responses_policy(self, subtests) -> None:
         payload = b'{"object":"list","data":[]}'
         captures: list[dict[str, object]] = []

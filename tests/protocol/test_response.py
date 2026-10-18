@@ -116,6 +116,11 @@ class LiveJsonContracts:
             with subtests.test(status=status):
                 assert response.validate_json_response(payload) == payload
 
+    @pytest.mark.parametrize("status", [[], {}])
+    def test_nonstring_terminal_status_has_a_bounded_rejection(self, status: object) -> None:
+        with pytest.raises(ValueError, match=r"^invalid_responses_success_body$"):
+            response.validate_json_response(_json({"status": status, "output": []}))
+
     def test_rejects_unproved_success_documents(self, subtests) -> None:
         invalid = (
             b"",

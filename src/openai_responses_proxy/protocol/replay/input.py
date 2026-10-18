@@ -148,9 +148,11 @@ def _project_message(item: JsonObject) -> tuple[JsonObject | None, dict[str, int
     _unknown_fields(item, _MESSAGE_FIELDS, "unknown_message_field")
     role = item.get("role")
     phase = item.get("phase")
-    if role not in _VALID_ROLES:
+    if not isinstance(role, str) or role not in _VALID_ROLES:
         _reject("invalid_message_role")
-    if phase is not None and (role != "assistant" or phase not in _VALID_PHASES):
+    if phase is not None and (
+        role != "assistant" or not isinstance(phase, str) or phase not in _VALID_PHASES
+    ):
         _reject("invalid_message_phase")
     if role == "assistant":
         if empty_assistant_placeholder(item.get("content")):
@@ -203,7 +205,7 @@ def _project_agent_message(item: JsonObject) -> tuple[JsonObject, dict[str, int]
     phase = item.get("phase", "commentary")
     if not all(isinstance(value, str) and value for value in (author, recipient)):
         _reject("invalid_agent_message")
-    if phase not in _VALID_PHASES:
+    if not isinstance(phase, str) or phase not in _VALID_PHASES:
         _reject("invalid_agent_phase")
     ciphertext = _agent_ciphertext(item)
     root_ciphertext = int("encrypted_content" in item)
@@ -302,7 +304,11 @@ def _drop_local_tool_call(
     )
     if relationships.observe("local_shell_call", call_id):
         _reject("invalid_call_id")
-    if status not in _LOCAL_SHELL_STATUSES or not isinstance(action, dict):
+    if (
+        not isinstance(status, str)
+        or status not in _LOCAL_SHELL_STATUSES
+        or not isinstance(action, dict)
+    ):
         _reject("invalid_local_shell_call")
     if set(action) - _LOCAL_SHELL_ACTION_FIELDS or action.get("type") != "exec":
         _reject("invalid_local_shell_call")

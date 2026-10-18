@@ -111,6 +111,47 @@ class AgentDeliveryContracts:
         with pytest.raises(ValueError, match="invalid_agent_delivery_request"):
             agent_delivery.prepare_request(_wire({"tools": tools}), "plaintext")
 
+    @pytest.mark.parametrize("name", [[], {}])
+    def test_selected_catalog_requires_string_tool_names(self, name: object) -> None:
+        tools = _tools()
+        tools[0]["tools"] = [{"type": "function", "name": name}]
+        with pytest.raises(ValueError, match=r"^invalid_agent_delivery_request$"):
+            agent_delivery.prepare_request(_wire({"tools": tools}), "plaintext")
+
+    @pytest.mark.parametrize("item_type", [[], {}])
+    def test_selected_replay_requires_a_string_call_type(self, item_type: object) -> None:
+        call = {**_call(), "type": item_type, "namespace": "collaboration"}
+        with pytest.raises(ValueError, match=r"^invalid_agent_delivery_request$"):
+            agent_delivery.prepare_request(_wire({"input": [call]}), "plaintext")
+
+    @pytest.mark.parametrize("field", ["type", "name"])
+    @pytest.mark.parametrize("selector", [[], {}])
+    @pytest.mark.parametrize("context", ["json", "sse"])
+    def test_selected_response_requires_string_call_selectors(
+        self, field: str, selector: object, context: str
+    ) -> None:
+        call = {**_call(), field: selector}
+        if context == "json":
+            raw = _wire({"status": "completed", "output": [call]})
+            restore = agent_delivery.restore_response
+        else:
+            raw = b"data: " + _wire({"type": "response.output_item.done", "item": call}) + b"\n\n"
+            restore = agent_delivery.restore_event
+        with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
+            restore(raw, True)
+
+    def test_unselected_selectors_are_not_owned_by_plaintext_delivery(self) -> None:
+        tools = _tools()
+        tools[0]["name"] = "another_tool_namespace"
+        tools[0]["tools"] = [{"type": "function", "name": []}]
+        item = {**_call(), "type": [], "name": {}, "namespace": "another_tool_namespace"}
+        request = _wire({"input": [item], "tools": tools})
+        assert agent_delivery.prepare_request(request, "plaintext").body == request
+        response = _wire({"status": "completed", "output": [item]})
+        assert agent_delivery.restore_response(response, True) == response
+        event = b"data: " + _wire({"type": "response.output_item.done", "item": item}) + b"\n\n"
+        assert agent_delivery.restore_event(event, True) == event
+
     @pytest.mark.parametrize("metadata", [None, "message", [1]])
     def test_replay_metadata_must_match_the_native_argument_list(self, metadata: object) -> None:
         call = {**_call(), "namespace": "collaboration", "encrypted_function_args": metadata}

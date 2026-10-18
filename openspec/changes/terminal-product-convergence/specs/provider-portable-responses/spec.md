@@ -223,6 +223,9 @@ client configuration, credentials or conversation storage.
   downstream content
 - **THEN** the relay preserves emitted bytes, closes the incomplete connection
   and does not reopen the committed request
+- **AND** selected call types and names are strings before semantic selection;
+  a malformed selected value fails with a bounded delivery reason, while an
+  unrelated namespace retains its exact bytes
 - **AND** operational evidence identifies the validator-owned fixed reason
   without message arguments, ciphertext, query values or exception prose
 - **AND** an unclassified validation exception remains `unknown`.
@@ -491,3 +494,13 @@ text, credentials, or ciphertext.
 
 - **WHEN** the proxy diagnoses and projects the same input item
 - **THEN** both operations consume the same item and relationship policy.
+
+#### Scenario: A semantic selector has an invalid JSON type
+
+- **WHEN** a replay role, phase or shell status is an array or object
+- **THEN** projection and diagnosis return the same bounded field rejection
+  before upstream I/O, without a traceback or private content
+- **AND** non-string terminal response statuses are rejected locally; selected
+  delegation schemas and replay calls require string names and types
+- **AND** valid string selectors, native encrypted content and unrelated live
+  response bytes retain their existing semantics.

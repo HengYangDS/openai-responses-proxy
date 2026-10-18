@@ -77,7 +77,12 @@ def _select_catalog(tools: list[object]) -> bool:
         tool["name"] = PLAINTEXT_NAMESPACE
         active = True
         for child in children:
-            if not isinstance(child, dict) or child.get("name") not in _MESSAGE_TOOLS:
+            if not isinstance(child, dict):
+                continue
+            child_name = child.get("name")
+            if not isinstance(child_name, str):
+                raise ValueError("invalid_agent_delivery_request")
+            if child_name not in _MESSAGE_TOOLS:
                 continue
             parameters = child.get("parameters")
             properties = parameters.get("properties") if isinstance(parameters, dict) else None
@@ -89,7 +94,12 @@ def _select_catalog(tools: list[object]) -> bool:
 
 
 def _select_replayed_call(item: JsonObject) -> bool:
-    if item.get("type") not in _CALL_TYPES or item.get("namespace") != NATIVE_NAMESPACE:
+    if item.get("namespace") != NATIVE_NAMESPACE:
+        return False
+    item_type = item.get("type")
+    if not isinstance(item_type, str):
+        raise ValueError("invalid_agent_delivery_request")
+    if item_type not in _CALL_TYPES:
         return False
     item["namespace"] = PLAINTEXT_NAMESPACE
     if item.get("encrypted_function_args") == []:
@@ -126,9 +136,17 @@ def _encode(value: object) -> bytes:
 
 
 def _restore_item(item: JsonObject, *, complete: bool) -> bool:
-    if item.get("type") not in _CALL_TYPES or item.get("namespace") != PLAINTEXT_NAMESPACE:
+    if item.get("namespace") != PLAINTEXT_NAMESPACE:
         return False
-    if item.get("name") in _MESSAGE_TOOLS and (
+    item_type = item.get("type")
+    if not isinstance(item_type, str):
+        raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
+    if item_type not in _CALL_TYPES:
+        return False
+    name = item.get("name")
+    if not isinstance(name, str):
+        raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
+    if name in _MESSAGE_TOOLS and (
         complete or item.get("status") != "in_progress" or item.get("arguments")
     ):
         arguments = item.get("arguments")
