@@ -20,6 +20,42 @@ from tests.relay.fixtures import running_proxy
 
 
 class TestProxyTransport(LoopbackTransportFixture):
+    @pytest.mark.parametrize(
+        ("path", "status", "error_body"),
+        [
+            ("/aihubmix/v1/responses", 400, b"upstream rejected the request"),
+            ("/aihubmix/v1/responses", 400, b'{"error":' + b"[" * 100_000 + b"0"),
+            ("/dmxapi/v1/responses", 477, b'{"error":' + b"[" * 100_000 + b"0"),
+        ],
+        ids=("non-json", "parser-depth-exhaustion", "wire-parser-depth-exhaustion"),
+    )
+    def test_unclassified_error_passes_through_without_retry(
+        self, path, status, error_body, capsys
+    ):
+        body = b'{"stream":false,"input":[{"type":"message","role":"user","content":"hello"}]}'
+        success = b'{"id":"resp_next","status":"completed","output":[]}'
+
+        with running_proxy([(status, error_body), (200, success)]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body, path=path)
+            with raised.value:
+                assert raised.value.code == status
+                assert raised.value.read() == error_body
+
+            with request(port, body, path=path) as response:
+                assert response.status == 200
+                assert response.read() == success
+
+        assert len(received) == 2
+        assert received[0] == received[1]
+        assert json.loads(received[0]) == {
+            "stream": False,
+            "input": [{"type": "message", "role": "user", "content": "hello"}],
+            "store": False,
+        }
+        captured = capsys.readouterr()
+        assert "Traceback" not in captured.out + captured.err
+
     def test_recovers_response_failed_with_pair_safe_compact_request(self):
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '

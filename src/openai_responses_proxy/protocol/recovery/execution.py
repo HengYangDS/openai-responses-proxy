@@ -66,7 +66,7 @@ def retry_disposition(code: int, err_body: bytes) -> str:
         return ""
     try:
         document = json.loads(err_body)
-    except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+    except (TypeError, ValueError, RecursionError):
         return ""
     error = document.get("error") if isinstance(document, dict) else None
     if not isinstance(error, dict):

@@ -153,6 +153,11 @@ class ResponseFailedContracts:
         prose_only = b'{"error":{"message":"response_failed and request blocked are documentation text","type":"invalid_request_error","code":"ordinary_error"}}'
         assert execution_recovery.retry_disposition(400, prose_only) == ""
 
+    def test_retry_disposition_refuses_parser_depth_exhaustion(self) -> None:
+        payload = b'{"error":' + b"[" * 100_000 + b"0"
+
+        assert execution_recovery.retry_disposition(400, payload) == ""
+
     def test_response_failed_compaction_keeps_complete_tool_pairs_and_latest_user(self):
         """Fallback removes only an old prefix; no retained output is orphaned."""
         body = _body(

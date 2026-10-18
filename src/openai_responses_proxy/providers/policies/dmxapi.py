@@ -18,7 +18,7 @@ def is_retryable_failure(status: int, payload: bytes) -> bool:
         return False
     try:
         document: object = json.loads(payload)
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except (TypeError, ValueError, RecursionError):
         return False
     error: object = document.get("error") if isinstance(document, dict) else None
     if not isinstance(error, dict):

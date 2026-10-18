@@ -214,7 +214,7 @@ def _classification(
     if status_code == 400:
         try:
             document = json.loads(payload)
-        except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        except (TypeError, ValueError, RecursionError):
             document = None
         error = document.get("error") if isinstance(document, dict) else None
         if (
