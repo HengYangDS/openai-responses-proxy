@@ -82,9 +82,9 @@ def project_input_content(
     root_ciphertext: int = 0,
 ) -> tuple[object, bool, int, int, int]:
     """Return provider-neutral input content and bounded projection metrics."""
-    if isinstance(value, str):
-        if value:
-            return value, bool(root_ciphertext), root_ciphertext, 0, 0
+    if isinstance(value, str) and value:
+        return value, bool(root_ciphertext), root_ciphertext, 0, 0
+    if value is None or isinstance(value, str):
         if root_ciphertext and encrypted_marker:
             return (
                 [{"type": "input_text", "text": OPAQUE_CONTENT_MARKER}],
@@ -93,16 +93,8 @@ def project_input_content(
                 1,
                 0,
             )
-        reject("empty_text_content")
+        reject("empty_text_content" if isinstance(value, str) else "invalid_content")
     if not isinstance(value, list):
-        if root_ciphertext and value is None and encrypted_marker:
-            return (
-                [{"type": "input_text", "text": OPAQUE_CONTENT_MARKER}],
-                True,
-                root_ciphertext,
-                1,
-                0,
-            )
         reject("invalid_content")
     blocks = cast("list[object]", value)
 

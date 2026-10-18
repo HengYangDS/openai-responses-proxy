@@ -526,10 +526,8 @@ def project_input(
             continue
         if strategy is item_policy.ProjectionStrategy.DROP_LOCAL_TOOL:
             item_metrics = _drop_local_tool_call(item, relationships)
-            for key, value_count in item_metrics.items():
-                metrics["changed_items" if key == "changed" else key] += value_count
-            continue
-        if strategy is item_policy.ProjectionStrategy.MESSAGE:
+            projection = None, item_metrics
+        elif strategy is item_policy.ProjectionStrategy.MESSAGE:
             projection = _project_message(item)
         elif strategy is item_policy.ProjectionStrategy.AGENT_MESSAGE:
             projection = _project_agent_message(item)
@@ -541,9 +539,7 @@ def project_input(
         ):
             _value, item_metrics = _project_output(item, relationships)
             item_metrics["changed"] = 1
-            for key, value_count in item_metrics.items():
-                metrics["changed_items" if key == "changed" else key] += value_count
-            continue
+            projection = None, item_metrics
         elif strategy is item_policy.ProjectionStrategy.OUTPUT and "call_id" not in item:
             projection = _project_detached_delivery(item)
         elif strategy is item_policy.ProjectionStrategy.OUTPUT:

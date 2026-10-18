@@ -323,13 +323,12 @@ def relay(
         telemetry.record_counter("agent_delivery_rejected")
         return
     body = prepared.body
+    path = operational_log.safe_request_path(handler.path)
     if len(body) >= 400_000:
-        path = operational_log.safe_request_path(handler.path)
         operational_log.log(
             f"req={request_id} event=large_request provider={profile.name} "
             f"bytes={len(body)} path={path}"
         )
-    path = operational_log.safe_request_path(handler.path)
     operational_log.log(
         f"req={request_id} event=request_sanitized provider={profile.name} "
         f"method={method} {note} path={path}"

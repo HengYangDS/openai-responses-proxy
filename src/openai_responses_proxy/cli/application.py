@@ -286,30 +286,19 @@ def _doctor(evidence: Mapping[str, object]) -> DoctorReport:
     )
     rollback_ok = rollback_detail != "invalid"
     checks: dict[str, DoctorCheck] = {
-        "payload": {
-            "status": "passed" if integrity_ok else _FAILURE_STATUS,
-            "detail": "verified" if integrity_ok else "unavailable or invalid",
-        },
-        "service": {
-            "status": "passed" if service == "running" else _FAILURE_STATUS,
-            "detail": service_detail,
-        },
-        "listener": {
-            "status": "passed" if listener_ok else _FAILURE_STATUS,
-            "detail": "accepting" if listener_ok else "unavailable or identity mismatch",
-        },
-        "command": {
-            "status": "passed" if command_ok else _FAILURE_STATUS,
-            "detail": "owned" if command_ok else "absent or foreign",
-        },
-        "transaction": {
-            "status": "passed" if transaction_ok else _FAILURE_STATUS,
-            "detail": "none" if transaction_ok else transaction_detail,
-        },
-        "rollback": {
-            "status": "passed" if rollback_ok else _FAILURE_STATUS,
-            "detail": rollback_detail,
-        },
+        name: {"status": "passed" if passed else _FAILURE_STATUS, "detail": detail}
+        for name, passed, detail in (
+            ("payload", integrity_ok, "verified" if integrity_ok else "unavailable or invalid"),
+            ("service", service == "running", service_detail),
+            (
+                "listener",
+                listener_ok,
+                "accepting" if listener_ok else "unavailable or identity mismatch",
+            ),
+            ("command", command_ok, "owned" if command_ok else "absent or foreign"),
+            ("transaction", transaction_ok, "none" if transaction_ok else transaction_detail),
+            ("rollback", rollback_ok, rollback_detail),
+        )
     }
     checks_passed = all(check["status"] == "passed" for check in checks.values())
     if state != "running" and checks_passed:

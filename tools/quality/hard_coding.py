@@ -222,12 +222,10 @@ def audit(root: Path = ROOT, policy_path: Path = POLICY) -> AuditReport:
             owners[owner] = identifier
             if not _exists(root, owner):
                 errors.append(f"hard_coding_owner_missing:{identifier}:{owner}")
-        rationale = control.get("rationale")
-        if not isinstance(rationale, str) or not rationale.strip():
-            errors.append(f"hard_coding_control_rationale_missing:{identifier}")
-        invariant = control.get("invariant")
-        if not isinstance(invariant, str) or not invariant.strip():
-            errors.append(f"hard_coding_control_invariant_missing:{identifier}")
+        for field in ("rationale", "invariant"):
+            value = control.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"hard_coding_control_{field}_missing:{identifier}")
         errors.extend(_register_surfaces(identifier, control.get("surfaces", []), surface_owners))
         projections = control.get("projections")
         if not isinstance(projections, list) or not projections:

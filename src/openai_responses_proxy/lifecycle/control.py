@@ -128,43 +128,35 @@ def status(
     transaction_invalid = (
         isinstance(payload_transaction, dict) and payload_transaction.get("state") == "invalid"
     )
-    if installed_error is not None:
-        lifecycle_state = "invalid"
-        detail = installed_error
-    elif transaction_invalid:
-        assert isinstance(payload_transaction, dict)
-        lifecycle_state = "invalid"
-        detail = str(payload_transaction["detail"])
-    elif rollback_status is not None and rollback_status.state == "invalid":
-        lifecycle_state = "invalid"
-        detail = rollback_status.detail or "selected rollback predecessor is invalid"
-    elif absent:
-        lifecycle_state = "not_installed"
-        integrity_detail = "not installed"
-        detail = "not installed"
-    elif (
+    installation_ready = (
         integrity_ok
         and installed_matches_payload
-        and service == "running"
-        and supervision_bound
-        and runtime is not None
         and command_state.get("state") == "owned"
         and payload_transaction is None
-    ):
-        lifecycle_state = "running"
-        detail = "healthy"
+    )
+    if installed_error is not None:
+        lifecycle_state, detail = "invalid", installed_error
+    elif transaction_invalid:
+        assert isinstance(payload_transaction, dict)
+        lifecycle_state, detail = "invalid", str(payload_transaction["detail"])
+    elif rollback_status is not None and rollback_status.state == "invalid":
+        lifecycle_state, detail = (
+            "invalid",
+            rollback_status.detail or "selected rollback predecessor is invalid",
+        )
+    elif absent:
+        integrity_detail = "not installed"
+        lifecycle_state, detail = "not_installed", "not installed"
+    elif installation_ready and service == "running" and supervision_bound and runtime is not None:
+        lifecycle_state, detail = "running", "healthy"
     elif (
-        integrity_ok
-        and installed_matches_payload
+        installation_ready
         and service == "installed"
         and runtime is None
         and not listeners
-        and command_state.get("state") == "owned"
-        and payload_transaction is None
         and _stopped_supervisor_is_bound(active)
     ):
-        lifecycle_state = "stopped"
-        detail = "native supervisor is stopped"
+        lifecycle_state, detail = "stopped", "native supervisor is stopped"
     elif (
         isinstance(payload_transaction, dict)
         and payload_transaction.get("state")
@@ -176,11 +168,13 @@ def status(
         }
         | records.TERMINAL_STATES
     ):
-        lifecycle_state = "recovery_required"
-        detail = (
-            "payload cleanup is required"
-            if payload_transaction["state"] in records.TERMINAL_STATES
-            else "payload recovery is required"
+        lifecycle_state, detail = (
+            "recovery_required",
+            (
+                "payload cleanup is required"
+                if payload_transaction["state"] in records.TERMINAL_STATES
+                else "payload recovery is required"
+            ),
         )
     else:
         lifecycle_state = "degraded"

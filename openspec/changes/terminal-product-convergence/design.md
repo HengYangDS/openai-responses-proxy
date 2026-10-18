@@ -250,15 +250,17 @@ The terminal acceptance scopes are explicit:
 
 Reject a universal statement/function-ELOC veto for this increment, not their
 measurement or semantic review. Ruff's stable `PLR0915` default of 50 reports
-seven product, twelve test and two tool functions; 100 was probed, not selected.
-The two longest native journeys continuously bind predecessor identity, held
-traffic, upgrade, rollback, restoration and exact teardown. Moving those steps
-into one-use helpers would hide their contract. Other findings cover bounded
-CLI diagnostics, replay projection and stream recovery. Complexity, depth and
-shared file size remain blocking; review hotspots by invariant and caller edges,
-not by setting a value above today's maximum. The [native rule catalog](https://docs.astral.sh/ruff/rules/)
-owns tool guidance. Reassess when a stable rule or escaped defect demonstrates
-net benefit; no filename exemption, suppression or diagnostic baseline is added.
+six product, twelve test and two tool functions after simplification; 100 was
+probed, not selected. CLI checks, installed-state prerequisites, opaque-content
+markers, local-tool metrics, safe paths and control fields share their existing
+owners without new helpers. SSE binds commitment, deadline, retry and release;
+native journeys bind one installation through upgrade, rollback and teardown.
+One-use extraction would hide those invariants. Tool audits retain one complete
+ownership decision; test tables retain explicit assertions and cleanup. Review
+each finding by its invariant and caller edges, not today's maximum. Complexity,
+depth and shared file size remain blocking. The [native rule catalog](https://docs.astral.sh/ruff/rules/)
+owns tool guidance. Reassess on demonstrated net benefit; no filename exemption,
+suppression or diagnostic baseline is added.
 
 Complexity conformance runs the locked Ruff module with the actual repository
 configuration against each Python role. Boundary and over-bound inputs differ
