@@ -361,6 +361,9 @@ class ScriptedUpstream:
                 self.end_headers()
                 self.wfile.write(response_payload)
 
+            def do_GET(self):
+                self.do_POST()
+
         self.server = _DisconnectAwareHTTPServer(("127.0.0.1", 0), Handler)
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)

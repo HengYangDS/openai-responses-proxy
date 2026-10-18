@@ -327,7 +327,13 @@ GET  /<provider>/v1/models
 ```
 
 Responses requests receive portable projection and bounded recovery. Model
-catalog reads are relayed once without Responses-specific transformations.
+catalog success and HTTP errors are relayed once without Responses-specific
+transformations. Catalog headers, body reads and downstream writes share a
+30-second deadline and an 8 MiB body limit, independent of inference. Expired
+headers return HTTP 504 `catalog_deadline_exceeded`; a failure after commitment
+keeps the admitted prefix and closes without replay or a successful terminator.
+Local failures close the connection and allow one separate catalog-timeout
+budget to deliver their bounded error, even when upstream time has expired.
 Encoded path material, dot segments, duplicate separators, absolute targets,
 fragments, and unrelated endpoints are rejected before remote I/O. Provider
 origins come from the product manifest or the explicit installed upstream;
@@ -348,6 +354,11 @@ For a fresh installation, choose alternate budgets with
 installer's environment. Its native configuration owns the persisted values;
 upgrades retain them instead of taking a later shell's environment. Older
 configuration files receive these defaults without read-time mutation.
+
+Catalog settings follow the same persisted ownership:
+`OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT` (0.001–300 seconds) and
+`OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES` (4096–67108864 bytes). Catalog bounds
+do not establish inbound header deadlines or synchronous DNS cancellation.
 
 ## Runtime evidence
 

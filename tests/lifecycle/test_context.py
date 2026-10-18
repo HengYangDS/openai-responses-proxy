@@ -302,6 +302,8 @@ class TestRuntimeContext:
             {
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "16384",
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "2.5",
+                "OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "1.5",
+                "OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES": "8192",
             },
             clear=True,
         )
@@ -312,16 +314,22 @@ class TestRuntimeContext:
 
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "16384"
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "2.5"
+        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT") == "1.5"
+        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES") == "8192"
         mocker.patch.dict(
             os.environ,
             {
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "32768",
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "10",
+                "OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "10",
+                "OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES": "16384",
             },
         )
         successor = context.create()
         assert successor.request_body_max_bytes == 16384
         assert successor.request_body_timeout == 2.5
+        assert successor.catalog_timeout == 1.5
+        assert successor.catalog_max_bytes == 8192
         assert runtime_spec.write(successor).read_bytes() == original
 
     def test_retained_carrier_gets_body_defaults_without_rewriting_it(self, tmp_path):
@@ -335,6 +343,8 @@ class TestRuntimeContext:
         retained = json.loads(target.read_bytes())
         retained.pop("request_body_max_bytes", None)
         retained.pop("request_body_timeout", None)
+        retained.pop("catalog_timeout", None)
+        retained.pop("catalog_max_bytes", None)
         original = digest.canonical_json(retained)
         target.write_bytes(original)
 
@@ -342,7 +352,24 @@ class TestRuntimeContext:
 
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "67108864"
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "30.0"
+        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT") == "30.0"
+        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES") == "8388608"
         assert target.read_bytes() == original
+
+    @pytest.mark.parametrize(
+        ("name", "invalid"),
+        [
+            ("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT", "0"),
+            ("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT", "NaN"),
+            ("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT", "301"),
+            ("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES", "4095"),
+            ("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES", "67108865"),
+            ("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES", "1.5"),
+        ],
+    )
+    def test_catalog_budget_selection_rejects_invalid_values(self, name, invalid):
+        with pytest.raises(config.ConfigurationError):
+            config.load({name: invalid})
 
     def test_runtime_activation_rejects_missing_carrier(self, tmp_path):
         executable = tmp_path / "payload" / "bin" / "openai-responses-proxy"

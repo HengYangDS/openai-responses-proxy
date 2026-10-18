@@ -54,6 +54,8 @@ class RuntimeContext:
     upstream_read_timeout: float = config.DEFAULT_UPSTREAM_READ_TIMEOUT
     request_body_max_bytes: int = config.DEFAULT_REQUEST_BODY_MAX_BYTES
     request_body_timeout: float = config.DEFAULT_REQUEST_BODY_TIMEOUT
+    catalog_timeout: float = config.DEFAULT_CATALOG_TIMEOUT
+    catalog_max_bytes: int = config.DEFAULT_CATALOG_MAX_BYTES
     watchdog_interval: float = config.DEFAULT_WATCHDOG_INTERVAL
     watchdog_max_backoff: float = config.DEFAULT_WATCHDOG_MAX_BACKOFF
     response_failed_compaction_budget: int = config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
@@ -145,6 +147,8 @@ def create(
         raise errors.InstallError(str(exc)) from exc
     selected.request_body_max_bytes = settings.request_body_max_bytes
     selected.request_body_timeout = settings.request_body_timeout
+    selected.catalog_timeout = settings.catalog_timeout
+    selected.catalog_max_bytes = settings.catalog_max_bytes
     if upstream_base_url is None:
         upstream_base_url = (
             environment[config.UPSTREAM_BASE_URL_ENV]

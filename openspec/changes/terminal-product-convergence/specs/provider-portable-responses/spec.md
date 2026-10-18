@@ -128,6 +128,40 @@ SHALL own and validate these budgets independently of upstream inference.
 - **AND** a fresh installation persists selected budgets; later contexts preserve
   its stored values rather than taking unrelated ambient replacements.
 
+### Requirement: Catalog exchanges have independent finite budgets
+
+Each model catalog GET SHALL use one validated deadline and byte limit,
+independent of Responses inference. Success and HTTP errors SHALL forward
+only admitted bytes, once, without replay or recovery. Headers, body reads
+and downstream writes SHALL share the original deadline. Failure after
+commitment SHALL close without another status or successful terminator;
+all paths SHALL release upstream ownership and restore the socket timeout.
+
+#### Scenario: Catalog success or HTTP error exceeds its budget
+
+- **WHEN** catalog headers expire before commitment
+- **THEN** one bounded local HTTP 504 reports `catalog_deadline_exceeded`
+- **AND** a local failure closes its connection and gets at most one separate
+  configured catalog timeout for delivery; an unavailable client cannot hold it
+- **AND** a body exceeding time or bytes after commitment preserves only its
+  admitted prefix and closes, without retry, changed status or completion
+- **AND** native HTTP framing progress cannot renew the deadline. System DNS
+  cancellation and inbound header deadlines remain separately unproved.
+
+#### Scenario: A catalog fits its exact byte limit
+
+- **WHEN** a success or HTTP error completes within the selected limits
+- **THEN** its status, end-to-end headers and exact body are relayed once
+- **AND** normal HTTP completion remains distinguishable from truncation;
+  catalog failures do not enter Responses admission, cooldown or recovery.
+
+#### Scenario: Native configuration predates catalog budgets
+
+- **WHEN** the reader loads a retained configuration without catalog fields
+- **THEN** validated defaults apply without rewriting the retained file
+- **AND** fresh configuration persists selected limits; later contexts retain
+  them despite unrelated ambient replacements, without changing Responses.
+
 ### Requirement: Sustained upstream unavailability does not amplify demand
 
 Responses SHALL retain bounded request-local recovery for a transient upstream

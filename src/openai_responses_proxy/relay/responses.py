@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-import urllib.error
 from http.server import BaseHTTPRequestHandler
 
 from openai_responses_proxy.protocol import agent_delivery
@@ -16,6 +15,7 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import header_value
 from openai_responses_proxy.runtime import config as runtime_config
 
@@ -199,39 +199,38 @@ def _relay_catalog(
     headers: dict[str, str],
 ) -> None:
     """Relay one model catalog read exactly once without Responses policy."""
+    deadline = time.monotonic() + _SETTINGS.catalog_timeout
     try:
-        response = upstream_exchange.open_readonly(upstream_url, "GET", headers)
-    except urllib.error.HTTPError as error:
-        try:
-            payload, status, upstream_headers = error.read(), error.code, error.headers
-        finally:
-            error.close()
-        downstream.relay_error(handler, status, upstream_headers, payload)
-        telemetry.record_failure(f"catalog_http_{status}")
-        operational_log.log(
-            f"req={request_id} event=catalog_http_terminal provider={profile.name} "
-            f"status={status} response_bytes={len(payload)} "
-            f"path={operational_log.safe_request_path(handler.path)}"
-        )
-        return
+        response = upstream_exchange.open_readonly(upstream_url, "GET", headers, deadline=deadline)
     except Exception as error:
-        telemetry.record_failure("catalog_transport_error")
-        downstream.send_payload(
+        expired = isinstance(error, ExchangeDeadlineError) or time.monotonic() >= deadline
+        code = "catalog_deadline_exceeded" if expired else "catalog_transport_error"
+        telemetry.record_failure(code)
+        downstream.send_catalog_failure(
             handler,
-            502,
-            replay_response.error_payload(
-                "Upstream model catalog transport failed; retry discovery shortly",
-                "upstream_unavailable",
-                "catalog_transport_error",
-            ),
+            504 if expired else 502,
+            code,
+            timeout=_SETTINGS.catalog_timeout,
         )
         operational_log.log(
-            f"req={request_id} event=catalog_transport_error provider={profile.name} "
+            f"req={request_id} event={code} provider={profile.name} "
             f"{operational_log.safe_exception_context(error)} "
             f"path={operational_log.safe_request_path(handler.path)}"
         )
         return
-    downstream.relay_readonly_body(handler, response)
+    if response.status >= 400:
+        try:
+            telemetry.record_failure(f"catalog_http_{response.status}")
+            operational_log.log(
+                f"req={request_id} event=catalog_http_terminal provider={profile.name} "
+                f"status={response.status} path={operational_log.safe_request_path(handler.path)}"
+            )
+        except BaseException:
+            response.close()
+            raise
+    downstream.relay_readonly_body(
+        handler, response, deadline=deadline, max_bytes=_SETTINGS.catalog_max_bytes
+    )
 
 
 def relay(

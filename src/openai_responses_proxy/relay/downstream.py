@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import time
+import urllib.error
 from http.server import BaseHTTPRequestHandler
 from typing import Protocol
 
@@ -56,13 +57,6 @@ class Exchange(Protocol):
 
     def input_variant_exhausted(self, detail: str) -> None:
         """Record exhausted input-variant recovery."""
-
-
-class ReadableResponse(Protocol):
-    """Bounded binary read capability required by response relaying."""
-
-    def read(self, amount: int = -1) -> bytes:
-        """Read at most ``amount`` bytes from the upstream response."""
 
 
 def send_payload(
@@ -184,34 +178,85 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
         )
 
 
-def _read_chunk(response: ReadableResponse) -> tuple[bytes, bool]:
+def _read_chunk(response: UpstreamResponse, deadline: float, max_bytes: int) -> tuple[bytes, bool]:
     try:
-        return response.read(8192), False
+        return upstream_transport.read_chunk(response, deadline, max_bytes), False
     except http.client.IncompleteRead as error:
         return error.partial, True
 
 
-def relay_readonly_body(handler: BaseHTTPRequestHandler, response: UpstreamResponse) -> None:
-    """Relay one non-Responses body without replay or recovery side effects."""
+def _arm_write_timeout(
+    handler: BaseHTTPRequestHandler, deadline: float, original_timeout: float | None
+) -> None:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise upstream_transport.ExchangeDeadlineError("catalog downstream deadline expired")
+    handler.connection.settimeout(
+        remaining if original_timeout is None else min(original_timeout, remaining)
+    )
+
+
+def send_catalog_failure(
+    handler: BaseHTTPRequestHandler, status: int, code: str, *, timeout: float
+) -> None:
+    """Deliver one local failure with a finite independent error-write budget."""
+    previous_timeout = handler.connection.gettimeout()
+    handler.close_connection = True
     try:
+        _arm_write_timeout(handler, time.monotonic() + timeout, previous_timeout)
+        send_payload(
+            handler,
+            status,
+            live_response.error_payload(
+                "Upstream model catalog unavailable; retry discovery shortly",
+                "upstream_unavailable",
+                code,
+            ),
+            close=True,
+        )
+    except Exception:
+        pass
+    finally:
+        handler.connection.settimeout(previous_timeout)
+
+
+def relay_readonly_body(
+    handler: BaseHTTPRequestHandler, response: UpstreamResponse, *, deadline: float, max_bytes: int
+) -> None:
+    """Relay catalog success or error once within its shared time and byte limits."""
+    previous_timeout = handler.connection.gettimeout()
+    native = response.fp if isinstance(response, urllib.error.HTTPError) else response
+    remaining_bytes = max_bytes
+    try:
+        _arm_write_timeout(handler, deadline, previous_timeout)
         _send_stream_headers(handler, response)
         while True:
-            chunk, terminal = _read_chunk(response)
+            chunk, terminal = _read_chunk(response, deadline, min(8192, remaining_bytes + 1))
+            overflow = len(chunk) > remaining_bytes
+            chunk = chunk[:remaining_bytes]
             if chunk:
+                _arm_write_timeout(handler, deadline, previous_timeout)
                 handler.wfile.write(b"%X\r\n%s\r\n" % (len(chunk), chunk))
+                remaining_bytes -= len(chunk)
             # Bounded stdlib reads can return EOF with Content-Length still unmet.
-            if terminal or (
-                not chunk and isinstance(response, http.client.HTTPResponse) and response.length
+            if (
+                overflow
+                or terminal
+                or (not chunk and isinstance(native, http.client.HTTPResponse) and native.length)
             ):
                 handler.close_connection = True
                 return
             if not chunk:
                 break
+        _arm_write_timeout(handler, deadline, previous_timeout)
         handler.wfile.write(b"0\r\n\r\n")
     except Exception:
         handler.close_connection = True
     finally:
-        response.close()
+        try:
+            response.close()
+        finally:
+            handler.connection.settimeout(previous_timeout)
 
 
 def _invalid_responses_success(exchange: Exchange, reason: str) -> None:

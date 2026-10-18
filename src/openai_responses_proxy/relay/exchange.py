@@ -66,16 +66,25 @@ def urlopen_direct(
     return cast(UpstreamResponse, opener.open(request, timeout=timeout))
 
 
-def open_readonly(url: str, method: str, headers: dict[str, str]) -> UpstreamResponse:
-    """Open one non-Responses request exactly once without recovery policy."""
-    return urlopen_direct(_request(url, b"", method, headers), timeout=UPSTREAM_TIMEOUT)
+def open_readonly(
+    url: str, method: str, headers: dict[str, str], *, deadline: float
+) -> UpstreamResponse:
+    """Acquire success or HTTP-error headers once within the catalog deadline."""
+    timeout = deadline - time.monotonic()
+    if timeout <= 0:
+        raise ExchangeDeadlineError("catalog deadline expired before headers")
+    try:
+        response = urlopen_direct(_request(url, b"", method, headers), timeout, deadline=deadline)
+    except urllib.error.HTTPError as error:
+        response = cast(UpstreamResponse, error)
+    if time.monotonic() >= deadline:
+        response.close()
+        raise ExchangeDeadlineError("catalog header deadline expired")
+    return response
 
 
 def _request(url: str, body: bytes, method: str, headers: dict[str, str]) -> urllib.request.Request:
-    request = urllib.request.Request(url, data=body or None, method=method)
-    for name, value in headers.items():
-        request.add_header(name, value)
-    return request
+    return urllib.request.Request(url, data=body or None, method=method, headers=headers)
 
 
 @dataclass(slots=True)
