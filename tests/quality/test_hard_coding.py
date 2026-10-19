@@ -265,3 +265,19 @@ def test_audit_cli_preserves_failure_status_and_json(mocker, capsys):
     assert '"ok": false' in capsys.readouterr().out
     with pytest.raises(SystemExit, match="accepts no arguments"):
         checker.main(("unexpected",))
+
+
+def test_listener_port_literals_have_one_production_owner():
+    production = ROOT / "src" / "openai_responses_proxy"
+    owner = production / "runtime" / "config.py"
+    owner_text = owner.read_text(encoding="utf-8")
+    assert owner_text.count("8792") == 1
+    assert "8791" not in owner_text
+    copied = []
+    for source in production.rglob("*.py"):
+        if source == owner:
+            continue
+        text = source.read_text(encoding="utf-8")
+        if "8791" in text or "8792" in text:
+            copied.append(source.relative_to(ROOT).as_posix())
+    assert copied == []

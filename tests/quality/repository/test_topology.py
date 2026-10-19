@@ -454,3 +454,32 @@ class TestArchitectureContracts:
 
         assert architecture_gaps(tmp_path, policy) == []
         assert architecture_gaps(tmp_path, {**policy, **override}) == expected
+
+
+def test_semantic_packages_are_declarative_and_facade_free():
+    package_root = ROOT / "src/openai_responses_proxy"
+    packages = {
+        path.name
+        for path in package_root.iterdir()
+        if path.is_dir() and not path.name.startswith("__")
+    }
+    assert packages == {
+        "cli",
+        "lifecycle",
+        "protocol",
+        "providers",
+        "relay",
+        "runtime",
+        "serving",
+    }
+    for package in (package_root / name for name in sorted(packages)):
+        source = (ROOT / package / "__init__.py").read_text(encoding="utf-8")
+        assert "import " not in source, package
+
+
+def test_runtime_context_has_one_semantic_owner():
+    assert (ROOT / "src/openai_responses_proxy/lifecycle/context.py").is_file()
+
+
+def test_provider_specific_wire_policies_have_a_semantic_owner():
+    assert (ROOT / "src/openai_responses_proxy/providers/policies/dmxapi.py").is_file()

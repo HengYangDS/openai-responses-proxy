@@ -42,3 +42,8 @@ class TestPackageMetadata:
         monkeypatch.setattr(repository_audit, "PROJECT", project)
         gaps = repository_audit.audit()["policy_errors"]
         assert (not any(gap.startswith("requires_python_") for gap in gaps)) is accepted
+
+
+def test_mit_license_is_present():
+    license_text = Path(ROOT, "LICENSE").read_text(encoding="utf-8")
+    assert license_text.startswith("MIT License\n")

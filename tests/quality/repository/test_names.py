@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import repository as _test_repository
 from tools.quality.repository.names import semantic_name_gaps
@@ -44,3 +46,12 @@ def test_semantic_name_gate_accepts_official_pyinstaller_hook_modules() -> None:
         gaps = semantic_name_gaps(root)
 
     assert gaps == []
+
+
+def test_product_module_names_do_not_shadow_the_standard_library():
+    collisions = sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "src" / "openai_responses_proxy").rglob("*.py")
+        if path.stem != "__init__" and path.stem in sys.stdlib_module_names
+    )
+    assert collisions == []

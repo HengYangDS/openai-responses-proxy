@@ -13,6 +13,7 @@ from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git as _git
+from tools.git_environment import isolated_config_environment
 from tools.quality.repository import __main__ as repository_audit
 
 
@@ -69,7 +70,7 @@ def test_current_repository_policy_is_internally_consistent() -> None:
         "src/openai_responses_proxy/lifecycle/control.py",
         "src/openai_responses_proxy/lifecycle/supervision/watchdog.py",
         "tools/release/metadata.py",
-        "tests/governance/test_repository.py",
+        "tests/quality/repository/test_metadata.py",
         "noxfile.py",
     ):
         assert path in inventoried
@@ -250,3 +251,33 @@ def test_repository_cli_is_quiet_on_success_and_diagnostic_on_failure(
     with pytest.raises(SystemExit):
         repository_audit.main()
     output.assert_called_once()
+
+
+def test_ignore_policy_excludes_generated_state_not_authored_configuration(tmp_path):
+    environment = isolated_config_environment()
+    subprocess.run(["git", "init", "-q", str(tmp_path)], env=environment, check=True)
+    (tmp_path / ".gitignore").write_bytes((ROOT / ".gitignore").read_bytes())
+    generated = (
+        ".cache/pytest/cache",
+        ".nox/quality/tmp/wheel.whl",
+        ".venv/bin/python",
+        "node_modules/package/index.js",
+        "build/verification/check.json",
+        ".coverage",
+        ".release-assets/linux-x86_64/archive.tar.gz",
+        ".ruff_cache/index",
+        "src/package/__pycache__/module.pyc",
+        ".serena/project.yml",
+        ".code-memory/index",
+        ".codebase-memory/graph.db.zst",
+    )
+    authored = ("tests/fixtures/config.toml", "docs/config.toml", ".config/policy.toml")
+    result = subprocess.run(
+        ["git", "-C", str(tmp_path), "check-ignore", "--stdin", "-z"],
+        input="\0".join((*generated, *authored)).encode() + b"\0",
+        env=environment,
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert set(result.stdout.decode().rstrip("\0").split("\0")) == set(generated)

@@ -57,3 +57,7 @@ def test_commit_policy_restricts_scopes_without_redeclaring_grammar() -> None:
     scopes = workspace["commit_policy"]["scopes"]
     assert scopes
     assert len(scopes) == len(set(scopes))
+
+
+def test_governance_hooks_are_installed_runtime_state_not_product_source():
+    assert not (ROOT / ".githooks").exists()
