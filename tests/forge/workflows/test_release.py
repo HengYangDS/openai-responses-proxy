@@ -25,10 +25,7 @@ def test_native_asset_jobs_install_the_product_before_loading_noxfile() -> None:
     jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
     expected = {
         "native-assets": "uv sync --locked --group quality",
-        "native-linux": (
-            "cd /workspace && uv sync --locked --group quality "
-            "--python python --no-python-downloads"
-        ),
+        "native-linux": ("uv sync --locked --group quality --python python --no-python-downloads"),
         "native-linux-lifecycle": "uv sync --locked --group quality",
     }
     for job_id, command in expected.items():
@@ -39,6 +36,8 @@ def test_native_asset_jobs_install_the_product_before_loading_noxfile() -> None:
             if _mapping(step).get("name") == "Install the locked release tool environment"
         )
         assert install["run"] == command
+        if job_id == "native-linux":
+            assert install["working-directory"] == "/workspace"
 
     linux_steps = _sequence(_mapping(jobs["native-linux"])["steps"])
     linux_build = next(
@@ -46,6 +45,7 @@ def test_native_asset_jobs_install_the_product_before_loading_noxfile() -> None:
         for step in linux_steps
         if _mapping(step).get("name") == "Build the native release asset"
     )
+    assert linux_build["working-directory"] == "/workspace"
     assert "nox -s release_asset" in _string(linux_build["run"])
     assert "nox -s release --" not in _string(linux_build["run"])
 
@@ -200,7 +200,7 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
     assert _mapping(predecessor["env"])["GH_TOKEN"] == "${{ github.token }}"
     assert predecessor["run"] == (
         "uv run --locked --no-sync python -m tools.release.publication predecessor "
-        '--repository "${{ github.repository }}" --candidate-version "$(cat VERSION)" '
+        '--repository "${{ github.repository }}" --candidate-source . '
         '--github-environment "${{ github.env }}"'
     )
     trust = next(

@@ -16,37 +16,42 @@ import "strings"
 	metadata: module:       "tools.release.metadata"
 }
 
-// Presence is checked before supply; ETHOS remains the public-key trust owner.
-#CommitTrustPreflight: """
-	case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
-	  *[![:space:]]*) ;;
-	  *) printf '%s\n' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
-	esac
-	"""
+// A nonblank value differs from its leading whitespace; no tools run before supply.
+#CommitTrustPreflight: #"test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}""#
 
 // The invoking ETHOS identity selects one native source build on each runner.
 #EthosSupply: {
 	source: "https://github.com/HengYangDS/ethos.git"
-	commit: "efe866cdaaf7e9a5f971ed706343d0b2d1294cc6"
-	tree:   "3583262bf6c50731af5f9d9716056cd0e00d857d"
+	commit: "f726c249ab4e362c84835aabc87605a434b66919"
+	tree:   "951897502bb194c04ad14ab14fb06fed69cc50e6"
 	root:   "build/runtime/ethos-source"
 	linuxPackages: ["curl", "ca-certificates", "libatomic1"]
 	linuxInstall: "apt-get install -qq -y --no-install-recommends " + strings.Join(#EthosSupply.linuxPackages, " ")
-	checkout:     """
-        git clone --filter=blob:none --no-checkout \(#EthosSupply.source) \(#EthosSupply.root)
-        git -C \(#EthosSupply.root) checkout --detach \(#EthosSupply.commit)
-        test "$(git -C \(#EthosSupply.root) rev-parse HEAD)" = \(#EthosSupply.commit)
-        test "$(git -C \(#EthosSupply.root) rev-parse 'HEAD^{tree}')" = \(#EthosSupply.tree)
-        """
-	prepare: """
-		uv sync --locked --no-install-project --group dev
-		PYTHONPATH=src .venv/bin/python -B -c 'from pathlib import Path; from tools.ci.toolchain.native import prepare_mise, prepare; root = Path.cwd(); prepare(root, "node", mise=prepare_mise(root))'
-		PYTHONPATH=src .venv/bin/python -B -c 'import os, subprocess; from pathlib import Path; from ethos.adapters.repo.runtime.materialization.node.supply import NodeRuntime, NodeSupply; root = Path.cwd(); native = NodeRuntime.read(NodeSupply.read(root).installed_root(root), windows=os.name == "nt"); subprocess.run([str(native.executable), str(native.npm), "ci", "--ignore-scripts"], env=dict(os.environ, PATH=str(native.executable.parent) + os.pathsep + os.environ["PATH"], npm_config_audit="false", npm_config_fund="false", npm_config_update_notifier="false"), stdin=subprocess.DEVNULL, timeout=120, check=True)'
-		.venv/bin/python -B -I -m uv sync --locked --group dev --no-editable
-		.venv/bin/python -B -I -m ethos.cli --version
-		.venv/bin/python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
-		"""
+	checkout: [
+		"git clone --filter=blob:none --no-checkout \(#EthosSupply.source) \(#EthosSupply.root)",
+		"git -C \(#EthosSupply.root) checkout --detach \(#EthosSupply.commit)",
+		"git -C \(#EthosSupply.root) diff --exit-code \(#EthosSupply.tree) HEAD --",
+	]
+	prepare: [
+		"uv --directory \(#EthosSupply.root) sync --locked --no-install-project --group dev",
+		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale",
+		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts",
+		"uv --directory \(#EthosSupply.root) sync --locked --group dev --no-editable",
+		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -I -m ethos.cli --version",
+		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ[\"OPENAI_RESPONSES_PROXY_COMMIT_ROOT\"]), os.environ[\"ETHOS_COMMIT_ALLOWED_SIGNERS\"])'",
+	]
 }
+
+// GitHub's native Bash executor supplies UID; no runner identity is hard-coded.
+#LinuxUserManagerSteps: [{
+	name:  "Start the runner user systemd manager"
+	shell: "bash"
+	run:   "sudo systemctl start \"user@${UID}.service\""
+}, {
+	name:  "Bind the runner user systemd environment"
+	shell: "bash"
+	run:   "printf '%s\\n' \"XDG_RUNTIME_DIR=/run/user/${UID}\" \"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${UID}/bus\" >> \"$GITHUB_ENV\""
+}]
 
 #CommitAdmission: """
     \(#EthosSupply.root)/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json

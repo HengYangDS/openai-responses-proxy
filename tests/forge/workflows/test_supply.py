@@ -150,40 +150,67 @@ def test_github_python_quality_installs_its_declared_projection_toolchain() -> N
     }
 
 
+@pytest.mark.repository_toolchain
+def test_ethos_supplier_prepares_native_wheel_inputs_before_building() -> None:
+    """Prepare native runtime and policy-tool bytes before the noneditable wheel build."""
+    prepare = _strings(yaml.safe_load(render("#EthosSupply.prepare")))
+    root = "build/runtime/ethos-source"
+    native = (
+        f"uv --directory {root} run --locked --no-sync "
+        "python -B -m tools.ci.toolchain.native --root . node vale"
+    )
+    build = f"uv --directory {root} sync --locked --group dev --no-editable"
+    assert prepare.count(native) == 1
+    assert prepare.index(native) < prepare.index(build)
+
+
 def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
     github = _load_yaml(ROOT / ".github/workflows/verify.yml")
     job = _mapping(_mapping(github["jobs"])["commit-admission"])
     steps = tuple(_mapping(step) for step in _sequence(job["steps"]))
+    refresh = next(
+        step
+        for step in steps
+        if step.get("name") == "Refresh native ETHOS Linux prerequisite metadata"
+    )
+    assert refresh["run"] == "sudo apt-get update -qq"
     prerequisites = next(
         step for step in steps if step.get("name") == "Install native ETHOS Linux prerequisites"
     )
-    update, install = _string(prerequisites["run"]).splitlines()
-    assert update == "sudo apt-get update -qq"
+    install = _string(prerequisites["run"])
     assert install.startswith("sudo apt-get install -qq -y --no-install-recommends ")
     assert {"curl", "ca-certificates", "libatomic1"} <= set(install.split())
-    checkout = next(
-        step for step in steps if step.get("name") == "Select the exact native ETHOS source"
-    )
-    command = _string(checkout["run"])
-    assert "--filter=blob:none --no-checkout" in command
-    assert re.search(r"checkout --detach [0-9a-f]{40}", command)
-    assert "rev-parse 'HEAD^{tree}'" in command
-    prepare = next(
-        step for step in steps if "Prepare locked native ETHOS" in str(step.get("name", ""))
-    )
-    assert prepare["working-directory"] == "build/runtime/ethos-source"
-    commands = _string(prepare["run"])
-    assert "uv sync --locked --no-install-project --group dev" in commands
-    assert 'prepare(root, "node", mise=prepare_mise(root))' in commands
-    assert 'windows=os.name == "nt"' in commands
-    assert "NodeSupply.read(root).installed_root(root)" in commands
-    assert 'ci", "--ignore-scripts' in commands
-    assert "uv sync --locked --group dev --no-editable" in commands
-    assert "bind_commit_trust_material" in commands
+    checkout = [
+        _string(step["run"])
+        for step in steps
+        if step.get("name") == "Select the exact native ETHOS source"
+    ]
+    root = "build/runtime/ethos-source"
+    assert len(checkout) == 3
+    assert checkout[0].startswith("git clone --filter=blob:none --no-checkout https://")
+    assert checkout[0].endswith(f" {root}")
+    assert re.fullmatch(rf"git -C {root} checkout --detach [0-9a-f]{{40}}", checkout[1])
+    assert re.fullmatch(rf"git -C {root} diff --exit-code [0-9a-f]{{40}} HEAD --", checkout[2])
+    prepare = [
+        _string(step["run"])
+        for step in steps
+        if "Prepare locked native ETHOS" in str(step.get("name", ""))
+    ]
+    prefix = f"uv --directory {root}"
+    assert prepare[:5] == [
+        f"{prefix} sync --locked --no-install-project --group dev",
+        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale",
+        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts",
+        f"{prefix} sync --locked --group dev --no-editable",
+        f"{prefix} run --locked --no-sync python -B -I -m ethos.cli --version",
+    ]
+    assert len(prepare) == 6
+    assert prepare[-1].startswith(f"{prefix} run --locked --no-sync python -B -c ")
+    assert "bind_commit_trust_material" in prepare[-1]
     assert _mapping(job["env"])["ETHOS_COMMIT_ALLOWED_SIGNERS"] == (
         "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
     )
-    assert ".whl" not in command + commands
+    assert ".whl" not in "\n".join((*checkout, *prepare))
 
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
     review = _mapping(gitlab["commit-admission"])
@@ -193,15 +220,23 @@ def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
     assert review["before_script"] == accepted["before_script"]
     before = _strings(review["before_script"])
     assert install.removeprefix("sudo ") in before
-    assert _string(checkout["run"]) in before
-    assert commands in "\n".join(before)
+    assert before[-len(checkout + prepare) :] == checkout + prepare
 
 
+@pytest.mark.repository_toolchain
 @pytest.mark.skipif(os.name == "nt", reason="Both selected Forge jobs execute POSIX sh")
 @pytest.mark.parametrize("peer", ["github", "gitlab"])
 @pytest.mark.parametrize(
     ("trust", "expected_exit"),
-    [(None, 1), ("", 1), (" \t\n", 1), ("public-trust-fixture", 0)],
+    [
+        (None, 1),
+        ("", 1),
+        (" \t\n", 1),
+        ("\r\n", 1),
+        ("public-trust-fixture", 0),
+        (" \tpublic-trust-fixture\r\n", 0),
+        ("$(unavailable-command)", 0),
+    ],
 )
 def test_commit_trust_presence_precedes_supply_commands(
     tmp_path: Path,
@@ -210,12 +245,12 @@ def test_commit_trust_presence_precedes_supply_commands(
     expected_exit: int,
 ) -> None:
     if peer == "github":
-        workflow = _load_yaml(ROOT / ".github/workflows/verify.yml")
-        job = _mapping(_mapping(workflow["jobs"])["commit-admission"])
+        workflow = _mapping(yaml.safe_load(render("#SourceJobs")))
+        job = _mapping(workflow["commit-admission"])
         steps = tuple(_mapping(step) for step in _sequence(job["steps"]))
         commands = [_string(step["run"]) for step in steps if "run" in step]
     else:
-        workflow = _load_yaml(ROOT / ".gitlab-ci.yml")
+        workflow = _mapping(yaml.safe_load(render("gitlab")))
         commands = _strings(_mapping(workflow["commit-admission"])["before_script"])
     environment = {"PATH": "", "HOME": str(tmp_path), "LC_ALL": "C"}
     if trust is not None:
@@ -233,5 +268,13 @@ def test_commit_trust_presence_precedes_supply_commands(
     )
     assert result.returncode == expected_exit, result.stderr
     assert not tuple(tmp_path.iterdir())
-    if expected_exit:
-        assert "ETHOS_COMMIT_ALLOWED_SIGNERS" in result.stderr
+    assert not result.stdout
+    assert not result.stderr
+
+
+@pytest.mark.repository_toolchain
+def test_commit_trust_preflight_uses_one_native_command() -> None:
+    command = _string(yaml.safe_load(render("#CommitTrustPreflight")))
+    assert command.startswith("test ")
+    assert "\n" not in command
+    assert "ETHOS_COMMIT_ALLOWED_SIGNERS" in command

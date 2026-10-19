@@ -1,5 +1,7 @@
 package ci
 
+import "list"
+
 // Source and compatibility jobs share the provider-neutral verification contract.
 #SourceJobs: {
 	"commit-admission": {
@@ -10,8 +12,9 @@ package ci
 		env: {
 			ETHOS_COMMIT_ALLOWED_SIGNERS:       "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
 			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "${{ github.workspace }}"
+			PYTHONPATH:                         "${{ github.workspace }}/\(#EthosSupply.root)/src"
 		}
-		steps: [{
+		steps: list.Concat([[{
 			name: "Require external public commit trust"
 			run:  #CommitTrustPreflight
 		}, {
@@ -24,20 +27,22 @@ package ci
 		}, {
 			#UvSetup
 		}, {
+			name: "Refresh native ETHOS Linux prerequisite metadata"
+			run:  "sudo apt-get update -qq"
+		}, {
 			name: "Install native ETHOS Linux prerequisites"
-			run:  "sudo apt-get update -qq\nsudo \(#EthosSupply.linuxInstall)"
-		}, {
+			run:  "sudo \(#EthosSupply.linuxInstall)"
+		}], [for command in #EthosSupply.checkout {
 			name: "Select the exact native ETHOS source"
-			run:  #EthosSupply.checkout
-		}, {
-			name:                "Prepare locked native ETHOS supply and external commit trust"
-			"working-directory": #EthosSupply.root
-			run:                 #EthosSupply.prepare
-		}, {
+			run:  command
+		}], [for command in #EthosSupply.prepare {
+			name: "Prepare locked native ETHOS supply and external commit trust"
+			run:  command
+		}], [{
 			name: "Admit the exact introduced commit range"
 			env:  #CommitEvent
 			run:  #CommitAdmission
-		}]
+		}]])
 	}
 	"python-matrix": {
 		name:              "Resolve supported Python versions"
@@ -90,16 +95,16 @@ package ci
 			}
 		}, {
 			name: "Install and audit locked Node repository tools"
-			run: """
-				npm ci --ignore-scripts
-				npm audit signatures
-				"""
+			run:  "npm ci --ignore-scripts"
+		}, {
+			name: "Audit locked Node repository tool signatures"
+			run:  "npm audit signatures"
+		}, {
+			name: "Install the complete locked tool environment"
+			run:  "uv sync --locked --all-groups"
 		}, {
 			name: "Confirm source identity and repository governance"
-			run:  """
-					uv sync --locked --all-groups
-					uv run --locked --no-sync python -m \(#VerificationJobs.governance.module) --online-links
-					"""
+			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.governance.module) --online-links"
 		}]
 	}
 	python: {
@@ -174,12 +179,13 @@ package ci
 			#UvSetup
 		}, {
 			name: "Confirm accepted source and metadata"
-			run:  """
-					uv sync --locked --all-groups
-					uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module)
-					uv run --locked --no-sync python -m tools.quality.repository
-
-					"""
+			run:  "uv sync --locked --all-groups"
+		}, {
+			name: "Verify accepted release metadata"
+			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module)"
+		}, {
+			name: "Verify accepted repository structure"
+			run:  "uv run --locked --no-sync python -m tools.quality.repository"
 		}]
 	}
 	promotion: {
@@ -201,13 +207,19 @@ package ci
 			#UvSetup
 		}, {
 			name: "Prove exact dev-to-main promotion"
-			run:  """
-					git fetch origin main dev --tags --force --prune --prune-tags
-					git merge-base --is-ancestor origin/main "${{ github.event.pull_request.head.sha }}"
-					uv sync --locked --all-groups
-					uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module)
-					uv run --locked --no-sync python -m tools.quality.repository
-					"""
+			run:  "git fetch origin main dev --tags --force --prune --prune-tags"
+		}, {
+			name: "Verify promotion ancestry"
+			run:  "git merge-base --is-ancestor origin/main \"${{ github.event.pull_request.head.sha }}\""
+		}, {
+			name: "Install the complete locked tool environment"
+			run:  "uv sync --locked --all-groups"
+		}, {
+			name: "Verify promoted release metadata"
+			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module)"
+		}, {
+			name: "Verify promoted repository structure"
+			run:  "uv run --locked --no-sync python -m tools.quality.repository"
 		}]
 	}
 	"python-quality": {

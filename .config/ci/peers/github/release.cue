@@ -1,5 +1,7 @@
 package ci
 
+import "list"
+
 // Tagged assets and published predecessors have separate admission boundaries.
 #ReleaseJobs: {
 	"tag-metadata": {
@@ -27,19 +29,19 @@ package ci
 			}
 		}, {
 			name: "Install and audit locked Node repository tools"
-			run: """
-				npm ci --ignore-scripts
-				npm audit signatures
-				"""
+			run:  "npm ci --ignore-scripts"
+		}, {
+			name: "Audit locked Node repository tool signatures"
+			run:  "npm audit signatures"
 		}, {
 			name: "Install the complete locked tool environment"
 			run:  "uv sync --locked --all-groups"
 		}, {
 			name: "Verify exact release metadata"
-			run:  """
-					uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module) --tag "$GITHUB_REF_NAME"
-					uv run --locked --no-sync python -m tools.quality.repository
-					"""
+			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.metadata.module) --tag \"$GITHUB_REF_NAME\""
+		}, {
+			name: "Verify release repository structure"
+			run:  "uv run --locked --no-sync python -m tools.quality.repository"
 		}, {
 			name: "Verify repository governance"
 			run:  "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_policy.py tests/quality/repository tests/quality/orchestration/test_governance.py tests/forge/workflows tests/release/publication"
@@ -64,7 +66,7 @@ package ci
 				runner:   "ubuntu-24.04"
 			}]
 		}
-		steps: [{
+		steps: list.Concat([[{
 			uses: #Toolchains.githubActions.checkout
 			with: {
 				"fetch-depth": 0
@@ -82,7 +84,7 @@ package ci
 		}, {
 			name: "Resolve the exact published predecessor"
 			env: GH_TOKEN: "${{ github.token }}"
-			run: "uv run --locked --no-sync python -m tools.release.publication predecessor --repository \"${{ github.repository }}\" --candidate-version \"$(cat VERSION)\" --github-environment \"${{ github.env }}\""
+			run: "uv run --locked --no-sync python -m tools.release.publication predecessor --repository \"${{ github.repository }}\" --candidate-source . --github-environment \"${{ github.env }}\""
 		}, {
 			name: "Download the published predecessor release"
 			env: GH_TOKEN: "${{ github.token }}"
@@ -97,18 +99,16 @@ package ci
 		}, {
 			name: "Bind the exact predecessor asset"
 			run:  "python -c \"import glob, os; matches = glob.glob(r'${{ runner.temp }}/previous-release/${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz'); assert len(matches) == 1, matches; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + matches[0] + '\\n')\""
-		}, {
-			name: "Start the runner user systemd manager"
-			if:   "matrix.platform == 'linux-x86_64'"
-			run:  "user_id=$(id -u); runtime_dir=\"/run/user/${user_id}\"; sudo systemctl start \"user@${user_id}.service\"; printf '%s\\n' \"XDG_RUNTIME_DIR=${runtime_dir}\" \"DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus\" >> \"${GITHUB_ENV}\""
-		}, {
+		}], [for step in #LinuxUserManagerSteps {
+			step & {if: "matrix.platform == 'linux-x86_64'"}
+		}], [{
 			name: "Prove published predecessor upgrade and rollback"
 			env: {
 				OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: "${{ runner.temp }}/previous-release-asset-trust"
 				OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR:  "${{ runner.temp }}/release-asset-trust"
 			}
 			run: "uv run --locked --no-sync nox -s release_compatibility"
-		}]
+		}]])
 	}
 	"release-assets": {
 		name: "Release assets"
@@ -131,13 +131,12 @@ package ci
 			name: "Install the complete locked tool environment"
 			run:  "uv sync --locked --all-groups"
 		}, {
+			name: "Prepare the protected release signing key destination"
+			run:  "install -m 600 /dev/null \"$RUNNER_TEMP/release-asset-signing-key\""
+		}, {
 			name: "Materialize the protected release signing key"
 			env: RELEASE_ASSET_SIGNING_KEY_TEXT: "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY }}"
-			run: """
-				install -m 600 /dev/null "$RUNNER_TEMP/release-asset-signing-key"
-				printf '%s\\n' "$RELEASE_ASSET_SIGNING_KEY_TEXT" > "$RUNNER_TEMP/release-asset-signing-key"
-
-				"""
+			run: "printf '%s\\n' \"$RELEASE_ASSET_SIGNING_KEY_TEXT\" > \"$RUNNER_TEMP/release-asset-signing-key\""
 		}, {
 			name: "Assemble, sign, and verify the release set"
 			env: {
@@ -173,7 +172,7 @@ package ci
 				runner:   "ubuntu-24.04"
 			}]
 		}
-		steps: [{
+		steps: list.Concat([[{
 			uses: #Toolchains.githubActions.checkout
 			with: {
 				"fetch-depth": 0
@@ -213,17 +212,15 @@ package ci
 		}, {
 			name: "Bind the exact published assets"
 			run:  "python -c \"import glob, os; current = glob.glob(r'${{ runner.temp }}/current-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); previous = glob.glob(r'${{ runner.temp }}/previous-release/${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz'); assert len(current) == len(previous) == 1, (current, previous); open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSET=' + current[0] + '\\nOPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + previous[0] + '\\n')\""
-		}, {
-			name: "Start the runner user systemd manager"
-			if:   "matrix.platform == 'linux-x86_64'"
-			run:  "user_id=$(id -u); runtime_dir=\"/run/user/${user_id}\"; sudo systemctl start \"user@${user_id}.service\"; printf '%s\\n' \"XDG_RUNTIME_DIR=${runtime_dir}\" \"DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus\" >> \"${GITHUB_ENV}\""
-		}, {
+		}], [for step in #LinuxUserManagerSteps {
+			step & {if: "matrix.platform == 'linux-x86_64'"}
+		}], [{
 			name: "Prove the published release lifecycle"
 			env: {
 				OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: "${{ runner.temp }}/previous-release-asset-trust"
 				OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR:  "${{ runner.temp }}/release-asset-trust"
 			}
 			run: "uv run --locked --no-sync nox -s published_release_compatibility -- --basetemp=\"${{ runner.temp }}/proxy-test\""
-		}]
+		}]])
 	}
 }

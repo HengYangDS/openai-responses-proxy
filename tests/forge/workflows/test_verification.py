@@ -195,11 +195,12 @@ def _assert_github_native_and_forbidden_contract(text: str) -> None:
     windows_start = text.index("\n  python-windows:")
     governance_start = text.index("\n  accepted-source:")
     windows_block = text[windows_start:governance_start]
-    native_start = text.index("\n  native-assets:")
-    native_end = text.index("\n  release-assets:", native_start)
-    native_block = text[native_start:native_end]
-    if "shell: bash" in native_block or "set -euo pipefail" in native_block:
-        raise AssertionError("native asset builds must use each runner's native command shell")
+    jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+    for job_id in ("native-assets", "native-linux"):
+        for step in _sequence(_mapping(jobs[job_id])["steps"]):
+            native_step = _mapping(step)
+            assert "shell" not in native_step
+            assert "set -euo pipefail" not in _string(native_step.get("run", ""))
     if "shell:" in windows_block or re.search(r"(?:^|\s)\S+\.sh(?:\s|$)", windows_block):
         raise AssertionError("Windows verification must not depend on Bash or POSIX shell scripts")
     if "secrets:" in windows_block or "permissions:" in windows_block:

@@ -2,13 +2,6 @@ package ci
 
 import "list"
 
-#GitLabCommitEvent: """
-	export OPENAI_RESPONSES_PROXY_COMMIT_BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}" OPENAI_RESPONSES_PROXY_COMMIT_HEAD="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/heads/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_COMMIT_REF_NAME}" OPENAI_RESPONSES_PROXY_COMMIT_PEER=gitlab
-	if [ -n "$CI_COMMIT_TAG" ]; then
-	  export OPENAI_RESPONSES_PROXY_COMMIT_BASE="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/tags/$CI_COMMIT_TAG"
-	fi
-	"""
-
 gitlab: {
 	workflow: rules: [{
 		if: "$CI_COMMIT_TAG"
@@ -26,23 +19,41 @@ gitlab: {
 		variables: {
 			GIT_DEPTH:                          "0"
 			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "$CI_PROJECT_DIR"
+			OPENAI_RESPONSES_PROXY_COMMIT_HEAD: "$CI_COMMIT_SHA"
+			OPENAI_RESPONSES_PROXY_COMMIT_PEER: "gitlab"
+			PYTHONPATH:                         "$CI_PROJECT_DIR/\(#EthosSupply.root)/src"
 		}
-		before_script: list.Concat([[#CommitTrustPreflight], #systemBootstrap, [
-			#EthosSupply.linuxInstall,
-			#EthosSupply.checkout,
-			"cd \(#EthosSupply.root)\n" + #EthosSupply.prepare + "\ncd \"$CI_PROJECT_DIR\"",
-		]])
-		script: [#GitLabCommitEvent + "\n" + #CommitAdmission]
+		before_script: list.Concat([[#CommitTrustPreflight], #systemBootstrap,
+			[#EthosSupply.linuxInstall], #EthosSupply.checkout, #EthosSupply.prepare])
+		script: [#CommitAdmission]
 		tags: [...string]
 		rules: [...{...}]
 	}
 	"commit-admission": #commitAdmission & {
 		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
-		rules: [{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\""}]
+		rules: [{
+			if: "$CI_PIPELINE_SOURCE == \"merge_request_event\""
+			variables: {
+				OPENAI_RESPONSES_PROXY_COMMIT_BASE:   "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+				OPENAI_RESPONSES_PROXY_COMMIT_TARGET: "refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+			}
+		}]
 	}
 	"commit-admission-accepted": #commitAdmission & {
 		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
-		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\" || $CI_COMMIT_BRANCH == \"main\" || $CI_COMMIT_TAG"}]
+		rules: [{
+			if: "$CI_COMMIT_TAG"
+			variables: {
+				OPENAI_RESPONSES_PROXY_COMMIT_BASE:   "$CI_COMMIT_SHA"
+				OPENAI_RESPONSES_PROXY_COMMIT_TARGET: "refs/tags/$CI_COMMIT_TAG"
+			}
+		}, {
+			if: "$CI_COMMIT_BRANCH == \"dev\" || $CI_COMMIT_BRANCH == \"main\""
+			variables: {
+				OPENAI_RESPONSES_PROXY_COMMIT_BASE:   "$CI_COMMIT_BEFORE_SHA"
+				OPENAI_RESPONSES_PROXY_COMMIT_TARGET: "refs/heads/$CI_COMMIT_REF_NAME"
+			}
+		}]
 	}
 	stages: ["verify", "release"]
 	variables: {
@@ -72,19 +83,8 @@ gitlab: {
 		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
 		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\""}]
 	}]
-	#uvContract: """
-		UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-		UV_VERSION="$(uv --version)"
-		UV_VERSION="${UV_VERSION#uv }"
-		ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-		EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-		if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-		  printf 'uv version mismatch: expected %s, actual %s\n' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-		  exit 1
-		fi
-		"""
 	#systemBootstrap: [
-		#uvContract,
+		"uv --version",
 		"apt-get update -qq",
 		"apt-get install -qq -y --no-install-recommends git openssh-client",
 	]

@@ -1,5 +1,7 @@
 package ci
 
+import "list"
+
 // Platform builders and service lifecycle remain distinct acceptance jobs.
 #NativeJobs: {
 	"native-assets": {
@@ -67,11 +69,13 @@ package ci
 			id:   "release-source"
 			run:  "git -c safe.directory=\"$GITHUB_WORKSPACE\" worktree add --detach /workspace HEAD"
 		}, {
-			name: "Install the locked release tool environment"
-			run:  "cd /workspace && uv sync --locked --group quality --python python --no-python-downloads"
+			name:                "Install the locked release tool environment"
+			"working-directory": "/workspace"
+			run:                 "uv sync --locked --group quality --python python --no-python-downloads"
 		}, {
-			name: "Build the native release asset"
-			run:  "cd /workspace && uv run --locked --no-sync --python python --no-python-downloads nox -s release_asset -- \"$GITHUB_WORKSPACE/.release-assets/linux-x86_64\""
+			name:                "Build the native release asset"
+			"working-directory": "/workspace"
+			run:                 "uv run --locked --no-sync --python python --no-python-downloads nox -s release_asset -- \"$GITHUB_WORKSPACE/.release-assets/linux-x86_64\""
 		}, {
 			name: "Retire the canonical release source root"
 			if:   "always() && steps.release-source.outcome == 'success'"
@@ -92,7 +96,7 @@ package ci
 		needs: ["python-matrix", "native-linux"]
 		"runs-on":         "ubuntu-24.04"
 		"timeout-minutes": 10
-		steps: [{
+		steps: list.Concat([[{
 			uses: #Toolchains.githubActions.checkout
 			with: {
 				"fetch-depth": 0
@@ -111,30 +115,21 @@ package ci
 				path: "${{ runner.temp }}/native-linux"
 			}
 		}, {
+			name: "Prepare the Linux executable destination"
+			run:  "install -d \"$RUNNER_TEMP/native-linux/runtime\""
+		}, {
 			name: "Materialize the Linux executable"
-			run:  "install -d \"$RUNNER_TEMP/native-linux/runtime\" && tar -xzf \"$RUNNER_TEMP/native-linux/openai-responses-proxy-$(cat VERSION)-linux-x86_64.tar.gz\" --strip-components=1 -C \"$RUNNER_TEMP/native-linux/runtime\""
+			run:  "tar -xzf \"$RUNNER_TEMP\"/native-linux/openai-responses-proxy-*-linux-x86_64.tar.gz --strip-components=1 -C \"$RUNNER_TEMP/native-linux/runtime\""
 		}, {
 			name: "Install the locked release tool environment"
 			run:  "uv sync --locked --group quality"
-		}, {
-			name: "Start the runner user systemd manager"
-			run: """
-				user_id=$(id -u)
-				runtime_dir="/run/user/$user_id"
-				sudo systemctl start "user@$user_id.service"
-				{
-				  echo "XDG_RUNTIME_DIR=$runtime_dir"
-				  echo "DBUS_SESSION_BUS_ADDRESS=unix:path=$runtime_dir/bus"
-				} >> "$GITHUB_ENV"
-
-				"""
-		}, {
+		}], #LinuxUserManagerSteps, [{
 			name: "Prove the native Linux service lifecycle"
 			env: {
 				OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE: "${{ runner.temp }}/native-linux/runtime/bin/openai-responses-proxy"
 				OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE:     "${{ runner.temp }}/native-linux/runtime/bin"
 			}
 			run: "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/lifecycle"
-		}]
+		}]])
 	}
 }

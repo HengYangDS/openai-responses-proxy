@@ -1,6 +1,5 @@
 """Event, trust-role and branch admission across the peer projections."""
 
-import os
 import re
 import subprocess
 
@@ -250,48 +249,54 @@ def test_commit_event_inputs_reach_each_governance_context() -> None:
     job = _mapping(gitlab["commit-admission"])
     (command,) = _strings(job["script"])
     assert "hook commit-range" in command
-    assert "CI_MERGE_REQUEST_TARGET_BRANCH_NAME" in command
-    assert "CI_MERGE_REQUEST_DIFF_BASE_SHA" in command
-    assert "CI_COMMIT_BEFORE_SHA" in command
-    assert "CI_COMMIT_TAG" in command
+    assert _mapping(job["variables"])["OPENAI_RESPONSES_PROXY_COMMIT_HEAD"] == "$CI_COMMIT_SHA"
+    review_rule = _mapping(_sequence(job["rules"])[0])
+    assert _mapping(review_rule["variables"]) == {
+        "OPENAI_RESPONSES_PROXY_COMMIT_BASE": "$CI_MERGE_REQUEST_DIFF_BASE_SHA",
+        "OPENAI_RESPONSES_PROXY_COMMIT_TARGET": "refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME",
+    }
     assert '--remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER"' in command
 
 
-@pytest.mark.skipif(os.name == "nt", reason="The selected GitLab jobs execute POSIX sh on Linux")
 @pytest.mark.parametrize("event", ["review", "push", "api", "tag"])
-def test_gitlab_commit_projection_executes_native_event_values(event, monkeypatch) -> None:
+def test_gitlab_commit_projection_declares_native_event_values(event: str) -> None:
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
-    (command,) = _strings(_mapping(gitlab["commit-admission"])["script"])
-    prefix = command.split("build/runtime/ethos-source/.venv/bin/python", 1)[0]
     head, base, review = "a" * 40, "b" * 40, "c" * 40
     zero = "0" * 40
-    for name, value in {
+    inputs = {
         "CI_COMMIT_SHA": head,
         "CI_COMMIT_BEFORE_SHA": zero if event == "api" else base,
         "CI_MERGE_REQUEST_DIFF_BASE_SHA": review if event == "review" else "",
-        "CI_PIPELINE_SOURCE": "merge_request_event" if event == "review" else event,
         "CI_MERGE_REQUEST_TARGET_BRANCH_NAME": "main" if event == "review" else "",
         "CI_COMMIT_REF_NAME": "v4.0.3" if event == "tag" else "dev",
         "CI_COMMIT_TAG": "v4.0.3" if event == "tag" else "",
-    }.items():
-        monkeypatch.setenv(name, value)
-    result = subprocess.run(
-        [
-            "sh",
-            "-c",
-            prefix
-            + 'printf "%s\\n" "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" '
-            + '"$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" '
-            + '"$OPENAI_RESPONSES_PROXY_COMMIT_PEER"',
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=5,
-    )
-    assert result.stdout.splitlines() == [
-        {"review": review, "push": base, "api": zero, "tag": head}[event],
-        head,
-        {"review": "refs/heads/main", "tag": "refs/tags/v4.0.3"}.get(event, "refs/heads/dev"),
-        "gitlab",
-    ]
+    }
+    job_id = "commit-admission" if event == "review" else "commit-admission-accepted"
+    job = _mapping(gitlab[job_id])
+    rules = tuple(_mapping(rule) for rule in _sequence(job["rules"]))
+    rule = rules[0 if event in {"review", "tag"} else 1]
+    assert rule["if"] == {
+        "review": '$CI_PIPELINE_SOURCE == "merge_request_event"',
+        "tag": "$CI_COMMIT_TAG",
+    }.get(event, '$CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main"')
+    declared = {**_mapping(job["variables"]), **_mapping(rule["variables"])}
+    projected = {
+        key: re.sub(r"\$([A-Z_]+)", lambda match: inputs[match[1]], _string(value))
+        for key, value in declared.items()
+        if key.startswith("OPENAI_RESPONSES_PROXY_COMMIT_")
+        and key != "OPENAI_RESPONSES_PROXY_COMMIT_ROOT"
+    }
+    assert projected == {
+        "OPENAI_RESPONSES_PROXY_COMMIT_BASE": {
+            "review": review,
+            "push": base,
+            "api": zero,
+            "tag": head,
+        }[event],
+        "OPENAI_RESPONSES_PROXY_COMMIT_HEAD": head,
+        "OPENAI_RESPONSES_PROXY_COMMIT_TARGET": {
+            "review": "refs/heads/main",
+            "tag": "refs/tags/v4.0.3",
+        }.get(event, "refs/heads/dev"),
+        "OPENAI_RESPONSES_PROXY_COMMIT_PEER": "gitlab",
+    }
