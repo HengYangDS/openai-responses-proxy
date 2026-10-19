@@ -1,4 +1,4 @@
-"""Observed subprocess identity and temporary payload cleanup."""
+"""Source-only contracts for exact subprocess fixture cleanup."""
 
 from __future__ import annotations
 
@@ -9,17 +9,11 @@ import pytest
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
-from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import terminate_owned_proxy
 from tests.serving.handoff.subprocess.fixtures import SubprocessFixture
 
-pytestmark = [
-    pytest.mark.usefixtures(preserve_native_host_projection.__name__),
-    pytest.mark.native_distribution,
-]
 
-
-class TestRealSubprocessHandoffIntegration(SubprocessFixture):
+class TestHandoffCleanup(SubprocessFixture):
     def test_fixture_cleanup_terminates_before_removing_temporary_payload(self, *, mocker) -> None:
         events = []
         temporary = tempfile.TemporaryDirectory()
