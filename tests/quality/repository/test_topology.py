@@ -24,11 +24,11 @@ def test_release_artifacts_have_one_construction_owner() -> None:
 
 
 def test_repository_checks_share_one_semantic_package() -> None:
-    """Repository topology, naming, and decisions belong to one audit package."""
+    """Repository-specific topology and naming belong to one audit package."""
     package = importlib.util.find_spec("tools.quality.repository")
     assert package is not None
     assert package.submodule_search_locations is not None
-    for concern in ("topology", "names", "decisions"):
+    for concern in ("topology", "names"):
         owner = importlib.util.find_spec(f"tools.quality.repository.{concern}")
         assert owner is not None
 

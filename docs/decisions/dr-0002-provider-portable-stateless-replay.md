@@ -1,6 +1,8 @@
 ---
 subject: openai-responses-proxy:decision-0002-provider-portable-stateless-replay
 role: decision
+decision_id: DR-0002
+decision_status: accepted
 state: canonical
 relations:
     part_of: README.md
@@ -8,7 +10,6 @@ relations:
 
 # DR-0002: Keep Responses Replay Stateless and Provider-Portable
 
-- Status: accepted
 - Date: 2026-08-07
 - Last amended: 2026-10-08
 
@@ -54,7 +55,16 @@ version with the conversation. The proxy neither reads nor repairs these
 settings. Native compaction's empty `additional_tools` list is a valid explicit
 control and must remain empty rather than be removed or rejected.
 
-## Consequences
+## Alternatives Rejected
+
+- **Reuse provider-stored continuation state:** rejected because opaque response,
+  item and reasoning bindings have no shared cross-provider meaning.
+- **Drop encrypted delegation or retry only its routing header:** rejected
+  because an accepted envelope does not prove delivery of the required task.
+- **Guess the meaning of unknown replay extensions:** rejected because that
+  can silently alter dialogue or sever tool-call relationships.
+
+## Consequences and Boundary
 
 A portable conversation can switch among admitted providers without server-side state.
 Continuity depends on client-replayed portable dialogue rather than a provider
@@ -70,7 +80,11 @@ claim excludes encrypted native delegation. Provider-specific recovery consumes
 the same portable owner or a strictly smaller derivation; it cannot become a
 parallel replay implementation.
 
-## Revisit Trigger
+## Evidence and Revisit
+
+The [provider-portable Responses specification](../../openspec/specs/provider-portable-responses/spec.md)
+owns the admitted replay and control semantics. Its scenarios describe required
+behavior, not universal provider interoperability or present delivery evidence.
 
 Revisit when native control-message semantics change, or when the ecosystem
 provides a documented interoperable encrypted transport. Require a real

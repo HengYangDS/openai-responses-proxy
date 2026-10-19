@@ -1,6 +1,8 @@
 ---
 subject: openai-responses-proxy:decision-0001-control-plane-data-plane-boundary
 role: decision
+decision_id: DR-0001
+decision_status: accepted
 state: canonical
 relations:
     part_of: README.md
@@ -8,7 +10,6 @@ relations:
 
 # DR-0001: Keep Control Plane Separate from Proxy Data Plane
 
-- Status: amended
 - Date: 2026-07-14
 - Last amended: 2026-08-16
 
@@ -27,13 +28,7 @@ normalization, its executable payload, and its native service lifecycle. The
 installed proxy is generated from source and verified with a manifest. It never
 writes client configuration or invokes a particular control-plane product.
 
-## Consequences
-
-The products evolve independently and each mutation has one owner. Runtime
-repair rebuilds the proxy projection; route repair remains a client control-plane
-operation. Neither path permits session-history mutation.
-
-## Alternatives Considered
+## Alternatives Rejected
 
 - **General multi-provider gateway:** rejected because routing, fallback,
   billing, and organization policy belong outside this compatibility edge.
@@ -42,11 +37,21 @@ operation. Neither path permits session-history mutation.
 - **Control-plane-managed proxy lifecycle:** rejected because independently
   useful products should not share one failure and release domain.
 
+## Consequences and Boundary
+
+The products evolve independently and each mutation has one owner. Runtime
+repair rebuilds the proxy projection; route repair remains a client control-plane
+operation. Neither path permits session-history mutation.
+
 The proxy is intentionally complementary to, rather than a smaller clone of,
 general gateways. Its durable advantage is a closed portable grammar, bounded
 recovery, and a native lifecycle with no client-state authority.
 
-## Revisit Trigger
+## Evidence and Revisit
+
+The [authority and runtime boundary](../architecture/authority-and-runtime-boundary.md)
+explains the independent owners; the [product interface](../../openspec/specs/product-interface/spec.md)
+owns their observable contract.
 
 Revisit only if the proxy becomes an explicit client configuration control
 plane or a client control plane adopts proxy transport and native service

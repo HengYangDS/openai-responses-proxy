@@ -1,6 +1,8 @@
 ---
 subject: openai-responses-proxy:decision-0003-provider-scoped-recovery-and-backpressure
 role: decision
+decision_id: DR-0003
+decision_status: accepted
 state: canonical
 relations:
     part_of: README.md
@@ -8,7 +10,6 @@ relations:
 
 # DR-0003: Isolate Recovery and Backpressure by Provider Route
 
-- Status: accepted
 - Date: 2026-08-07
 
 ## Context
@@ -33,14 +34,26 @@ The proxy does not own a global request queue or undocumented provider quota.
 Client configuration limits per-session concurrency; each provider remains the
 authority for its actual service limit.
 
-## Consequences
+## Alternatives Rejected
+
+- **Global queue or cooldown:** rejected because an outage on one route would
+  delay healthy providers with unrelated quotas.
+- **Provider-name branches in portable protocol logic:** rejected because
+  routing labels do not establish wire capability or recovery semantics.
+- **Unbounded retries:** rejected because they amplify outages and make a
+  client turn's cost and termination unpredictable.
+
+## Consequences and Boundary
 
 Adding an ordinary provider changes only the provider manifest. A genuine wire
 difference may add one pure policy module and its tests without branching the
 portable protocol owner. Failures on one provider do not serialize or disable
 healthy providers.
 
-## Revisit Trigger
+## Evidence and Revisit
+
+The [provider-portable Responses specification](../../openspec/specs/provider-portable-responses/spec.md)
+owns request-local recovery and provider-scoped cooldown requirements.
 
 Revisit if the product deliberately becomes a shared traffic scheduler with an
 explicit, provider-neutral admission contract and independent operational

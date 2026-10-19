@@ -1,6 +1,8 @@
 ---
 subject: openai-responses-proxy:decision-0005-single-native-payload-lifecycle
 role: decision
+decision_id: DR-0005
+decision_status: accepted
 state: canonical
 relations:
     part_of: README.md
@@ -8,7 +10,6 @@ relations:
 
 # DR-0005: Maintain One Native Payload and Lifecycle Model
 
-- Status: accepted
 - Date: 2026-08-07
 
 ## Context
@@ -48,14 +49,27 @@ compatibility shims, forwarding facades, wrappers, shell-profile mutation,
 retired layout readers, and automatic migration from unsupported payloads are
 not product surfaces.
 
-## Consequences
+## Alternatives Rejected
+
+- **Parallel source, wheel and interpreter installations:** rejected because
+  they leave multiple payload and rollback owners.
+- **Implicit migration from unsupported layouts:** rejected because a retired
+  reader widens the accepted state space without a current product requirement.
+- **Wrappers or shell-profile mutation for command continuity:** rejected
+  because the native command projection and selector already own that binding.
+
+## Consequences and Boundary
 
 Lifecycle behavior has one owner and a smaller state space. A breaking payload
 change may require explicit uninstall and reinstall rather than an implicit
 migration. Historical release evidence remains immutable but does not constrain
 the current runtime model.
 
-## Revisit Trigger
+## Evidence and Revisit
+
+The [runtime upgrade specification](../../openspec/specs/runtime-upgrade/spec.md)
+owns selector, handoff and recovery behavior; [process ownership](../../openspec/specs/process-ownership/spec.md)
+owns the native-resource boundary.
 
 Revisit only when a supported in-place migration is a current product
 requirement with explicit ownership, failure semantics, and end-to-end proof.

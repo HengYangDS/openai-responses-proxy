@@ -1,6 +1,8 @@
 ---
 subject: openai-responses-proxy:decision-0006-semantic-fit-before-framework-adoption
 role: decision
+decision_id: DR-0006
+decision_status: accepted
 state: canonical
 relations:
     part_of: README.md
@@ -8,7 +10,6 @@ relations:
 
 # DR-0006: Require Semantic Fit Before Framework Adoption
 
-- Status: accepted
 - Date: 2026-08-22
 
 ## Context
@@ -50,19 +51,7 @@ proves public dynamic read-budget control, raw encoded bytes, direct proxy
 isolation, provider-scoped recovery, frozen native portability, and net deletion
 of owned complexity. No speculative dependency or parallel fallback is admitted.
 
-## Consequences
-
-- The inbound server stays small and synchronous while that remains the least
-  complex implementation of the inherited-listener contract.
-- The private socket traversal remains an explicit design liability, not a
-  reason to accept a replacement that moves the same liability or adds a second
-  lifecycle.
-- A framework is not rejected because it is external or accepted because it is
-  modern; total owned complexity and product fit decide.
-- Dependency versions and hashes remain supply-chain projections of the lock,
-  not literals copied into CI or documentation.
-
-## Alternatives Considered
+## Alternatives Rejected
 
 - **FastAPI plus Uvicorn for all HTTP behavior:** rejected because it does not
   own native service installation, rolling listener transfer, or byte-level
@@ -80,7 +69,24 @@ of owned complexity. No speculative dependency or parallel fallback is admitted.
   unbounded migration without evidence that concurrency, rather than upstream
   latency and provider behavior, is the limiting product risk.
 
-## Revisit Trigger
+## Consequences and Boundary
+
+- The inbound server stays small and synchronous while that remains the least
+  complex implementation of the inherited-listener contract.
+- The private socket traversal remains an explicit design liability, not a
+  reason to accept a replacement that moves the same liability or adds a second
+  lifecycle.
+- A framework is not rejected because it is external or accepted because it is
+  modern; total owned complexity and product fit decide.
+- Dependency versions and hashes remain supply-chain projections of the lock,
+  not literals copied into CI or documentation.
+
+## Evidence and Revisit
+
+The [provider-portable Responses](../../openspec/specs/provider-portable-responses/spec.md)
+and [runtime upgrade](../../openspec/specs/runtime-upgrade/spec.md) contracts
+define the behavior a replacement must preserve. The rejected timeout behavior
+is specific to HTTPX 0.28.1, not a claim about all later releases.
 
 Revisit the inbound decision if an ASGI server proves inherited-socket handoff,
 raw stream parity, smaller frozen assets, and less owned lifecycle code. Revisit

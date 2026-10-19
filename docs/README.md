@@ -22,7 +22,7 @@ journeys.
 | Operations     | [Operate](../README.md#operate)                                                  | Status, diagnosis, reload, rollback, recovery, and removal. |
 | Contribution   | [CONTRIBUTING](../CONTRIBUTING.md)                                               | Locked development, verification, and release workflow.     |
 | Architecture   | [Authority and runtime boundary](architecture/authority-and-runtime-boundary.md) | Components, Provider admission, and runtime projection.     |
-| Decisions      | [Decisions](decisions/README.md)                                                 | Durable rulings and their register.                         |
+| Decisions      | [Decisions](decisions/README.md)                                                 | Durable rulings, alternatives and revisit conditions.       |
 | Evidence       | [Evidence](evidence/README.md)                                                   | Proof requirements, observations, and acceptance limits.    |
 | Governance     | [Release and change policy](governance/release-and-change-policy.md)             | Change, release, and contributor rules.                     |
 | Publication    | [Forge operations](operations/forge-operations.md)                               | Independent GitLab and GitHub operation.                    |

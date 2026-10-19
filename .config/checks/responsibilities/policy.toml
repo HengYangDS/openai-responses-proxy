@@ -545,14 +545,14 @@ review_condition = "Reassess when the product gains a durable semantic owner."
 
 [[concerns]]
 id = "decision-record-integrity"
-owner = "tools.quality.repository.decisions"
+owner = "ethos"
 scope = "product-documentation"
-session = "quick"
-configuration = ["docs/decisions/decision-register.md"]
+session = "git-admission"
+configuration = [".ethos/profile.toml"]
 risk_model = "Durable architectural decisions can become undiscoverable, inconsistently named, or detached from their supersession state."
-measurement = "Validate decision filenames, register membership, state, and referenced carriers."
+measurement = "Original ETHOS Docs Registry validates decision identity, metadata, complete rationale and referenced carriers."
 false_positive_cost = "Routine implementation choices must not generate ceremonial decision records."
-remediation = "Record only durable decisions and update their single register entry."
+remediation = "Preserve durable rationale in the native record and navigate it from the directory README."
 review_condition = "Reassess when the decision lifecycle or naming contract changes."
 
 [[concerns]]

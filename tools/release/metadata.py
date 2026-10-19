@@ -274,7 +274,7 @@ def check_governance_contract() -> None:
         "docs/README.md",
         "docs/architecture/authority-and-runtime-boundary.md",
         "docs/governance/release-and-change-policy.md",
-        "docs/decisions/decision-register.md",
+        "docs/decisions/README.md",
         "docs/decisions/dr-0001-control-plane-data-plane-boundary.md",
         "docs/evidence/evidence-policy.md",
         "docs/operations/forge-operations.md",
