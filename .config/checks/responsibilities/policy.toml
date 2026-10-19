@@ -189,6 +189,7 @@ files = [
   ".config/mise/python-release",
   ".config/mise/config.toml",
   ".config/mise/mise.lock",
+  ".config/mise/uv.toml",
   ".config/miserc.toml",
   ".config/npm/npmrc",
   "package-lock.json",

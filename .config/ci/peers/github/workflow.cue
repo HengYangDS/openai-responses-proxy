@@ -18,7 +18,10 @@ package ci
 }
 #UvSetup: {
 	uses: #Toolchains.githubActions.uv
-	with: "cache-suffix": "${{ github.job }}-${{ strategy.job-index }}"
+	with: {
+		"cache-suffix": "${{ github.job }}-${{ strategy.job-index }}"
+		"version-file": ".config/mise/uv.toml"
+	}
 }
 
 githubVerify: {
@@ -47,7 +50,7 @@ githubVerify: {
 		group:                "verify-${{ github.workflow }}-${{ github.ref }}"
 		"cancel-in-progress": true
 	}
-	jobs: {
+	#jobs: {
 		"python-matrix":                   #SourceJobs."python-matrix"
 		"source-and-governance":           #SourceJobs."source-and-governance"
 		"commit-admission":                #SourceJobs."commit-admission"
@@ -65,5 +68,14 @@ githubVerify: {
 		"release-assets":                  #ReleaseJobs."release-assets"
 		"published-release-compatibility": #ReleaseJobs."published-release-compatibility"
 		"branch-proof":                    #AdmissionJobs."branch-proof"
+	}
+	jobs: {
+		for id, job in #jobs {
+			"\(id)": job & {
+				if id != "commit-admission" {
+					env: #RepositoryUvEnvironment
+				}
+			}
+		}
 	}
 }

@@ -189,11 +189,13 @@ def test_nox_tool_environment_contains_product_runtime_dependencies(
         str(ROOT),
         *tuple(part for group in groups or ("quality",) for part in ("--group", group)),
     )
+    environment = {**nox_configuration._environment(), "UV_NO_PROGRESS": "1"}
+    assert session.run_install.call_args.kwargs["env"] == environment
     session.install.assert_called_once_with(
         "--requirements",
         str(tmp_path / "requirements.txt"),
         "--strict",
-        env={"PYTHONNOUSERSITE": "1", "UV_NO_PROGRESS": "1"},
+        env=environment,
     )
 
 
@@ -266,6 +268,19 @@ def test_governance_reuses_the_admitted_interpreter(
         external=True,
         env=nox_configuration._environment(),
     )
+
+
+def test_nox_environment_selects_the_native_uv_configuration(
+    monkeypatch: pytest.MonkeyPatch, nox_configuration: ModuleType
+) -> None:
+    monkeypatch.setenv("UV_CONFIG_FILE", "/unowned/uv.toml")
+    monkeypatch.setenv("UV_NO_CONFIG", "1")
+
+    environment = nox_configuration._environment()
+
+    assert environment["UV_CONFIG_FILE"] == str(ROOT / ".config/mise/uv.toml")
+    assert environment["UV_NO_CONFIG"] == "false"
+    assert "UV_LINK_MODE" not in environment
 
 
 @pytest.mark.parametrize("session_name", ["quick", "quality"])

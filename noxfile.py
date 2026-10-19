@@ -385,17 +385,18 @@ def _install_tools(session: nox.Session, *groups: str) -> None:
     ]
     for group in groups or ("quality",):
         command.extend(("--group", group))
+    environment = {**_environment(), "UV_NO_PROGRESS": "1"}
     session.run_install(
         *command,
         silent=True,
-        env={"PYTHONNOUSERSITE": "1", "UV_NO_PROGRESS": "1"},
+        env=environment,
         external=True,
     )
     session.install(
         "--requirements",
         str(requirements),
         "--strict",
-        env={"PYTHONNOUSERSITE": "1", "UV_NO_PROGRESS": "1"},
+        env=environment,
     )
     python_quality.install_native_helpers(session)
 
@@ -588,6 +589,7 @@ def _environment() -> dict[str, str]:
         "PYTHONNOUSERSITE": "1",
         "PYTHONWARNINGS": "error",
         "SOURCE_DATE_EPOCH": "315532800",
-        "UV_LINK_MODE": "copy",
+        "UV_CONFIG_FILE": str(ROOT / ".config/mise/uv.toml"),
+        "UV_NO_CONFIG": "false",
         **{name: os.environ[name] for name in optional if name in os.environ},
     }

@@ -77,7 +77,9 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
     assert re.fullmatch(r"ghcr.io/jdx/mise@sha256:[0-9a-f]{64}", _string(image["name"]))
     assert image["entrypoint"] == [""]
     variables = _mapping(source["variables"])
-    assert set(variables) == {"GIT_DEPTH", "MISE_ENABLE_TOOLS"}
+    assert set(variables) == {"GIT_DEPTH", "MISE_ENABLE_TOOLS", "UV_CONFIG_FILE", "UV_NO_CONFIG"}
+    assert variables["UV_CONFIG_FILE"] == ".config/mise/uv.toml"
+    assert variables["UV_NO_CONFIG"] == "false"
     assert variables["GIT_DEPTH"] == "0"
     assert set(_string(variables["MISE_ENABLE_TOOLS"]).split(",")) <= toolchain["tools"].keys()
     assert source["before_script"] == [

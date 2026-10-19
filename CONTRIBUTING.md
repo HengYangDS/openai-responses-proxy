@@ -53,6 +53,10 @@ mise run bootstrap
 standalone executables. `.config/miserc.toml` keeps parent and global mise
 configuration out of this checkout, and the toolchain binds npm to
 `.config/npm/npmrc`.
+The native uv configuration is `.config/mise/uv.toml`; Mise, Nox and both CUE
+projections select it instead of discovering operator configuration. GitHub's
+setup action reads its version requirement from the same file. External ETHOS
+source preparation retains its own uv configuration, not this product's.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
 GitHub, GitLab, POSIX, and Windows use the same repository installation.

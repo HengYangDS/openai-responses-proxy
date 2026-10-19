@@ -43,10 +43,6 @@ quality = [
 ]
 release = ["pyinstaller==6.22.3"]
 
-[tool.uv]
-required-version = "==0.12.18"
-link-mode = "copy"
-
 [tool.hatch.version]
 path = "VERSION"
 pattern = "(?P<version>[^\\s]+)"

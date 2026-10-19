@@ -161,15 +161,16 @@ gitlab: {
 	for role in #productRoles {
 		for id, job in #productJobs {
 			"\(id)\(role.suffix)": job & {
-				tags:  role.tags
-				rules: role.rules
+				tags:      role.tags
+				rules:     role.rules
+				variables: #RepositoryUvEnvironment
 			}
 		}
 	}
 	"verify-accepted-source": {
 		stage: "verify"
 		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\" || $CI_COMMIT_BRANCH == \"main\""}]
-		variables: GIT_DEPTH: "0"
+		variables: #RepositoryUvEnvironment & {GIT_DEPTH: "0"}
 		before_script: #qualityBootstrap
 		script: [
 			"uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.metadata.module)",
@@ -182,7 +183,7 @@ gitlab: {
 		rules: [{
 			if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == \"dev\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"main\""
 		}]
-		variables: GIT_DEPTH: "0"
+		variables: #RepositoryUvEnvironment & {GIT_DEPTH: "0"}
 		before_script: list.Concat([#systemBootstrap, [
 			"git fetch origin main dev --tags --force --prune --prune-tags",
 			"uv sync --locked --group quality --python python --no-python-downloads",
@@ -196,7 +197,7 @@ gitlab: {
 	"verify-release-tag": {
 		stage: "release"
 		rules: [{if: "$CI_COMMIT_TAG"}]
-		variables: GIT_DEPTH: "0"
+		variables: #RepositoryUvEnvironment & {GIT_DEPTH: "0"}
 		before_script: list.Concat([#qualityBootstrap, [
 			"test -f \"${OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST:-}\"",
 		]])

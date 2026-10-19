@@ -16,6 +16,13 @@ import "strings"
 	metadata: module:       "tools.release.metadata"
 }
 
+// Project jobs bind one native uv configuration; external suppliers keep theirs.
+#RepositoryUvEnvironment: {
+	UV_CONFIG_FILE: ".config/mise/uv.toml"
+	UV_NO_CONFIG:   "false"
+	[string]:       string
+}
+
 // A nonblank value differs from its leading whitespace; no tools run before supply.
 #CommitTrustPreflight: #"test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}""#
 

@@ -47,11 +47,15 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Install the locked matrix tool environment
         run: uv sync --locked --all-groups
       - name: Read the repository Python matrix
         id: versions
         run: uv run --locked --no-sync python -m tools.quality.python_matrix
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   source-and-governance:
     name: Source and governance
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -69,6 +73,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
@@ -81,6 +86,9 @@ jobs:
         run: uv sync --locked --all-groups
       - name: Confirm source identity and repository governance
         run: uv run --locked --no-sync python -m tools.quality.governance --online-links
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   commit-admission:
     name: Native commit admission
     if: github.event_name == 'pull_request' || github.event_name == 'push'
@@ -101,6 +109,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Refresh native ETHOS Linux prerequisite metadata
         run: sudo apt-get update -qq
       - name: Install native ETHOS Linux prerequisites
@@ -152,8 +161,12 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Compile and test
         run: uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   python-windows:
     name: Python ${{ matrix.python-version }} (Windows)
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -176,8 +189,12 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Compile and test
         run: uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   accepted-source:
     name: Accepted source
     if: github.event_name == 'push' && github.ref_type == 'branch'
@@ -194,12 +211,16 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Confirm accepted source and metadata
         run: uv sync --locked --all-groups
       - name: Verify accepted release metadata
         run: uv run --locked --no-sync python -m tools.release.metadata
       - name: Verify accepted repository structure
         run: uv run --locked --no-sync python -m tools.quality.repository
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   promotion:
     name: Promote dev to main
     if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev'
@@ -217,6 +238,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Prove exact dev-to-main promotion
         run: git fetch origin main dev --tags --force --prune --prune-tags
       - name: Verify promotion ancestry
@@ -227,6 +249,9 @@ jobs:
         run: uv run --locked --no-sync python -m tools.release.metadata
       - name: Verify promoted repository structure
         run: uv run --locked --no-sync python -m tools.quality.repository
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   tag-metadata:
     name: Tag metadata and governance
     if: github.event_name == 'push' && github.ref_type == 'tag'
@@ -244,6 +269,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
@@ -260,6 +286,9 @@ jobs:
         run: uv run --locked --no-sync python -m tools.quality.repository
       - name: Verify repository governance
         run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/quality/test_policy.py tests/quality/repository tests/quality/orchestration/test_governance.py tests/forge/workflows tests/release/publication
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   python-quality:
     name: Python quality
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -278,12 +307,16 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
           cache: true
       - name: Verify lint, format, types, structure, docstrings, and product branch coverage
         run: uv run --locked --group quality nox -s quality
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   performance:
     name: Performance
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -302,6 +335,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Measure deterministic product overhead
         run: uv run --locked --group quality nox -s performance -- "$RUNNER_TEMP/performance"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -310,6 +344,9 @@ jobs:
           path: ${{ runner.temp }}/performance/*.json
           if-no-files-found: error
           retention-days: 7
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   native-assets:
     name: Native asset (${{ matrix.platform }})
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'push' && github.ref_type == 'tag')
@@ -336,6 +373,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Install the locked release tool environment
         run: uv sync --locked --group quality
       - name: Build and accept the native release asset
@@ -346,6 +384,9 @@ jobs:
           path: ${{ runner.temp }}/native-assets
           if-no-files-found: error
           retention-days: 7
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   native-linux:
     name: Native asset (linux-x86_64)
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'push' && github.ref_type == 'tag')
@@ -362,6 +403,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Materialize the canonical release source root
         id: release-source
         run: git -c safe.directory="$GITHUB_WORKSPACE" worktree add --detach /workspace HEAD
@@ -380,6 +422,9 @@ jobs:
           path: ${{ github.workspace }}/.release-assets/linux-x86_64
           if-no-files-found: error
           retention-days: 7
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   native-linux-lifecycle:
     name: Native lifecycle (linux-x86_64)
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'push' && github.ref_type == 'tag')
@@ -400,6 +445,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: native-linux-x86_64
@@ -421,6 +467,9 @@ jobs:
           OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE: ${{ runner.temp }}/native-linux/runtime/bin/openai-responses-proxy
           OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE: ${{ runner.temp }}/native-linux/runtime/bin
         run: uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/lifecycle
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   release-compatibility:
     name: Published release compatibility (${{ matrix.platform }})
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
@@ -449,6 +498,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Install the locked release tool environment
         run: uv sync --locked --group quality
       - name: Resolve the exact published predecessor
@@ -479,6 +529,9 @@ jobs:
           OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/previous-release-asset-trust
           OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/release-asset-trust
         run: uv run --locked --no-sync nox -s release_compatibility
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   release-assets:
     name: Release assets
     if: github.event_name == 'push' && github.ref_type == 'tag'
@@ -499,6 +552,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Download native release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -522,6 +576,9 @@ jobs:
           path: ${{ runner.temp }}/release-assets
           if-no-files-found: error
           retention-days: 7
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   published-release-compatibility:
     name: Published release lifecycle (${{ matrix.platform }})
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
@@ -549,6 +606,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
+          version-file: .config/mise/uv.toml
       - name: Install the locked release tool environment
         run: uv sync --locked --group quality
       - name: Verify the selected release uses this product runtime
@@ -585,6 +643,9 @@ jobs:
           OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/previous-release-asset-trust
           OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/release-asset-trust
         run: uv run --locked --no-sync nox -s published_release_compatibility -- --basetemp="${{ runner.temp }}/proxy-test"
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"
   branch-proof:
     name: Branch proof
     if: always()
@@ -616,3 +677,6 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
           BRANCH_ADMISSION_RULES: '[{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility"]},{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"main"},"jobs":["commit-admission","promotion"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/main"},"jobs":["commit-admission","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF_TYPE":"tag"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"release"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"workflow_dispatch"},"jobs":[]}]'
         run: python -m tools.ci.admission
+    env:
+      UV_CONFIG_FILE: .config/mise/uv.toml
+      UV_NO_CONFIG: "false"

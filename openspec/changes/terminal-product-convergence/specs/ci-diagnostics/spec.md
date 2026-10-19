@@ -118,6 +118,14 @@ environment, and mutable unpinned resolution SHALL NOT contribute to success.
 - **AND** subsequent verification uses only that checkout's mutable environments
   and shared content-addressed caches.
 
+#### Scenario: Operator uv configuration is present
+
+- **WHEN** the developer entrypoint, Nox or a projected project job launches uv
+- **THEN** it selects the repository's native configuration explicitly
+- **AND** inherited configuration paths and discovery-disable settings cannot
+  replace its version and installation policy
+- **AND** external source preparation retains the external repository's policy.
+
 ### Requirement: Native process acceptance preserves the host substrate
 
 Black-box native acceptance SHALL derive the child environment from the current

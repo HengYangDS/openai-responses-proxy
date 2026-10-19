@@ -34,12 +34,8 @@ def _mapping(value: object) -> dict[str, object]:
 
 
 def _required_uv_version() -> str:
-    metadata: object = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    if not isinstance(metadata, dict):
-        raise TypeError("project metadata must be a table")
-    tool = metadata.get("tool")
-    uv = tool.get("uv") if isinstance(tool, dict) else None
-    requirement: object = uv.get("required-version") if isinstance(uv, dict) else None
+    uv = tomllib.loads((ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8"))
+    requirement: object = uv.get("required-version")
     if not isinstance(requirement, str) or not re.fullmatch(r"==\d+\.\d+\.\d+", requirement):
         raise AssertionError("uv must use an exact semantic version")
     return requirement.removeprefix("==")
@@ -108,9 +104,9 @@ class TestVerificationContracts:
         for settings in writers:
             assert settings.get("cache-suffix") == "${{ github.job }}-${{ strategy.job-index }}"
 
-    def test_forge_bootstrap_derives_uv_requirement_from_project_metadata(self) -> None:
-        metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        requirement = metadata["tool"]["uv"]["required-version"]
+    def test_forge_bootstrap_derives_uv_requirement_from_native_configuration(self) -> None:
+        uv = tomllib.loads((ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8"))
+        requirement = uv["required-version"]
         assert requirement.startswith("==")
 
         for relative in (".github/workflows/verify.yml", ".gitlab-ci.yml"):
@@ -169,14 +165,15 @@ class TestVerificationContracts:
         assert script in before_script
         executable = shutil.which("uv")
         assert executable is not None
-        source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        (tmp_path / "pyproject.toml").write_text(
+        source = (ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8")
+        (tmp_path / "uv.toml").write_text(
             source.replace(
                 f'required-version = "=={_required_uv_version()}"',
                 f'required-version = "=={required_version}"',
             ),
             encoding="utf-8",
         )
+        (tmp_path / "pyproject.toml").write_bytes((ROOT / "pyproject.toml").read_bytes())
         (tmp_path / "uv.lock").write_bytes((ROOT / "uv.lock").read_bytes())
         before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
 
@@ -184,9 +181,12 @@ class TestVerificationContracts:
             [executable, *shlex.split(script)[1:]],
             cwd=tmp_path,
             env={
-                name: value
-                for name, value in os.environ.items()
-                if name not in {"UV_CONFIG_FILE", "VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"}
+                **{
+                    name: value
+                    for name, value in os.environ.items()
+                    if name not in {"UV_CONFIG_FILE", "VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"}
+                },
+                "UV_CONFIG_FILE": str(tmp_path / "uv.toml"),
             },
             stdin=subprocess.DEVNULL,
             capture_output=True,
@@ -297,8 +297,10 @@ class TestVerificationContracts:
                 requirement.partition("==") for requirement in requirements
             )
         )
-        assert re.fullmatch(r"==\d+\.\d+\.\d+", metadata["tool"]["uv"]["required-version"])
-        assert metadata["tool"]["uv"]["link-mode"] == "copy"
+        uv = tomllib.loads((ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8"))
+        assert re.fullmatch(r"==\d+\.\d+\.\d+", uv["required-version"])
+        assert uv["link-mode"] == "copy"
+        assert "uv" not in metadata["tool"]
         lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
         resolved = {package["name"]: package.get("version") for package in lock["package"]}
         assert all(
@@ -332,6 +334,8 @@ class TestVerificationContracts:
         assert environment["UV_PROJECT_ENVIRONMENT"] == "{{config_root}}/.venv"
         assert environment["VIRTUAL_ENV"] is False
         assert environment["UV_PYTHON"] is False
+        assert environment["UV_CONFIG_FILE"] == "{{config_root}}/.config/mise/uv.toml"
+        assert environment["UV_NO_CONFIG"] == "false"
         assert environment["PYTHONHOME"] is False
         assert environment["PYTHONPATH"] is False
         assert environment["PYTHONNOUSERSITE"] == "1"
@@ -429,9 +433,7 @@ class TestVerificationContracts:
         github = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
         gitlab = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
         supported = (ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines()
-        uv_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
-            "uv"
-        ]["required-version"].removeprefix("==")
+        uv_version = _required_uv_version()
         image_pattern = re.compile(
             r"^ghcr\.io/astral-sh/uv:(?P<uv>\d+\.\d+\.\d+)-python"
             r"(?P<minor>\d+\.\d+)-trixie-slim"
