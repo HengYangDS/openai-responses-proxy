@@ -218,6 +218,40 @@ class TestDialogueRecovery:
 
         assert execution_recovery.compact_request(raw, 4096) == (None, None)
 
+    @pytest.mark.parametrize(
+        ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
+    )
+    def test_compaction_validates_the_actual_retention_not_its_suffix(self, kind, argument):
+        call = {"type": kind, "call_id": "job", "name": "run", argument: "{}"}
+        output = {"type": kind + "_output", "call_id": "job", "output": "started"}
+        current = {"type": "message", "role": "user", "content": "current request"}
+        raw = _json(
+            {
+                "store": False,
+                "input": [
+                    call,
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    output,
+                    current,
+                ],
+            }
+        )
+        portable = projection.sanitize_responses_body(raw)
+        assert portable.body is not None
+        dependencies = portable.input_dependencies
+        dependencies.required = frozenset({0})
+
+        recovered, metrics = execution_recovery.compact_request(
+            portable.body, 512, input_dependencies=dependencies
+        )
+
+        assert recovered is not None
+        assert metrics is not None
+        assert len(recovered) <= 512
+        assert json.loads(recovered)["input"] == [call, output, current]
+        assert dependencies.required == {0}
+        assert dependencies.edges == [(1, 0)]
+
     def test_recovery_retains_current_turn_controls_with_latest_dialogue(self) -> None:
         catalog = {
             "type": "additional_tools",

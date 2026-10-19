@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from openai_responses_proxy.protocol.recovery.execution import tool_pair_boundary_is_safe
+from openai_responses_proxy.protocol.recovery.execution import compact_request
 from openai_responses_proxy.protocol.recovery.input import diagnose
 from openai_responses_proxy.protocol.replay.items import ITEM_POLICIES
 from openai_responses_proxy.protocol.replay.items import ProjectionStrategy
@@ -119,7 +119,13 @@ def test_projection_diagnosis_and_recovery_share_tool_relationships(
 
     assert (sanitize_responses_body(raw).body is not None) is valid
     assert (diagnose(raw).first_incompatible_reason == "") is valid
-    assert tool_pair_boundary_is_safe(items, 0) is valid
+    recovery_input = [
+        {"type": "message", "role": "user", "content": "old" * 1000},
+        *items,
+        {"type": "message", "role": "user", "content": "current"},
+    ]
+    recovery, _ = compact_request(json.dumps({"input": recovery_input}).encode(), 4096)
+    assert (recovery is not None) is valid
 
 
 @pytest.mark.parametrize(
@@ -172,7 +178,11 @@ def test_provider_local_search_uses_the_shared_relationship_boundary(
 
     assert projection.reason == reason
     assert diagnose(raw).first_incompatible_reason == (reason or "")
-    assert tool_pair_boundary_is_safe(items, 0) is (reason is None)
+    recovery_raw = json.dumps(
+        {"input": [{"type": "message", "role": "user", "content": "old" * 1000}, *items]}
+    ).encode()
+    recovery, _ = compact_request(recovery_raw, 4096)
+    assert (recovery is not None) is (reason is None)
     if reason is None:
         assert projection.body is not None
         assert json.loads(projection.body)["input"] == [current]
@@ -213,8 +223,18 @@ def test_named_distinct_deliveries_share_projection_diagnosis_and_recovery(call_
     diagnostic = diagnose(raw)
     assert diagnostic.first_incompatible_reason == ""
     assert not diagnostic.duplicate_outputs
-    assert tool_pair_boundary_is_safe(items, 0)
-    assert not tool_pair_boundary_is_safe(items, 1)
+    recovery_raw = json.dumps(
+        {
+            "input": [
+                {"type": "message", "role": "user", "content": "old" * 1000},
+                *items,
+                {"type": "message", "role": "user", "content": "current"},
+            ]
+        }
+    ).encode()
+    recovery, _ = compact_request(recovery_raw, 4096)
+    assert recovery is not None
+    assert sanitize_responses_body(json.dumps({"input": items[1:]}).encode()).body is None
 
 
 @pytest.mark.parametrize(
@@ -260,7 +280,6 @@ def test_delivery_identity_cannot_be_reused_as_another_calls_first_result() -> N
 
     assert result.body is None
     assert result.diagnostic() == "rejected duplicate_output"
-    assert not tool_pair_boundary_is_safe(items, 0)
 
 
 def test_standalone_delivery_is_not_an_orphaned_tool_pair() -> None:
@@ -282,7 +301,6 @@ def test_standalone_delivery_is_not_an_orphaned_tool_pair() -> None:
     assert diagnostic.first_incompatible_reason == ""
     assert not diagnostic.missing_call_ids
     assert not diagnostic.unmatched_outputs
-    assert tool_pair_boundary_is_safe(items, 0)
     assert sanitize_responses_body(projected.body).body == projected.body
 
 
@@ -298,7 +316,6 @@ def test_custom_tool_output_cannot_claim_function_delivery_provenance() -> None:
 
     assert sanitize_responses_body(raw).body is None
     assert diagnose(raw).first_incompatible_reason
-    assert not tool_pair_boundary_is_safe([delivery], 0)
 
 
 @pytest.mark.parametrize("standalone_first", [False, True])
@@ -319,7 +336,6 @@ def test_standalone_and_paired_outputs_share_one_item_identity(standalone_first:
 
     assert sanitize_responses_body(raw).reason == "duplicate_output"
     assert diagnose(raw).duplicate_outputs
-    assert not tool_pair_boundary_is_safe(items, 0)
 
 
 def test_standalone_delivery_identity_cannot_be_repeated() -> None:
@@ -334,4 +350,3 @@ def test_standalone_delivery_identity_cannot_be_repeated() -> None:
 
     assert sanitize_responses_body(raw).reason == "duplicate_output"
     assert diagnose(raw).duplicate_outputs
-    assert not tool_pair_boundary_is_safe([delivery, delivery], 0)

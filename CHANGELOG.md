@@ -16,6 +16,8 @@ publication authority.
 
 ### Fixed
 
+- Validate compaction's actual retained input, including pinned earlier calls,
+  instead of rejecting a legal candidate through a suffix-only precheck.
 - Preserve custom-tool message input through selected plaintext delegation,
   instead of reading function-only arguments or adding function-only metadata.
 - Validate Provider-local search relationships before removing their replay

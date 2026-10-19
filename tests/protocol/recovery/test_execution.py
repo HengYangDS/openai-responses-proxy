@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 
 from openai_responses_proxy.protocol.recovery import execution as execution_recovery
+from openai_responses_proxy.protocol.replay import projection
 from openai_responses_proxy.runtime import config as runtime_config
 
 COMPACTION_BUDGET = runtime_config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
@@ -159,7 +160,7 @@ class ResponseFailedContracts:
         assert execution_recovery.retry_disposition(400, payload) == ""
 
     def test_response_failed_compaction_keeps_complete_tool_pairs_and_latest_user(self):
-        """Fallback removes only an old prefix; no retained output is orphaned."""
+        """Fallback removes historical input without orphaning retained outputs."""
         body = _body(
             [
                 _message("user", "old" + "x" * 300000),
@@ -224,7 +225,7 @@ class ResponseFailedContracts:
         assert detail["removed_inputs"] == 1
         assert "prompt_cache_key" not in json.loads(compact)
 
-    def test_response_failed_compaction_uses_smallest_safe_suffix_when_budget_is_impossible(
+    def test_response_failed_compaction_uses_smallest_safe_retention_when_budget_is_impossible(
         self,
     ):
         body = _body(
@@ -241,9 +242,9 @@ class ResponseFailedContracts:
         assert len(compact) < len(body)
         obj = json.loads(compact)
         assert obj["input"][0]["content"] == "latest user context"
-        assert execution_recovery.tool_pair_boundary_is_safe(obj["input"], 0)
+        assert projection.sanitize_responses_body(compact).body == compact
 
-    def test_response_failed_compaction_is_a_noop_when_no_safe_suffix_fits(self):
+    def test_response_failed_compaction_is_a_noop_without_removable_history(self):
         body = _body(
             [_message("user", "newest user context")],
             tools=[{"type": "function", "name": "huge", "parameters": "x" * 600000}],
@@ -254,9 +255,14 @@ class ResponseFailedContracts:
         assert detail is None
         assert json.loads(body)["prompt_cache_key"] == "must-remain-on-original-request"
 
-    def test_response_failed_compaction_rejects_every_unsafe_suffix(self, monkeypatch):
-        body = _body([_message("user", "old"), _message("user", "latest")])
-        monkeypatch.setattr(execution_recovery, "tool_pair_boundary_is_safe", lambda *_args: False)
+    def test_response_failed_compaction_refuses_orphaned_input_before_removal(self):
+        body = _body(
+            [
+                _message("user", "old" * 1000),
+                _output("function_call_output", "missing", "historical output"),
+                _message("user", "latest"),
+            ]
+        )
         assert execution_recovery.compact_request(body, COMPACTION_BUDGET) == (None, None)
 
     def test_response_failed_dialogue_recovery_keeps_latest_context_without_historical_tools(
@@ -304,23 +310,6 @@ class ResponseFailedContracts:
         recovery, detail = self.assert_compacted(recovery, detail)
         assert json.loads(recovery)["input"] == [_message("user", "latest user request")]
         assert detail["retained_messages"] == 1
-
-    def test_response_failed_pair_boundary_ignores_non_object_items(self):
-        items: list[object] = [
-            1,
-            {"type": "function_call_output", "call_id": "missing", "output": "x"},
-        ]
-        assert not execution_recovery.tool_pair_boundary_is_safe(items, 0)
-        assert execution_recovery.tool_pair_boundary_is_safe(items, 2)
-
-    def test_response_failed_pair_boundary_recognizes_local_shell_history(self) -> None:
-        items = [
-            {"type": "local_shell_call", "call_id": "local"},
-            {"type": "function_call_output", "call_id": "local", "output": "ok"},
-        ]
-
-        assert execution_recovery.tool_pair_boundary_is_safe(items, 0)
-        assert not execution_recovery.tool_pair_boundary_is_safe(items, 1)
 
     def test_response_failed_rejects_invalid_compaction_and_recovery_boundaries(self, subtests):
         common = ((b"not-json", 1024), (b"[]", 1024), (b'{"input":[]}', 1024))

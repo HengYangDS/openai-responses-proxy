@@ -99,9 +99,10 @@ One released provider profile selects native or plaintext agent delivery; the
 protocol package owns the complete request/response adaptation. The plaintext
 selection aliases the reserved collaboration namespace and its explicit tool
 choice, removes only message encryption annotations before generation, and
-restores the client's native namespace and empty encrypted-argument marker
-after readable arguments are proved. A request-local selection binds JSON,
-streaming output, and replay. It preserves arguments, call identities and old
+restores the client's native namespace after readable call content is proved.
+Only function calls regain their empty encrypted-argument marker; custom calls
+retain their native `input`. A request-local selection binds JSON, streaming
+output and replay. It preserves call content, call identities and old
 ciphertext; failures do not retry with missing messages. Client configuration
 remains with its existing owner and must align the namespace and model agent
 version. Native compaction's empty current-turn tool catalog is a valid control.

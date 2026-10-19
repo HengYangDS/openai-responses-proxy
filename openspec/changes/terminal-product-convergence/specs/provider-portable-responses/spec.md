@@ -23,6 +23,8 @@ or fallback SHALL reinterpret it independently.
   native turn controls and declared dependencies in their original order
 - **AND** top-level instructions remain unchanged; recovery cannot reduce the
   request by discarding required instruction roles or native delegation.
+- **AND** compaction checks the actual retained sequence and its declared
+  dependencies, not a suffix that omits separately retained earlier input.
 
 #### Scenario: An ordinary Responses message omits its optional type
 

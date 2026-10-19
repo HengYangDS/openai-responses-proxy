@@ -160,9 +160,10 @@ Projection, diagnostics, and recovery consume the same request-local relationshi
 state: one call identity, its declared output kind, and an initial paired result.
 Later named results with distinct item identities become attributed delivery
 messages in their original positions, not duplicate pairs or replacement results.
-A repeated call cannot replace the original identity. Recovery checks
-each retained suffix through this owner rather than treating a matching ID alone
-as proof of a valid pair. Pending portable calls remain observable; a local-only
+A repeated call cannot replace the original identity. Recovery checks the actual
+retained sequence and declared dependencies through this owner, including pinned
+earlier input, rather than validating a suffix or a matching ID alone. Pending
+portable calls remain observable; a local-only
 call may be removed only with its complete output relationship.
 
 Input diagnostics report the request projection's rejection reason, not a

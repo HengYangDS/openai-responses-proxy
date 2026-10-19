@@ -9,8 +9,6 @@ tool call/output relationships.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
-from typing import cast
 
 from openai_responses_proxy.protocol import response
 from openai_responses_proxy.protocol.recovery import input as input_recovery
@@ -89,18 +87,6 @@ def exhausted_payload(attempts: int) -> bytes:
     )
 
 
-def tool_pair_boundary_is_safe(items: Sequence[object], start: int) -> bool:
-    """Return whether a retained suffix has valid ordered tool relationships."""
-    relationships = item_policy.ToolRelationships()
-    for item in items[start:]:
-        if not isinstance(item, dict):
-            continue
-        item = cast(JsonObject, item)
-        if relationships.observe_item(item):
-            return False
-    return True
-
-
 def compact_request(
     raw: bytes,
     budget: int,
@@ -118,8 +104,6 @@ def compact_request(
 
     smallest = None
     for start in range(1, turn.latest_user + 1):
-        if not tool_pair_boundary_is_safe(input_items, start):
-            continue
         indices = [
             index
             for index in range(len(input_items))
