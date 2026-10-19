@@ -428,6 +428,9 @@ SHALL NOT depend on provider IDs or opaque metadata.
   preserves the tool name, namespace, and visible output
 - **AND** the proxy does not invent a function call, call identity, or
   provider-bound continuation.
+- **AND** shared diagnosis and recovery classify it as independent delivery,
+  not an orphaned pair; repeated item IDs across standalone and paired outputs
+  remain local rejections, and custom-tool outputs do not inherit this shape.
 
 #### Scenario: Assistant content is normalized for replay
 

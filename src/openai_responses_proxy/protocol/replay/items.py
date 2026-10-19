@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
@@ -18,6 +19,7 @@ class ProjectionStrategy(StrEnum):
     AGENT_MESSAGE = "agent_message"
     CALL = "call"
     OUTPUT = "output"
+    DETACHED_DELIVERY = "detached_delivery"
     TOOL_CATALOG = "tool_catalog"
     COMPACTION_TRIGGER = "compaction_trigger"
     DROP_REASONING = "drop_reasoning"
@@ -115,11 +117,25 @@ def classify_item(item_type: object) -> ItemPolicy | None:
     return ITEM_POLICIES.get(item_type) if isinstance(item_type, str) else None
 
 
+_DETACHED_DELIVERY_POLICY: Final = _policy(ProjectionStrategy.DETACHED_DELIVERY)
+_DETACHED_DELIVERY_FIELDS: Final = frozenset(
+    ("type", "id", "name", "namespace", "output", "internal_chat_message_metadata_passthrough")
+)
+
+
+def classify_input_item(item: Mapping[str, object]) -> ItemPolicy | None:
+    """Resolve the optional message type and explicit standalone delivery shape."""
+    item_type = item.get("type", "message")
+    if item_type == "function_call_output" and "call_id" not in item:
+        return _DETACHED_DELIVERY_POLICY
+    return classify_item(item_type)
+
+
 def is_current_turn_control(item: object) -> bool:
     """Keep active tool availability and compaction intent through recovery."""
     if not isinstance(item, dict):
         return False
-    policy = classify_item(item.get("type"))
+    policy = classify_input_item(item)
     return policy is not None and policy.projection in {
         ProjectionStrategy.TOOL_CATALOG,
         ProjectionStrategy.COMPACTION_TRIGGER,
@@ -130,7 +146,7 @@ def is_required_current_turn_item(item: object) -> bool:
     """Retain turn controls and native delegation without reclassifying either."""
     if not isinstance(item, dict):
         return False
-    policy = classify_item(item.get("type"))
+    policy = classify_input_item(item)
     return is_current_turn_control(item) or (
         policy is not None and policy.projection is ProjectionStrategy.AGENT_MESSAGE
     )
@@ -181,6 +197,8 @@ type RelationshipIssue = Literal[
     "output_before_call",
     "mismatched_output_type",
     "duplicate_output",
+    "invalid_detached_delivery",
+    "unknown_detached_delivery_field",
 ]
 
 
@@ -223,7 +241,7 @@ class ToolRelationships:
 
     def record_projection(self, item: dict[str, object], position: int) -> None:
         """Bind one validated source item to its actual projected position."""
-        policy = classify_item(item.get("type", "message"))
+        policy = classify_input_item(item)
         call_id = item.get("call_id")
         if policy is not None and isinstance(call_id, str):
             if policy.projection is ProjectionStrategy.CALL:
@@ -238,10 +256,37 @@ class ToolRelationships:
         """Expose request-local dependencies without guessing from assistant text."""
         return self._dependencies
 
-    def observe(
+    def observe_item(self, item: Mapping[str, object]) -> RelationshipIssue:
+        """Observe the same classified input identity used by replay projection."""
+        policy = classify_input_item(item)
+        if policy is not None and policy.projection is ProjectionStrategy.DETACHED_DELIVERY:
+            if item.keys() - _DETACHED_DELIVERY_FIELDS:
+                return "unknown_detached_delivery_field"
+            item_id = item.get("id")
+            if (
+                not isinstance(item_id, str)
+                or not item_id
+                or not all(
+                    isinstance(item.get(field), str) and item[field]
+                    for field in ("name", "namespace", "output")
+                )
+            ):
+                return "invalid_detached_delivery"
+            if item_id in self._output_ids:
+                self._flags.add("duplicate_outputs")
+                return "duplicate_output"
+            self._output_ids.add(item_id)
+            return ""
+        return self._observe_pair(
+            item.get("type", "message"),
+            item.get("call_id"),
+            name=item.get("name"),
+            item_id=item.get("id"),
+        )
+
+    def _observe_pair(
         self, item_type: object, call_id: object, *, name: object = None, item_id: object = None
     ) -> RelationshipIssue:
-        """Record one declared relationship and return its first structural issue."""
         if not isinstance(item_type, str):
             return ""
         policy = ITEM_POLICIES.get(item_type)

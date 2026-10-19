@@ -107,18 +107,6 @@ _OUTPUT_FIELDS = frozenset(
 _FUNCTION_OUTPUT_FIELDS = _OUTPUT_FIELDS | {"namespace"}
 
 
-_DETACHED_DELIVERY_FIELDS = frozenset(
-    (
-        "type",
-        "id",
-        "name",
-        "namespace",
-        "output",
-        "internal_chat_message_metadata_passthrough",
-    )
-)
-
-
 _TOOL_CATALOG_FIELDS = frozenset(("type", "id", "role", "tools"))
 
 
@@ -247,7 +235,7 @@ def _project_call(
     argument_field = _CALL_ARGUMENT_FIELD[item_type]
     argument = item.get(argument_field)
     namespace, caller = item.get("namespace"), item.get("caller")
-    if relationships.observe(item_type, call_id, name=name):
+    if relationships.observe_item(item):
         _reject("invalid_call_id")
     valid_call_id = cast(str, call_id)
     if not isinstance(name, str) or not name or not isinstance(argument, str):
@@ -297,12 +285,8 @@ def _drop_local_tool_call(
         )
     )
     _unknown_fields(item, allowed_fields, "unknown_local_shell_call_field")
-    call_id, status, action = (
-        item.get("call_id"),
-        item.get("status"),
-        item.get("action"),
-    )
-    if relationships.observe("local_shell_call", call_id):
+    status, action = item.get("status"), item.get("action")
+    if relationships.observe_item(item):
         _reject("invalid_call_id")
     if (
         not isinstance(status, str)
@@ -357,7 +341,7 @@ def _project_output(
     )
     _unknown_fields(item, allowed_fields, "unknown_output_field")
     call_id, caller = item.get("call_id"), item.get("caller")
-    issue = relationships.observe(item_type, call_id, name=item.get("name"), item_id=item.get("id"))
+    issue = relationships.observe_item(item)
     if issue:
         _reject(
             {
@@ -428,18 +412,16 @@ def _delivery_message(header: JsonObject, output: str) -> JsonObject:
     }
 
 
-def _project_detached_delivery(item: JsonObject) -> tuple[JsonObject, dict[str, int]]:
-    _unknown_fields(item, _DETACHED_DELIVERY_FIELDS, "unknown_detached_delivery_field")
-    item_id, name, namespace = item.get("id"), item.get("name"), item.get("namespace")
-    if not all(isinstance(value, str) and value for value in (item_id, name, namespace)):
-        _reject("invalid_detached_delivery")
-    if not isinstance(item.get("output"), str) or not item["output"]:
-        _reject("invalid_detached_delivery")
+def _project_detached_delivery(
+    item: JsonObject, relationships: item_policy.ToolRelationships
+) -> tuple[JsonObject, dict[str, int]]:
+    if issue := relationships.observe_item(item):
+        _reject(issue)
     output, _changed, encrypted, markers = project_assistant_text(
         item.get("output"), encrypted_marker=False
     )
     return _delivery_message(
-        {"type": "tool_delivery", "name": name, "namespace": namespace}, output
+        {"type": "tool_delivery", "name": item["name"], "namespace": item["namespace"]}, output
     ), {
         "changed": 1,
         "item_ids": 1,
@@ -504,8 +486,7 @@ def project_input(
         if not isinstance(raw_item, dict):
             _reject("invalid_item")
         item = cast(JsonObject, raw_item)
-        item_type = item.get("type", "message")
-        policy = item_policy.classify_item(item_type)
+        policy = item_policy.classify_input_item(item)
         if policy is None:
             _reject("unknown_item_type")
         strategy = policy.projection
@@ -540,8 +521,8 @@ def project_input(
             _value, item_metrics = _project_output(item, relationships)
             item_metrics["changed"] = 1
             projection = None, item_metrics
-        elif strategy is item_policy.ProjectionStrategy.OUTPUT and "call_id" not in item:
-            projection = _project_detached_delivery(item)
+        elif strategy is item_policy.ProjectionStrategy.DETACHED_DELIVERY:
+            projection = _project_detached_delivery(item, relationships)
         elif strategy is item_policy.ProjectionStrategy.OUTPUT:
             projection = _project_output(item, relationships)
         elif strategy is item_policy.ProjectionStrategy.COMPACTION_TRIGGER:

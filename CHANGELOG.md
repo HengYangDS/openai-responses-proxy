@@ -16,6 +16,9 @@ publication authority.
 
 ### Fixed
 
+- Classify standalone cross-task results consistently in replay, diagnostics
+  and recovery instead of reporting a missing tool call. Reject repeated output
+  identities and custom-tool outputs that claim the function-delivery shape.
 - Preserve the latest system and developer instructions during bounded
   execution-failure recovery, alongside the current task, native turn controls
   and tool dependencies. Validation and execution recovery now share one

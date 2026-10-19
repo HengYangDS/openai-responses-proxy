@@ -272,15 +272,13 @@ class _DiagnosticState:
             self.item_types[_value_kind(item)] += 1
             return
         typed_item = cast(ReadOnlyJsonObject, item)
+        policy = item_policy.classify_input_item(typed_item)
         raw_type = typed_item.get("type")
+        if policy is not None and "type" not in typed_item:
+            raw_type = "message"
         self.item_types[_closed_label(raw_type, _KNOWN_ITEM_TYPES)] += 1
         self._observe_content(typed_item.get("content"))
-        self.relationships.observe(
-            raw_type,
-            typed_item.get("call_id"),
-            name=typed_item.get("name"),
-            item_id=typed_item.get("id"),
-        )
+        self.relationships.observe_item(typed_item)
 
     def _observe_content(self, content: object) -> None:
         if isinstance(content, str):

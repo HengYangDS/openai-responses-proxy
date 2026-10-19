@@ -42,6 +42,7 @@ def test_easy_input_message_uses_the_standard_optional_discriminator(
     assert projected.body is not None
     assert projected.body == sanitize_responses_body(explicit).body
     assert diagnose(raw).first_incompatible_reason == ""
+    assert diagnose(raw).item_types == {"message": "1"}
 
 
 def test_recognized_unimplemented_standard_item_is_schema_drift() -> None:
@@ -134,11 +135,11 @@ def test_declared_tool_relationship_owns_identity_and_diagnostics(
 ) -> None:
     relationships = ToolRelationships()
 
-    assert relationships.observe(call_type, "tool") == ""
+    assert relationships.observe_item({"type": call_type, "call_id": "tool"}) == ""
     assert relationships.call_type("tool") == call_type
     assert relationships.has_pending_call(call_type)
     assert relationships.diagnostic_flags == {"unmatched_calls"}
-    assert relationships.observe(output_type, "tool") == ""
+    assert relationships.observe_item({"type": output_type, "call_id": "tool"}) == ""
     assert not relationships.has_pending_call(call_type)
     assert relationships.diagnostic_flags == {"matched_pairs"}
 
@@ -146,10 +147,13 @@ def test_declared_tool_relationship_owns_identity_and_diagnostics(
 def test_first_call_identity_survives_a_conflicting_replay() -> None:
     relationships = ToolRelationships()
 
-    assert relationships.observe("function_call", "tool") == ""
-    assert relationships.observe("custom_tool_call", "tool") == "duplicate_call"
+    assert relationships.observe_item({"type": "function_call", "call_id": "tool"}) == ""
+    assert (
+        relationships.observe_item({"type": "custom_tool_call", "call_id": "tool"})
+        == "duplicate_call"
+    )
     assert relationships.call_type("tool") == "function_call"
-    assert relationships.observe("function_call_output", "tool") == ""
+    assert relationships.observe_item({"type": "function_call_output", "call_id": "tool"}) == ""
     assert relationships.diagnostic_flags == {"duplicate_calls", "matched_pairs"}
 
 
@@ -223,3 +227,77 @@ def test_delivery_identity_cannot_be_reused_as_another_calls_first_result() -> N
     assert result.body is None
     assert result.diagnostic() == "rejected duplicate_output"
     assert not tool_pair_boundary_is_safe(items, 0)
+
+
+def test_standalone_delivery_is_not_an_orphaned_tool_pair() -> None:
+    delivery = {
+        "type": "function_call_output",
+        "id": "delivery",
+        "name": "wait",
+        "namespace": "functions",
+        "output": "Task completed",
+    }
+    items = [delivery, {"type": "message", "role": "user", "content": "continue"}]
+    raw = json.dumps({"input": items}).encode()
+
+    projected = sanitize_responses_body(raw)
+    diagnostic = diagnose(raw)
+
+    assert projected.body is not None
+    assert projected.input_dependencies.edges == []
+    assert diagnostic.first_incompatible_reason == ""
+    assert not diagnostic.missing_call_ids
+    assert not diagnostic.unmatched_outputs
+    assert tool_pair_boundary_is_safe(items, 0)
+    assert sanitize_responses_body(projected.body).body == projected.body
+
+
+def test_custom_tool_output_cannot_claim_function_delivery_provenance() -> None:
+    delivery = {
+        "type": "custom_tool_call_output",
+        "id": "delivery",
+        "name": "wait",
+        "namespace": "functions",
+        "output": "Task completed",
+    }
+    raw = json.dumps({"input": [delivery]}).encode()
+
+    assert sanitize_responses_body(raw).body is None
+    assert diagnose(raw).first_incompatible_reason
+    assert not tool_pair_boundary_is_safe([delivery], 0)
+
+
+@pytest.mark.parametrize("standalone_first", [False, True])
+def test_standalone_and_paired_outputs_share_one_item_identity(standalone_first: bool) -> None:
+    delivery = {
+        "type": "function_call_output",
+        "id": "delivery",
+        "name": "wait",
+        "namespace": "functions",
+        "output": "Task completed",
+    }
+    pair = [
+        {"type": "function_call", "call_id": "job", "name": "run", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "job", "id": "delivery", "output": "Other"},
+    ]
+    items = [delivery, *pair] if standalone_first else [*pair, delivery]
+    raw = json.dumps({"input": items}).encode()
+
+    assert sanitize_responses_body(raw).reason == "duplicate_output"
+    assert diagnose(raw).duplicate_outputs
+    assert not tool_pair_boundary_is_safe(items, 0)
+
+
+def test_standalone_delivery_identity_cannot_be_repeated() -> None:
+    delivery = {
+        "type": "function_call_output",
+        "id": "delivery",
+        "name": "wait",
+        "namespace": "functions",
+        "output": "Task completed",
+    }
+    raw = json.dumps({"input": [delivery, delivery]}).encode()
+
+    assert sanitize_responses_body(raw).reason == "duplicate_output"
+    assert diagnose(raw).duplicate_outputs
+    assert not tool_pair_boundary_is_safe([delivery, delivery], 0)

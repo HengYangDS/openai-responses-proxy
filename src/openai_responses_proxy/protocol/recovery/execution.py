@@ -96,9 +96,7 @@ def tool_pair_boundary_is_safe(items: Sequence[object], start: int) -> bool:
         if not isinstance(item, dict):
             continue
         item = cast(JsonObject, item)
-        if relationships.observe(
-            item.get("type"), item.get("call_id"), name=item.get("name"), item_id=item.get("id")
-        ):
+        if relationships.observe_item(item):
             return False
     return True
 
