@@ -34,17 +34,8 @@ verify-python:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends binutils
@@ -65,17 +56,8 @@ verify-python-quality:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends binutils
@@ -92,17 +74,8 @@ verify-performance:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
   script:
@@ -149,17 +122,8 @@ verify-python-accepted:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends binutils
@@ -180,17 +144,8 @@ verify-python-quality-accepted:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends binutils
@@ -207,17 +162,8 @@ verify-performance-accepted:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
   script:
@@ -241,104 +187,72 @@ commit-admission:
   variables:
     GIT_DEPTH: "0"
     OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
+    OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
+    OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
+    PYTHONPATH: $CI_PROJECT_DIR/build/runtime/ethos-source/src
   before_script:
-    - |-
-      case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
-        *[![:space:]]*) ;;
-        *) printf '%s
-      ' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
-      esac
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
-    - |-
-      git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
-      git -C build/runtime/ethos-source checkout --detach efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
-      test "$(git -C build/runtime/ethos-source rev-parse HEAD)" = efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
-      test "$(git -C build/runtime/ethos-source rev-parse 'HEAD^{tree}')" = 3583262bf6c50731af5f9d9716056cd0e00d857d
-    - |-
-      cd build/runtime/ethos-source
-      uv sync --locked --no-install-project --group dev
-      PYTHONPATH=src .venv/bin/python -B -c 'from pathlib import Path; from tools.ci.toolchain.native import prepare_mise, prepare; root = Path.cwd(); prepare(root, "node", mise=prepare_mise(root))'
-      PYTHONPATH=src .venv/bin/python -B -c 'import os, subprocess; from pathlib import Path; from ethos.adapters.repo.runtime.materialization.node.supply import NodeRuntime, NodeSupply; root = Path.cwd(); native = NodeRuntime.read(NodeSupply.read(root).installed_root(root), windows=os.name == "nt"); subprocess.run([str(native.executable), str(native.npm), "ci", "--ignore-scripts"], env=dict(os.environ, PATH=str(native.executable.parent) + os.pathsep + os.environ["PATH"], npm_config_audit="false", npm_config_fund="false", npm_config_update_notifier="false"), stdin=subprocess.DEVNULL, timeout=120, check=True)'
-      .venv/bin/python -B -I -m uv sync --locked --group dev --no-editable
-      .venv/bin/python -B -I -m ethos.cli --version
-      .venv/bin/python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
-      cd "$CI_PROJECT_DIR"
+    - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
+    - git -C build/runtime/ethos-source checkout --detach f726c249ab4e362c84835aabc87605a434b66919
+    - git -C build/runtime/ethos-source diff --exit-code 951897502bb194c04ad14ab14fb06fed69cc50e6 HEAD --
+    - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
+    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
   script:
-    - |-
-      export OPENAI_RESPONSES_PROXY_COMMIT_BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}" OPENAI_RESPONSES_PROXY_COMMIT_HEAD="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/heads/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_COMMIT_REF_NAME}" OPENAI_RESPONSES_PROXY_COMMIT_PEER=gitlab
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        export OPENAI_RESPONSES_PROXY_COMMIT_BASE="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/tags/$CI_COMMIT_TAG"
-      fi
-      build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
+    - build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
   tags:
     - $OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        OPENAI_RESPONSES_PROXY_COMMIT_BASE: $CI_MERGE_REQUEST_DIFF_BASE_SHA
+        OPENAI_RESPONSES_PROXY_COMMIT_TARGET: refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
 commit-admission-accepted:
   stage: verify
   timeout: 15m
   variables:
     GIT_DEPTH: "0"
     OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
+    OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
+    OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
+    PYTHONPATH: $CI_PROJECT_DIR/build/runtime/ethos-source/src
   before_script:
-    - |-
-      case "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" in
-        *[![:space:]]*) ;;
-        *) printf '%s
-      ' 'ETHOS_COMMIT_ALLOWED_SIGNERS must contain operator-managed public commit trust' >&2; exit 1 ;;
-      esac
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
-    - |-
-      git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
-      git -C build/runtime/ethos-source checkout --detach efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
-      test "$(git -C build/runtime/ethos-source rev-parse HEAD)" = efe866cdaaf7e9a5f971ed706343d0b2d1294cc6
-      test "$(git -C build/runtime/ethos-source rev-parse 'HEAD^{tree}')" = 3583262bf6c50731af5f9d9716056cd0e00d857d
-    - |-
-      cd build/runtime/ethos-source
-      uv sync --locked --no-install-project --group dev
-      PYTHONPATH=src .venv/bin/python -B -c 'from pathlib import Path; from tools.ci.toolchain.native import prepare_mise, prepare; root = Path.cwd(); prepare(root, "node", mise=prepare_mise(root))'
-      PYTHONPATH=src .venv/bin/python -B -c 'import os, subprocess; from pathlib import Path; from ethos.adapters.repo.runtime.materialization.node.supply import NodeRuntime, NodeSupply; root = Path.cwd(); native = NodeRuntime.read(NodeSupply.read(root).installed_root(root), windows=os.name == "nt"); subprocess.run([str(native.executable), str(native.npm), "ci", "--ignore-scripts"], env=dict(os.environ, PATH=str(native.executable.parent) + os.pathsep + os.environ["PATH"], npm_config_audit="false", npm_config_fund="false", npm_config_update_notifier="false"), stdin=subprocess.DEVNULL, timeout=120, check=True)'
-      .venv/bin/python -B -I -m uv sync --locked --group dev --no-editable
-      .venv/bin/python -B -I -m ethos.cli --version
-      .venv/bin/python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
-      cd "$CI_PROJECT_DIR"
+    - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
+    - git -C build/runtime/ethos-source checkout --detach f726c249ab4e362c84835aabc87605a434b66919
+    - git -C build/runtime/ethos-source diff --exit-code 951897502bb194c04ad14ab14fb06fed69cc50e6 HEAD --
+    - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
+    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
+    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
   script:
-    - |-
-      export OPENAI_RESPONSES_PROXY_COMMIT_BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}" OPENAI_RESPONSES_PROXY_COMMIT_HEAD="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/heads/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_COMMIT_REF_NAME}" OPENAI_RESPONSES_PROXY_COMMIT_PEER=gitlab
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        export OPENAI_RESPONSES_PROXY_COMMIT_BASE="$CI_COMMIT_SHA" OPENAI_RESPONSES_PROXY_COMMIT_TARGET="refs/tags/$CI_COMMIT_TAG"
-      fi
-      build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
+    - build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
   tags:
     - $OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG
   rules:
-    - if: $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG
+    - if: $CI_COMMIT_TAG
+      variables:
+        OPENAI_RESPONSES_PROXY_COMMIT_BASE: $CI_COMMIT_SHA
+        OPENAI_RESPONSES_PROXY_COMMIT_TARGET: refs/tags/$CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main"
+      variables:
+        OPENAI_RESPONSES_PROXY_COMMIT_BASE: $CI_COMMIT_BEFORE_SHA
+        OPENAI_RESPONSES_PROXY_COMMIT_TARGET: refs/heads/$CI_COMMIT_REF_NAME
 stages:
   - verify
   - release
@@ -366,17 +280,8 @@ verify-accepted-source:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - git fetch --tags --force --prune --prune-tags origin
@@ -393,17 +298,8 @@ verify-promotion:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - git fetch origin main dev --tags --force --prune --prune-tags
@@ -419,17 +315,8 @@ verify-release-tag:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - |-
-      UV_REQUIREMENT="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["required-version"])')"
-      UV_VERSION="$(uv --version)"
-      UV_VERSION="${UV_VERSION#uv }"
-      ACTUAL_UV_VERSION="${UV_VERSION%% *}"
-      EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"
-      if [ "$ACTUAL_UV_VERSION" != "$EXPECTED_UV_VERSION" ]; then
-        printf 'uv version mismatch: expected %s, actual %s
-      ' "$EXPECTED_UV_VERSION" "$ACTUAL_UV_VERSION" >&2
-        exit 1
-      fi
+    - uv tree --frozen --offline --universal --depth 0
+    - uv --version
     - apt-get update -qq
     - apt-get install -qq -y --no-install-recommends git openssh-client
     - git fetch --tags --force --prune --prune-tags origin

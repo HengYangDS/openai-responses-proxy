@@ -84,6 +84,7 @@ gitlab: {
 		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\""}]
 	}]
 	#systemBootstrap: [
+		"uv tree --frozen --offline --universal --depth 0",
 		"uv --version",
 		"apt-get update -qq",
 		"apt-get install -qq -y --no-install-recommends git openssh-client",

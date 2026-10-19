@@ -9,6 +9,7 @@ from tests.forge.workflows.fixtures import _mapping
 from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _string
 from tests.quality.fixtures import ROOT
+from tools.ci import project
 from tools.ci.project import MODEL
 from tools.ci.project import reconcile
 
@@ -22,6 +23,44 @@ def test_forge_workflows_are_generated_from_one_declarative_graph() -> None:
     assert 'sys.executable, "-m", "tools.ci.project"' in governance
     assert MODEL == ROOT / ".config/ci"
     assert reconcile(write=False) == ()
+
+
+@pytest.mark.parametrize("expression", [item.expression for item in project.PROJECTIONS])
+def test_projection_command_refuses_drift_and_writes_only_declared_outputs(
+    tmp_path, mocker, expression
+) -> None:
+    projections = tuple(
+        project.Projection(
+            tmp_path / item.path.relative_to(ROOT), item.expression, item.output_format
+        )
+        for item in project.PROJECTIONS
+    )
+    rendered = {item.expression: b"generated output\n" for item in projections}
+    mocker.patch.object(project, "ROOT", tmp_path)
+    mocker.patch.object(project, "PROJECTIONS", projections)
+    mocker.patch.object(project, "render", side_effect=lambda name, _format: rendered[name])
+    for item in projections:
+        item.path.parent.mkdir(parents=True, exist_ok=True)
+        item.path.write_bytes(rendered[item.expression])
+    changed = next(item for item in projections if item.expression == expression)
+    changed.path.write_bytes(b"manual edit\n")
+    unrelated = tmp_path / "operator-owned.txt"
+    unrelated.write_bytes(b"preserved\n")
+    before = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+
+    with pytest.raises(
+        SystemExit,
+        match="projection drift: " + re.escape(changed.path.relative_to(tmp_path).as_posix()),
+    ):
+        project.main(())
+    assert {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()} == before
+
+    project.main(("--write",))
+    after = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    assert after == {**before, changed.path: rendered[expression]}
+    project.main(())
+    project.main(("--write",))
+    assert {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()} == after
 
 
 def _assert_github_required_tokens(text: str) -> None:

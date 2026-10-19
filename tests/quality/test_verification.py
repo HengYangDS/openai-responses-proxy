@@ -6,6 +6,8 @@ import ast
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -133,57 +135,73 @@ class TestVerificationContracts:
         }
         assert job_scripts
         for scripts in job_scripts.values():
-            metadata_checks = sum('["tool"]["uv"]["required-version"]' in item for item in scripts)
             if scripts[0] == "mise install --locked":
-                assert metadata_checks == 0
                 assert scripts[:3] == (
                     "mise install --locked",
                     "npm ci --ignore-scripts",
                     "npm audit signatures",
                 )
                 continue
-            assert metadata_checks == 1
-        assert 'UV_VERSION="${UV_VERSION#uv }"' in gitlab
-        assert 'ACTUAL_UV_VERSION="${UV_VERSION%% *}"' in gitlab
-        assert 'EXPECTED_UV_VERSION="${UV_REQUIREMENT#==}"' in gitlab
-        assert "uv version mismatch: expected %s, actual %s" in gitlab
+            native_check = "uv tree --frozen --offline --universal --depth 0"
+            assert scripts.count(native_check) == 1
+            assert scripts.index(native_check) < next(
+                index for index, command in enumerate(scripts) if command == "apt-get update -qq"
+            )
         assert "&install-uv" not in gitlab
         assert "*install-uv" not in gitlab
         assert "python -m pip install" not in gitlab
 
     @pytest.mark.parametrize(
-        ("reported_version", "expected_returncode"),
+        ("required_version", "expected_returncode"),
         [
-            (f"uv {_required_uv_version()} (x86_64-unknown-linux-musl)", 0),
-            ("uv 9.9.9 (x86_64-unknown-linux-musl)", 1),
+            (_required_uv_version(), 0),
+            ("9.9.9", 2),
         ],
     )
-    @pytest.mark.skipif(os.name == "nt", reason="GitLab executes this contract with POSIX sh")
-    def test_gitlab_uv_contract_uses_the_machine_version_token(
-        self, tmp_path: Path, reported_version: str, expected_returncode: int
+    def test_gitlab_uv_contract_uses_native_version_admission_without_mutation(
+        self, tmp_path: Path, required_version: str, expected_returncode: int
     ) -> None:
         pipeline = _load_yaml(ROOT / ".gitlab-ci.yml")
         verify_python = _mapping(pipeline["verify-python"])
         before_script = verify_python["before_script"]
         assert isinstance(before_script, list)
-        script = next(
-            item
-            for item in before_script
-            if isinstance(item, str)
-            if '["tool"]["uv"]["required-version"]' in item
+        script = "uv tree --frozen --offline --universal --depth 0"
+        assert script in before_script
+        executable = shutil.which("uv")
+        assert executable is not None
+        source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text(
+            source.replace(
+                f'required-version = "=={_required_uv_version()}"',
+                f'required-version = "=={required_version}"',
+            ),
+            encoding="utf-8",
         )
-        executable = tmp_path / "uv"
-        executable.write_text(f"#!/bin/sh\nprintf '%s\\n' '{reported_version}'\n")
-        executable.chmod(0o700)
+        (tmp_path / "uv.lock").write_bytes((ROOT / "uv.lock").read_bytes())
+        before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
 
         completed = subprocess.run(
-            ["/bin/sh", "-eu", "-c", script],
-            cwd=ROOT,
-            env=os.environ | {"PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"},
+            [executable, *shlex.split(script)[1:]],
+            cwd=tmp_path,
+            env={
+                name: value
+                for name, value in os.environ.items()
+                if name not in {"UV_CONFIG_FILE", "VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"}
+            },
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=10,
             check=False,
         )
 
         assert completed.returncode == expected_returncode
+        if expected_returncode:
+            assert f"Required uv version `=={required_version}`" in completed.stderr
+            assert "does not match the running version" in completed.stderr
+        else:
+            assert "openai-responses-proxy" in completed.stdout
+        assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
 
     def test_test_suite_has_no_unittest_compatibility_surface(self) -> None:
         offenders = []
@@ -235,11 +253,16 @@ class TestVerificationContracts:
             (ROOT / ".config/checks/pytest/pytest.toml").read_text(encoding="utf-8")
         )["pytest"]["markers"]
         assert "native_distribution: requires the self-contained released executable" in markers
-        carriers = [
-            *sorted((ROOT / "tests/serving/handoff/subprocess").glob("test_*.py")),
-            *sorted((ROOT / "tests/release/lifecycle").glob("test_*.py")),
-        ]
-        assert len(carriers) == 6
+        native_roots = (
+            ROOT / "tests/serving/handoff/subprocess",
+            ROOT / "tests/relay/native",
+            ROOT / "tests/release/lifecycle",
+        )
+        carriers = []
+        for root in native_roots:
+            tests = sorted(root.glob("test_*.py"))
+            assert tests, root
+            carriers.extend(tests)
         for path in carriers:
             source = path.read_text(encoding="utf-8")
             tree = ast.parse(source)
@@ -258,6 +281,9 @@ class TestVerificationContracts:
             assert "pytest.skip" not in source
             assert "pytest.mark.native_distribution" in marks
             assert "pytest.mark.usefixtures(preserve_native_host_projection.__name__)" in marks
+        cleanup = (ROOT / "tests/serving/handoff/test_cleanup.py").read_text(encoding="utf-8")
+        assert "pytest.mark.native_distribution" not in cleanup
+        assert "preserve_native_host_projection" not in cleanup
 
     def test_quality_environment_is_repository_owned_and_locked(self) -> None:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
