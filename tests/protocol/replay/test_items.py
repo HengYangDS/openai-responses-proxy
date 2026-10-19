@@ -144,6 +144,40 @@ def test_declared_tool_relationship_owns_identity_and_diagnostics(
     assert relationships.diagnostic_flags == {"matched_pairs"}
 
 
+@pytest.mark.parametrize(
+    ("sequence", "reason"),
+    [
+        (("call", "output"), None),
+        (("call",), None),
+        (("output",), "output_before_call"),
+        (("output", "call"), "output_before_call"),
+        (("call", "call", "output"), "duplicate_call"),
+        (("call", "output", "output"), "duplicate_output"),
+        (("missing-id",), "missing_call_id"),
+    ],
+)
+def test_provider_local_search_uses_the_shared_relationship_boundary(
+    sequence: tuple[str, ...], reason: str | None
+) -> None:
+    fixtures = {
+        "call": {"type": "tool_search_call", "call_id": "search", "execution": "server"},
+        "output": {"type": "tool_search_output", "call_id": "search", "execution": "server"},
+        "missing-id": {"type": "tool_search_output", "execution": "server"},
+    }
+    current = {"type": "message", "role": "user", "content": "current"}
+    items = [fixtures[name] for name in sequence] + [current]
+    raw = json.dumps({"input": items}).encode()
+
+    projection = sanitize_responses_body(raw)
+
+    assert projection.reason == reason
+    assert diagnose(raw).first_incompatible_reason == (reason or "")
+    assert tool_pair_boundary_is_safe(items, 0) is (reason is None)
+    if reason is None:
+        assert projection.body is not None
+        assert json.loads(projection.body)["input"] == [current]
+
+
 def test_first_call_identity_survives_a_conflicting_replay() -> None:
     relationships = ToolRelationships()
 

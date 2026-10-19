@@ -496,6 +496,8 @@ def project_input(
             item_policy.ProjectionStrategy.DROP_SEARCH,
             item_policy.ProjectionStrategy.DROP_AUXILIARY,
         }:
+            if issue := relationships.observe_item(item):
+                _reject(issue)
             metrics["reasoning_items"] += int(
                 strategy is item_policy.ProjectionStrategy.DROP_REASONING
             )

@@ -33,6 +33,16 @@ or fallback SHALL reinterpret it independently.
 - **AND** invalid roles, content and unknown fields retain their declared
   rejection; a present invalid discriminator is not treated as omission.
 
+#### Scenario: Provider-local search history declares tool relationships
+
+- **WHEN** replay contains a recognized Provider-local tool search call or output
+- **THEN** projection, diagnosis and recovery use the shared ordered relationship
+  boundary before the declared Provider-local items are removed
+- **AND** missing identities, orphaned or preceding outputs, duplicate calls and
+  duplicate outputs are rejected rather than hidden by removal
+- **AND** valid search history leaves portable dialogue unchanged; an unmatched
+  call alone does not invent an output or change the existing pending-call policy.
+
 #### Scenario: Replay contains an inline screenshot
 
 - **WHEN** image-capable input contains an HTTP(S) image URL or a nonempty,

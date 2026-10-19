@@ -177,6 +177,21 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
             ),
             (
                 [
+                    {"type": "tool_search_output", "call_id": "search", "execution": "server"},
+                    {"type": "message", "role": "user", "content": "current"},
+                ],
+                "output_before_call",
+            ),
+            (
+                [
+                    {"type": "tool_search_call", "call_id": "search", "execution": "server"},
+                    {"type": "tool_search_call", "call_id": "search", "execution": "server"},
+                    {"type": "message", "role": "user", "content": "current"},
+                ],
+                "duplicate_call",
+            ),
+            (
+                [
                     {"type": "web_search_call", "action": {"type": "search"}},
                     {
                         "type": "message",

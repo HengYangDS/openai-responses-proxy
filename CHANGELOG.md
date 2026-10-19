@@ -16,6 +16,8 @@ publication authority.
 
 ### Fixed
 
+- Validate Provider-local search relationships before removing their replay
+  items, so orphaned or duplicate history cannot bypass the shared boundary.
 - Classify standalone cross-task results consistently in replay, diagnostics
   and recovery instead of reporting a missing tool call. Reject repeated output
   identities and custom-tool outputs that claim the function-delivery shape.

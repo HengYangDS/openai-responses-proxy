@@ -255,7 +255,7 @@ class TestInputDiagnostic:
             _diagnose(
                 {"type": "tool_search_output", "call_id": "search", "output": []}
             ).first_incompatible_reason
-            == "empty_portable_input"
+            == "output_before_call"
         )
 
         diagnostic = input_recovery.diagnose(
