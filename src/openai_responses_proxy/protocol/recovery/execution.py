@@ -18,7 +18,7 @@ from openai_responses_proxy.protocol.replay import items as item_policy
 from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
 
 type JsonObject = dict[str, object]
-type Request = tuple[JsonObject, list[object], int]
+type Request = tuple[JsonObject, list[object], item_policy.CurrentTurn]
 type RecoveryMetrics = dict[str, int | bool]
 type Recovery = tuple[bytes | None, RecoveryMetrics | None]
 
@@ -26,7 +26,7 @@ COMPACTION_RATIO_DENOMINATOR = 2
 
 
 def _request(raw: bytes, minimum_items: int = 1) -> Request | None:
-    """Decode a request with enough input items and return its latest user index."""
+    """Decode sufficient portable input and bind its required current turn."""
     try:
         decoded: object = json.loads(raw)
     except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
@@ -37,18 +37,9 @@ def _request(raw: bytes, minimum_items: int = 1) -> Request | None:
     items = payload.get("input")
     if not isinstance(items, list) or len(items) < minimum_items:
         return None
-    latest_user = next(
-        (
-            index
-            for index in range(len(items) - 1, -1, -1)
-            if isinstance(items[index], dict)
-            and items[index].get("type") == "message"
-            and items[index].get("role") == "user"
-        ),
-        -1,
-    )
     typed_items: list[object] = list(items)
-    return (payload, typed_items, latest_user) if latest_user >= 0 else None
+    turn = item_policy.current_turn(typed_items)
+    return (payload, typed_items, turn) if turn is not None else None
 
 
 def _budget(raw: bytes, budget: int) -> int | None:
@@ -118,25 +109,23 @@ def compact_request(
     *,
     input_dependencies: item_policy.InputDependencies | None = None,
 ) -> Recovery:
-    """Build the oldest-prefix-only, pair-safe fallback for one failed request."""
+    """Remove old input while retaining current instructions and tool dependencies."""
     bounded_budget = _budget(raw, budget)
     portable = sanitize_responses_body(raw)
     request = _request(portable.body, minimum_items=2) if portable.body is not None else None
     if bounded_budget is None or request is None:
         return None, None
-    payload, input_items, latest_user_index = request
+    payload, input_items, turn = request
     dependencies = portable.input_dependencies if input_dependencies is None else input_dependencies
 
     smallest = None
-    for start in range(1, latest_user_index + 1):
+    for start in range(1, turn.latest_user + 1):
         if not tool_pair_boundary_is_safe(input_items, start):
             continue
         indices = [
             index
-            for index, item in enumerate(input_items)
-            if index >= start
-            or item_policy.is_required_current_turn_item(item)
-            or index in dependencies.required
+            for index in range(len(input_items))
+            if index >= start or index in turn.retained or index in dependencies.required
         ]
         if not dependencies.allows(set(indices)):
             continue

@@ -11,7 +11,6 @@ import hashlib
 import json
 from collections import Counter
 from collections.abc import Mapping
-from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from contextlib import suppress
 from dataclasses import dataclass
@@ -156,10 +155,10 @@ def build_recovery(
     if not isinstance(original_items, list) or not isinstance(input_items, list):
         return None, None
     dependencies = portable.input_dependencies if input_dependencies is None else input_dependencies
-    retained = _current_dialogue(input_items)
-    if retained is None:
+    turn = item_policy.current_turn(input_items)
+    if turn is None:
         return None, None
-    retained = sorted(set(retained) | dependencies.required)
+    retained = sorted(turn.retained | dependencies.required)
     if not dependencies.allows(set(retained)):
         return None, None
     dialogue = [cast(JsonObject, input_items[index]) for index in retained]
@@ -192,22 +191,6 @@ _DIAGNOSTIC_FLAGS: Final = (
     "missing_call_ids",
     "mismatched_output_types",
 )
-
-
-def _current_dialogue(items: Sequence[object]) -> list[int] | None:
-    latest: dict[str, int] = {}
-    for index, item in enumerate(items):
-        match item:
-            case {"type": "message", "role": str(role)} if role in _ROLES:
-                latest[role] = index
-    if "user" not in latest:
-        return None
-    retained = set(latest.values())
-    retained.update(range(latest["user"], len(items)))
-    retained.update(
-        index for index, item in enumerate(items) if item_policy.is_required_current_turn_item(item)
-    )
-    return sorted(retained)
 
 
 def _shape(value: object, depth: int = 0) -> object:

@@ -136,6 +136,35 @@ def is_required_current_turn_item(item: object) -> bool:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class CurrentTurn:
+    """Bind the latest user boundary to required instructions and live input."""
+
+    latest_user: int
+    retained: frozenset[int]
+
+
+def current_turn(items: Sequence[object]) -> CurrentTurn | None:
+    """Select required dialogue and native controls from admitted portable input."""
+    latest: dict[str, int] = {}
+    for index, item in enumerate(items):
+        match item:
+            case {"type": "message", "role": str(role)} if role in {
+                "system",
+                "developer",
+                "user",
+            }:
+                latest[role] = index
+    if "user" not in latest:
+        return None
+    retained = set(latest.values())
+    retained.update(range(latest["user"], len(items)))
+    retained.update(
+        index for index, item in enumerate(items) if is_required_current_turn_item(item)
+    )
+    return CurrentTurn(latest["user"], frozenset(retained))
+
+
 def item_types() -> frozenset[str]:
     """Return the recognized item kinds declared by the policy."""
     return frozenset(ITEM_POLICIES)

@@ -16,6 +16,10 @@ publication authority.
 
 ### Fixed
 
+- Preserve the latest system and developer instructions during bounded
+  execution-failure recovery, alongside the current task, native turn controls
+  and tool dependencies. Validation and execution recovery now share one
+  current-turn selection instead of silently dropping instruction roles.
 - Keep the default Windows state root, which holds the lifecycle lock and logs,
   outside the installation root as `%LOCALAPPDATA%\openai-responses-proxy-state`.
   A fresh default installation no longer refuses its own lock directory as

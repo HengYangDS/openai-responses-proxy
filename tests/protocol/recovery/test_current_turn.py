@@ -26,6 +26,70 @@ class TestDialogueRecovery:
     """Build one smaller current-dialogue request without losing turn controls."""
 
     @pytest.mark.parametrize(
+        "recover",
+        [
+            input_recovery.build_recovery,
+            execution_recovery.compact_request,
+            execution_recovery.recover_dialogue,
+        ],
+    )
+    @pytest.mark.parametrize("explicit_type", [False, True])
+    def test_every_recovery_preserves_latest_instruction_roles(self, recover, explicit_type):
+        instruction_type = {"type": "message"} if explicit_type else {}
+        system = {**instruction_type, "role": "system", "content": "current system policy"}
+        developer = {
+            **instruction_type,
+            "role": "developer",
+            "content": "current developer policy",
+        }
+        current = {"type": "message", "role": "user", "content": "current request"}
+        raw = _json(
+            {
+                "instructions": "envelope policy",
+                "input": [
+                    system,
+                    developer,
+                    {"type": "message", "role": "user", "content": "old" * 1000},
+                    current,
+                ],
+            }
+        )
+
+        recovered, _ = recover(raw, len(raw))
+
+        assert recovered is not None
+        assert len(recovered) < len(raw)
+        payload = json.loads(recovered)
+        assert payload["instructions"] == "envelope policy"
+        assert payload["input"] == [
+            {"type": "message", **system},
+            {"type": "message", **developer},
+            current,
+        ]
+
+    @pytest.mark.parametrize(
+        "recover",
+        [
+            input_recovery.build_recovery,
+            execution_recovery.compact_request,
+            execution_recovery.recover_dialogue,
+        ],
+    )
+    def test_recovery_cannot_shrink_by_discarding_instruction_roles(self, recover):
+        raw = _json(
+            {
+                "store": False,
+                "input": [
+                    {"type": "message", "role": "system", "content": "policy" * 1000},
+                    {"type": "message", "role": "developer", "content": "required policy"},
+                    {"type": "message", "role": "user", "content": "current request"},
+                ],
+            }
+        )
+
+        assert recover(raw, 256) == (None, None)
+
+    @pytest.mark.parametrize(
         "recover", [input_recovery.build_recovery, execution_recovery.recover_dialogue]
     )
     @pytest.mark.parametrize(
@@ -201,11 +265,15 @@ class TestDialogueRecovery:
         assert not {"previous_response_id", "conversation", "prompt_cache_key"} & recovered.keys()
         assert metrics == input_recovery.RecoveryMetrics(len(raw), len(recovery), 2, 0, True)
 
-    def test_latest_role_messages_keep_original_relative_order(self) -> None:
+    @pytest.mark.parametrize(
+        "recover",
+        [input_recovery.build_recovery, execution_recovery.recover_dialogue],
+    )
+    def test_latest_role_messages_keep_original_relative_order(self, recover) -> None:
         cases = (
             (
                 [
-                    {"type": "message", "role": "user", "content": "old user"},
+                    {"type": "message", "role": "user", "content": "old user" * 1000},
                     {"type": "message", "role": "system", "content": "current system"},
                     {
                         "type": "message",
@@ -230,7 +298,7 @@ class TestDialogueRecovery:
                         "role": "developer",
                         "content": "old developer",
                     },
-                    {"type": "message", "role": "user", "content": "old user"},
+                    {"type": "message", "role": "user", "content": "old user" * 1000},
                     {"type": "message", "role": "user", "content": "current user"},
                     {"type": "message", "role": "system", "content": "current system"},
                     {
@@ -245,7 +313,8 @@ class TestDialogueRecovery:
         )
         recovered: list[tuple[object, object]] = []
         for items, retained in cases:
-            _, recovery, _ = _recover({"input": items}, 0)
+            raw = _json({"input": items})
+            recovery, _ = recover(raw, len(raw))
             assert recovery is not None
             recovered.append((json.loads(recovery)["input"], [items[index] for index in retained]))
         assert [actual for actual, _ in recovered] == [expected for _, expected in recovered]

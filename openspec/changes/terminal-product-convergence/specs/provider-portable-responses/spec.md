@@ -15,6 +15,15 @@ or fallback SHALL reinterpret it independently.
 - **AND** no duplicate classifier, silent deletion, invented history, or
   unknown-item fall-through changes its meaning.
 
+#### Scenario: A classified failure requires a smaller current request
+
+- **WHEN** validation or execution recovery removes historical input
+- **THEN** both paths use the same typed current-turn selection to retain the
+  latest system, developer and user messages, the input following that user,
+  native turn controls and declared dependencies in their original order
+- **AND** top-level instructions remain unchanged; recovery cannot reduce the
+  request by discarding required instruction roles or native delegation.
+
 #### Scenario: An ordinary Responses message omits its optional type
 
 - **WHEN** a standard input message supplies its role and content without the

@@ -66,12 +66,22 @@ class TestInputRecovery(InputTransportFixture):
         assert len(received) == 1
 
     def test_response_failed_dialogue_does_not_repeat_an_identical_compacted_attempt(self) -> None:
+        system = {"type": "message", "role": "system", "content": "required system policy"}
+        developer = {
+            "type": "message",
+            "role": "developer",
+            "content": "required developer policy",
+        }
+        current = {"type": "message", "role": "user", "content": "current request"}
         body = json.dumps(
             {
+                "instructions": "envelope policy",
                 "input": [
+                    system,
+                    developer,
                     {"type": "message", "role": "user", "content": "old" * 1000},
-                    {"type": "message", "role": "user", "content": "current request"},
-                ]
+                    current,
+                ],
             },
             separators=(",", ":"),
         ).encode()
@@ -91,6 +101,9 @@ class TestInputRecovery(InputTransportFixture):
 
         assert len(received) == 2
         assert len(received[1]) < len(received[0])
+        recovered = json.loads(received[1])
+        assert recovered["instructions"] == "envelope policy"
+        assert recovered["input"] == [system, developer, current]
 
     def test_exact_error_after_compaction_does_not_repeat_a_nonreducing_attempt(self) -> None:
         current = [
