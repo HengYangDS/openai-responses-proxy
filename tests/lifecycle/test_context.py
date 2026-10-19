@@ -394,3 +394,47 @@ class TestRuntimeContext:
         for values in invalid:
             with subtests.test(values=values), pytest.raises(errors.InstallError):
                 context.create(executable="/portable/bin/openai-responses-proxy", **values)
+
+    def test_service_projection_is_derived_from_one_runtime_contract(self, tmp_path):
+        install_dir = tmp_path / "proxy"
+        executable = install_dir / "bin" / "openai-responses-proxy"
+        projected = context.RuntimeContext(
+            install_dir=str(install_dir),
+            executable=str(executable),
+            command="/fixture/user-root/.local/bin/openai-responses-proxy",
+            log_dir="/var/state/proxy",
+            port=8808,
+            upstream_timeout=45.0,
+            catalog_timeout=0.25,
+            catalog_max_bytes=8192,
+        )
+        environment = runtime_spec.environment(runtime_spec.write(projected))
+        assert set(environment) == {
+            config.HOME_ENV,
+            config.STATE_HOME_ENV,
+            config.PROXY_PORT_ENV,
+            config.PROXY_LOG_ENV,
+            config.WATCHDOG_LOG_ENV,
+            config.PROXY_LOG_MAX_BYTES_ENV,
+            config.PROXY_LOG_BACKUP_COUNT_ENV,
+            config.WATCHDOG_LOG_MAX_BYTES_ENV,
+            config.WATCHDOG_LOG_BACKUP_COUNT_ENV,
+            config.UPSTREAM_TIMEOUT_ENV,
+            config.UPSTREAM_READ_TIMEOUT_ENV,
+            config.CATALOG_TIMEOUT_ENV,
+            config.CATALOG_MAX_BYTES_ENV,
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES",
+            "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT",
+            config.UPSTREAM_BASE_URL_ENV,
+            config.WATCHDOG_INTERVAL_ENV,
+            config.WATCHDOG_MAX_BACKOFF_ENV,
+            config.RESPONSE_FAILED_COMPACTION_BUDGET_ENV,
+            config.RESPONSE_FAILED_MAX_STAGES_ENV,
+        }
+        assert environment[config.HOME_ENV] == str(install_dir)
+        assert environment[config.STATE_HOME_ENV] == "/var/state/proxy"
+        assert config.load(environment).listener == ("127.0.0.1", 8808)
+        assert environment[config.UPSTREAM_TIMEOUT_ENV] == "45.0"
+        settings = config.load(environment)
+        assert settings.catalog_timeout == 0.25
+        assert settings.catalog_max_bytes == 8192
