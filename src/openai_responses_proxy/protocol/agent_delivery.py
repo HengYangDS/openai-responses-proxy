@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Literal
 from typing import cast
 
+from openai_responses_proxy.protocol.replay import items as item_policy
 from openai_responses_proxy.protocol.response import ResponseValidationError
 from openai_responses_proxy.protocol.response import ValidationReason
 from openai_responses_proxy.protocol.response import sse_event_data
@@ -22,7 +23,7 @@ type JsonObject = dict[str, object]
 NATIVE_NAMESPACE = "collaboration"
 PLAINTEXT_NAMESPACE = "collaboration_plaintext"
 _MESSAGE_TOOLS = frozenset(("spawn_agent", "send_message", "followup_task"))
-_CALL_TYPES = frozenset(("function_call", "custom_tool_call"))
+_CALL_ARGUMENT_FIELDS = item_policy.call_argument_fields()
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,10 +100,10 @@ def _select_replayed_call(item: JsonObject) -> bool:
     item_type = item.get("type")
     if not isinstance(item_type, str):
         raise ValueError("invalid_agent_delivery_request")
-    if item_type not in _CALL_TYPES:
+    if item_type not in _CALL_ARGUMENT_FIELDS:
         return False
     item["namespace"] = PLAINTEXT_NAMESPACE
-    if item.get("encrypted_function_args") == []:
+    if item_type == "function_call" and item.get("encrypted_function_args") == []:
         item.pop("encrypted_function_args")
     return True
 
@@ -141,15 +142,18 @@ def _restore_item(item: JsonObject, *, complete: bool) -> bool:
     item_type = item.get("type")
     if not isinstance(item_type, str):
         raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
-    if item_type not in _CALL_TYPES:
+    argument_field = _CALL_ARGUMENT_FIELDS.get(item_type)
+    if argument_field is None:
         return False
+    if item_type != "function_call" and "encrypted_function_args" in item:
+        raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
     name = item.get("name")
     if not isinstance(name, str):
         raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
     if name in _MESSAGE_TOOLS and (
-        complete or item.get("status") != "in_progress" or item.get("arguments")
+        complete or item.get("status") != "in_progress" or item.get(argument_field)
     ):
-        arguments = item.get("arguments")
+        arguments = item.get(argument_field)
         if not isinstance(arguments, str):
             raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
         try:
@@ -165,7 +169,8 @@ def _restore_item(item: JsonObject, *, complete: bool) -> bool:
             or encrypted not in (None, [])
         ):
             raise ResponseValidationError(ValidationReason.UNPROVED_AGENT_PLAINTEXT)
-        item["encrypted_function_args"] = []
+        if item_type == "function_call":
+            item["encrypted_function_args"] = []
     item["namespace"] = NATIVE_NAMESPACE
     return True
 

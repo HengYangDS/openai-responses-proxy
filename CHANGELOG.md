@@ -16,6 +16,8 @@ publication authority.
 
 ### Fixed
 
+- Preserve custom-tool message input through selected plaintext delegation,
+  instead of reading function-only arguments or adding function-only metadata.
 - Validate Provider-local search relationships before removing their replay
   items, so orphaned or duplicate history cannot bypass the shared boundary.
 - Classify standalone cross-task results consistently in replay, diagnostics

@@ -192,10 +192,13 @@ become a retryable local `503`; partial success bytes are not committed.
 adapter aliases the reserved collaboration namespace before generation and
 removes the encrypted annotation only from `spawn_agent`, `send_message`, and
 `followup_task` message schemas. Replayed calls and explicit tool choice use
-the same alias. The response restores `collaboration` and adds the native empty
-`encrypted_function_args` list only after complete readable arguments arrive.
-Message text, arguments and call identities remain exact. Nonempty encrypted
-metadata, cipher-shaped messages, and conflicting aliases fail closed.
+the same alias. The response restores `collaboration` after complete readable
+arguments arrive: function calls use `arguments` and the native empty
+`encrypted_function_args` list; custom calls preserve `input` without function
+metadata. Message text and call identities remain exact. Nonempty encrypted
+metadata, function metadata on custom calls, cipher-shaped messages, and
+conflicting aliases fail closed. Preserving a custom call's wire grammar does
+not establish a client's native delivery support for that tool.
 
 The signed client's native path requires the `collaboration` namespace and a
 model catalog whose agent version matches the conversation. Those inputs belong

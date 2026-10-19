@@ -45,8 +45,9 @@ A released provider profile may select plaintext agent delivery before model
 generation. Its request-local protocol adapter aliases `collaboration` to
 `collaboration_plaintext`, removes only the three message tools' encrypted
 message annotation, and remaps replayed calls and explicit tool selection. It
-restores native call namespaces and an empty `encrypted_function_args` list
-only for proved readable message arguments. This invokes the client's existing
+restores native call namespaces only for proved readable message arguments,
+using `arguments` for function calls and `input` for custom calls. Only function
+calls receive an empty `encrypted_function_args` list. This invokes the client's existing
 plaintext delivery path; it does not decrypt or relabel old ciphertext. The
 request-local selection binds both JSON and streaming response restoration.
 

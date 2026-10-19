@@ -284,10 +284,19 @@ client configuration, credentials or conversation storage.
 - **WHEN** a plaintext route receives the native `collaboration` catalog
 - **THEN** it aliases that catalog and explicit tool choice upstream and removes
   encryption annotations only from spawn, message and followup message schemas
-- **AND** JSON and streaming responses restore the native namespace and empty
-  encrypted-argument marker only after complete readable arguments are proved
+- **AND** JSON and streaming responses restore the native namespace and, for
+  function calls, the empty encrypted-argument marker only after complete
+  readable arguments are proved
 - **AND** exact message arguments and call identities survive sender-to-recipient
   delivery using the client's native plaintext path.
+
+#### Scenario: A selected custom call preserves its native argument field
+
+- **WHEN** JSON or streaming output contains a selected custom message call
+- **THEN** the declared call policy selects `input`, not function `arguments`,
+  for readable-message validation and preserves its exact value and call identity
+- **AND** no function-only encrypted-argument marker is added or accepted;
+  replay retains the custom call and output grammar.
 
 #### Scenario: A terminal delivery retains an in-progress item status
 

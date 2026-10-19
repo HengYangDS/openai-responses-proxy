@@ -57,8 +57,14 @@ class AgentDeliveryRelayContracts:
             assert len(received) == 1
 
     @pytest.mark.parametrize("stream", [False, True])
-    def test_real_http_roundtrip_retains_arguments_and_call_identity(self, stream: bool) -> None:
+    @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
+    def test_real_http_roundtrip_retains_arguments_and_call_identity(
+        self, stream: bool, call_type: str
+    ) -> None:
         call = _call()
+        call["type"] = call_type
+        argument_field = "input" if call_type == "custom_tool_call" else "arguments"
+        call[argument_field] = call.pop("arguments")
         terminal = {"status": "completed", "output": [call]}
         if stream:
             payload = b"".join(
@@ -66,16 +72,22 @@ class AgentDeliveryRelayContracts:
                 for event in (
                     {
                         "type": "response.output_item.added",
-                        "item": {**call, "status": "in_progress", "arguments": ""},
+                        "item": {**call, "status": "in_progress", argument_field: ""},
                     },
                     {"type": "response.output_item.done", "item": call},
                     {"type": "response.completed", "response": terminal},
                 )
             )
-            response = {"headers": {"Content-Type": "text/event-stream"}, "payload": payload}
+            response = {
+                "headers": {"Content-Type": "text/event-stream"},
+                "payload": payload,
+            }
         else:
             response = (200, json.dumps(terminal).encode())
-        with running_proxy([response], agent_message_delivery="plaintext") as (port, received):
+        with running_proxy([response], agent_message_delivery="plaintext") as (
+            port,
+            received,
+        ):
             raw_request = json.dumps(
                 {"stream": stream, "tools": _tools(), "input": "run test"}
             ).encode()
@@ -93,12 +105,15 @@ class AgentDeliveryRelayContracts:
                     json.loads(line[6:]) for line in raw.splitlines() if line.startswith(b"data: ")
                 ]
                 output = events[-1]["response"]["output"][0]
-                assert events[0]["item"]["arguments"] == ""
+                assert events[0]["item"][argument_field] == ""
             else:
                 output = json.loads(raw)["output"][0]
             assert output["namespace"] == "collaboration"
-            assert output["encrypted_function_args"] == []
-            assert output["arguments"] == call["arguments"]
+            if call_type == "function_call":
+                assert output["encrypted_function_args"] == []
+            else:
+                assert "encrypted_function_args" not in output
+            assert output[argument_field] == call[argument_field]
             assert output["call_id"] == call["call_id"]
 
     def test_alias_collision_declines_locally_without_upstream_request(self) -> None:

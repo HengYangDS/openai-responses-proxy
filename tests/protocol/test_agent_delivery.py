@@ -307,3 +307,80 @@ class AgentDeliveryContracts:
         assert json.loads(projected.body)["input"][0]["encrypted_function_args"] == []
         replay = agent_delivery.prepare_request(projected.body, "plaintext")
         assert json.loads(replay.body)["input"][0]["arguments"] == call["arguments"]
+
+    @pytest.mark.parametrize("context", ["json", "sse"])
+    def test_custom_message_delivery_preserves_its_input_and_replay_grammar(
+        self, context: str
+    ) -> None:
+        call = {**_call(), "type": "custom_tool_call"}
+        call["input"] = call.pop("arguments")
+        if context == "json":
+            raw = _wire({"status": "completed", "output": [call]})
+            restored = json.loads(agent_delivery.restore_response(raw, True))["output"][0]
+        else:
+            raw = b"data: " + _wire({"type": "response.output_item.done", "item": call}) + b"\n\n"
+            event = agent_delivery.restore_event(raw, True)
+            restored = json.loads(event.split(b"data: ", 1)[1])["item"]
+        assert restored == {**call, "namespace": "collaboration"}
+        replay = sanitize_responses_body(
+            _wire(
+                {
+                    "input": [
+                        restored,
+                        {
+                            "type": "custom_tool_call_output",
+                            "call_id": "call-1",
+                            "output": "ok",
+                        },
+                    ]
+                }
+            )
+        )
+        assert replay.body is not None, replay.reason
+        prepared = agent_delivery.prepare_request(replay.body, "plaintext")
+        assert json.loads(prepared.body)["input"][0]["input"] == call["input"]
+
+    @pytest.mark.parametrize("message", ["", "gAAAAOpaqueCiphertext"])
+    def test_custom_message_delivery_requires_readable_input(self, message: str) -> None:
+        call = {**_call(message), "type": "custom_tool_call"}
+        call["input"] = call.pop("arguments")
+        with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
+            agent_delivery.restore_response(_wire({"output": [call]}), True)
+
+    def test_custom_call_start_keeps_function_metadata_absent(self) -> None:
+        call = {
+            **_call(),
+            "type": "custom_tool_call",
+            "status": "in_progress",
+            "input": "",
+        }
+        call.pop("arguments")
+        event = b"data: " + _wire({"type": "response.output_item.added", "item": call}) + b"\n\n"
+        restored = json.loads(agent_delivery.restore_event(event, True).split(b"data: ", 1)[1])
+        assert restored["item"] == {**call, "namespace": "collaboration"}
+
+    @pytest.mark.parametrize("metadata", [[], ["message"]])
+    @pytest.mark.parametrize("complete", [False, True])
+    def test_custom_message_cannot_claim_function_encryption_metadata(
+        self, metadata: object, complete: bool
+    ) -> None:
+        call = {
+            **_call(),
+            "type": "custom_tool_call",
+            "encrypted_function_args": metadata,
+        }
+        call["input"] = call.pop("arguments")
+        if complete:
+            raw = _wire({"output": [call]})
+            restore = agent_delivery.restore_response
+        else:
+            call.update({"status": "in_progress", "input": ""})
+            raw = b"data: " + _wire({"type": "response.output_item.added", "item": call}) + b"\n\n"
+            restore = agent_delivery.restore_event
+        with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
+            restore(raw, True)
+
+    def test_custom_message_cannot_use_arguments_in_place_of_input(self) -> None:
+        call = {**_call(), "type": "custom_tool_call", "input": ""}
+        with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
+            agent_delivery.restore_response(_wire({"output": [call]}), True)
