@@ -152,7 +152,8 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     assert ruff[0] == str(tmp_path / ruff_name)
     assert ruff[1] == "check"
     assert "--verbose" in ruff
-    assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.json")
+    assert ruff[ruff.index("--output-format") + 1] == "sarif"
+    assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.sarif")
     behavior, nested = [call for call in session.run.call_args_list if "pytest" in call.args]
     assert behavior.args[behavior.args.index("--ethos-native-session") + 1] == "quality-3.12"
     assert behavior.args[behavior.args.index("--ethos-runtime-output") + 1] == str(
@@ -305,4 +306,9 @@ def test_native_static_report_observes_one_original_ruff_launch(
     assert checker["configuration"] == str(configuration)
     assert checker["configuration_sha256"] == hashlib.sha256(configuration.read_bytes()).hexdigest()
     assert checker["session"] == f"quality-{sys.version_info.major}.{sys.version_info.minor}"
-    assert json.loads((output / "quality-ruff.json").read_text()) == []
+    report = json.loads((output / "quality-ruff.sarif").read_text())
+    assert report["version"] == "2.1.0"
+    assert len(report["runs"]) == 1
+    assert report["runs"][0]["tool"]["driver"]["name"] == "ruff"
+    assert report["runs"][0]["results"] == []
+    assert not (output / "quality-ruff.json").exists()

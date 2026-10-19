@@ -194,9 +194,9 @@ def _static_report(
         *command[1:],
         "--verbose",
         "--output-format",
-        "json",
+        "sarif",
         "--output-file",
-        str(output / f"{session.name}-ruff.json"),
+        str(output / f"{session.name}-ruff.sarif"),
         env=environment,
     )
 

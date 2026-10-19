@@ -45,8 +45,8 @@ format = "nox-json"
 sessions = ["quality-3.12"]
 
 [[proof.gates.native_outputs]]
-path = "quality-ruff.json"
-format = "ruff-json"
+path = "quality-ruff.sarif"
+format = "sarif"
 sessions = ["quality-3.12"]
 
 [[proof.gates.native_outputs]]
@@ -103,7 +103,7 @@ sessions = ["tests-3.12"]
 
 [[proof.gates.native_outputs]]
 path = "tests-3.12-coverage.xml"
-format = "coverage-xml"
+format = "cobertura-xml"
 sessions = ["tests-3.12"]
 
 [[proof.gates.native_outputs]]
@@ -126,7 +126,7 @@ sessions = ["tests-3.13"]
 
 [[proof.gates.native_outputs]]
 path = "tests-3.13-coverage.xml"
-format = "coverage-xml"
+format = "cobertura-xml"
 sessions = ["tests-3.13"]
 
 [[proof.gates.native_outputs]]
@@ -149,7 +149,7 @@ sessions = ["tests-3.14"]
 
 [[proof.gates.native_outputs]]
 path = "tests-3.14-coverage.xml"
-format = "coverage-xml"
+format = "cobertura-xml"
 sessions = ["tests-3.14"]
 
 [[proof.gates.native_outputs]]
