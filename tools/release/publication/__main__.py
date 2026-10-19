@@ -165,10 +165,21 @@ def _predecessor(
     github_environment: Path,
     candidate_version: str | None = None,
     candidate_tag: str | None = None,
+    candidate_source: Path | None = None,
 ) -> None:
     """Print the exact published predecessor for one candidate identity."""
-    if (candidate_version is None) == (candidate_tag is None):
-        raise ValueError("provide exactly one candidate version or candidate tag")
+    if (
+        sum(value is not None for value in (candidate_version, candidate_tag, candidate_source))
+        != 1
+    ):
+        raise ValueError("provide exactly one candidate version, tag or source")
+    if candidate_source is not None:
+        try:
+            candidate_version = (candidate_source / "VERSION").read_text(encoding="utf-8").strip()
+        except OSError as error:
+            raise ValueError("candidate source VERSION is unavailable") from error
+        if not identity.is_version(candidate_version):
+            raise ValueError("candidate source VERSION is not a release SemVer")
     version = (
         candidate_version
         if candidate_version is not None

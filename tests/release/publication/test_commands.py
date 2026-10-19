@@ -249,3 +249,59 @@ def test_github_predecessor_cli_accepts_the_release_tag_as_identity(
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG=v3.1.0\n"
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT=codex-responses-proxy\n"
     )
+
+
+def test_github_predecessor_cli_reads_the_candidate_source_identity(
+    *, mocker, capsys, tmp_path
+) -> None:
+    resolve = mocker.patch.object(github_observer, "published_predecessor", return_value="v5.0.5")
+    source = tmp_path / "candidate source"
+    source.mkdir()
+    (source / "VERSION").write_text("5.0.6\n", encoding="utf-8")
+    environment = tmp_path / "github-environment"
+
+    commands.main(
+        (
+            "predecessor",
+            "--repository",
+            "owner/repo",
+            "--candidate-source",
+            str(source),
+            "--github-environment",
+            str(environment),
+        )
+    )
+
+    resolve.assert_called_once_with(repository="owner/repo", version="5.0.6")
+    assert capsys.readouterr().out == "v5.0.5\n"
+    assert environment.read_text(encoding="utf-8") == (
+        "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG=v5.0.5\n"
+        "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT=openai-responses-proxy\n"
+    )
+
+
+@pytest.mark.parametrize("version", [None, "latest"])
+def test_github_predecessor_cli_refuses_unproved_source_before_remote_lookup(
+    tmp_path, mocker, version
+) -> None:
+    resolve = mocker.patch.object(github_observer, "published_predecessor")
+    source = tmp_path / "source"
+    source.mkdir()
+    if version is not None:
+        (source / "VERSION").write_text(version, encoding="utf-8")
+
+    with pytest.raises(SystemExit):
+        commands.main(
+            (
+                "predecessor",
+                "--repository",
+                "owner/repo",
+                "--candidate-source",
+                str(source),
+                "--github-environment",
+                str(tmp_path / "github-environment"),
+            )
+        )
+
+    resolve.assert_not_called()
+    assert not (tmp_path / "github-environment").exists()
