@@ -33,7 +33,13 @@ class SubprocessFixture:
     ) -> tuple[Path, runtime_context.RuntimeContext, dict[int, process.OwnedProcess]]:
         temporary = tempfile.TemporaryDirectory(delete=False)
         root = Path(temporary.name)
-        ctx = write_installed_payload(root, release=release, port=port, upstream_url=upstream_url)
+        try:
+            ctx = write_installed_payload(
+                root, release=release, port=port, upstream_url=upstream_url
+            )
+        except BaseException:
+            temporary.cleanup()
+            raise
         owned_processes: dict[int, process.OwnedProcess] = {}
         self._cleanups.callback(self._cleanup_installed_fixture, temporary, ctx, owned_processes)
         return root, ctx, owned_processes

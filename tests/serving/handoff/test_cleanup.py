@@ -10,10 +10,39 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.serving.handoff.fixtures import terminate_owned_proxy
+from tests.serving.handoff.subprocess import fixtures as subprocess_fixtures
 from tests.serving.handoff.subprocess.fixtures import SubprocessFixture
 
 
 class TestHandoffCleanup(SubprocessFixture):
+    @pytest.mark.parametrize("partial_payload", [False, True])
+    def test_failed_fixture_initialization_removes_its_temporary_payload(
+        self, *, mocker, tmp_path, partial_payload
+    ) -> None:
+        roots = []
+        failure = RuntimeError("payload initialization failed")
+        mocker.patch.object(subprocess_fixtures.tempfile, "tempdir", str(tmp_path))
+
+        def fail_initialization(root, **_kwargs):
+            roots.append(root)
+            if partial_payload:
+                payload = root / "payload"
+                payload.mkdir()
+                (payload / "partial").write_text("incomplete", encoding="utf-8")
+            raise failure
+
+        mocker.patch.object(
+            subprocess_fixtures, "write_installed_payload", side_effect=fail_initialization
+        )
+
+        with pytest.raises(RuntimeError) as raised:
+            self._installed_fixture(release="test", port=0, upstream_url="http://127.0.0.1")
+
+        assert raised.value is failure
+        assert len(roots) == 1
+        assert roots[0].parent == tmp_path
+        assert not roots[0].exists()
+
     def test_fixture_cleanup_terminates_before_removing_temporary_payload(self, *, mocker) -> None:
         events = []
         temporary = tempfile.TemporaryDirectory()
