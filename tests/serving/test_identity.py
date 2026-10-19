@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -207,3 +208,63 @@ class TestServiceIdentity:
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
         assert identity.freeze_loaded_payload(Path(ctx.executable)) is None
+
+
+def test_loaded_identity_accepts_only_exact_native_projection(subtests) -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        executable = root / inventory.EXECUTABLE
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b"native executable\n")
+        provider_manifest = root / inventory.PROVIDER_MANIFEST
+        provider_manifest.write_text(
+            'version = 1\n[providers.fixture]\nbase_url = "https://fixture.invalid/v1"\n',
+            encoding="utf-8",
+        )
+        files = {
+            relative: digest.sha256_file(root / relative)
+            for relative in inventory.required_runtime_files()
+        }
+        manifest = {
+            "release": "1.2.3",
+            "release_receipt_sha256": "a" * 64,
+            "serving_files": files,
+            "serving_payload_sha256": inventory.validated_serving_payload_sha256(files),
+        }
+        _write_manifest(root, manifest)
+        frozen = identity.freeze_loaded_payload(executable)
+        assert frozen is not None
+        wrong_executable = root / "other"
+        wrong_executable.write_bytes(b"other")
+        cases = (
+            ("wrong executable", None, wrong_executable),
+            ("non-object files", {"serving_files": []}, executable),
+            ("non-string digest", {"serving_files": {inventory.EXECUTABLE: 1}}, executable),
+            (
+                "incomplete files",
+                {"serving_files": {inventory.EXECUTABLE: files[inventory.EXECUTABLE]}},
+                executable,
+            ),
+            (
+                "wrong digest",
+                {"serving_files": {**files, inventory.EXECUTABLE: "0" * 64}},
+                executable,
+            ),
+            ("wrong aggregate", {"serving_payload_sha256": "0" * 64}, executable),
+            ("bad receipt", {"release_receipt_sha256": "bad"}, executable),
+            ("missing release", {"release": ""}, executable),
+        )
+        for name, changes, candidate in cases:
+            with subtests.test(name=name):
+                if changes:
+                    _write_manifest(root, {**manifest, **changes})
+                assert identity.freeze_loaded_payload(candidate) is None
+                _write_manifest(root, manifest)
+        _write_manifest(root, [])
+        assert identity.freeze_loaded_payload(executable) is None
+        _write_manifest(root, manifest)
+        assert identity.freeze_loaded_payload(executable) is not None
+
+
+def _write_manifest(root: Path, manifest: object) -> None:
+    (root / inventory.MANIFEST_FILENAME).write_text(json.dumps(manifest))

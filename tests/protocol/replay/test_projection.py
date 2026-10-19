@@ -233,3 +233,23 @@ class RequestSanitizationContracts:
         projection = rewrite.sanitize_responses_body(raw)
         assert projection.body is None
         assert projection.diagnostic().startswith("rejected ")
+
+
+def test_replay_projection_returns_structured_metrics() -> None:
+    result = rewrite.sanitize_responses_body(
+        json.dumps(
+            {
+                "store": True,
+                "previous_response_id": "rs_private",
+                "input": [
+                    {"type": "reasoning", "encrypted_content": "private"},
+                    {"type": "message", "role": "user", "content": "hello"},
+                ],
+            }
+        ).encode()
+    )
+    assert isinstance(result, rewrite.ProjectionResult)
+    assert result.status == "projected"
+    assert result.metrics.reasoning_items == 1
+    assert result.metrics.provider_bindings == 1
+    assert "private" not in result.diagnostic()
