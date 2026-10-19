@@ -157,6 +157,18 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
                     retry_after="3",
                 )
             exchange.log("sse_projection_failed")
+        elif stream is not None and stream["detail"] == "buffer_limit":
+            if result["pre_content_exhausted"]:
+                send_payload(
+                    exchange.handler,
+                    503,
+                    live_response.error_payload(
+                        "Upstream stream exceeded its pending byte budget",
+                        "upstream_unavailable",
+                        "stream_buffer_limit",
+                    ),
+                )
+            exchange.log("sse_buffer_limit")
         elif result["pre_content_exhausted"]:
             if exchange.used_input_variant_dialogue:
                 exchange.input_variant_exhausted("")

@@ -255,6 +255,7 @@ six product, twelve test and two tool functions after simplification; 100 was
 probed, not selected. CLI checks, installed-state prerequisites, opaque-content
 markers, local-tool metrics, safe paths and control fields share their existing
 owners without new helpers. SSE binds commitment, deadline, retry and release;
+each event and held prelude has one persisted byte budget, not a total-output cap.
 native journeys bind one installation through upgrade, rollback and teardown.
 One-use extraction would hide those invariants. Tool audits retain one complete
 ownership decision; test tables retain explicit assertions and cleanup. Review

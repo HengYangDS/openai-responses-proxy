@@ -27,6 +27,7 @@ UPSTREAM_TIMEOUT_ENV = product_identity.environment_name("UPSTREAM_TIMEOUT")
 UPSTREAM_READ_TIMEOUT_ENV = product_identity.environment_name("UPSTREAM_READ_TIMEOUT")
 REQUEST_BODY_MAX_BYTES_ENV = product_identity.environment_name("REQUEST_BODY_MAX_BYTES")
 REQUEST_BODY_TIMEOUT_ENV = product_identity.environment_name("REQUEST_BODY_TIMEOUT")
+SSE_BUFFER_MAX_BYTES_ENV = product_identity.environment_name("SSE_BUFFER_MAX_BYTES")
 CATALOG_TIMEOUT_ENV = product_identity.environment_name("CATALOG_TIMEOUT")
 CATALOG_MAX_BYTES_ENV = product_identity.environment_name("CATALOG_MAX_BYTES")
 UPSTREAM_BASE_URL_ENV = product_identity.environment_name("UPSTREAM_BASE_URL")
@@ -51,6 +52,7 @@ RUNTIME_ENVIRONMENT = frozenset(
         UPSTREAM_READ_TIMEOUT_ENV,
         REQUEST_BODY_MAX_BYTES_ENV,
         REQUEST_BODY_TIMEOUT_ENV,
+        SSE_BUFFER_MAX_BYTES_ENV,
         CATALOG_TIMEOUT_ENV,
         CATALOG_MAX_BYTES_ENV,
         UPSTREAM_BASE_URL_ENV,
@@ -70,6 +72,7 @@ DEFAULT_UPSTREAM_TIMEOUT = 900.0
 DEFAULT_UPSTREAM_READ_TIMEOUT = 240.0
 DEFAULT_REQUEST_BODY_MAX_BYTES = 64 * 1024 * 1024
 DEFAULT_REQUEST_BODY_TIMEOUT = 30.0
+DEFAULT_SSE_BUFFER_MAX_BYTES = 64 * 1024 * 1024
 DEFAULT_CATALOG_TIMEOUT = 30.0
 DEFAULT_CATALOG_MAX_BYTES = 8 * 1024 * 1024
 DEFAULT_WATCHDOG_INTERVAL = 15.0
@@ -103,6 +106,7 @@ class Settings:
     upstream_read_timeout: float
     request_body_max_bytes: int
     request_body_timeout: float
+    sse_buffer_max_bytes: int
     catalog_timeout: float
     catalog_max_bytes: int
     watchdog_interval: float
@@ -297,6 +301,9 @@ def load(environment: Mapping[str, str] | None = None) -> Settings:
         ),
         request_body_timeout=_number(
             source, REQUEST_BODY_TIMEOUT_ENV, DEFAULT_REQUEST_BODY_TIMEOUT, 0.001, 300
+        ),
+        sse_buffer_max_bytes=_integer(
+            source, SSE_BUFFER_MAX_BYTES_ENV, DEFAULT_SSE_BUFFER_MAX_BYTES, 4096, 256 * 1024 * 1024
         ),
         catalog_timeout=_number(source, CATALOG_TIMEOUT_ENV, DEFAULT_CATALOG_TIMEOUT, 0.001, 300),
         catalog_max_bytes=_integer(

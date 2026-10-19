@@ -302,6 +302,7 @@ class TestRuntimeContext:
             {
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "16384",
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "2.5",
+                "OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES": "8192",
                 "OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "1.5",
                 "OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES": "8192",
             },
@@ -314,6 +315,7 @@ class TestRuntimeContext:
 
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "16384"
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "2.5"
+        assert environment["OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES"] == "8192"
         assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT") == "1.5"
         assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES") == "8192"
         mocker.patch.dict(
@@ -321,6 +323,7 @@ class TestRuntimeContext:
             {
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "32768",
                 "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "10",
+                "OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES": "16384",
                 "OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "10",
                 "OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES": "16384",
             },
@@ -328,6 +331,7 @@ class TestRuntimeContext:
         successor = context.create()
         assert successor.request_body_max_bytes == 16384
         assert successor.request_body_timeout == 2.5
+        assert successor.sse_buffer_max_bytes == 8192
         assert successor.catalog_timeout == 1.5
         assert successor.catalog_max_bytes == 8192
         assert runtime_spec.write(successor).read_bytes() == original
@@ -345,6 +349,7 @@ class TestRuntimeContext:
         retained.pop("request_body_timeout", None)
         retained.pop("catalog_timeout", None)
         retained.pop("catalog_max_bytes", None)
+        retained.pop("sse_buffer_max_bytes", None)
         original = digest.canonical_json(retained)
         target.write_bytes(original)
 
@@ -354,6 +359,7 @@ class TestRuntimeContext:
         assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "30.0"
         assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT") == "30.0"
         assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES") == "8388608"
+        assert environment.get("OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES") == "67108864"
         assert target.read_bytes() == original
 
     @pytest.mark.parametrize(
@@ -425,6 +431,7 @@ class TestRuntimeContext:
             config.CATALOG_MAX_BYTES_ENV,
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES",
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT",
+            "OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES",
             config.UPSTREAM_BASE_URL_ENV,
             config.WATCHDOG_INTERVAL_ENV,
             config.WATCHDOG_MAX_BACKOFF_ENV,

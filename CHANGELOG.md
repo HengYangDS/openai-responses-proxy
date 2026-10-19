@@ -16,6 +16,10 @@ publication authority.
 
 ### Fixed
 
+- Bound SSE events and held pre-content data without limiting total stream
+  output; over-limit streams fail without replay or fabricated completion.
+- Extend fragmented SSE data in place and scan only the new framing suffix,
+  instead of repeatedly copying and scanning the entire pending event.
 - Validate compaction's actual retained input, including pinned earlier calls,
   instead of rejecting a legal candidate through a suffix-only precheck.
 - Preserve custom-tool message input through selected plaintext delegation,

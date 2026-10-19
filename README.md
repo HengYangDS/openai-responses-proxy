@@ -360,6 +360,14 @@ Catalog settings follow the same persisted ownership:
 `OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES` (4096–67108864 bytes). Catalog bounds
 do not establish inbound header deadlines or synchronous DNS cancellation.
 
+SSE limits each event and the held pre-content prelude to 64 MiB, independently
+of stream duration or total delivered bytes. A fresh installation may select
+`OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES` (4096–268435456 bytes); upgrades
+retain that value and older carriers receive the default without a read-time
+rewrite. An exceeded budget returns `stream_buffer_limit` before commitment,
+or closes an already committed response without replay or a successful
+terminator. Valid events and live ciphertext keep their bytes.
+
 ## Runtime evidence
 
 `status --json` reports secret-free local evidence:

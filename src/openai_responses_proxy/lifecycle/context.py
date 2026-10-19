@@ -54,6 +54,7 @@ class RuntimeContext:
     upstream_read_timeout: float = config.DEFAULT_UPSTREAM_READ_TIMEOUT
     request_body_max_bytes: int = config.DEFAULT_REQUEST_BODY_MAX_BYTES
     request_body_timeout: float = config.DEFAULT_REQUEST_BODY_TIMEOUT
+    sse_buffer_max_bytes: int = config.DEFAULT_SSE_BUFFER_MAX_BYTES
     catalog_timeout: float = config.DEFAULT_CATALOG_TIMEOUT
     catalog_max_bytes: int = config.DEFAULT_CATALOG_MAX_BYTES
     watchdog_interval: float = config.DEFAULT_WATCHDOG_INTERVAL
@@ -147,6 +148,7 @@ def create(
         raise errors.InstallError(str(exc)) from exc
     selected.request_body_max_bytes = settings.request_body_max_bytes
     selected.request_body_timeout = settings.request_body_timeout
+    selected.sse_buffer_max_bytes = settings.sse_buffer_max_bytes
     selected.catalog_timeout = settings.catalog_timeout
     selected.catalog_max_bytes = settings.catalog_max_bytes
     if upstream_base_url is None:

@@ -244,6 +244,19 @@ event SHALL yield one structured HTTP failure.
 - **AND** HTTP and certificate-verified HTTPS use the native parser without a
   timer thread, alternate service or a patched standard library
 
+#### Scenario: Pending SSE data exceeds its byte budget
+
+- **WHEN** one framed or partial event, or the held pre-content prelude, exceeds
+  the persisted SSE byte budget (64 MiB by default)
+- **THEN** the attempt stops without reconnecting and releases its connection;
+  an uncommitted exchange returns one `stream_buffer_limit` error, while a
+  committed exchange preserves emitted bytes and closes without success
+- **AND** bounded events keep their order and exact bytes, including ciphertext;
+  total stream output is not capped, and fragmented input is extended in place
+  with framing searches limited to the newly extended suffix
+- **AND** initial configuration validates the selected byte budget, upgrades
+  retain it, and older carriers receive defaults without read-time mutation.
+
 #### Scenario: Connection setup and request writes spend the original budget
 
 - **WHEN** native DNS returns addresses, TCP falls back to another address, TLS

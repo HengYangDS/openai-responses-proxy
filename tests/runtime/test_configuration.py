@@ -115,6 +115,7 @@ class TestRuntimeConfiguration:
             "catalog_max_bytes",
             "request_body_max_bytes",
             "request_body_timeout",
+            "sse_buffer_max_bytes",
             "watchdog_interval",
             "watchdog_max_backoff",
             "response_failed_compaction_budget",
@@ -137,6 +138,7 @@ class TestRuntimeConfiguration:
             runtime_config.UPSTREAM_READ_TIMEOUT_ENV: "15.5",
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "16384",
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "2.5",
+            "OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES": "16384",
             runtime_config.WATCHDOG_INTERVAL_ENV: "3",
             runtime_config.WATCHDOG_MAX_BACKOFF_ENV: "12",
             runtime_config.RESPONSE_FAILED_COMPACTION_BUDGET_ENV: "65536",
@@ -152,6 +154,7 @@ class TestRuntimeConfiguration:
         assert settings.upstream_read_timeout == 15.5
         assert settings.request_body_max_bytes == 16384
         assert settings.request_body_timeout == 2.5
+        assert settings.sse_buffer_max_bytes == 16384
         assert settings.watchdog_interval == 3
         assert settings.watchdog_max_backoff == 12
         assert settings.response_failed_compaction_budget == 65536
@@ -167,6 +170,8 @@ class TestRuntimeConfiguration:
             ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES", "268435457"),
             ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT", "0"),
             ("OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT", "nan"),
+            ("OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES", "4095"),
+            ("OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES", "268435457"),
             (runtime_config.WATCHDOG_INTERVAL_ENV, "-1"),
             (runtime_config.WATCHDOG_MAX_BACKOFF_ENV, "not-a-number"),
             (runtime_config.WATCHDOG_MAX_BACKOFF_ENV, False),

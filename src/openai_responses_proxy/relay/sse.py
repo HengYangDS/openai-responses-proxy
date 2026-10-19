@@ -13,7 +13,6 @@ import time
 from collections.abc import Callable
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler
-from itertools import chain
 from typing import NotRequired
 from typing import TypedDict
 
@@ -27,6 +26,7 @@ from openai_responses_proxy.runtime import config as runtime_config
 
 UPSTREAM_READ_TIMEOUT = runtime_config.load().upstream_read_timeout
 UPSTREAM_TIMEOUT = runtime_config.load().upstream_timeout
+SSE_BUFFER_MAX_BYTES = runtime_config.load().sse_buffer_max_bytes
 _HELD_TYPES = frozenset(("response.created", "response.in_progress"))
 _TERMINALS = frozenset(("response.completed", "response.failed", "response.incomplete"))
 _CLEAN_TERMINALS = {"response.completed", "response.incomplete"}
@@ -72,18 +72,31 @@ def _release_upstream(response: UpstreamResponse) -> None:
         response.close()
 
 
-def _pop_event(buffer: bytes) -> tuple[bytes, bytes] | None:
-    """Split the first complete SSE event from a byte buffer."""
+class StreamBufferLimitError(ValueError):
+    """Pending SSE data exceeded the process's declared byte budget."""
+
+
+def _require_buffer_budget(size: int) -> None:
+    if size > SSE_BUFFER_MAX_BYTES:
+        raise StreamBufferLimitError("Pending SSE data exceeds its byte budget")
+
+
+def _pop_event(buffer: bytearray, start: int) -> bytes | None:
+    """Remove the first complete event, searching only the newly extended suffix."""
     separators = tuple(
         (index, len(marker))
         for marker in (b"\n\n", b"\r\n\r\n")
-        if (index := buffer.find(marker)) >= 0
+        if (index := buffer.find(marker, start)) >= 0
     )
     if not separators:
+        _require_buffer_budget(len(buffer))
         return None
     index, separator_length = min(separators)
     boundary = index + separator_length
-    return buffer[:boundary], buffer[boundary:]
+    _require_buffer_budget(boundary)
+    event = bytes(buffer[:boundary])
+    del buffer[:boundary]
+    return event
 
 
 def _read_one_stream(
@@ -96,26 +109,30 @@ def _read_one_stream(
     """Relay one upstream stream while withholding retry-safe prelude events."""
     if deadline is None:
         deadline = time.monotonic() + UPSTREAM_TIMEOUT
-    buffer = b""
+    buffer = bytearray()
     event_count = 0
     terminal_event = None
     upstream_detail = "eof"
     upstream_error: BaseException | None = None
     failure_code, upstream_request_id = "unknown", "none"
     wrote_downstream = False
-    prelude: list[bytes] = []
+    prelude = bytearray()
+    prelude_bytes = 0
 
     def emit(data: bytes, *, hold: bool) -> None:
-        nonlocal wrote_downstream
+        nonlocal wrote_downstream, prelude_bytes
         if hold and not wrote_downstream:
-            prelude.append(data)
+            _require_buffer_budget(prelude_bytes + len(data))
+            prelude.extend(b"%X\r\n%s\r\n" % (len(data), data))
+            prelude_bytes += len(data)
             return
         if not wrote_downstream:
             on_first_write()
             wrote_downstream = True
-        for event in chain(prelude, (data,)):
-            handler.wfile.write(b"%X\r\n%s\r\n" % (len(event), event))
+        handler.wfile.write(prelude)
+        handler.wfile.write(b"%X\r\n%s\r\n" % (len(data), data))
         prelude.clear()
+        prelude_bytes = 0
 
     def process_event(event: bytes) -> None:
         nonlocal event_count, terminal_event, upstream_detail, upstream_error
@@ -159,23 +176,31 @@ def _read_one_stream(
                 or time.monotonic() >= deadline
             ):
                 upstream_detail = "deadline"
-            break
+                break
+            chunk = b""
         except Exception as error:
             upstream_error = error
+            chunk = b""
+        search_start = max(0, len(buffer) - 3)
+        buffer.extend(chunk)
+        try:
+            while event := _pop_event(buffer, search_start):
+                process_event(event)
+                search_start = 0
+                if terminal_event is not None or upstream_detail == "projection_failed":
+                    buffer.clear()
+                    break
+            if buffer and not chunk:
+                process_event(bytes(buffer))
+                buffer.clear()
+        except StreamBufferLimitError as error:
+            terminal_event = None
+            upstream_detail, failure_code = "buffer_limit", "stream_buffer_limit"
+            upstream_error = error
+            buffer.clear()
             break
-        if not chunk:
+        if not chunk or terminal_event is not None or upstream_detail == "projection_failed":
             break
-        buffer += chunk
-        while split := _pop_event(buffer):
-            event, buffer = split
-            process_event(event)
-            if terminal_event is not None or upstream_detail == "projection_failed":
-                buffer = b""
-                break
-        if terminal_event is not None or upstream_detail == "projection_failed":
-            break
-    if buffer and upstream_detail != "deadline":
-        process_event(buffer)
     detail = terminal_event.rpartition(".")[2] if terminal_event else upstream_detail
     return {
         "terminal": terminal_event,
@@ -235,7 +260,7 @@ def relay(
         if (
             result["wrote_downstream"]
             or terminal in _CLEAN_TERMINALS
-            or result["detail"] in {"projection_failed", "deadline"}
+            or result["detail"] in {"projection_failed", "deadline", "buffer_limit"}
         ):
             break
         delay = backoffs[min(attempt, len(backoffs) - 1)]

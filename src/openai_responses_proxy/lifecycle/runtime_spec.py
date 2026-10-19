@@ -26,6 +26,7 @@ SCHEMA_VERSION = 1
 _OPTIONAL_DEFAULTS = {
     "request_body_max_bytes": config.DEFAULT_REQUEST_BODY_MAX_BYTES,
     "request_body_timeout": config.DEFAULT_REQUEST_BODY_TIMEOUT,
+    "sse_buffer_max_bytes": config.DEFAULT_SSE_BUFFER_MAX_BYTES,
     "catalog_timeout": config.DEFAULT_CATALOG_TIMEOUT,
     "catalog_max_bytes": config.DEFAULT_CATALOG_MAX_BYTES,
 }
@@ -127,6 +128,7 @@ def _project(value: JsonObject) -> dict[str, str]:
         config.UPSTREAM_READ_TIMEOUT_ENV: str(value["upstream_read_timeout"]),
         config.REQUEST_BODY_MAX_BYTES_ENV: str(value["request_body_max_bytes"]),
         config.REQUEST_BODY_TIMEOUT_ENV: str(value["request_body_timeout"]),
+        config.SSE_BUFFER_MAX_BYTES_ENV: str(value["sse_buffer_max_bytes"]),
         config.CATALOG_TIMEOUT_ENV: str(value["catalog_timeout"]),
         config.CATALOG_MAX_BYTES_ENV: str(value["catalog_max_bytes"]),
         config.WATCHDOG_INTERVAL_ENV: str(value["watchdog_interval"]),
