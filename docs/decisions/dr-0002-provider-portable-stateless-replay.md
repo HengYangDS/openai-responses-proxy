@@ -5,7 +5,7 @@ decision_id: DR-0002
 decision_status: accepted
 state: canonical
 relations:
-    part_of: README.md
+  part_of: README.md
 ---
 
 # DR-0002: Keep Responses Replay Stateless and Provider-Portable

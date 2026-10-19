@@ -5,7 +5,7 @@ decision_id: DR-0004
 decision_status: accepted
 state: canonical
 relations:
-    part_of: README.md
+  part_of: README.md
 ---
 
 # DR-0004: Publish One Signed Product Bundle through Independent Forges

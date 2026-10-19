@@ -3,7 +3,7 @@ subject: openai-responses-proxy:release-and-change-policy
 role: policy
 state: canonical
 relations:
-    part_of: ../README.md
+  part_of: ../README.md
 ---
 
 # Release and Change Policy

@@ -72,6 +72,7 @@ def _formatter_commands(
             "--write" if write else "--check",
             "--config",
             ".config/checks/prettier/prettier.toml",
+            "--no-editorconfig",
             *markdown_yaml,
         ),
         (

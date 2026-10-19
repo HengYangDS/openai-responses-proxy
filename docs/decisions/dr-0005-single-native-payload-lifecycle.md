@@ -5,7 +5,7 @@ decision_id: DR-0005
 decision_status: accepted
 state: canonical
 relations:
-    part_of: README.md
+  part_of: README.md
 ---
 
 # DR-0005: Maintain One Native Payload and Lifecycle Model

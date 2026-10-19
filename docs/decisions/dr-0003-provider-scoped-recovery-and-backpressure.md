@@ -5,7 +5,7 @@ decision_id: DR-0003
 decision_status: accepted
 state: canonical
 relations:
-    part_of: README.md
+  part_of: README.md
 ---
 
 # DR-0003: Isolate Recovery and Backpressure by Provider Route

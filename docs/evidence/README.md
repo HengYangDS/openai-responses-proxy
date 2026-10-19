@@ -3,7 +3,7 @@ subject: openai-responses-proxy:evidence
 role: index
 state: canonical
 relations:
-    part_of: ../README.md
+  part_of: ../README.md
 ---
 
 # Evidence

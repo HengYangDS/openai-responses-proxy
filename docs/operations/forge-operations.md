@@ -3,7 +3,7 @@ subject: openai-responses-proxy:forge-operations
 role: how-to
 state: canonical
 relations:
-    part_of: ../README.md
+  part_of: ../README.md
 ---
 
 # Forge Operations

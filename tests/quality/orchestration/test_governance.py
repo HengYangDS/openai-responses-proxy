@@ -65,6 +65,7 @@ def test_governance_fix_writes_the_inputs_that_audit_checks(mocker: MockerFixtur
             "--write",
             "--config",
             ".config/checks/prettier/prettier.toml",
+            "--no-editorconfig",
             "README.md",
         ),
         ("taplo", "format", "--config", ".config/checks/taplo/taplo.toml", "pyproject.toml"),
@@ -130,6 +131,7 @@ def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
             "--check",
             "--config",
             ".config/checks/prettier/prettier.toml",
+            "--no-editorconfig",
             "README.md",
             ".gitlab-ci.yml",
         ),
@@ -241,3 +243,43 @@ def test_structured_text_formatters_have_disjoint_native_ownership() -> None:
     assert set(scopes["prettier-formatted"]).isdisjoint(scopes["python"])
     assert set(scopes["toml-formatted"]).isdisjoint(scopes["python"])
     assert scopes["cue-formatted"] == ["ci-model"]
+
+
+@pytest.mark.repository_toolchain
+@pytest.mark.parametrize("indent_size", [4, 8])
+@pytest.mark.parametrize("suffix", [".md", ".yaml"])
+def test_native_formatter_isolates_editorconfig_and_preserves_check_inputs(
+    tmp_path: Path, indent_size: int, suffix: str
+) -> None:
+    editorconfig = tmp_path / ".editorconfig"
+    editorconfig_source = (
+        f"root = true\n\n[*]\nindent_style = space\nindent_size = {indent_size}\n"
+        "end_of_line = crlf\n"
+    )
+    editorconfig.write_text(editorconfig_source, encoding="utf-8")
+    metadata = "relations:\n    part_of: ../README.md\n"
+    body = "# Native formatting\n\nA wrapped paragraph\nkeeps its lines.\n\n- One\n- Two\n"
+    original = f"---\n{metadata}---\n\n{body}" if suffix == ".md" else metadata
+    canonical_metadata = "relations:\n  part_of: ../README.md\n"
+    canonical = (
+        f"---\n{canonical_metadata}---\n\n{body}" if suffix == ".md" else canonical_metadata
+    ).encode()
+    document = tmp_path / f"native-format{suffix}"
+    document.write_text(original, encoding="utf-8")
+
+    for write, expected_status in [(False, 1), (True, 0), (True, 0), (False, 0)]:
+        before = document.read_bytes()
+        command = governance._formatter_commands((str(document),), (), write=write)[0]
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert result.returncode == expected_status, result.stdout + result.stderr
+        assert document.read_bytes() == (canonical if write else before)
+    assert document.read_bytes() == canonical
+    assert editorconfig.read_text(encoding="utf-8") == editorconfig_source
