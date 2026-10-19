@@ -164,19 +164,19 @@ def run(*, handoff_child: bool = False) -> int:
         _BOOTSTRAP = bootstrap()
     except (OSError, RuntimeError, ValueError) as exc:
         operational_log.log(
-            f"payload_identity_error exception={operational_log.safe_exception_label(exc)}"
+            f"event=payload_identity_error exception={operational_log.safe_exception_label(exc)}"
         )
         return 2
     try:
         host = runtime_config.listener_host()
         port = runtime_config.listener_port()
     except runtime_config.ConfigurationError as exc:
-        operational_log.log(f"configuration_error exception={exc.__class__.__name__}")
+        operational_log.log(f"event=configuration_error exception={exc.__class__.__name__}")
         return 2
     if handoff_child:
         return handoff.run_child(_handoff_context())
     operational_log.log(
-        f"starting {product_identity.PRODUCT_SLUG} listener={host}:{port} "
+        f"event=listener_starting listener={host}:{port} "
         f"upstream_timeout={exchange.UPSTREAM_TIMEOUT} "
         f"read_timeout={sse.UPSTREAM_READ_TIMEOUT} "
         f"log_max_bytes={operational_log.LOG_MAX_BYTES} "

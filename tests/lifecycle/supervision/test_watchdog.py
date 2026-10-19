@@ -8,6 +8,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import watchdog
 from tests.lifecycle.fixtures import assert_private_log_mode
 
@@ -36,6 +39,55 @@ class TestWatchdogEntrypoint:
 
 
 class TestWatchdogLogging:
+    @pytest.mark.parametrize(
+        ("condition", "event", "detail"),
+        [
+            ("spawned", "listener_spawned", "pid=42"),
+            ("missing", "listener_spawn_refused", "reason=executable_missing"),
+            ("denied", "listener_spawn_failed", "exception=PermissionError"),
+            ("transaction", "listener_start_deferred", "reason=transaction_pending"),
+            ("ownership", "listener_start_refused", "reason=invalid_runtime_ownership"),
+        ],
+    )
+    def test_watchdog_events_identify_actions_without_private_context(
+        self, condition, event, detail, tmp_path, *, mocker
+    ):
+        watchdog = load_watchdog()
+        executable = tmp_path / "private-installation" / "openai-responses-proxy"
+        executable.parent.mkdir()
+        if condition != "missing":
+            executable.write_text("native fixture\n", encoding="utf-8")
+        log_path = tmp_path / "watchdog.log"
+        mocker.patch.object(watchdog, "LOG_PATH", str(log_path))
+        mocker.patch.object(watchdog, "EXECUTABLE", str(executable))
+        mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
+        current = mocker.Mock(executable=str(executable))
+        context = mocker.patch.object(watchdog.runtime_context, "create", return_value=current)
+        mocker.patch.object(
+            watchdog.records,
+            "status",
+            return_value={"state": "prepared"} if condition == "transaction" else None,
+        )
+        popen = mocker.patch.object(watchdog.subprocess, "Popen")
+        popen.return_value.pid = 42
+        if condition == "denied":
+            popen.side_effect = PermissionError("private-credential-context")
+        elif condition == "ownership":
+            context.side_effect = errors.InstallError("private-credential-context")
+
+        watchdog.run(max_iterations=1)
+
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        fields = [dict(field.split("=", 1) for field in line.split()[1:]) for line in lines]
+        assert fields[0]["event"] == "watchdog_started"
+        selected = next(item for item in fields if item["event"] == event)
+        key, value = detail.split("=", 1)
+        assert selected[key] == value
+        assert "private-credential-context" not in "\n".join(lines)
+        assert str(executable.parent) not in "\n".join(lines)
+        if condition in {"transaction", "ownership", "missing"}:
+            popen.assert_not_called()
+
     def test_watchdog_log_is_bounded_and_redacts_secrets(self, *, mocker):
         watchdog = load_watchdog()
         with tempfile.TemporaryDirectory() as directory:

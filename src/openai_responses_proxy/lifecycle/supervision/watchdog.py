@@ -63,7 +63,7 @@ def spawn_proxy(executable: str) -> subprocess.Popen[bytes] | None:
     signals the proxy.
     """
     if not os.path.exists(executable):
-        _log("ERROR installed proxy executable is unavailable")
+        _log("event=listener_spawn_refused reason=executable_missing")
         return None
     try:
         command = [executable, LISTENER_MODE]
@@ -92,19 +92,16 @@ def spawn_proxy(executable: str) -> subprocess.Popen[bytes] | None:
                 env=environment,
                 start_new_session=True,
             )
-        _log(f"spawned proxy pid={proc.pid}")
+        _log(f"event=listener_spawned pid={proc.pid}")
         return proc
     except OSError as exc:
-        _log(f"ERROR failed to spawn proxy: {exc.__class__.__name__}")
+        _log(f"event=listener_spawn_failed exception={exc.__class__.__name__}")
         return None
 
 
 def run(max_iterations: int | None = None) -> None:
     """Resident supervise loop. ``max_iterations`` bounds the loop for testing."""
-    _log(
-        f"watchdog starting: guard {HOST}:{PORT} every {CHECK_INTERVAL}s "
-        f"executable={Path(EXECUTABLE).name}"
-    )
+    _log(f"event=watchdog_started guard={HOST}:{PORT} interval_seconds={CHECK_INTERVAL}")
     consecutive_failures = 0
     iterations = 0
     children: list[subprocess.Popen[bytes]] = []
@@ -120,12 +117,12 @@ def run(max_iterations: int | None = None) -> None:
                 transaction = records.status(ctx)
             except errors.InstallError:
                 transaction = {"state": "invalid"}
-                _log("ERROR installed runtime ownership is invalid; refusing to start")
+                _log("event=listener_start_refused reason=invalid_runtime_ownership")
             if transaction is not None and transaction.get("state") != "activated":
                 available = True
-                _log("payload transaction owns runtime startup; watchdog is waiting")
+                _log("event=listener_start_deferred reason=transaction_pending")
         if not available:
-            _log(f"proxy unavailable on {HOST}:{PORT} — starting it")
+            _log(f"event=listener_start_requested guard={HOST}:{PORT}")
             if child := spawn_proxy(executable):
                 children.append(child)
             consecutive_failures += 1

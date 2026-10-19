@@ -144,6 +144,15 @@ class TestListenerEntrypoint:
         )
         assert entrypoint.run() == 0
         log.assert_called_once()
+        fields = dict(field.split("=", 1) for field in log.call_args.args[0].split())
+        assert fields["event"] == "listener_starting"
+        assert "listener" in fields
+        assert {
+            "upstream_timeout",
+            "read_timeout",
+            "log_max_bytes",
+            "log_backup_count",
+        } <= fields.keys()
         serve.assert_called_once_with(listener, context)
         listener.server_close.assert_called_once_with()
         assert entrypoint._SERVER_INSTANCE is listener
@@ -161,7 +170,7 @@ class TestListenerEntrypoint:
         assert entrypoint.run() == 2
 
         create_server.assert_not_called()
-        log.assert_called_once_with("configuration_error exception=ConfigurationError")
+        log.assert_called_once_with("event=configuration_error exception=ConfigurationError")
 
     def test_invalid_payload_exits_without_reading_runtime_configuration(self, *, mocker) -> None:
         mocker.patch.object(entrypoint, "bootstrap", side_effect=RuntimeError("untrusted"))
@@ -171,7 +180,7 @@ class TestListenerEntrypoint:
         assert entrypoint.run() == 2
 
         listener_port.assert_not_called()
-        log.assert_called_once_with("payload_identity_error exception=RuntimeError")
+        log.assert_called_once_with("event=payload_identity_error exception=RuntimeError")
 
     def test_created_server_owns_the_exact_provider_registry(self, *, mocker) -> None:
         providers = mocker.sentinel.providers

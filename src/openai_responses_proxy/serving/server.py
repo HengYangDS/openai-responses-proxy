@@ -96,7 +96,8 @@ class ResilientProxyServer(ThreadingHTTPServer):
         error = sys.exception()
         if isinstance(error, (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)):
             operational_log.log(
-                f"client_closed_mid_request exception={operational_log.safe_exception_label(error)}"
+                f"event=client_closed_mid_request "
+                f"exception={operational_log.safe_exception_label(error)}"
             )
             return
         super().handle_error(cast(ServerRequest, request), cast(ClientAddress, client_address))

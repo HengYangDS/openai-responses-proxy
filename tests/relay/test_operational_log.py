@@ -6,13 +6,61 @@ import tempfile
 import urllib.error
 from pathlib import Path
 
+import pytest
+
 from openai_responses_proxy.relay import operational_log
+from openai_responses_proxy.relay import sse
 from tests.lifecycle.fixtures import assert_private_log_mode
+from tests.relay.fixtures import DirectResponse
+from tests.relay.fixtures import MemoryHandler
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class RuntimeLoggingTests:
+    @pytest.mark.parametrize(
+        ("raw", "event", "detail"),
+        [
+            (
+                b'data: {"type":"response.completed","response":{"private":"prompt-secret"}}\n\n',
+                "sse_terminal",
+                "terminal=response.completed",
+            ),
+            (
+                OSError("private-transport-secret"),
+                "sse_end_without_terminal",
+                "exception=OSError",
+            ),
+        ],
+    )
+    def test_stream_events_correlate_outcomes_without_payloads(
+        self, raw, event, detail, tmp_path, *, mocker
+    ) -> None:
+        log_path = tmp_path / "proxy.log"
+        mocker.patch.object(operational_log, "LOG_PATH", str(log_path))
+        mocker.patch.object(operational_log.sys.stderr, "write")
+
+        sse.relay(
+            MemoryHandler(),
+            DirectResponse(raw),
+            "/upstream/v1/responses?token=private-query-secret",
+            71,
+        )
+
+        text = log_path.read_text(encoding="utf-8")
+        fields = [
+            dict(field.split("=", 1) for field in line.split()[1:]) for line in text.splitlines()
+        ]
+        selected = next(item for item in fields if item["event"] == event)
+        key, value = detail.split("=", 1)
+        assert selected[key] == value
+        assert selected["req"] == "71"
+        assert selected["path"] == "/upstream/v1/responses"
+        assert "events" in selected
+        assert "prompt-secret" not in text
+        assert "private-transport-secret" not in text
+        assert "private-query-secret" not in text
+
     def test_labels_and_paths_never_expose_caller_controlled_values(self, *, mocker) -> None:
         assert (
             operational_log.safe_request_path("/v1/private path?secret=value") == "/v1/private_path"

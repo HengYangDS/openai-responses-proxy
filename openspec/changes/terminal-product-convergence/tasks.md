@@ -125,7 +125,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 12.1 Benchmark startup, steady request latency, streaming first-event latency, memory, concurrency, handoff interruption, install, update, rollback, and recovery using reproducible inputs; establish risk-derived budgets.
 - [ ] 12.2 Profile hot paths and remove accidental allocations, repeated parsing, redundant serialization, duplicate network work, polling churn, and unnecessary subprocesses without changing portable semantics.
 - [ ] 12.3 Threat-model local listener exposure, upstream credentials, request and response logging, temporary assets, signature trust, update supply chain, native service ownership, and transaction recovery; close every high-severity gap.
-- [ ] 12.4 Verify logs are structured, bounded, redacted, rotation-aware, and operationally useful; introduce no logging framework unless it replaces more complexity than it adds.
+- [x] 12.4 Verify logs are structured, bounded, redacted, rotation-aware, and operationally useful; introduce no logging framework unless it replaces more complexity than it adds. Evidence: `test-ownership-20261019/log-expanded-green.log` (37 passed, 11 subtests) covers watchdog, serving, relay, and bounded-log paths; all production events use the existing bounded logger.
 - [ ] 12.5 Inject network failure, malformed Provider response, interrupted handoff, killed controller, disk error, locked Windows file, stale service, PID reuse, and invalid journal; verify bounded failure and exact recovery without data or host pollution.
 
 ## 13. Destructive Cleanup and Terminal Closeout
