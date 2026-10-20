@@ -51,6 +51,10 @@ conversation or reads another product's configuration.
 
 ## Semantic packages
 
+The product lives under [`src/openai_responses_proxy`](../../src/openai_responses_proxy/).
+The [architecture policy](../../.config/checks/architecture/policy.toml) owns
+admitted package boundaries and dependency directions; this view explains them.
+
 ```mermaid
 flowchart TD
     CLI["cli"] --> LIFE["lifecycle"]
@@ -59,19 +63,62 @@ flowchart TD
     SERVING --> RELAY["relay"]
     RELAY --> PROTOCOL["protocol"]
     RELAY --> PROVIDERS["providers"]
+    LIFE --> RUNTIME["runtime"]
+    SERVING --> RUNTIME
+    RELAY --> RUNTIME
 ```
 
-| Package     | Owns                                                                         |
-| ----------- | ---------------------------------------------------------------------------- |
-| `cli`       | Public grammar, command composition, human/JSON selection                    |
-| `providers` | Manifest-defined routes and optional pure policies                           |
-| `protocol`  | Closed provider-portable request and response grammar                        |
-| `relay`     | Admission, upstream exchange, retries, cooldown, SSE and HTTP integrity      |
-| `serving`   | Listener process, health, structured logs, control and handoff protocol      |
-| `lifecycle` | Artifact trust, payload transaction, supervision, install, reload, uninstall |
+| Package     | Owns                                                                            |
+| ----------- | ------------------------------------------------------------------------------- |
+| `cli`       | Public grammar, command composition, human/JSON selection                       |
+| `lifecycle` | Artifact trust, payload transactions, installed settings and native supervision |
+| `serving`   | Listener identity, health, structured logs, control and handoff protocol        |
+| `relay`     | Request admission, upstream exchange, retries, cooldown, SSE and HTTP integrity |
+| `protocol`  | Portable replay, tool relationships, delegation and live-response grammar       |
+| `providers` | Manifest-defined routes and explicit wire policies                              |
+| `runtime`   | Portable paths, validated process settings, environment and bounded I/O         |
 
-Dependencies point toward semantic owners. No package may infer provider
-behavior from a name when the manifest or explicit policy contract owns it.
+The diagram shows principal dependencies, not every import. Protocol and
+provider declarations do not perform lifecycle effects. Runtime primitives
+serve the effectful domains without depending on them. Lifecycle owns the
+installed configuration carrier; runtime validates its process-level projection.
+Product-root modules own identity, errors and JSON value types rather than a
+second domain registry.
+
+Nested boundaries retain the same direction: lifecycle transactions own
+admission, completion and restart recovery; deployment owns activation and
+handoff; supervision owns native service and process control. Serving handoff
+owns listener-transfer state, distinct from installation mutation. Protocol
+replay owns portable items and relationships; protocol recovery owns permitted
+request reduction, while relay owns deadlines and transport attempts. Provider
+policies supply explicit wire differences selected by the manifest.
+
+No package may infer provider behavior from a name when the manifest or explicit
+policy contract owns it.
+
+## Repository-only domains
+
+[`tools`](../../tools/) composes development and delivery operations outside the
+released runtime. Product code never imports it or the test tree. Tool domains
+may consume product contracts and lower-level repository owners, but may not
+form dependency cycles or import test fixtures.
+
+| Domain        | Owns                                                           | Boundary                                               |
+| ------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
+| `ci`          | CUE projection and hosted branch-proof evaluation              | Renders peer workflows; does not publish branches      |
+| `forge`       | Runner admission and read-only exact-object parity             | Observes peers; ETHOS owns branch and tag writes       |
+| `governance`  | Bounded reads of the native ETHOS command plane                | Consumes decisions without reconstructing policy       |
+| `quality`     | Native check composition and repository-specific contracts     | Uses declared scopes and original tool reports         |
+| `performance` | Reproducible latency and memory measurements and budget checks | Measures product behavior without provider latency     |
+| `release`     | Metadata, trust, artifact construction and Release publication | Publishers consume an immutable pre-signed bundle      |
+| `reliability` | Secret-free evaluation of installed status observations        | Reads supplied evidence; does not control the listener |
+
+Release construction belongs to `release/artifact`; `release/publication`
+composes publication and verification, with each Forge's read and write effects
+in its own adapter. The shared Git environment module binds repository commands
+without becoming another workflow controller. Tests follow these product and
+tool boundaries; native distribution cases remain separate from source-only
+contracts.
 
 ## Provider routing
 

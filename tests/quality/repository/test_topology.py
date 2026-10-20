@@ -37,6 +37,22 @@ def test_current_product_architecture_is_acyclic_and_directional() -> None:
     assert architecture_gaps(ROOT) == []
 
 
+def test_architecture_reference_covers_declared_product_domains() -> None:
+    policy = tomllib.loads(
+        (ROOT / ".config/checks/architecture/policy.toml").read_text(encoding="utf-8")
+    )
+    reference = (ROOT / "docs/architecture/authority-and-runtime-boundary.md").read_text(
+        encoding="utf-8"
+    )
+    section = reference.split("## Semantic packages\n", 1)[1].split("\n## ", 1)[0]
+    documented = {
+        line.split("|", 2)[1].strip().strip("`")
+        for line in section.splitlines()
+        if line.startswith("| `")
+    }
+    assert documented == set(policy["allowed_package_edges"]) - set(policy["package_root_modules"])
+
+
 def test_cli_is_the_only_production_command_composition_root() -> None:
     package = ROOT / "src/openai_responses_proxy"
     argparse_owners = []
