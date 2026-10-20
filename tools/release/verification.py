@@ -143,10 +143,19 @@ def reclaim(root: Path, contexts: Path) -> None:
             raise errors.InstallError("native test context ownership changed")
     failures: list[Exception] = []
     for ctx in retained.values():
+        failures_before = len(failures)
         try:
             if records.status(ctx) is not None:
                 control.recover(ctx)
+        except Exception as error:
+            failures.append(error)
+        try:
             cleanup_runtime(ctx)
+        except Exception as error:
+            failures.append(error)
+        if len(failures) != failures_before:
+            continue
+        try:
             uninstall.uninstall_product(ctx, purge=True)
         except Exception as error:
             failures.append(error)

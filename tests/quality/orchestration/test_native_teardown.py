@@ -388,3 +388,32 @@ def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
     assert raised.value is denied
     terminate.assert_called_once_with(41, expected_path=str(wrapper))
     assert runtime_exit.call_args.args == (73, ctx.executable)
+
+
+@pytest.mark.parametrize("boundary", ["status", "recover"])
+def test_teardown_stops_exact_runtime_after_transaction_recovery_failure(
+    tmp_path: Path, mocker, boundary: str
+) -> None:
+    """A recovery refusal preserves files without abandoning independent runtime stops."""
+    root = tmp_path / "owned"
+    root.mkdir()
+    ctx = runtime_context_for(root / "home", root / "payload", root / "state", 43210)
+    contexts = tmp_path / "contexts.jsonl"
+    original = json.dumps(asdict(ctx)) + "\n"
+    contexts.write_text(original)
+    denied = errors.InstallError("transaction recovery is unproved")
+    mocker.patch.object(verification.records, "status", return_value={"state": "pending"})
+    mocker.patch.object(verification.control, "recover")
+    selected = verification.records if boundary == "status" else verification.control
+    mocker.patch.object(selected, boundary, side_effect=denied)
+    stop = mocker.patch.object(verification, "cleanup_runtime")
+    purge = mocker.patch.object(verification.uninstall, "uninstall_product")
+
+    with pytest.raises(errors.InstallError, match="scratch preserved") as raised:
+        verification.reclaim(root, contexts)
+
+    assert raised.value.__cause__ is denied
+    stop.assert_called_once_with(ctx)
+    purge.assert_not_called()
+    assert root.is_dir()
+    assert contexts.read_text() == original
