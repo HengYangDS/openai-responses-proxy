@@ -29,8 +29,8 @@ import "strings"
 // The invoking ETHOS identity selects one native source build on each runner.
 #EthosSupply: {
 	source: "https://github.com/HengYangDS/ethos.git"
-	commit: "f726c249ab4e362c84835aabc87605a434b66919"
-	tree:   "951897502bb194c04ad14ab14fb06fed69cc50e6"
+	commit: "92253d2a82560173f5c645cca419e5f302a11718"
+	tree:   "ed29cbe27e0412ae82f4fe90dd18622cb69d62df"
 	root:   "build/runtime/ethos-source"
 	linuxPackages: ["curl", "ca-certificates", "libatomic1"]
 	linuxInstall: "apt-get install -qq -y --no-install-recommends " + strings.Join(#EthosSupply.linuxPackages, " ")

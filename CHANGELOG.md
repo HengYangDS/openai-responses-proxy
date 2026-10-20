@@ -8,6 +8,11 @@ publication authority.
 
 ## [Unreleased]
 
+### Security
+
+- Upgrade the locked developer and CI uv executors to 0.13.4, removing the
+  compromised emSign CA trust covered by GHSA-hq85-5cpj-mr62.
+
 ### Added
 
 - Every successful `--json` result carries `next`: the one safe follow-up

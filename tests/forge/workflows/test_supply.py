@@ -22,6 +22,30 @@ from tools.ci.project import render
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
 
 
+def test_uv_consumers_share_the_integrity_locked_version() -> None:
+    toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())
+    lock = tomllib.loads((ROOT / ".config/mise/mise.lock").read_text())
+    uv_config = tomllib.loads((ROOT / ".config/mise/uv.toml").read_text())
+    version = toolchain["tools"]["uv"]
+    (locked,) = lock["tools"]["uv"]
+    assert locked["version"] == version
+    assert locked["specifiers"] == [version]
+    assert uv_config["required-version"] == f"=={version}"
+    for name, platform in locked.items():
+        if not name.startswith("platforms."):
+            continue
+        assert f"/releases/download/{version}/" in platform["url"]
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", platform["checksum"])
+        assert platform["provenance"] == "github-attestations"
+    variables = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")["variables"])
+    for name, python in (("FLOOR", "3.12"), ("LATEST", "3.14")):
+        assert re.fullmatch(
+            rf"ghcr.io/astral-sh/uv:{re.escape(version)}-python{re.escape(python)}"
+            r"-trixie-slim@sha256:[0-9a-f]{64}",
+            _string(variables[f"UV_PYTHON_{name}_IMAGE"]),
+        )
+
+
 @pytest.mark.repository_toolchain
 def test_github_actions_consume_one_immutable_toolchain_catalog() -> None:
     """Keep action identity and revision in one CUE-owned declaration."""

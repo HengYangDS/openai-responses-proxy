@@ -117,9 +117,9 @@ jobs:
       - name: Select the exact native ETHOS source
         run: git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
       - name: Select the exact native ETHOS source
-        run: git -C build/runtime/ethos-source checkout --detach f726c249ab4e362c84835aabc87605a434b66919
+        run: git -C build/runtime/ethos-source checkout --detach 92253d2a82560173f5c645cca419e5f302a11718
       - name: Select the exact native ETHOS source
-        run: git -C build/runtime/ethos-source diff --exit-code 951897502bb194c04ad14ab14fb06fed69cc50e6 HEAD --
+        run: git -C build/runtime/ethos-source diff --exit-code ed29cbe27e0412ae82f4fe90dd18622cb69d62df HEAD --
       - name: Prepare locked native ETHOS supply and external commit trust
         run: uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
       - name: Prepare locked native ETHOS supply and external commit trust
