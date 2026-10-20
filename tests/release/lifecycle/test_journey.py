@@ -18,7 +18,6 @@ from openai_responses_proxy.lifecycle.transaction import execution as payload_tr
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from tests.release.fixtures import ROOT
-from tests.release.fixtures import cleanup_runtime
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import post_response
 from tests.release.fixtures import preserve_native_host_projection
@@ -30,6 +29,7 @@ from tests.release.fixtures import stop_native_supervision
 from tests.release.fixtures import write_predecessor_native_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
+from tools.release.verification import cleanup_runtime
 
 pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),

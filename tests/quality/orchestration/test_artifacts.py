@@ -164,6 +164,20 @@ def test_wheel_build_uses_an_external_ephemeral_cache(
     assert session.run_install.call_args.kwargs == {"external": True}
 
 
+def test_wheel_build_refuses_a_cache_inside_the_source_checkout(
+    tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
+) -> None:
+    """A cache cannot contaminate the source inventory used to build its wheel."""
+    session = mocker.Mock()
+    cache = mocker.Mock()
+    cache.__enter__ = mocker.Mock(return_value=str(ROOT / "cache"))
+    cache.__exit__ = mocker.Mock(return_value=False)
+    mocker.patch.object(nox_configuration, "TemporaryDirectory", return_value=cache)
+    with pytest.raises(RuntimeError, match="outside the source checkout"):
+        nox_configuration._build_wheel(session, tmp_path)
+    session.run_install.assert_not_called()
+
+
 @pytest.mark.parametrize("wheel_count", [0, 2])
 def test_wheel_build_requires_one_unambiguous_artifact(
     wheel_count: int,
@@ -217,10 +231,11 @@ def test_release_compatibility_requires_real_predecessor_inputs_before_build(
     else:
         nox_configuration.release_compatibility(session)
         session.run.assert_called_once()
-        assert session.run.call_args.args == (
+        assert session.run.call_args.args[:-1] == (
             *nox_configuration.PYTEST_COMMAND,
             "tests/release/compatibility",
         )
+        assert session.run.call_args.args[-1].startswith("--basetemp=")
         environment = session.run.call_args.kwargs["env"]
         assert environment[
             nox_configuration.product_identity.environment_name("PREVIOUS_RELEASE_ASSET")
@@ -250,8 +265,8 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
         monkeypatch.setenv(nox_configuration.product_identity.environment_name(suffix), str(path))
     executable = tmp_path / "bundle" / "openai-responses-proxy"
     materialize = mocker.patch.object(
-        nox_configuration,
-        "_materialize_published_bundle",
+        nox_configuration.verification,
+        "materialize_published_bundle",
         return_value=(executable.parent, executable),
     )
     wheel = tmp_path / "product.whl"
@@ -259,7 +274,8 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
     install = mocker.patch.object(nox_configuration, "_install_wheel")
     assert_installed = mocker.patch.object(nox_configuration, "_assert_installed_product")
     native_build = mocker.patch.object(nox_configuration, "_build_native_candidate")
-    session = mocker.Mock(posargs=["--basetemp=/short/proxy-test"])
+    test_root = tmp_path / "proxy-test"
+    session = mocker.Mock(posargs=[f"--basetemp={test_root}"])
     session.create_tmp.return_value = str(tmp_path / "work")
 
     nox_configuration.published_release_compatibility(session)
@@ -275,7 +291,13 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
     install.assert_called_once_with(session, wheel)
     assert_installed.assert_called_once_with(session, tmp_path / "work")
     native_build.assert_not_called()
-    materialize.assert_called_once_with(session, current, trust, tmp_path / "work")
+    materialize.assert_called_once_with(
+        session,
+        current,
+        trust,
+        tmp_path / "work",
+        version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
+    )
     proof = session.run.call_args_list[-1]
     assert proof.args == (
         *nox_configuration.PYTEST_COMMAND,
@@ -284,7 +306,7 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
         "tests/relay/native/test_recovery.py",
         "tests/release/lifecycle",
         "tests/release/compatibility",
-        "--basetemp=/short/proxy-test",
+        f"--basetemp={test_root}",
     )
     environment = proof.kwargs["env"]
     assert environment[nox_configuration.product_identity.environment_name("EXECUTABLE")] == str(
@@ -313,16 +335,17 @@ def test_published_bundle_must_match_the_checked_out_release_version(
     released = mocker.Mock()
     released.version = "0.0.0"
     released.receipt = {"platform": _select_released_host(mocker, nox_configuration)}
-    mocker.patch.object(nox_configuration.artifact, "admit", return_value=released)
+    mocker.patch.object(nox_configuration.verification.artifact, "admit", return_value=released)
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))
 
     with pytest.raises(RuntimeError, match="version does not match"):
-        nox_configuration._materialize_published_bundle(
+        nox_configuration.verification.materialize_published_bundle(
             session,
             tmp_path / "current.tar.gz",
             tmp_path / "allowed-signers",
             tmp_path / "work",
+            version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
         )
 
     released.peek_blobs.assert_not_called()
@@ -339,16 +362,17 @@ def test_published_bundle_must_match_the_native_platform(
         version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
         receipt={"platform": "unsupported-platform"},
     )
-    mocker.patch.object(nox_configuration.artifact, "admit", return_value=released)
+    mocker.patch.object(nox_configuration.verification.artifact, "admit", return_value=released)
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))
 
     with pytest.raises(RuntimeError, match="native host"):
-        nox_configuration._materialize_published_bundle(
+        nox_configuration.verification.materialize_published_bundle(
             session,
             tmp_path / "current.tar.gz",
             tmp_path / "allowed-signers",
             tmp_path / "work",
+            version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
         )
 
     released.peek_blobs.assert_not_called()
@@ -376,7 +400,7 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
         receipt={"platform": platform_id},
     )
     released.peek_blobs.return_value = tuple(blobs)
-    mocker.patch.object(nox_configuration.artifact, "admit", return_value=released)
+    mocker.patch.object(nox_configuration.verification.artifact, "admit", return_value=released)
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))
     work = tmp_path / "work"
@@ -384,19 +408,21 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
 
     if not include_executable:
         with pytest.raises(RuntimeError, match="executable was not materialized"):
-            nox_configuration._materialize_published_bundle(
+            nox_configuration.verification.materialize_published_bundle(
                 session,
                 tmp_path / "current.tar.gz",
                 tmp_path / "allowed-signers",
                 work,
+                version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
             )
         return
 
-    bundle, executable = nox_configuration._materialize_published_bundle(
+    bundle, executable = nox_configuration.verification.materialize_published_bundle(
         session,
         tmp_path / "current.tar.gz",
         tmp_path / "allowed-signers",
         work,
+        version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
     )
 
     assert bundle == work / "published-release" / "bin"

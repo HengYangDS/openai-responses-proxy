@@ -31,6 +31,7 @@ from tests.release.compatibility.fixtures import renamed_product_lifecycle
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
 from tests.serving.handoff.fixtures import wait_until
+from tools.release import verification
 
 pytestmark = [
     pytest.mark.native_distribution,
@@ -106,7 +107,7 @@ class TestPublishedPredecessorCompatibility:
 
         with ExitStack() as cleanups:
             cleanups.callback(upstream.close)
-            cleanups.callback(native_release.cleanup_runtime, ctx)
+            cleanups.callback(verification.cleanup_runtime, ctx)
 
             installed = native_release.run_command(
                 previous_executable,
@@ -517,7 +518,7 @@ class TestPublishedPredecessorCompatibility:
                 "--json",
             )
             assert reloaded["new_pid"] != after_runtime.get("pid")
-            owned_contexts = (*native_release.owned_runtime_contexts(ctx), ctx)
+            owned_contexts = (*verification.owned_runtime_contexts(ctx), ctx)
             removed = native_release.run_command(
                 current_executable,
                 environment,

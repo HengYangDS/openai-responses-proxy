@@ -21,7 +21,6 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from tests.release.fixtures import ROOT
-from tests.release.fixtures import cleanup_runtime
 from tests.release.fixtures import legacy_published_bundle
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import post_response
@@ -32,6 +31,7 @@ from tests.release.fixtures import signing_inputs
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
 from tests.serving.handoff.fixtures import wait_until
+from tools.release.verification import cleanup_runtime
 
 
 def _required_path(variable: str) -> Path:

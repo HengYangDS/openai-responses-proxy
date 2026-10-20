@@ -12,12 +12,10 @@ import subprocess
 import sys
 import tarfile
 import urllib.request
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -29,6 +27,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
+from tools.release import verification
 from tools.release.artifact import bundle as release_assembly
 from tools.release.artifact import format as product_assets
 from tools.release.artifact import signing
@@ -256,7 +255,7 @@ def runtime_context_for(
     )
     windows = platform.system() == "Windows"
 
-    return runtime_context.RuntimeContext(
+    ctx = runtime_context.RuntimeContext(
         user_home=str(home),
         install_dir=str(install),
         executable=inventory.installed_executable(str(install), windows=windows),
@@ -264,6 +263,8 @@ def runtime_context_for(
         log_dir=str(state),
         port=port,
     )
+    verification.retain_context(ctx)
+    return ctx
 
 
 def native_service_projection(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
@@ -325,7 +326,7 @@ def stop_native_supervision(
         carrier.chmod(mode)
     if keep_runtime:
         return
-    for owned_ctx in _process_contexts(ctx):
+    for owned_ctx in verification.owned_process_contexts(ctx):
         service.terminate_runtime(owned_ctx, timeout_seconds=5.0)
 
 
@@ -343,74 +344,6 @@ def write_predecessor_native_projection(ctx: runtime_context.RuntimeContext) -> 
             "# Rendered by a predecessor installer\n" + unit.read_text(encoding="utf-8"),
             encoding="utf-8",
         )
-
-
-def owned_runtime_contexts(
-    ctx: runtime_context.RuntimeContext,
-) -> tuple[runtime_context.RuntimeContext, ...]:
-    """Return every payload context still owned by one stable installation root."""
-    return generation.owned_contexts(ctx) or (ctx,)
-
-
-def _process_contexts(
-    ctx: runtime_context.RuntimeContext,
-) -> tuple[runtime_context.RuntimeContext, ...]:
-    """Include selected, unselected, and legacy executable identities for teardown."""
-    contexts = (*owned_runtime_contexts(ctx), ctx)
-    unique: dict[str, runtime_context.RuntimeContext] = {}
-    for owned_ctx in contexts:
-        unique.setdefault(owned_ctx.executable, owned_ctx)
-    return tuple(unique.values())
-
-
-def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = None) -> None:
-    """Stop only processes and launch configuration owned by an isolated test."""
-    service = native_service.adapter()
-    owned_contexts = _process_contexts(ctx)
-    configured = service.configured_executable(ctx)
-    process_contexts = owned_contexts
-    if configured is not None and all(
-        os.path.normcase(os.path.abspath(owned_ctx.executable))
-        != os.path.normcase(os.path.abspath(configured))
-        for owned_ctx in process_contexts
-    ):
-        configured_path = Path(configured).resolve()
-        install_root = Path(ctx.install_dir).resolve()
-        assert configured_path.is_relative_to(install_root), (
-            "native service executable is outside the owned installation"
-        )
-        process_contexts = (*process_contexts, replace(ctx, executable=configured))
-    failure: Exception | None = None
-    try:
-        service.uninstall(ctx)
-        assert service.status(ctx) == "absent"
-    except Exception as error:
-        failure = error
-    finally:
-        if wrapper is not None:
-            for pid in process.pids_naming_path(str(wrapper)):
-                try:
-                    if not process.terminate_pid(pid, expected_path=str(wrapper)):
-                        raise errors.InstallError("test wrapper exit is unproved")
-                except errors.InstallError as error:
-                    failure = failure or error
-        for owned_ctx in process_contexts:
-            for pid in process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES):
-                try:
-                    if not process.terminate_executable(
-                        pid, owned_ctx.executable, roles=_SERVICE_ROLES
-                    ):
-                        raise errors.InstallError("test runtime process exit is unproved")
-                except errors.InstallError as error:
-                    failure = failure or error
-    if failure is not None:
-        raise failure
-    assert service.status(ctx) == "absent"
-    assert service.configured_executable(ctx) is None
-    assert all(
-        process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES) == []
-        for owned_ctx in process_contexts
-    )
 
 
 def signing_inputs(root: Path) -> tuple[Path, str, Path]:

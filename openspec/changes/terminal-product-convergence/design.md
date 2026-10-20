@@ -176,11 +176,11 @@ private executable roles live in `serving/roles.py`.
 Lifecycle control tests follow status, recovery, reload, rollback and uninstall
 semantics; loopback transport belongs to runtime tests. Their shared installed
 listener evidence stays in the existing lifecycle fixture, not an umbrella test
-class or another fixture framework. Pytest owns temporary test directories and
-retires them through its native retention policy; tests do not allocate unowned
-`mkdtemp` roots. Explicit per-operation output roots retain their own cleanup
-owner, and required failure evidence is copied to source-bound verification
-output before scratch retirement.
+class or another fixture framework. Nox's release verification owner claims a
+fresh pytest root and retains exact native contexts outside the Nox environment
+before installation. It recovers and purges recorded installations after child
+exit, preserving custody on failure. Pytest retains its native temporary policy;
+required evidence is preserved before proved-owned scratch retirement.
 
 ### Positive topology is the architecture authority
 

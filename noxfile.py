@@ -11,24 +11,28 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from pathlib import PurePosixPath
 from tempfile import TemporaryDirectory
+from types import ModuleType
 
 import nox
 
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.lifecycle import artifact
 
 ROOT = Path(__file__).parent.resolve()
-_python_quality_loader = importlib.machinery.SourceFileLoader(
-    "proxy_python_quality", str(ROOT / "tools/quality/python.py")
-)
-_python_quality_spec = importlib.machinery.ModuleSpec(
-    _python_quality_loader.name, _python_quality_loader, origin=_python_quality_loader.path
-)
-_python_quality_spec.has_location = True
-python_quality = importlib.util.module_from_spec(_python_quality_spec)
-_python_quality_loader.exec_module(python_quality)
+
+
+def _load_repository_module(name: str, relative: str) -> ModuleType:
+    """Load repository orchestration without an ambient import search path."""
+    loader = importlib.machinery.SourceFileLoader(name, str(ROOT / relative))
+    spec = importlib.machinery.ModuleSpec(loader.name, loader, origin=loader.path)
+    spec.has_location = True
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+python_quality = _load_repository_module("proxy_python_quality", "tools/quality/python.py")
+verification = _load_repository_module("proxy_native_verification", "tools/release/verification.py")
 PYTHONS = tuple((ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines())
 MIN_PYTHON, *_, MAX_PYTHON = PYTHONS
 RELEASE_PYTHON = (ROOT / ".config/mise/python-release").read_text(encoding="utf-8").strip()
@@ -227,13 +231,17 @@ def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> Non
         product_identity.environment_name("EXECUTABLE"): str(executable),
         product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
     }
-    session.run(
-        *PYTEST_COMMAND,
-        "tests/cli/test_interface.py",
-        *lifecycle_cases,
-        "tests/serving/handoff/subprocess",
-        "tests/relay/native/test_recovery.py",
-        env=environment,
+    verification.accept(
+        session,
+        (
+            *PYTEST_COMMAND,
+            "tests/cli/test_interface.py",
+            *lifecycle_cases,
+            "tests/serving/handoff/subprocess",
+            "tests/relay/native/test_recovery.py",
+        ),
+        work=ROOT / "build" / "native-verification",
+        environment=environment,
     )
     _package_release_asset(session, bundle, work)
 
@@ -271,10 +279,14 @@ def release_compatibility(session: nox.Session) -> None:
         "published predecessor trust anchor",
     )
     _work, bundle, executable = _build_native_candidate(session)
-    session.run(
-        *PYTEST_COMMAND,
-        "tests/release/compatibility",
-        env={
+    verification.accept(
+        session,
+        (
+            *PYTEST_COMMAND,
+            "tests/release/compatibility",
+        ),
+        work=ROOT / "build" / "native-verification",
+        environment={
             **_environment(),
             product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
             product_identity.environment_name("NATIVE_BUNDLE"): str(bundle),
@@ -310,16 +322,26 @@ def published_release_compatibility(session: nox.Session) -> None:
     wheel = _build_wheel(session, work)
     _install_wheel(session, wheel)
     _assert_installed_product(session, work)
-    bundle, executable = _materialize_published_bundle(session, current_asset, trust, work)
-    session.run(
-        *PYTEST_COMMAND,
-        "tests/cli/test_interface.py",
-        "tests/serving/handoff/subprocess",
-        "tests/relay/native/test_recovery.py",
-        "tests/release/lifecycle",
-        "tests/release/compatibility",
-        *session.posargs,
-        env={
+    bundle, executable = verification.materialize_published_bundle(
+        session,
+        current_asset,
+        trust,
+        work,
+        version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
+    )
+    verification.accept(
+        session,
+        (
+            *PYTEST_COMMAND,
+            "tests/cli/test_interface.py",
+            "tests/serving/handoff/subprocess",
+            "tests/relay/native/test_recovery.py",
+            "tests/release/lifecycle",
+            "tests/release/compatibility",
+            *session.posargs,
+        ),
+        work=ROOT / "build" / "native-verification",
+        environment={
             **_environment(),
             product_identity.environment_name("EXECUTABLE"): str(executable),
             product_identity.environment_name("NATIVE_EXECUTABLE"): str(executable),
@@ -328,35 +350,6 @@ def published_release_compatibility(session: nox.Session) -> None:
             product_identity.environment_name("PREVIOUS_RELEASE_TRUST_ANCHOR"): str(previous_trust),
         },
     )
-
-
-def _materialize_published_bundle(
-    session: nox.Session,
-    release_asset: Path,
-    trust_anchor: Path,
-    work: Path,
-) -> tuple[Path, Path]:
-    """Materialize one verified published bundle for native execution."""
-    released = artifact.admit(release_asset, trust_anchor=trust_anchor)
-    expected_version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
-    if released.version != expected_version:
-        session.error("published release asset version does not match the checkout")
-    expected_platform = product_identity.native_release_platform(
-        platform.system(), platform.machine()
-    )
-    if released.receipt.get("platform") != expected_platform:
-        session.error("published release asset does not match the native host")
-    bundle = work / "published-release"
-    bundle.mkdir()
-    for blob in released.peek_blobs():
-        target = bundle.joinpath(*PurePosixPath(blob.path).parts)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(blob.content)
-        target.chmod(0o755 if blob.mode == "100755" else 0o644)
-    executable = bundle / "bin" / product_identity.executable_name(windows=os.name == "nt")
-    if not executable.is_file():
-        session.error("published release executable was not materialized")
-    return executable.parent, executable
 
 
 def _required_file(variable: str, label: str) -> Path:

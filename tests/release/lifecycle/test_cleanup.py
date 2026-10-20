@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+import time
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 
-from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from tests.release import fixtures as release_fixtures
 from tests.release.fixtures import ROOT
-from tests.release.fixtures import cleanup_runtime
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import preserve_native_host_projection
 from tests.release.fixtures import run_command
@@ -24,6 +24,8 @@ from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
 from tests.release.fixtures import signing_inputs
 from tests.serving.handoff.fixtures import free_port
+from tools.release import verification
+from tools.release.verification import cleanup_runtime
 
 pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
@@ -131,47 +133,107 @@ class TestSignedNativeLifecycle:
         workspace.cleanup()
         assert not Path(directory).exists()
 
-
-def test_native_cleanup_separates_registration_and_process_ownership(
-    tmp_path: Path, *, mocker
-) -> None:
-    """Teardown removes the stable service after its generation leaves the selector."""
-    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
-    first = generation.context(ctx, "1" * 32)
-    second = generation.context(ctx, "2" * 32)
-    for owned in (first, second):
-        Path(owned.payload_dir).mkdir(parents=True)
-    service = mocker.Mock()
-    service.status.return_value = "absent"
-    service.configured_executable.side_effect = [second.executable, None]
-    mocker.patch.object(release_fixtures.native_service, "adapter", return_value=service)
-    mocker.patch.object(release_fixtures.process, "pids_naming_executable", return_value=[])
-
-    cleanup_runtime(ctx)
-
-    service.uninstall.assert_called_once_with(ctx)
-
-
-def test_native_cleanup_continues_independent_processes_after_unproved_exit(
-    tmp_path: Path, *, mocker
-) -> None:
-    """Retain the safe failure while still stopping the second owned generation."""
-    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
-    service = mocker.Mock()
-    service.status.return_value = "absent"
-    service.configured_executable.return_value = None
-    mocker.patch.object(release_fixtures.native_service, "adapter", return_value=service)
-    mocker.patch.object(release_fixtures, "_process_contexts", return_value=(ctx,))
-    mocker.patch.object(release_fixtures.process, "pids_naming_executable", return_value=[41, 73])
-    failure = errors.InstallError(
-        "native process termination wait: access denied; exit is unproved"
-    )
-    terminate = mocker.patch.object(
-        release_fixtures.process, "terminate_executable", side_effect=[failure, True]
-    )
-
-    with pytest.raises(errors.InstallError) as raised:
-        cleanup_runtime(ctx)
-
-    assert raised.value is failure
-    assert [call.args[0] for call in terminate.call_args_list] == [41, 73]
+    def test_native_teardown_reclaims_an_externally_killed_pytest_process(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A surviving executor purges the killed test's exact native installation."""
+        executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
+            strict=True
+        )
+        workspace = TemporaryDirectory(dir=tmp_path.parent, prefix="killed-native-", delete=False)
+        test_root = Path(workspace.name).resolve()
+        contexts = tmp_path / "contexts.jsonl"
+        contexts.touch(mode=0o600)
+        home, install, state = (test_root / name for name in ("home", "payload", "state"))
+        home.mkdir()
+        port = free_port()
+        ctx = runtime_context_for(home, install, state, port)
+        before = native_service_projection(ctx)
+        canonical = runtime_context.create()
+        canonical_before = native_service_projection(canonical)
+        key, trust, anchor = signing_inputs(tmp_path)
+        asset = signed_asset(
+            executable.parent,
+            tmp_path / "killed-assets",
+            version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
+            upstream_url="http://127.0.0.1:1",
+            key=key,
+            trust=trust,
+        )
+        ready = tmp_path / "installed"
+        source = tmp_path / "test_killed_native.py"
+        source.write_text(
+            "from pathlib import Path\n"
+            "from threading import Event\n"
+            "from tests.release.fixtures import run_command, runtime_context_for\n"
+            "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
+            "def test_killed_native():\n"
+            f"    home, install, state = map(Path, {tuple(map(str, (home, install, state)))!r})\n"
+            f"    runtime_context_for(home, install, state, {port})\n"
+            "    env = native_process_environment(user_home=home, install_root=install, state_root=state)\n"
+            f"    result = run_command(Path({str(executable)!r}), env, 'install', '--asset', {str(asset)!r}, "
+            f"'--trust-anchor', {str(anchor)!r}, '--port', {str(port)!r}, '--json')\n"
+            "    assert result['state'] == 'installed'\n"
+            f"    Path({str(ready)!r}).write_text('installed')\n"
+            "    Event().wait(180)\n",
+            encoding="utf-8",
+        )
+        environment = {
+            **os.environ,
+            verification._TEST_ROOT: str(test_root),
+            verification._CONTEXTS: str(contexts),
+        }
+        monkeypatch.delenv(verification._TEST_ROOT, raising=False)
+        monkeypatch.delenv(verification._CONTEXTS, raising=False)
+        with (tmp_path / "killed-child.log").open("w") as log:
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "--rootdir",
+                    str(ROOT),
+                    "-c",
+                    str(ROOT / ".config/checks/pytest/pytest.toml"),
+                    f"--basetemp={tmp_path / 'child-pytest'}",
+                    str(source),
+                ],
+                cwd=ROOT,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
+            owned_contexts = ()
+            try:
+                deadline = time.monotonic() + 90
+                while not ready.is_file() and child.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                assert ready.is_file(), (tmp_path / "killed-child.log").read_text()
+                assert child.poll() is None
+                owned_contexts = generation.owned_contexts(ctx)
+                assert owned_contexts
+                assert native_service_projection(ctx)["status"] != "absent"
+                child.kill()
+                assert child.wait(timeout=10) != 0
+                assert install.exists()
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                child.wait(timeout=10)
+                verification.reclaim(test_root, contexts)
+                workspace.cleanup()
+        assert native_service_projection(ctx) == before
+        assert native_service_projection(canonical) == canonical_before
+        assert all(native_service_projection(owned)["processes"] == [] for owned in owned_contexts)
+        assert not test_root.exists()
+        assert all(
+            not path.exists() and not path.is_symlink()
+            for path in (
+                install,
+                Path(ctx.command),
+                records.journal_path(ctx),
+                records.transaction_root(ctx),
+            )
+        )

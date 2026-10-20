@@ -223,6 +223,59 @@ def test_failed_native_acceptance_cannot_publish_an_asset(
     assert session.run.call_args.args[:4] == ("python", "-m", "pytest", "-q")
 
 
+@pytest.mark.parametrize("session_name", ["release", "release_compatibility"])
+def test_native_acceptance_claims_a_private_test_root_before_pytest(
+    session_name: str,
+    tmp_path: Path,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    nox_configuration: ModuleType,
+) -> None:
+    """An aborted pytest child cannot leave its caller-owned temporary root."""
+    session = mocker.Mock()
+    mocker.patch.object(nox_configuration, "ROOT", tmp_path)
+    mocker.patch.object(
+        nox_configuration,
+        "_build_native_candidate",
+        return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
+    )
+    for suffix in ("PREVIOUS_RELEASE_ASSET", "PREVIOUS_RELEASE_TRUST_ANCHOR"):
+        path = tmp_path / suffix
+        path.touch()
+        monkeypatch.setenv(nox_configuration.product_identity.environment_name(suffix), str(path))
+    owned: list[Path] = []
+    failure = CommandFailed("test process was terminated", return_code=-9)
+
+    def abort_child(*arguments: str, **_kwargs: object) -> None:
+        if "pytest" not in arguments:
+            return
+        basetemp = next(
+            (
+                argument.split("=", 1)[1]
+                for argument in arguments
+                if argument.startswith("--basetemp=")
+            ),
+            None,
+        )
+        assert basetemp is not None, "native caller must claim the test root before launch"
+        root = Path(basetemp)
+        assert root.is_relative_to(tmp_path / "build" / "native-verification"), (
+            "cleanup custody must survive recreation of the Nox environment"
+        )
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "interrupted-test.txt").write_text("owned test scratch", encoding="utf-8")
+        owned.append(root)
+        raise failure
+
+    session.run.side_effect = abort_child
+    with pytest.raises(CommandFailed) as raised:
+        getattr(nox_configuration, session_name)(session)
+
+    assert raised.value is failure
+    assert len(owned) == 1
+    assert not owned[0].exists()
+
+
 def test_every_session_pytest_run_binds_the_explicit_configuration(
     nox_configuration: ModuleType,
 ) -> None:
