@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tomllib
@@ -73,6 +74,8 @@ def _formatter_commands(
             "--config",
             ".config/checks/prettier/prettier.toml",
             "--no-editorconfig",
+            "--ignore-path",
+            os.devnull,
             *markdown_yaml,
         ),
         (

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tomllib
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from pytest_mock import MockerFixture
@@ -66,6 +68,8 @@ def test_governance_fix_writes_the_inputs_that_audit_checks(mocker: MockerFixtur
             "--config",
             ".config/checks/prettier/prettier.toml",
             "--no-editorconfig",
+            "--ignore-path",
+            os.devnull,
             "README.md",
         ),
         ("taplo", "format", "--config", ".config/checks/taplo/taplo.toml", "pyproject.toml"),
@@ -132,6 +136,8 @@ def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
             "--config",
             ".config/checks/prettier/prettier.toml",
             "--no-editorconfig",
+            "--ignore-path",
+            os.devnull,
             "README.md",
             ".gitlab-ci.yml",
         ),
@@ -253,6 +259,15 @@ def test_structured_text_formatters_have_disjoint_native_ownership() -> None:
 @pytest.mark.parametrize("indent_size", [4, 8])
 @pytest.mark.parametrize("suffix", [".md", ".yaml"])
 def test_native_formatter_isolates_editorconfig_and_preserves_check_inputs(
+    indent_size: int, suffix: str
+) -> None:
+    scratch = ROOT / ".nox"
+    scratch.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="formatter-input-", dir=scratch) as directory:
+        _assert_native_formatter_preserves_inputs(Path(directory), indent_size, suffix)
+
+
+def _assert_native_formatter_preserves_inputs(
     tmp_path: Path, indent_size: int, suffix: str
 ) -> None:
     editorconfig = tmp_path / ".editorconfig"
