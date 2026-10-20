@@ -403,6 +403,23 @@ class TestVerificationContracts:
                 'def answer():\n    """Return the answer"""\n    return 42\n',
                 {"D415"},
             ),
+            (
+                "tools/probe.py",
+                '"""Public tool contract."""\n'
+                "def read(path: str, mode: str) -> str:\n"
+                '    """Read a selected record.\n\n'
+                '    Args:\n        path: Record path.\n    """\n    return path + mode\n',
+                {"D417"},
+            ),
+            (
+                "src/openai_responses_proxy/probe.py",
+                '"""Public product contract."""\n'
+                "def read(path: str, mode: str) -> str:\n"
+                '    """Read a selected record.\n\n'
+                "    Args:\n        path: Record path.\n        mode: Read mode.\n"
+                '    """\n    return path + mode\n',
+                set(),
+            ),
         ],
     )
     def test_native_ruff_applies_public_interface_policy_by_semantic_role(
@@ -424,8 +441,10 @@ class TestVerificationContracts:
             capture_output=True,
             text=True,
             cwd=ROOT,
+            timeout=30,
             check=False,
         )
+        assert result.stderr == ""
         assert result.returncode == bool(expected), result.stderr
         assert {item["code"] for item in json.loads(result.stdout)} == expected
 
