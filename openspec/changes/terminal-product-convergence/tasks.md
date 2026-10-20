@@ -73,7 +73,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 7.6 Enforce meaningful public/tool API docstrings; verify signatures match implementation and omit ornamental test docstrings.
 - [ ] 7.7 Make warnings fatal across tests, builds, docs, tools, native binaries, and CI; remove every known warning at its owner rather than filtering or baseline-suppressing it. Coverage report-only data closure and stable 7.16.2 pass exact-HEAD proof without runtime warnings; all-consumer warning enforcement remains open. Proof: `17d5c638`.
 - [ ] 7.8 Verify commit subjects through one scoped Conventional Commit grammar in local hooks and both Forge paths, including generated lifecycle commits, with no duplicate parser or historical exception list.
-- [ ] 7.9 Run static, configuration, documentation and affected behavior gates; verify clean output before the full suite.
+- [x] 7.9 Run static, configuration, documentation and affected behavior gates; verify clean output before the full suite. Exact-HEAD proof `942cbbf4` passes all ten gates; native-tool acceptance passes 29 cases.
 - [ ] 7.10 Prove control effectiveness with isolated conformance cases for native tool settings, scope inclusion, nonzero exits, local entrypoints and hooks, and every CUE event route; a missing tool, skipped required check, empty scope or stale report must not establish acceptance.
 - [ ] 7.11 Reconcile the quality responsibility map with actual coverage, dependency, dead-code, security, documentation and delivery checks; close product/tooling/orchestration coverage independently, remove duplicate custom checkers, and leave unverified claims open.
 
@@ -103,7 +103,7 @@ This checklist retains the original task identities and completion states.
 ## 10. Release and Installed Product Proof
 
 - [x] 10.1 Select SemVer from public compatibility and update version, package, Changelog, docs and asset names; verify metadata consistency and integrate the historical-checkout fix with newer shared tags present. Source: `4ade34e5`; repository proof: `88c5dda6`; both peers' review, `dev` and `main` CI passed. Lane retirement remains under 13.3.
-- [ ] 10.2 Build reproducible macOS, Linux, and Windows native bundles from the locked candidate; verify contents, modes, manifests, checksums, signatures, SBOM, provenance, and common-platform byte identity where applicable.
+- [ ] 10.2 Build reproducible macOS, Linux, and Windows native bundles from the locked candidate; verify contents, modes, manifests, checksums, signatures, SBOM, provenance, and common-platform byte identity where applicable. macOS candidate `f0fd53df` passes 46 black-box and six native lifecycle cases; independent builds have identical archive, manifest and checksum bytes. Linux, Windows and formal release evidence remain open. Evidence: `test-ownership-20261019/native-macos-reproducibility.json`.
 - [x] 10.3 Verify release source is clean, signed, exact-HEAD proved and immutable, with current source-acceptance authority, before creating one signed annotated tag object.
 - [x] 10.4 Project the same signed commit and tag objects to each selected Forge through independent exact-CAS operations; verify no author, committer, parent, tree, message, or signature rewriting.
 - [x] 10.5 Publish complete matching Release inventories on GitHub and GitLab; independently verify byte digests, signatures, trust anchors, metadata, and user-facing link identity from fresh persisted state, including idempotent and concurrent publication paths.
@@ -122,7 +122,7 @@ This checklist retains the original task identities and completion states.
 
 ## 12. Performance, Security, and Operational Reliability
 
-- [ ] 12.1 Benchmark startup, steady request latency, streaming first-event latency, memory, concurrency, handoff interruption, install, update, rollback, and recovery using reproducible inputs; establish risk-derived budgets.
+- [ ] 12.1 Benchmark startup, steady request latency, streaming first-event latency, memory, concurrency, handoff interruption, install, update, rollback, and recovery using reproducible inputs; establish risk-derived budgets. All ten declared macOS latency and memory budgets pass with native pyperf distributions; lifecycle timing and cross-platform performance remain open. Evidence: `f0fd53df/performance-macos-20261020/{latency,memory}.json`.
 - [ ] 12.2 Profile hot paths and remove accidental allocations, repeated parsing, redundant serialization, duplicate network work, polling churn, and unnecessary subprocesses without changing portable semantics.
 - [ ] 12.3 Threat-model local listener exposure, upstream credentials, request and response logging, temporary assets, signature trust, update supply chain, native service ownership, and transaction recovery; close every high-severity gap.
 - [x] 12.4 Verify logs are structured, bounded, redacted, rotation-aware, and operationally useful; introduce no logging framework unless it replaces more complexity than it adds. Evidence: `test-ownership-20261019/log-expanded-green.log` (37 passed, 11 subtests) covers watchdog, serving, relay, and bounded-log paths; all production events use the existing bounded logger.
@@ -135,7 +135,7 @@ This checklist retains the original task identities and completion states.
 - [ ] 13.3 Merge or discard every local and remote proposal according to semantic value, delete merged proposal and remote work refs, retire obsolete Worktrees and leases, and verify only canonical repository-family members remain. Both peers absorbed `01976bf2`; its proposal, native-supply proposal and stale tracking refs are absent. Current lane remains active. Evidence: `b98fc15f`.
 - [ ] 13.4 Remove failed unpublished tags, draft Releases, duplicate assets, and unreferenced records from both Forges and local storage while preserving formal immutable release history and required recovery evidence.
 - [ ] 13.5 Freeze the complete candidate and run strict OpenSpec validation, all focused gates, full quality, Python matrix, three-platform native acceptance, reproducible build, security, performance, documentation, and repository-residue audits exactly once at final scope.
-- [ ] 13.6 Complete tracked obligations and land/publish the signed accepted candidate; verify selected refs, tag CI and Releases before the archive follow-up.
+- [ ] 13.6 Complete tracked obligations and land/publish the signed accepted candidate; verify selected refs, tag CI and Releases before the archive follow-up. Candidate landing at `f0fd53df` passed; accepted closeout refuses the predecessor profile under the new native-evidence schema. ETHOS owns that entry-boundary repair. Evidence: `test-ownership-20261019/prettier-accepted-closeout-exact-preview.json`.
 - [ ] 13.7 Prove the final installed product and clean repository family satisfy every modified capability, disclose any genuinely unverified external fact, and retain no active Change, Work Lane, proposal branch, temporary authority, or consumerless entity.
 
 ## 14. Bounded Responses Compatibility Delivery
