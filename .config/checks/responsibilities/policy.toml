@@ -257,6 +257,7 @@ roles = ["agent-guidance", "product-documentation", "release-history"]
 [[scopes]]
 id = "prettier-formatted"
 roles = [
+  "openspec",
   "agent-guidance",
   "product-documentation",
   "release-history",
@@ -268,6 +269,7 @@ roles = [
 [[scopes]]
 id = "toml-formatted"
 roles = [
+  "product-python",
   "ethos-adoption",
   "quality-policy",
   "quality-tool-configuration",

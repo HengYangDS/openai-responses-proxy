@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from tests.quality.fixtures import ROOT
+from tools.quality import governance
 from tools.quality import responsibilities
 
 
@@ -173,6 +175,35 @@ def test_gate_cli_returns_json_and_preserves_failed_exit(mocker, capsys):
     assert stopped.value.code == 1
     with pytest.raises(SystemExit, match="accepts no arguments"):
         responsibilities.main(("unexpected",))
+
+
+@pytest.mark.parametrize(
+    ("scope", "suffixes"),
+    [
+        ("prettier-formatted", (".md", ".yaml", ".yml")),
+        ("toml-formatted", (".toml",)),
+    ],
+)
+def test_formatter_inputs_have_complete_declared_roles(scope, suffixes):
+    report = responsibilities.audit()
+    assert report["ok"], report["errors"]
+    policy = tomllib.loads(responsibilities.MAP.read_text(encoding="utf-8"))
+    roles = set(next(item["roles"] for item in policy["scopes"] if item["id"] == scope))
+    declared = {
+        path
+        for path, role in report["assignments"].items()
+        if role in roles
+        and path.endswith(suffixes)
+        and not path.startswith("openspec/changes/archive/")
+    }
+
+    selected = set(governance._tracked_current(suffixes))
+
+    assert selected
+    assert selected == declared, {
+        "undeclared_inputs": sorted(selected - declared),
+        "unexecuted_inputs": sorted(declared - selected),
+    }
 
 
 class TestResponsibilityMap:

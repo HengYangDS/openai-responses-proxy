@@ -239,10 +239,14 @@ def test_structured_text_formatters_have_disjoint_native_ownership() -> None:
         "tools/ci/project.py",
     ]
 
-    scopes = {scope["id"]: scope["roles"] for scope in policy["scopes"]}
-    assert set(scopes["prettier-formatted"]).isdisjoint(scopes["python"])
-    assert set(scopes["toml-formatted"]).isdisjoint(scopes["python"])
-    assert scopes["cue-formatted"] == ["ci-model"]
+    formatter_inputs = (
+        set(governance._tracked_current((".md", ".yaml", ".yml"))),
+        set(governance._tracked_current((".toml",))),
+        set(governance.model_inputs()),
+    )
+    for index, inputs in enumerate(formatter_inputs):
+        assert inputs
+        assert all(inputs.isdisjoint(other) for other in formatter_inputs[index + 1 :])
 
 
 @pytest.mark.repository_toolchain
