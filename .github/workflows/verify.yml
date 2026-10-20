@@ -127,7 +127,7 @@ jobs:
       - name: Prepare locked native ETHOS supply and external commit trust
         run: uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
       - name: Prepare locked native ETHOS supply and external commit trust
-        run: uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable
+        run: uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable --no-build-isolation-package ethos
       - name: Prepare locked native ETHOS supply and external commit trust
         run: uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
       - name: Prepare locked native ETHOS supply and external commit trust

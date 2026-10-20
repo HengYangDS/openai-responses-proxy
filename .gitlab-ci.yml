@@ -219,7 +219,7 @@ commit-admission:
     - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
-    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable
+    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable --no-build-isolation-package ethos
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
   script:
@@ -253,7 +253,7 @@ commit-admission-accepted:
     - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
-    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable
+    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable --no-build-isolation-package ethos
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
     - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
   script:
