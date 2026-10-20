@@ -129,12 +129,30 @@ it must not be represented as a Bearer-compatible route.
 
 ## Responses projection
 
-HTTP body framing is admitted before replay interpretation. One decimal length
-and exactly that many bytes identify the body; unsupported transfer encodings,
-ambiguous lengths and truncated bodies receive a fixed local error and close the
-connection before upstream I/O. A valid body remains separate from the next
-keep-alive request. This proves framing identity, not a total request-size or
-slow-client deadline budget.
+`relay/responses.py` admits HTTP framing before replay interpretation. One ASCII
+decimal length and exactly that many bytes identify the body. Unsupported transfer
+encodings, ambiguous lengths and truncated bodies receive a fixed local error
+and close the connection before upstream I/O. The validated byte limit rejects
+oversized bodies before reading; one monotonic body deadline bounds stalled or
+trickled input without renewal. A valid body remains separate from the next
+keep-alive request, and the original socket timeout is restored after admission.
+`runtime/config.py` owns these limits independently of upstream inference.
+
+The pipeline keeps transformation and resource ownership explicit:
+
+| Stage                                 | Owner                                                         | Input and output                                                                           |
+| ------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Route and body admission              | `relay/responses.py`, `providers/registry.py`                 | HTTP request to one declared profile and bounded body, or a local failure                  |
+| Replay projection                     | `protocol/replay/projection.py`                               | Body bytes to `ProjectionResult`, including portable bytes, metrics and dependencies       |
+| Item and relationship validation      | `protocol/replay/items.py`, `protocol/replay/input.py`        | Ordered input to one policy disposition and retained dependency edges                      |
+| Delegation selection                  | `protocol/agent_delivery.py`                                  | Portable bytes and delivery mode to `PreparedRequest`, binding response restoration        |
+| Upstream exchange and recovery        | `relay/exchange.py`, `relay/upstream.py`                      | `Exchange` to `UpstreamResponse` or a terminal failure within the original deadline        |
+| Live response validation and delivery | `protocol/response.py`, `relay/downstream.py`, `relay/sse.py` | Upstream bytes to validated JSON or events, then one committed response or bounded failure |
+
+`relay/responses.py` checks cooldown and acquires admission before upstream I/O,
+then releases the admission slot in `finally`. Each transport owner releases its
+upstream response on completion or failure. Recovery consumes the projected bytes
+and their dependencies; it cannot reinterpret replay or refund elapsed time.
 
 ```mermaid
 sequenceDiagram
@@ -185,8 +203,10 @@ carrying a native agent message; it cannot discard the task and retry an empty
 continuation.
 
 The live-response boundary preserves encrypted control content needed for the
-current turn. Empty, truncated, malformed, oversized, or non-terminal success bodies
-become a retryable local `503`; partial success bytes are not committed.
+current turn. Empty, truncated, malformed, oversized, or non-terminal JSON success
+bodies become a retryable local `503` before commitment. SSE validates each event
+before delivery; a failure after commitment preserves emitted bytes and closes
+without replay, a second HTTP status or fabricated completion.
 
 `providers/manifest.toml` selects `agent_message_delivery` as `native` or
 `plaintext` per route; omission selects native delivery. The plaintext protocol
