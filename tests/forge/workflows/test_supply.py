@@ -159,7 +159,7 @@ def test_ethos_supplier_prepares_native_wheel_inputs_before_building() -> None:
     root = "build/runtime/ethos-source"
     native = (
         f"uv --directory {root} run --locked --no-sync "
-        "python -B -m tools.ci.toolchain.native --root . node vale"
+        "python -B -m tools.ci.toolchain.native --root . --mise node vale"
     )
     build = f"uv --directory {root} sync --locked --group dev --no-editable"
     assert prepare.count(native) == 1
@@ -201,7 +201,7 @@ def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
     prefix = f"uv --directory {root}"
     assert prepare[:5] == [
         f"{prefix} sync --locked --no-install-project --group dev",
-        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale",
+        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale",
         f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts",
         f"{prefix} sync --locked --group dev --no-editable",
         f"{prefix} run --locked --no-sync python -B -I -m ethos.cli --version",
