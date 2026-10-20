@@ -41,7 +41,7 @@ import "strings"
 	]
 	prepare: [
 		"uv --directory \(#EthosSupply.root) sync --locked --no-install-project --group dev",
-		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -m tools.ci.toolchain.native --root . node vale",
+		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale",
 		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts",
 		"uv --directory \(#EthosSupply.root) sync --locked --group dev --no-editable",
 		"uv --directory \(#EthosSupply.root) run --locked --no-sync python -B -I -m ethos.cli --version",

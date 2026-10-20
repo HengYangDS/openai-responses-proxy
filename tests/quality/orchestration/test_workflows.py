@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 import tomllib
@@ -87,6 +88,21 @@ def test_peer_uv_consumers_keep_project_and_external_configuration_separate() ->
             assert expected.keys().isdisjoint(environment)
         else:
             assert environment.items() >= expected.items()
+
+
+@pytest.mark.repository_toolchain
+@pytest.mark.parametrize("peer", ["github", "gitlab"])
+def test_peer_commit_admission_prepares_its_native_mise_supplier(peer: str) -> None:
+    if peer == "github":
+        job = yaml.safe_load(render("githubVerify"))["jobs"]["commit-admission"]
+        commands = [step["run"] for step in job["steps"] if "run" in step]
+    else:
+        job = yaml.safe_load(render("gitlab"))["commit-admission"]
+        commands = job["before_script"]
+    native = next(command for command in commands if "tools.ci.toolchain.native" in command)
+    assert "--mise" in shlex.split(native)
+    npm = next(command for command in commands if "tools.ci.toolchain.npm" in command)
+    assert commands.index(native) < commands.index(npm)
 
 
 def test_workflow_tasks_require_every_locked_native_integration() -> None:

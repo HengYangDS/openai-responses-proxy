@@ -98,7 +98,7 @@ This checklist retains the original task identities and completion states.
 - [x] 9.6 Make native runner availability explicit: GitHub Windows may own current Windows proof, GitLab may omit that projection, and no unavailable runner remains a false permanent blocker or a false success; verify affected native contracts and reference cleanup.
 - [ ] 9.7 Verify GitHub and GitLab authentication, SSH agent, author identity, commit signature, tag signature, protected-branch, proposal-branch, and automatic merge behavior without password prompts or private-key mutation.
 - [ ] 9.8 Ensure proposal branches are unprotected, merge automatically after required evidence for the maintainer policy, and are deleted on merge; verify no remote `work/*` or stale proposal remains.
-- [ ] 9.9 Run both generated CI projections for the exact candidate and verify dev, main, and the final tag receive the intended green graph with readable, bounded job output. Both peers' proposal/dev/main passed at `01976bf2`; proposal/dev include Windows matrix and three-platform assets, main admits accepted source. Final candidate/tag remains open. Evidence: `b98fc15f`.
+- [ ] 9.9 Run both generated CI projections for the exact candidate and verify dev, main, and the final tag receive the intended green graph with readable, bounded job output. At `471b325b`, both peers passed source, quality, Python and performance jobs; GitHub also passed three-platform native assets and compatibility. Shared commit-admission bootstrap lacked `--mise`; repaired projections and focused/native tests pass. Rerun candidate admission, then accepted refs and final tag. Evidence: `test-ownership-20261019/commit-mise-*`.
 
 ## 10. Release and Installed Product Proof
 
