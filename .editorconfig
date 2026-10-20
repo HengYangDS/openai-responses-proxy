@@ -6,10 +6,10 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{py,toml,ini}]
+[*.{py,ini}]
 indent_style = space
 indent_size = 4
 
-[*.{md,yml,yaml}]
+[*.{md,yml,yaml,toml}]
 indent_style = space
 indent_size = 2

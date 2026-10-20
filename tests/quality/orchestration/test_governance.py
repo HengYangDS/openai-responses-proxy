@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tomllib
@@ -302,3 +303,56 @@ def _assert_native_formatter_preserves_inputs(
         assert document.read_bytes() == (canonical if write else before)
     assert document.read_bytes() == canonical
     assert editorconfig.read_text(encoding="utf-8") == editorconfig_source
+
+
+@pytest.mark.repository_toolchain
+@pytest.mark.parametrize(
+    ("suffix", "source"),
+    [
+        (".md", "- One\n    - Nested\n"),
+        (".yaml", "values:\n    - one\n"),
+        (".toml", 'values = [\n    "one",\n]\n'),
+    ],
+)
+def test_editor_indentation_matches_original_formatter(suffix: str, source: str) -> None:
+    scratch = ROOT / ".nox"
+    scratch.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="editor-input-", dir=scratch) as directory:
+        document = Path(directory) / f"native-indent{suffix}"
+        document.write_text(source, encoding="utf-8")
+        editor = subprocess.run(
+            (
+                "node",
+                "--input-type=module",
+                "--eval",
+                'import prettier from "prettier"; '
+                "console.log(JSON.stringify(await prettier.resolveConfig("
+                "process.argv[1], {editorconfig:true})))",
+                str(document),
+            ),
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        commands = governance._formatter_commands(
+            (str(document),) if suffix != ".toml" else (),
+            (str(document),) if suffix == ".toml" else (),
+            write=True,
+        )
+        subprocess.run(
+            commands[int(suffix == ".toml")],
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=True,
+            timeout=30,
+        )
+        indentation = next(
+            len(line) - len(line.lstrip())
+            for line in document.read_text(encoding="utf-8").splitlines()
+            if line.startswith(" ")
+        )
+        assert json.loads(editor.stdout)["tabWidth"] == indentation
