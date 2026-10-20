@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 from contextlib import ExitStack
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from tests.release import fixtures as release_fixtures
 from tests.release.fixtures import ROOT
@@ -30,67 +32,104 @@ pytestmark = [
 
 
 class TestSignedNativeLifecycle:
-    @pytest.mark.parametrize("interruption", [AssertionError, TimeoutError, KeyboardInterrupt])
+    @pytest.mark.parametrize(
+        "interruption", [None, AssertionError, RuntimeError, TimeoutError, KeyboardInterrupt]
+    )
     def test_native_teardown_survives_test_control_flow_failures(
         self,
         tmp_path: Path,
-        interruption: type[BaseException],
+        interruption: type[BaseException] | None,
     ) -> None:
-        """Leave no native service behind when a test aborts after installation."""
+        """Purge the isolated installation even when test control flow aborts."""
         executable_value = os.environ.get("OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE")
         assert executable_value is not None, "native executable must be supplied by release session"
         executable = Path(executable_value).resolve(strict=True)
-        home, install, state = (
-            tmp_path / "home",
-            tmp_path / "payload",
-            tmp_path / "state",
-        )
-        home.mkdir()
-        port = free_port()
-        ctx = runtime_context_for(home, install, state, port)
-        environment = native_process_environment(
-            user_home=home,
-            install_root=install,
-            state_root=state,
-        )
-        isolated_before = native_service_projection(ctx)
-        canonical_ctx = runtime_context.create()
-        canonical_before = native_service_projection(canonical_ctx)
+        workspace = TemporaryDirectory(dir=tmp_path, delete=False)
+        with workspace as directory:
+            root = Path(directory)
+            home, install, state = (
+                root / "home",
+                root / "payload",
+                root / "state",
+            )
+            home.mkdir()
+            port = free_port()
+            ctx = runtime_context_for(home, install, state, port)
+            environment = native_process_environment(
+                user_home=home,
+                install_root=install,
+                state_root=state,
+            )
+            isolated_before = native_service_projection(ctx)
+            canonical_ctx = runtime_context.create()
+            canonical_before = native_service_projection(canonical_ctx)
 
-        key, trust, anchor = signing_inputs(tmp_path)
-        current_version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
-        current_asset = signed_asset(
-            executable.parent,
-            tmp_path / "current-assets",
-            version=current_version,
-            upstream_url="http://127.0.0.1:1",
-            key=key,
-            trust=trust,
-        )
+            key, trust, anchor = signing_inputs(root)
+            current_version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
+            current_asset = signed_asset(
+                executable.parent,
+                root / "current-assets",
+                version=current_version,
+                upstream_url="http://127.0.0.1:1",
+                key=key,
+                trust=trust,
+            )
 
-        def interrupt_installed_lifecycle() -> None:
-            with ExitStack() as cleanups:
-                cleanups.callback(cleanup_runtime, ctx)
-                installed = run_command(
-                    executable,
-                    environment,
-                    "install",
-                    "--asset",
-                    str(current_asset),
-                    "--trust-anchor",
-                    str(anchor),
-                    "--port",
-                    str(port),
-                    "--json",
+            owned_contexts: list[runtime_context.RuntimeContext] = []
+
+            def interrupt_installed_lifecycle() -> None:
+                with ExitStack() as cleanups:
+                    cleanups.callback(cleanup_runtime, ctx)
+                    cleanups.callback(
+                        run_command,
+                        executable,
+                        environment,
+                        "uninstall",
+                        "--port",
+                        str(port),
+                        "--purge",
+                        "--json",
+                    )
+                    installed = run_command(
+                        executable,
+                        environment,
+                        "install",
+                        "--asset",
+                        str(current_asset),
+                        "--trust-anchor",
+                        str(anchor),
+                        "--port",
+                        str(port),
+                        "--json",
+                    )
+                    assert installed["state"] == "installed"
+                    owned_contexts.extend(generation.owned_contexts(ctx))
+                    if interruption is not None:
+                        raise interruption("simulated test control-flow failure")
+
+            if interruption is None:
+                interrupt_installed_lifecycle()
+            else:
+                with pytest.raises(interruption):
+                    interrupt_installed_lifecycle()
+
+            assert native_service_projection(ctx) == isolated_before
+            assert native_service_projection(canonical_ctx) == canonical_before
+            assert owned_contexts
+            assert all(
+                native_service_projection(owned)["processes"] == [] for owned in owned_contexts
+            )
+            assert all(
+                not path.exists() and not path.is_symlink()
+                for path in (
+                    install,
+                    Path(ctx.command),
+                    records.journal_path(ctx),
+                    records.transaction_root(ctx),
                 )
-                assert installed["state"] == "installed"
-                raise interruption("simulated test control-flow failure")
-
-        with pytest.raises(interruption):
-            interrupt_installed_lifecycle()
-
-        assert native_service_projection(ctx) == isolated_before
-        assert native_service_projection(canonical_ctx) == canonical_before
+            )
+        workspace.cleanup()
+        assert not Path(directory).exists()
 
 
 def test_native_cleanup_separates_registration_and_process_ownership(
