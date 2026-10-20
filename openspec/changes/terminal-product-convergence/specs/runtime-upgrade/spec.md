@@ -96,6 +96,15 @@ SHALL wait for that completion.
 - **AND** unknown cleanup or mismatched supervision preserves the journal and
   candidate without a successful rollback result.
 
+#### Scenario: A retained command snapshot changes before a transaction effect
+
+- **WHEN** activation, rollback, or recovery needs a command snapshot
+- **THEN** it reads one unchanged regular file without following symbolic links
+- **AND** verifies those exact bytes against the journal's original snapshot digest
+  before parsing or changing a generation, command, payload, or native service
+- **AND** a replaced file, linked carrier, or digest mismatch leaves all retained
+  transaction state and unrelated commands unchanged.
+
 #### Scenario: Windows cannot observe the exact scheduled task
 
 - **WHEN** the exact local task query fails, times out, or returns malformed task

@@ -204,7 +204,9 @@ class PayloadTransaction:
             raise errors.InstallError("payload transaction is not materialized")
         journal = self._owned_journal()
         rollback = records.transaction_root(self._ctx) / "rollback"
-        command_snapshot = command.read_snapshot(rollback)
+        command_snapshot = command.read_snapshot(
+            rollback, expected_sha256=str(journal["snapshot_sha256"])
+        )
         predecessor = (
             self._previous_selection.active if self._previous_selection is not None else None
         )

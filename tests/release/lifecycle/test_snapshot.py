@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -30,9 +31,16 @@ pytestmark = [
 
 
 class TestSignedNativeLifecycle:
-    @pytest.mark.parametrize("replacement", ["snapshot_bytes", "unknown_directory"])
+    @pytest.mark.parametrize(
+        ("phase", "replacement"),
+        [
+            ("terminal", "snapshot_bytes"),
+            ("terminal", "unknown_directory"),
+            ("materialized", "snapshot_bytes"),
+        ],
+    )
     def test_native_recovery_preserves_transaction_disposal_authority(
-        self, tmp_path: Path, replacement: str, *, mocker
+        self, tmp_path: Path, phase: str, replacement: str, *, mocker
     ) -> None:
         """Reject unowned recovery inputs until the operator restores exact state."""
         executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
@@ -60,16 +68,25 @@ class TestSignedNativeLifecycle:
         root = records.transaction_root(ctx)
         snapshot = root / "rollback" / command.SNAPSHOT_FILENAME
         original = snapshot.read_bytes()
-        interruption = mocker.patch.object(
-            completion, "_remove_transaction_root", side_effect=errors.InstallError("interrupted")
-        )
-        with pytest.raises(errors.InstallError, match="interrupted"):
-            transaction.rollback()
-        mocker.stop(interruption)
+        if phase == "terminal":
+            interruption = mocker.patch.object(
+                completion,
+                "_remove_transaction_root",
+                side_effect=errors.InstallError("interrupted"),
+            )
+            with pytest.raises(errors.InstallError, match="interrupted"):
+                transaction.rollback()
+            mocker.stop(interruption)
         journal = records.journal_path(ctx).read_bytes()
         retained = root / "operator-directory"
+        candidate_bytes = (
+            Path(transaction.context.executable).read_bytes() if phase == "materialized" else None
+        )
+        replacement_bytes = command.snapshot_bytes(
+            replace(command.read_snapshot(root / "rollback"), target=str(home / "operator"))
+        )
         if replacement == "snapshot_bytes":
-            snapshot.write_bytes(b"operator snapshot replacement")
+            snapshot.write_bytes(replacement_bytes)
         else:
             retained.mkdir()
 
@@ -82,10 +99,13 @@ class TestSignedNativeLifecycle:
             assert error["code"] == "lifecycle_error"
             assert records.journal_path(ctx).read_bytes() == journal
             assert native_service_projection(ctx) == before
-            assert not install.exists()
+            if phase == "materialized":
+                assert Path(transaction.context.executable).read_bytes() == candidate_bytes
+            else:
+                assert not install.exists()
             assert not Path(ctx.command).exists()
             if replacement == "snapshot_bytes":
-                assert snapshot.read_bytes() == b"operator snapshot replacement"
+                assert snapshot.read_bytes() == replacement_bytes
             else:
                 assert retained.is_dir()
 
@@ -97,6 +117,7 @@ class TestSignedNativeLifecycle:
         assert recovered["state"] == "rolled_back"
         assert not root.exists()
         assert not records.journal_path(ctx).exists()
+        assert not install.exists()
         assert native_service_projection(ctx) == before
         assert run_command(executable, environment, "recover", "--port", str(port), "--json") == {
             "state": "not_required",

@@ -16,6 +16,9 @@ publication authority.
 
 ### Fixed
 
+- Verify rollback snapshot bytes against their original journal digest before
+  activation or restoration. Replaced snapshots and symbolic links now refuse
+  before changing command projections, generations, or native services.
 - Bound SSE events and held pre-content data without limiting total stream
   output; over-limit streams fail without replay or fabricated completion.
 - Extend fragmented SSE data in place and scan only the new framing suffix,

@@ -90,9 +90,11 @@ def snapshot_bytes(value: Snapshot) -> bytes:
     )
 
 
-def read_snapshot(root: Path) -> Snapshot:
-    """Read one canonical command rollback fact."""
-    value = owned_files.read_canonical_json(root / SNAPSHOT_FILENAME, "command snapshot")
+def read_snapshot(root: Path, *, expected_sha256: str | None = None) -> Snapshot:
+    """Read one canonical rollback fact with its declared byte identity."""
+    value = owned_files.read_canonical_json(
+        root / SNAPSHOT_FILENAME, "command snapshot", expected_sha256=expected_sha256
+    )
     state = value.get("state")
     path = value.get("path")
     target = value.get("target")

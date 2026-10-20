@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -149,12 +150,19 @@ def read_json_object(target: Path, label: str) -> JsonObject:
     return value
 
 
-def read_canonical_json(target: Path, label: str) -> JsonObject:
-    """Read one canonical JSON object with a bounded installation error."""
+def read_canonical_json(
+    target: Path, label: str, *, expected_sha256: str | None = None
+) -> JsonObject:
+    """Read one unchanged canonical object, checking declared byte identity first."""
     try:
-        content = target.read_bytes()
+        content = read_bytes(target, root=target.parent, label=label)
+    except (OSError, errors.InstallError) as exc:
+        raise errors.InstallError(f"{label} is unavailable or invalid") from exc
+    if expected_sha256 is not None and hashlib.sha256(content).hexdigest() != expected_sha256:
+        raise errors.InstallError(f"{label} identity changed")
+    try:
         value = json.loads(content.decode("utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    except (UnicodeError, json.JSONDecodeError) as exc:
         raise errors.InstallError(f"{label} is unavailable or invalid") from exc
     if not is_json_object(value) or digest.canonical_json(value) != content:
         raise errors.InstallError(f"{label} is not canonical JSON")

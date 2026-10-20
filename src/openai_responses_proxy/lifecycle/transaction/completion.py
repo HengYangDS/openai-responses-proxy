@@ -127,7 +127,10 @@ def admit_prior_projection(
     selected_candidate = generation.Selection(candidate, previous.active if previous else None)
     if selection not in {previous, selected_candidate}:
         raise errors.RecoveryStateError("payload transaction selection changed")
-    snapshot = command.read_snapshot(records.transaction_root(ctx) / "rollback")
+    snapshot = command.read_snapshot(
+        records.transaction_root(ctx) / "rollback",
+        expected_sha256=str(journal["snapshot_sha256"]),
+    )
     if selection != previous:
         command.require_detachable(
             Path(ctx.command), Path(generation.context(ctx, candidate).executable), snapshot

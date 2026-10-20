@@ -62,6 +62,9 @@ def recover(
     if runtime is not None and _runtime_matches_projection(runtime, candidate):
         if phase == "materialized":
             rollback = records.transaction_root(ctx) / "rollback"
+            snapshot = command.read_snapshot(
+                rollback, expected_sha256=str(journal["snapshot_sha256"])
+            )
             generation.select(
                 ctx,
                 active=str(journal["transaction_id"]),
@@ -75,7 +78,7 @@ def recover(
             command.project(
                 Path(ctx.command),
                 Path(generation.control_context(ctx).executable),
-                previous=command.read_snapshot(rollback),
+                previous=snapshot,
             )
         return completion.finalize_installation(
             ctx,
