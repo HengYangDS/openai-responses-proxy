@@ -17,7 +17,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
 INSTALLED_RELEASE_STATE_SCHEMA = 1
-TRANSACTION_JOURNAL_SCHEMA = 6
+TRANSACTION_JOURNAL_SCHEMA = 7
 TERMINAL_STATES = frozenset({"closed", "rolled_back", "finalized", "purged"})
 _STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
@@ -96,7 +96,14 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
         "receipt_sha256",
         "fresh",
     }
-    allowed = required | {"previous_generation", "previous_predecessor", "phase", "reason", "files"}
+    allowed = required | {
+        "previous_generation",
+        "previous_predecessor",
+        "phase",
+        "reason",
+        "files",
+        "snapshot_sha256",
+    }
     transaction_id = journal.get("transaction_id")
     version = journal.get("version")
     receipt_sha256 = journal.get("receipt_sha256")
@@ -105,6 +112,7 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
     previous_generation = journal.get("previous_generation")
     previous_predecessor = journal.get("previous_predecessor")
     phase = journal.get("phase")
+    snapshot_sha256 = journal.get("snapshot_sha256")
     if (
         not required.issubset(journal)
         or set(journal) - allowed
@@ -143,6 +151,17 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
             != (phase in {"materialized", "activated"})
         )
         or (journal.get("state") != "recovery_required" and phase is not None)
+        or (
+            journal.get("state") in {"materialized", "activated", "recovery_required", "finalized"}
+            and snapshot_sha256 is None
+        )
+        or (
+            "snapshot_sha256" in journal
+            and (
+                not isinstance(snapshot_sha256, str)
+                or re.fullmatch(r"[0-9a-f]{64}", snapshot_sha256) is None
+            )
+        )
     ):
         raise errors.InstallError("payload transaction journal fields are invalid")
     if journal["state"] == "purged":
@@ -212,6 +231,7 @@ def write_journal(
     phase: str | None = None,
     reason: str | None = None,
     files: dict[str, str] | None = None,
+    snapshot_sha256: str | None = None,
 ) -> None:
     """Write one canonical secret-free transaction journal."""
     journal: JsonObject = {
@@ -230,6 +250,8 @@ def write_journal(
         journal["previous_predecessor"] = previous_predecessor
     if phase is not None:
         journal["phase"] = phase
+    if snapshot_sha256 is not None:
+        journal["snapshot_sha256"] = snapshot_sha256
     if files is not None:
         journal["files"] = files
         removal_files(journal)

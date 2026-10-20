@@ -269,6 +269,8 @@ def test_status_routes_terminal_cleanup_to_recovery(
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
+    if outcome == "finalized":
+        pending.commit_projection()
     journal = records.read_journal(ctx)
     candidate_files = journal["files"]
     journal["state"] = outcome

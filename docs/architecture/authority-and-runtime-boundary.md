@@ -310,13 +310,17 @@ transaction's journal. Once an outcome requires recovery, only runtime-aware
 recovery may resolve it; ordinary rollback cannot guess whether the candidate
 is already serving.
 
-Generation disposal and uninstall purge share one exact-file deletion owner.
+Generation, transaction-snapshot disposal, and uninstall purge share one
+exact-file deletion owner.
 The transaction journal captures candidate paths and digests before materialization
 and verified retired-generation paths before cleanup. A new process resumes only
 that inventory, even after the discarded manifest or executable is gone. Replaced
 files and unlisted files, directories, or links are preserved; remaining unknown
 content prevents cleanup from reporting success. A generation's directory name
-alone never authorizes recursive deletion.
+alone never authorizes recursive deletion. The journal also records the command
+snapshot's exact digest before writing it. Terminal cleanup removes only that
+snapshot and its known empty container; replacements and unrelated transaction
+content remain untouched and keep recovery authority available.
 
 The release that first introduces this transition must drive its own one-time
 upgrade from an older installed release: the predecessor cannot execute

@@ -70,18 +70,23 @@ def write_snapshot(root: Path, value: Snapshot) -> None:
     """Persist the command rollback fact beside the payload snapshot."""
     owned_files.write_bytes(
         root / SNAPSHOT_FILENAME,
-        digest.canonical_json(
-            {
-                "schema_version": SNAPSHOT_SCHEMA,
-                "state": value.state,
-                "path": value.path,
-                "target": value.target,
-                "kind": value.kind,
-                "device": value.device,
-                "inode": value.inode,
-            }
-        ),
+        snapshot_bytes(value),
         mode=0o600,
+    )
+
+
+def snapshot_bytes(value: Snapshot) -> bytes:
+    """Encode the exact rollback carrier before it is written or disposed."""
+    return digest.canonical_json(
+        {
+            "schema_version": SNAPSHOT_SCHEMA,
+            "state": value.state,
+            "path": value.path,
+            "target": value.target,
+            "kind": value.kind,
+            "device": value.device,
+            "inode": value.inode,
+        }
     )
 
 

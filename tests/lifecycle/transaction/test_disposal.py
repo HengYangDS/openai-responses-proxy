@@ -109,28 +109,25 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     assert projected is not None
     runtime = recovery_runtime(projected, projected)
     root = records.transaction_root(ctx)
-    remove_tree = transaction_completion.shutil.rmtree
+    remove_directory = Path.rmdir
     unlink = Path.unlink
 
     def interrupt_cleanup(path: Path) -> None:
-        if Path(path) == root:
-            if interruption == "snapshot":
-                remove_tree(root / "rollback")
-                raise PermissionError("interrupted terminal cleanup")
-            if interruption == "root":
-                remove_tree(root)
-                raise PermissionError("interrupted terminal cleanup")
-        remove_tree(path)
+        remove_directory(path)
+        if interruption == "root" and path == root:
+            raise PermissionError("interrupted terminal cleanup")
 
     def interrupt_journal(path: Path, *args, **kwargs) -> None:
         if interruption == "journal" and path == records.journal_path(ctx):
             raise PermissionError("interrupted terminal cleanup")
         unlink(path, *args, **kwargs)
+        if interruption == "snapshot" and path == root / "rollback" / command.SNAPSHOT_FILENAME:
+            raise PermissionError("interrupted terminal cleanup")
 
-    cleanup = mocker.patch.object(
-        transaction_completion.shutil, "rmtree", side_effect=interrupt_cleanup
+    cleanup = mocker.patch.object(Path, "rmdir", autospec=True, side_effect=interrupt_cleanup)
+    journal_cleanup = mocker.patch.object(
+        Path, "unlink", autospec=True, side_effect=interrupt_journal
     )
-    journal_cleanup = mocker.patch.object(Path, "unlink", interrupt_journal)
     finish = (
         (lambda: transaction.finalize(runtime)) if outcome == "finalized" else transaction.rollback
     )
@@ -317,9 +314,15 @@ def test_snapshot_failure_cleanup_remains_retryable(
     snapshot = mocker.patch.object(
         command, "write_snapshot", side_effect=errors.InstallError("snapshot failed")
     )
-    cleanup = mocker.patch.object(
-        transaction_completion.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
-    )
+    root = records.transaction_root(ctx)
+    remove_directory = Path.rmdir
+
+    def deny_cleanup(path: Path) -> None:
+        if path == root:
+            raise PermissionError("cleanup failed")
+        remove_directory(path)
+
+    cleanup = mocker.patch.object(Path, "rmdir", autospec=True, side_effect=deny_cleanup)
     with pytest.raises(errors.InstallError, match="cleanup failed"):
         transaction.commit_projection()
     mocker.stop(cleanup)
@@ -343,9 +346,15 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
-    cleanup = mocker.patch.object(
-        transaction_completion.shutil, "rmtree", side_effect=PermissionError("cleanup failed")
-    )
+    root = records.transaction_root(ctx)
+    remove_directory = Path.rmdir
+
+    def deny_cleanup(path: Path) -> None:
+        if path == root:
+            raise PermissionError("cleanup failed")
+        remove_directory(path)
+
+    cleanup = mocker.patch.object(Path, "rmdir", autospec=True, side_effect=deny_cleanup)
     with pytest.raises(errors.InstallError, match="transaction cleanup failed"):
         transaction.rollback()
     journal = records.journal_path(ctx).read_bytes()
@@ -400,11 +409,15 @@ def test_finalize_reports_cleanup_failure_without_erasing_success_state(
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
-    mocker.patch.object(
-        transaction_completion.shutil,
-        "rmtree",
-        side_effect=OSError("cleanup blocked at /Users/private/transaction"),
-    )
+    root = records.transaction_root(ctx)
+    remove_directory = Path.rmdir
+
+    def deny_cleanup(path: Path) -> None:
+        if path == root:
+            raise OSError("cleanup blocked at /Users/private/transaction")
+        remove_directory(path)
+
+    mocker.patch.object(Path, "rmdir", autospec=True, side_effect=deny_cleanup)
 
     with pytest.raises(errors.InstallError, match="cleanup failed") as raised:
         transaction.finalize({"pid": 123})
@@ -479,7 +492,7 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
     ctx = install_context(tmp_path / "cleanup")
     root = records.transaction_root(ctx)
     root.mkdir(parents=True)
-    mocker.patch.object(transaction_completion.shutil, "rmtree", return_value=None)
+    mocker.patch.object(Path, "rmdir", return_value=None)
     with (
         subtests.test("cleanup"),
         pytest.raises(errors.InstallError, match="cleanup did not remove"),

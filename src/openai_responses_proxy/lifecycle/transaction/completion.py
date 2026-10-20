@@ -6,7 +6,6 @@ terminal authority and resumes cleanup without replaying completed effects.
 
 from __future__ import annotations
 
-import shutil
 import uuid
 from collections.abc import Callable
 from collections.abc import Mapping
@@ -101,6 +100,7 @@ def _select_retention(
             phase="activated",
             reason="finalization failed",
             files=records.removal_files(journal),
+            snapshot_sha256=str(journal["snapshot_sha256"]),
         )
         raise
 
@@ -264,7 +264,7 @@ def finish_cleanup(
             pass
         case _:
             raise errors.RecoveryStateError("payload transaction is not terminal")
-    _remove_transaction_root(ctx)
+    _remove_transaction_root(ctx, snapshot_sha256=journal.get("snapshot_sha256"))
     try:
         records.journal_path(ctx).unlink()
     except OSError as exc:
@@ -276,13 +276,22 @@ def finish_cleanup(
     }
 
 
-def _remove_transaction_root(ctx: runtime_context.RuntimeContext) -> None:
+def _remove_transaction_root(
+    ctx: runtime_context.RuntimeContext, *, snapshot_sha256: object = None
+) -> None:
     root = records.transaction_root(ctx)
-    if not root.exists():
+    if not root.exists() and not root.is_symlink():
         return
     try:
-        shutil.rmtree(root)
-    except OSError as exc:
+        if root.is_symlink() or not root.is_dir():
+            raise errors.InstallError("payload transaction root is not a real directory")
+        relative = f"rollback/{command.SNAPSHOT_FILENAME}"
+        files = {relative: str(snapshot_sha256)} if snapshot_sha256 is not None else {}
+        projection.remove_empty_owned_directories(root, {relative})
+        remaining = projection.purge_owned_files(root, files)
+    except (OSError, errors.InstallError) as exc:
         raise errors.InstallError("payload transaction cleanup failed") from exc
+    if remaining:
+        raise errors.InstallError("unknown transaction content remains: " + ", ".join(remaining))
     if root.exists():
         raise errors.InstallError("payload transaction cleanup did not remove the transaction")

@@ -18,11 +18,13 @@ from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.transaction import completion
+from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
@@ -147,6 +149,15 @@ class PayloadTransaction:
             command_snapshot = command.snapshot(
                 Path(self._ctx.command), Path(control_ctx.executable)
             )
+            journal = {
+                **self._owned_journal(),
+                "snapshot_sha256": hashlib.sha256(
+                    command.snapshot_bytes(command_snapshot)
+                ).hexdigest(),
+            }
+            owned_files.write_bytes(
+                records.journal_path(self._ctx), digest.canonical_json(journal), mode=0o600
+            )
             command.write_snapshot(rollback, command_snapshot)
             if self._reuse_generation:
                 payload_candidate.prewarm(self._candidate_ctx)
@@ -219,6 +230,7 @@ class PayloadTransaction:
             previous_generation=self._previous_generation,
             previous_predecessor=self._previous_predecessor,
             files=records.removal_files(journal),
+            snapshot_sha256=str(journal["snapshot_sha256"]),
         )
 
     def finalize(self, runtime: Mapping[str, object] | None = None) -> None:
@@ -282,6 +294,7 @@ class PayloadTransaction:
             phase=phase,
             reason=reason,
             files=records.removal_files(journal),
+            snapshot_sha256=str(journal["snapshot_sha256"]),
         )
 
     def _owned_journal(self, *, for_rollback: bool = False) -> Mapping[str, object]:
@@ -295,6 +308,7 @@ class PayloadTransaction:
         return journal
 
     def _write_journal(self) -> None:
+        journal = self._owned_journal()
         records.write_journal(
             self._ctx,
             transaction_id=self._transaction_id,
@@ -304,7 +318,8 @@ class PayloadTransaction:
             fresh=self._fresh,
             previous_generation=self._previous_generation,
             previous_predecessor=self._previous_predecessor,
-            files=records.removal_files(self._owned_journal()),
+            files=records.removal_files(journal),
+            snapshot_sha256=str(journal["snapshot_sha256"]),
         )
 
 
