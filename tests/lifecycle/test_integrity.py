@@ -193,9 +193,21 @@ class TestPayloadValidation:
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
-        mocker.patch.object(payload_digest, "sha256_file", return_value="0" * 64)
+        sha256_file = payload_digest.sha256_file
+        corrupted = False
+
+        def misread_once(path: Path) -> str:
+            nonlocal corrupted
+            if not corrupted:
+                corrupted = True
+                return "0" * 64
+            return sha256_file(path)
+
+        mocker.patch.object(payload_digest, "sha256_file", side_effect=misread_once)
         with pytest.raises(errors.InstallError, match="installed payload digest mismatch"):
             transaction.commit_projection()
+        assert not Path(transaction.context.payload_dir).exists()
+        assert records.status(ctx) is None
 
     def test_manifest_verifier_reports_each_metadata_boundary(
         self, subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory

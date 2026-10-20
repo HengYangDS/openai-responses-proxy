@@ -31,16 +31,6 @@ class RetainedRollbackStatus:
     detail: str | None = None
 
 
-def remove_retained(ctx: runtime_context.RuntimeContext) -> None:
-    """Drop the predecessor from the sole generation selector."""
-    selection = generation.read(ctx)
-    _require_closed_generation_store(ctx, selection)
-    if selection is None or selection.predecessor is None:
-        return
-    generation.select(ctx, active=selection.active, predecessor=None)
-    generation.prune(ctx, generation.Selection(selection.active, None))
-
-
 def load_retained(ctx: runtime_context.RuntimeContext) -> RetainedRollback:
     """Load and verify the sole predecessor bound to the live successor."""
     selection = generation.read(ctx)

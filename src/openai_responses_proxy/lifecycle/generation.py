@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import shutil
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
+from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
@@ -164,8 +165,8 @@ def clear(ctx: runtime_context.RuntimeContext) -> None:
         raise errors.InstallError("payload generation selector removal failed") from exc
 
 
-def remove(ctx: runtime_context.RuntimeContext, generation: str) -> None:
-    """Remove one exact unselected generation."""
+def remove(ctx: runtime_context.RuntimeContext, generation: str, files: Mapping[str, str]) -> None:
+    """Dispose only the recorded bytes of one unselected generation."""
     selection = read(ctx)
     if selection is not None and generation in {
         selection.active,
@@ -173,18 +174,22 @@ def remove(ctx: runtime_context.RuntimeContext, generation: str) -> None:
     }:
         raise errors.InstallError("selected payload generation cannot be removed")
     target = path(ctx, generation)
+    generations = root(ctx)
+    if generations.is_symlink() or (generations.exists() and not generations.is_dir()):
+        raise errors.InstallError("payload generation store is unavailable or invalid")
     if target.is_symlink():
         raise errors.InstallError("payload generation is a symbolic link")
     if target.exists():
         if not target.is_dir():
             raise errors.InstallError("payload generation is invalid")
         try:
-            shutil.rmtree(target)
+            remaining = projection.purge_owned_files(target, files)
         except OSError as exc:
             raise errors.InstallError(
                 f"payload generation removal failed{errors.os_error_detail(exc)}"
             ) from exc
-    generations = root(ctx)
+        if remaining:
+            raise errors.InstallError("unknown generation content remains: " + ", ".join(remaining))
     try:
         if generations.is_dir() and not any(generations.iterdir()):
             generations.rmdir()
@@ -192,25 +197,39 @@ def remove(ctx: runtime_context.RuntimeContext, generation: str) -> None:
         raise errors.InstallError("empty payload generation store removal failed") from exc
 
 
-def prune(ctx: runtime_context.RuntimeContext, selection: Selection) -> None:
-    """Retain exactly the selected active and predecessor generations."""
+def disposal_files(ctx: runtime_context.RuntimeContext, selection: Selection) -> dict[str, str]:
+    """Capture verified retirement authority without including unowned content."""
+    keep = {selection.active, selection.predecessor}
+    return {
+        f"{GENERATIONS_DIRNAME}/{Path(selected.payload_dir).name}/{relative}": expected
+        for selected in owned_contexts(ctx)
+        if Path(selected.payload_dir).name not in keep
+        for relative, expected in projection.owned_payload_files(selected).items()
+    }
+
+
+def prune(
+    ctx: runtime_context.RuntimeContext, selection: Selection, files: Mapping[str, str]
+) -> None:
+    """Resume recorded retirement without reconstructing partially removed payloads."""
     generations = root(ctx)
     if generations.is_symlink() or not generations.is_dir():
         raise errors.InstallError("payload generation store is unavailable or invalid")
     keep = {selection.active, selection.predecessor} - {None}
-    try:
-        for entry in generations.iterdir():
-            if entry.name in keep:
-                if entry.is_symlink() or not entry.is_dir():
-                    raise errors.InstallError("payload generation store is invalid")
-                continue
-            if entry.is_symlink() or not entry.is_dir():
-                raise errors.InstallError("payload generation store is invalid")
-            shutil.rmtree(entry)
-    except errors.InstallError:
-        raise
-    except OSError as exc:
-        raise errors.InstallError("payload generation cleanup failed") from exc
+    discarded: dict[str, dict[str, str]] = {}
+    for relative, expected in files.items():
+        parts = relative.split("/", 2)
+        if len(parts) != 3 or parts[0] != GENERATIONS_DIRNAME or parts[1] in keep:
+            raise errors.InstallError("payload generation disposal inventory is invalid")
+        _require_name(parts[1])
+        discarded.setdefault(parts[1], {})[parts[2]] = expected
+    for entry in generations.iterdir():
+        if entry.is_symlink() or not entry.is_dir():
+            raise errors.InstallError("payload generation store is invalid")
+        if entry.name not in keep and entry.name not in discarded:
+            raise errors.InstallError("unknown generation content remains")
+    for generation, members in sorted(discarded.items()):
+        remove(ctx, generation, members)
 
 
 def _require_generation(ctx: runtime_context.RuntimeContext, generation: str, role: str) -> None:

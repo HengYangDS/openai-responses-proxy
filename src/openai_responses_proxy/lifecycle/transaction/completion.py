@@ -100,6 +100,7 @@ def _select_retention(
             ),
             phase="activated",
             reason="finalization failed",
+            files=records.removal_files(journal),
         )
         raise
 
@@ -171,6 +172,8 @@ def complete_transaction(
     """Persist terminal effects before deleting any recovery input."""
     terminal = {key: value for key, value in journal.items() if key not in {"phase", "reason"}}
     terminal["state"] = outcome
+    if outcome != "rolled_back":
+        terminal.pop("files", None)
     owned_files.write_bytes(records.journal_path(ctx), digest.canonical_json(terminal), mode=0o600)
     return finish_cleanup(ctx, terminal)
 
@@ -236,10 +239,24 @@ def finish_cleanup(
             selection = generation.read(ctx)
             if selection is None or selection.active != journal["transaction_id"]:
                 raise errors.RecoveryStateError("finalized transaction selection changed")
-            generation.prune(ctx, selection)
+            if "files" not in journal:
+                journal = {**journal, "files": generation.disposal_files(ctx, selection)}
+                owned_files.write_bytes(
+                    records.journal_path(ctx), digest.canonical_json(journal), mode=0o600
+                )
+            generation.prune(ctx, selection, records.removal_files(journal))
         case "rolled_back":
             if not reuses_retained_generation(journal):
-                generation.remove(ctx, str(journal["transaction_id"]))
+                candidate = str(journal["transaction_id"])
+                prefix = f"{generation.GENERATIONS_DIRNAME}/{candidate}/"
+                generation.remove(
+                    ctx,
+                    candidate,
+                    {
+                        name.removeprefix(prefix): expected
+                        for name, expected in records.removal_files(journal).items()
+                    },
+                )
             install = Path(ctx.install_dir)
             if journal["fresh"] is True and install.is_dir() and not any(install.iterdir()):
                 install.rmdir()

@@ -24,6 +24,7 @@ from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.transaction import completion
 from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
 
 
 class PayloadTransaction:
@@ -190,7 +191,7 @@ class PayloadTransaction:
         """Atomically select and project the already materialized candidate."""
         if self._state != "materialized":
             raise errors.InstallError("payload transaction is not materialized")
-        self._owned_journal()
+        journal = self._owned_journal()
         rollback = records.transaction_root(self._ctx) / "rollback"
         command_snapshot = command.read_snapshot(rollback)
         predecessor = (
@@ -217,6 +218,7 @@ class PayloadTransaction:
             fresh=self._fresh,
             previous_generation=self._previous_generation,
             previous_predecessor=self._previous_predecessor,
+            files=records.removal_files(journal),
         )
 
     def finalize(self, runtime: Mapping[str, object] | None = None) -> None:
@@ -265,7 +267,7 @@ class PayloadTransaction:
         """Keep committed bytes and rollback while marking an unknown outcome."""
         if self._state not in {"materialized", "activated"}:
             raise errors.InstallError("only a materialized transaction can require recovery")
-        self._owned_journal()
+        journal = self._owned_journal()
         phase = self._state
         self._state = "recovery_required"
         records.write_journal(
@@ -279,6 +281,7 @@ class PayloadTransaction:
             previous_predecessor=(self._previous_predecessor),
             phase=phase,
             reason=reason,
+            files=records.removal_files(journal),
         )
 
     def _owned_journal(self, *, for_rollback: bool = False) -> Mapping[str, object]:
@@ -301,6 +304,7 @@ class PayloadTransaction:
             fresh=self._fresh,
             previous_generation=self._previous_generation,
             previous_predecessor=self._previous_predecessor,
+            files=records.removal_files(self._owned_journal()),
         )
 
 
@@ -336,6 +340,7 @@ def begin_rollback_transaction(
         fresh=False,
         previous_generation=selection.active,
         previous_predecessor=selection.predecessor,
+        files={},
     )
     return PayloadTransaction(
         ctx=ctx,
@@ -388,8 +393,21 @@ def _begin_transaction(
             "installing"
         )
     previous_generation = current_selection.active if current_selection is not None else None
-    _claim_transaction_root(ctx)
     transaction_id = uuid.uuid4().hex
+    candidate_ctx = generation.context(ctx, transaction_id)
+    candidate_files = {blob.path: blob.sha256 for blob in blobs}
+    candidate_files.update(
+        {
+            inventory.MANIFEST_FILENAME: hashlib.sha256(
+                projection.manifest_bytes(
+                    payload_candidate.manifest_for(version, blobs, receipt_sha256)
+                )
+            ).hexdigest(),
+            inventory.RELEASE_RECEIPT_FILENAME: receipt_sha256,
+            runtime_spec.FILENAME: hashlib.sha256(runtime_spec.content(candidate_ctx)).hexdigest(),
+        }
+    )
+    _claim_transaction_root(ctx)
     records.write_journal(
         ctx,
         transaction_id=transaction_id,
@@ -401,6 +419,10 @@ def _begin_transaction(
         previous_predecessor=(
             current_selection.predecessor if current_selection is not None else None
         ),
+        files={
+            f"{generation.GENERATIONS_DIRNAME}/{transaction_id}/{relative}": expected
+            for relative, expected in candidate_files.items()
+        },
     )
     return PayloadTransaction(
         ctx=ctx,

@@ -73,6 +73,14 @@ SHALL wait for that completion.
 - **AND** changed files, symbolic links, unknown files, and unknown empty
   directories remain untouched and prevent a successful purge result.
 
+#### Scenario: Generation retirement preserves operator content
+
+- **WHEN** rollback discards a candidate or finalization retires an older generation
+- **THEN** the transaction journal records exact file paths and digests before deletion
+- **AND** candidate ownership is captured before materialization, so partial writes remain recoverable
+- **AND** recovery uses that original inventory without requiring a complete discarded manifest
+- **AND** replaced files, symbolic links, unlisted files, and unlisted empty directories remain untouched and prevent successful cleanup.
+
 #### Scenario: An interrupted first installation has a starting native service
 
 - **WHEN** a fresh installation committed a candidate and submitted native

@@ -270,7 +270,10 @@ def test_status_routes_terminal_cleanup_to_recovery(
     install_payload(ctx, "1.2.2", mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     journal = records.read_journal(ctx)
+    candidate_files = journal["files"]
     journal["state"] = outcome
+    if outcome == "closed":
+        journal.pop("files")
     records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
     healthy_status_dependencies(ctx, mocker=mocker)
 
@@ -280,6 +283,7 @@ def test_status_routes_terminal_cleanup_to_recovery(
     assert result["detail"] == "payload cleanup is required"
     assert records.read_journal(ctx)["state"] == outcome
     journal["state"] = "prepared"
+    journal["files"] = candidate_files
     records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
     pending.rollback()
 

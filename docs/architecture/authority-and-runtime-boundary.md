@@ -310,6 +310,14 @@ transaction's journal. Once an outcome requires recovery, only runtime-aware
 recovery may resolve it; ordinary rollback cannot guess whether the candidate
 is already serving.
 
+Generation disposal and uninstall purge share one exact-file deletion owner.
+The transaction journal captures candidate paths and digests before materialization
+and verified retired-generation paths before cleanup. A new process resumes only
+that inventory, even after the discarded manifest or executable is gone. Replaced
+files and unlisted files, directories, or links are preserved; remaining unknown
+content prevents cleanup from reporting success. A generation's directory name
+alone never authorizes recursive deletion.
+
 The release that first introduces this transition must drive its own one-time
 upgrade from an older installed release: the predecessor cannot execute
 finalization semantics that did not yet exist. This is an explicit bootstrap

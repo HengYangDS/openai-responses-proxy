@@ -47,29 +47,10 @@ def test_selector_is_the_only_retained_rollback_authority(tmp_path: Path, *, moc
     assert retained.successor.release == "1.2.3"
 
 
-def test_removing_retained_predecessor_preserves_only_active_generation(
-    tmp_path: Path, *, mocker
-) -> None:
-    ctx = install_context(tmp_path)
-    first, second = install_successor(ctx, mocker=mocker)
-
-    rollback.remove_retained(ctx)
-
-    assert generation.read(ctx) == generation.Selection(
-        active=str(second.expected["transaction_id"]),
-        predecessor=None,
-    )
-    assert generation.path(ctx, str(second.expected["transaction_id"])).is_dir()
-    assert not generation.path(ctx, str(first.expected["transaction_id"])).exists()
-    assert rollback.load_retained_or_none(ctx) is None
-
-
 def test_clean_absence_has_no_retained_rollback(tmp_path: Path, *, mocker) -> None:
     """A fresh selected generation exposes no rollback operation or residue."""
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
-
-    rollback.remove_retained(ctx)
 
     with pytest.raises(errors.InstallError, match="predecessor is unavailable"):
         rollback.load_retained(ctx)
@@ -271,34 +252,65 @@ def test_generation_removal_and_pruning_fail_closed(tmp_path: Path, *, mocker) -
     selection = generation.Selection(active, None)
 
     with pytest.raises(errors.InstallError, match="cannot be removed"):
-        generation.remove(ctx, active)
-    generation.remove(ctx, "d" * 32)
+        generation.remove(ctx, active, {})
+    generation.remove(ctx, "d" * 32, {})
 
     invalid = generation.path(ctx, "e" * 32)
     invalid.write_text("not a generation\n", encoding="utf-8")
     with pytest.raises(errors.InstallError, match="generation is invalid"):
-        generation.remove(ctx, invalid.name)
+        generation.remove(ctx, invalid.name, {})
     invalid.unlink()
 
     outside = tmp_path / "outside-generation"
     outside.mkdir()
     invalid.symlink_to(outside, target_is_directory=True)
     with pytest.raises(errors.InstallError, match="symbolic link"):
-        generation.remove(ctx, invalid.name)
+        generation.remove(ctx, invalid.name, {})
     invalid.unlink()
 
     residue = generation.path(ctx, "f" * 32)
     residue.mkdir()
-    remove = mocker.patch.object(generation.shutil, "rmtree", side_effect=OSError("blocked"))
-    with pytest.raises(errors.InstallError, match="cleanup failed"):
-        generation.prune(ctx, selection)
+    remove = mocker.patch.object(
+        generation.projection, "purge_owned_files", side_effect=OSError("blocked")
+    )
+    with pytest.raises(errors.InstallError, match="removal failed"):
+        generation.prune(ctx, selection, {f"generations/{residue.name}/providers.toml": "0" * 64})
     mocker.stop(remove)
 
     store = generation.root(ctx)
     store.rename(tmp_path / "generation-store")
     store.write_text("not a directory\n", encoding="utf-8")
     with pytest.raises(errors.InstallError, match="store is unavailable"):
-        generation.prune(ctx, selection)
+        generation.prune(ctx, selection, {})
+
+
+@pytest.mark.parametrize("obstruction", ["selected_inventory", "unowned_directory", "symlink"])
+def test_generation_pruning_requires_exact_unselected_inventory(
+    tmp_path: Path, obstruction: str, *, mocker
+) -> None:
+    ctx = install_context(tmp_path)
+    installed = install_payload(ctx, mocker=mocker)
+    selection = generation.read(ctx)
+    assert selection is not None
+    files = {}
+    residue = generation.path(ctx, "f" * 32)
+    if obstruction == "selected_inventory":
+        files = {f"generations/{selection.active}/providers.toml": "0" * 64}
+        expected = "disposal inventory is invalid"
+    elif obstruction == "unowned_directory":
+        residue.mkdir()
+        expected = "unknown generation content"
+    else:
+        residue.symlink_to(Path(installed.context.payload_dir), target_is_directory=True)
+        expected = "generation store is invalid"
+
+    with pytest.raises(errors.InstallError, match=expected):
+        generation.prune(ctx, selection, files)
+
+    assert Path(installed.context.executable).is_file()
+    assert generation.read(ctx) == selection
+    if obstruction != "selected_inventory":
+        assert residue.exists()
 
 
 def test_generation_cleanup_reports_exact_filesystem_failures(tmp_path: Path, *, mocker) -> None:
@@ -323,18 +335,27 @@ def test_generation_cleanup_reports_exact_filesystem_failures(tmp_path: Path, *,
 
     target = generation.path(ctx, "e" * 32)
     target.mkdir(parents=True)
-    remove = mocker.patch.object(generation.shutil, "rmtree", side_effect=OSError("blocked"))
+    remove = mocker.patch.object(
+        generation.projection, "purge_owned_files", side_effect=OSError("blocked")
+    )
     with pytest.raises(errors.InstallError, match="generation removal failed"):
-        generation.remove(ctx, target.name)
+        generation.remove(ctx, target.name, {})
     mocker.stop(remove)
 
     empty_ctx = install_context(tmp_path / "empty-store")
     empty_target = generation.path(empty_ctx, "f" * 32)
     empty_target.mkdir(parents=True)
-    remove_store = mocker.patch.object(Path, "rmdir", autospec=True, side_effect=OSError("busy"))
+    rmdir = Path.rmdir
+
+    def refuse_store(path: Path) -> None:
+        if path == generation.root(empty_ctx):
+            raise OSError("busy")
+        rmdir(path)
+
+    remove_store = mocker.patch.object(Path, "rmdir", autospec=True, side_effect=refuse_store)
     with pytest.raises(errors.InstallError, match="empty payload generation store removal failed"):
-        generation.remove(empty_ctx, empty_target.name)
-    remove_store.assert_called_once_with(generation.root(empty_ctx))
+        generation.remove(empty_ctx, empty_target.name, {})
+    remove_store.assert_any_call(generation.root(empty_ctx))
 
 
 @pytest.mark.parametrize("native_code", [None, 5, 32, True, "private"])
@@ -347,10 +368,10 @@ def test_generation_removal_reports_native_code_without_private_paths(
     failure = PermissionError(13, "private native detail", str(target / "private-file"))
     if native_code is not None:
         mocker.patch.object(failure, "winerror", native_code, create=True)
-    mocker.patch.object(generation.shutil, "rmtree", side_effect=failure)
+    mocker.patch.object(generation.projection, "purge_owned_files", side_effect=failure)
 
     with pytest.raises(errors.InstallError) as raised:
-        generation.remove(ctx, target.name)
+        generation.remove(ctx, target.name, {})
 
     expected = native_code if type(native_code) is int else 13
     assert str(raised.value) == f"payload generation removal failed (OS error {expected})"

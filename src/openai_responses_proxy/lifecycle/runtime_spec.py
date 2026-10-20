@@ -91,17 +91,17 @@ def path(ctx: RuntimeContext) -> Path:
 def write(ctx: RuntimeContext) -> Path:
     """Atomically persist the exact native runtime contract."""
     target = path(ctx)
+    owned_files.write_bytes(target, content(ctx), mode=0o600, root=Path(ctx.payload_dir))
+    return target
+
+
+def content(ctx: RuntimeContext) -> bytes:
+    """Encode the exact carrier before materialization or disposal admission."""
     payload = {"schema_version": SCHEMA_VERSION}
     payload.update({name: getattr(ctx, name) for name in _FIELDS})
     if ctx.upstream_base_url:
         payload["upstream_base_url"] = registry.normalize_upstream(ctx.upstream_base_url)
-    owned_files.write_bytes(
-        target,
-        digest.canonical_json(payload),
-        mode=0o600,
-        root=Path(ctx.payload_dir),
-    )
-    return target
+    return digest.canonical_json(payload)
 
 
 def environment(target: Path) -> dict[str, str]:

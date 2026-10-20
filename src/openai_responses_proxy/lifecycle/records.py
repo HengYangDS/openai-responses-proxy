@@ -17,7 +17,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
 INSTALLED_RELEASE_STATE_SCHEMA = 1
-TRANSACTION_JOURNAL_SCHEMA = 5
+TRANSACTION_JOURNAL_SCHEMA = 6
 TERMINAL_STATES = frozenset({"closed", "rolled_back", "finalized", "purged"})
 _STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
@@ -150,7 +150,16 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
             raise errors.InstallError("payload removal has an unexpected transaction directory")
         removal_files(journal)
     elif "files" in journal:
-        raise errors.InstallError("payload transaction journal fields are invalid")
+        files = removal_files(journal)
+        if journal["state"] == "closed":
+            raise errors.InstallError("payload transaction journal fields are invalid")
+        if journal["state"] != "finalized" and any(
+            not name.startswith(f"{identity.PAYLOAD_GENERATIONS_DIRNAME}/{transaction_id}/")
+            for name in files
+        ):
+            raise errors.InstallError("payload transaction disposal generation is invalid")
+    elif journal["state"] not in {"closed", "finalized"}:
+        raise errors.InstallError("payload transaction disposal inventory is missing")
     if not root.exists() and journal["state"] not in TERMINAL_STATES:
         raise errors.InstallError("payload transaction root is not a directory")
     return journal
@@ -159,7 +168,7 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
 def removal_files(journal: ReadOnlyJsonObject) -> dict[str, str]:
     """Read one positive, root-relative deletion inventory from transaction authority."""
     files = journal.get("files")
-    if not isinstance(files, dict) or not files:
+    if not isinstance(files, dict) or (not files and journal.get("state") == "purged"):
         raise errors.InstallError("payload removal inventory is invalid")
     result = {}
     for name, expected in files.items():
@@ -202,6 +211,7 @@ def write_journal(
     previous_predecessor: str | None = None,
     phase: str | None = None,
     reason: str | None = None,
+    files: dict[str, str] | None = None,
 ) -> None:
     """Write one canonical secret-free transaction journal."""
     journal: JsonObject = {
@@ -220,6 +230,9 @@ def write_journal(
         journal["previous_predecessor"] = previous_predecessor
     if phase is not None:
         journal["phase"] = phase
+    if files is not None:
+        journal["files"] = files
+        removal_files(journal)
     owned_files.write_bytes(journal_path(ctx), digest.canonical_json(journal), mode=0o600)
 
 
