@@ -43,7 +43,7 @@ This checklist retains the original task identities and completion states.
 
 ## 5. Native Lifecycle and Resource Ownership
 
-- [ ] 5.1 Converge install, upgrade, reload, rollback, recovery, and uninstall on one transaction state machine and mutation lock; verify preconditions, durable transitions, and terminal states through failure injection, including same-controller cleanup retry and cross-process recovery after partial directory removal.
+- [ ] 5.1 Converge install, upgrade, reload, rollback, recovery, and uninstall on one transaction state machine and mutation lock; verify preconditions, durable transitions, and terminal states through failure injection, including same-controller cleanup retry and cross-process recovery after partial directory removal. macOS candidate preserves in-flight responses through the verified published 5.0.5 predecessor journey, rollback and interrupted recovery; remaining failure branches and platforms stay open. Evidence: `test-ownership-20261019/native-published-predecessor-acceptance-20261020.json`.
 - [ ] 5.2 Make payload generation, manifest, command projection, transaction journal, rollback snapshot, service declaration, listener, watchdog, and handoff child each have exact ownership identity and one cleanup owner.
 - [x] 5.3 Prove macOS launchd creation and teardown share the exact label and plist path; remove every suffixed test service, process, and plist while preserving the canonical installed service.
 - [x] 5.4 Prove Linux systemd behavior on a real supported user service and in the declared container boundary, including explicit behavior when no user bus exists; remove session-only fallback processes.
