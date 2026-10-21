@@ -94,3 +94,45 @@ the upstream decision when a stable candidate exposes public per-read deadline
 control for an active synchronous stream and can prove raw-byte, recovery,
 direct-routing, frozen-release, and three-platform parity while deleting more
 transport-specific complexity than it introduces.
+
+**Amendment, 2026-10-22: gateway and transport review.**
+
+Retain the current transport for this convergence. Do not embed a general
+multi-provider gateway. HTTPCore's public network backend is a valid replacement
+candidate, but adoption requires demonstrated net simplification and the existing
+release acceptance; it is not rejected as impossible.
+
+The comparison separates the portable Responses policy and native lifecycle
+from generic HTTP mechanics. The current parser is Python's `http.client`, not
+an independently maintained HTTP grammar. Product code owns deadline-aware I/O,
+raw-body admission and response capabilities. A replacement must remove those
+liabilities without introducing another policy or runtime owner.
+
+| Candidate and primary source                                                              | Replacement value                                                                                            | Decision and cost                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [LiteLLM 1.106.2](https://github.com/BerriAI/litellm/blob/v1.106.2/pyproject.toml)        | Provider translation, SDK and gateway routing, including Responses.                                          | Do not embed. Its SDK adds a Rust build backend and a broad model/validation stack; `filelock<4` conflicts with this product's lock. Gateway extras add a server and policy domain without proving portable replay or native listener succession.     |
+| [Portkey Gateway 1.15.2](https://github.com/Portkey-AI/gateway/blob/v1.15.2/package.json) | Local Node gateway with retries, routing and fallbacks.                                                      | Do not embed. It introduces a Node/Hono service and install hooks (`prepare`, `postinstall`) while the existing product must still own its native lifecycle and portable stream semantics. An independently selected upstream remains possible.       |
+| [HTTPX 0.28.1](https://github.com/encode/httpx/blob/0.28.1/docs/advanced/timeouts.md)     | Public raw-byte iteration, direct routing and connection pooling.                                            | Do not adopt. Its read timeout is a per-chunk inactivity limit, not an absolute exchange deadline. The earlier active-stream probe remains applicable to this unchanged stable version.                                                               |
+| [HTTPCore 1.0.9](https://github.com/encode/httpcore/blob/1.0.9/docs/network-backends.md)  | A public network backend can clamp each read, write and TLS operation; the pool owns HTTP parsing and reuse. | Retain as a candidate. It still requires deadline propagation across reused connections, backend and pool shutdown, response adaptation and native qualification. No smaller accepted implementation or measured total benefit has been demonstrated. |
+| [h11 0.16.0](https://github.com/python-hyper/h11/blob/v0.16.0/README.rst)                 | A standalone HTTP/1.1 state machine with no I/O.                                                             | Do not add alone. The standard library already owns parsing; replacing it with h11 leaves DNS, TLS, deadlines and resource disposal with this product and requires new glue.                                                                          |
+
+The official registries reported these stable versions on the review date.
+[HTTPX's raw API](https://github.com/encode/httpx/blob/0.28.1/docs/quickstart.md)
+does preserve encoded bytes. Its limitation is deadline control, not raw-byte
+support. [HTTPCore's HTTP/1.1 body iterator](https://github.com/encode/httpcore/blob/1.0.9/httpcore/_sync/http11.py)
+captures the read timeout when iteration starts, while the documented network
+backend permits custom per-operation control. Using that supported extension
+would be an integration choice, not a vendor patch.
+
+This decision does not certify the current transport as complete. Native
+`getaddrinfo` is synchronous and is not interrupted by the surrounding deadline
+checks. Upstream connection reuse and final performance acceptance are also
+unproved. These obligations remain with the existing transport acceptance task;
+retaining a library must not turn a known gap into a guarantee.
+
+Reopen the replacement choice when a bounded public-backend implementation
+removes private response traversal and demonstrates the same total deadline,
+raw bytes, direct TLS routing, retry ownership and resource cleanup. Compare its
+maintained code and frozen assets with the current path, including the added
+pool and dependency lifetime. No new dependency, resolver execution, benchmark
+claim or three-platform replacement proof is implied by this review.
