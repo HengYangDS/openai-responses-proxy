@@ -223,7 +223,7 @@ def test_failed_native_acceptance_cannot_publish_an_asset(
     assert session.run.call_args.args[:4] == ("python", "-m", "pytest", "-q")
 
 
-@pytest.mark.parametrize("session_name", ["release", "release_compatibility"])
+@pytest.mark.parametrize("session_name", ["release", "release_compatibility", "native_lifecycle"])
 def test_native_acceptance_claims_a_private_test_root_before_pytest(
     session_name: str,
     tmp_path: Path,
@@ -233,11 +233,17 @@ def test_native_acceptance_claims_a_private_test_root_before_pytest(
 ) -> None:
     """An aborted pytest child cannot leave its caller-owned temporary root."""
     session = mocker.Mock()
+    session.posargs = []
     mocker.patch.object(nox_configuration, "ROOT", tmp_path)
     mocker.patch.object(
         nox_configuration,
         "_build_native_candidate",
         return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
+    )
+    executable = tmp_path / "proxy"
+    executable.touch()
+    monkeypatch.setenv(
+        nox_configuration.product_identity.environment_name("NATIVE_EXECUTABLE"), str(executable)
     )
     for suffix in ("PREVIOUS_RELEASE_ASSET", "PREVIOUS_RELEASE_TRUST_ANCHOR"):
         path = tmp_path / suffix

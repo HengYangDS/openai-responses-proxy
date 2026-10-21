@@ -34,6 +34,7 @@ from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_module
 from tests.lifecycle.fixtures import install_context
+from tools.release import verification
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_EXECUTABLE_START_TIMEOUT_SECONDS = 60
@@ -396,6 +397,8 @@ def write_installed_payload(
     """Build one selector-bound temporary generation without touching source."""
     control = install_context(root, windows=os.name == "nt")
     ctx = generation.context(control, "0" * 32)
+    ctx.port = port
+    verification.retain_context(ctx)
     install_dir = Path(ctx.payload_dir)
     source = Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"])
     target = Path(ctx.executable)
@@ -409,14 +412,18 @@ def write_installed_payload(
         f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n',
         encoding="utf-8",
     )
-    (install_dir / "VERSION").write_text(release + "\n", encoding="utf-8")
-    ctx.port = port
     receipt = install_dir / inventory.RELEASE_RECEIPT_FILENAME
     receipt.write_bytes(b'{"fixture":"handoff-subprocess"}\n')
-    projection._write_payload_manifest_for_fixture(
-        ctx,
-        release_receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
+    files = [provider_manifest, *(path for path in target.parent.rglob("*") if path.is_file())]
+    manifest = projection.manifest_for_digests(
+        release,
+        {
+            path.relative_to(install_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in files
+        },
+        hashlib.sha256(receipt.read_bytes()).hexdigest(),
     )
+    projection.payload_manifest_path(ctx).write_bytes(projection.manifest_bytes(manifest))
     runtime_spec.write(ctx)
     generation.select(control, active="0" * 32, predecessor=None)
     # Exercise the same installed-candidate admission as the product. A copied

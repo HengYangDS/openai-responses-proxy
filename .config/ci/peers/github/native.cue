@@ -129,7 +129,7 @@ import "list"
 				OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE: "${{ runner.temp }}/native-linux/runtime/bin/openai-responses-proxy"
 				OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE:     "${{ runner.temp }}/native-linux/runtime/bin"
 			}
-			run: "uv run --locked --no-sync python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml tests/release/lifecycle"
+			run: "uv run --locked --no-sync nox -s native_lifecycle"
 		}]])
 	}
 }

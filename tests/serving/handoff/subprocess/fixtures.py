@@ -14,6 +14,7 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.serving.handoff.fixtures import write_installed_payload
+from tools.release import verification
 
 PACKAGED_SUCCESSOR_TIMEOUT_SECONDS = 60
 PAYLOAD_UNLOCK_TIMEOUT_SECONDS = 5
@@ -31,7 +32,7 @@ class SubprocessFixture:
     def _installed_fixture(
         self, *, release: str, port: int, upstream_url: str
     ) -> tuple[Path, runtime_context.RuntimeContext, dict[int, process.OwnedProcess]]:
-        temporary = tempfile.TemporaryDirectory(delete=False)
+        temporary = verification.temporary_home(delete=False)
         root = Path(temporary.name)
         try:
             ctx = write_installed_payload(

@@ -5,7 +5,6 @@ from __future__ import annotations
 import http.client
 import json
 import socket
-import tempfile
 import threading
 import time
 import urllib.error
@@ -24,6 +23,7 @@ from tests.serving.handoff.fixtures import start_real_proxy
 from tests.serving.handoff.fixtures import terminate_process
 from tests.serving.handoff.fixtures import wait_until
 from tests.serving.handoff.fixtures import write_installed_payload
+from tools.release import verification
 
 pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
@@ -36,7 +36,7 @@ def test_frozen_body_admission_uses_the_persisted_budgets(oversized: bool) -> No
     """Refuse incomplete or oversized input without leaking a native listener."""
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
+        root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         ctx = write_installed_payload(
@@ -115,9 +115,7 @@ def test_frozen_input_recovery_preserves_required_current_turn(required) -> None
     """Exercise exact input-validation recovery through a frozen loopback listener."""
     port = free_port()
     with ExitStack() as cleanup:
-        # Frozen DLL loading needs a native temporary root, not pytest's nested
-        # case path; the other native handoff journeys use this same boundary.
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
+        root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         ctx = write_installed_payload(
@@ -221,7 +219,7 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: 
 
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
+        root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         cleanup.callback(release.set)
@@ -301,7 +299,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
 
     port = free_port()
     with ExitStack() as cleanup:
-        root = Path(cleanup.enter_context(tempfile.TemporaryDirectory()))
+        root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         cleanup.callback(release.set)

@@ -223,6 +223,19 @@ def release(session: nox.Session) -> None:
     _verify_native_candidate(session, "tests/release/lifecycle")
 
 
+@nox.session(python=False)
+def native_lifecycle(session: nox.Session) -> None:
+    """Accept an explicit built executable with surviving native teardown custody."""
+    variable = product_identity.environment_name("NATIVE_EXECUTABLE")
+    executable = _required_file(variable, "native executable")
+    verification.accept(
+        session,
+        (sys.executable, *PYTEST_COMMAND[1:], "tests/release/lifecycle", *session.posargs),
+        work=ROOT / "build" / "native-verification",
+        environment={**_environment(), variable: str(executable)},
+    )
+
+
 def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> None:
     """Accept shared artifact behavior and selected lifecycle cases before packaging."""
     work, bundle, executable = _build_native_candidate(session)

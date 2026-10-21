@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -133,8 +134,9 @@ class TestSignedNativeLifecycle:
         workspace.cleanup()
         assert not Path(directory).exists()
 
+    @pytest.mark.parametrize("fixture", ["signed-install", "detached-listener"])
     def test_native_teardown_reclaims_an_externally_killed_pytest_process(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str
     ) -> None:
         """A surviving executor purges the killed test's exact native installation."""
         executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
@@ -162,19 +164,34 @@ class TestSignedNativeLifecycle:
         )
         ready = tmp_path / "installed"
         source = tmp_path / "test_killed_native.py"
-        source.write_text(
-            "from pathlib import Path\n"
-            "from threading import Event\n"
-            "from tests.release.fixtures import run_command, runtime_context_for\n"
-            "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
-            "def test_killed_native():\n"
-            f"    home, install, state = map(Path, {tuple(map(str, (home, install, state)))!r})\n"
-            f"    runtime_context_for(home, install, state, {port})\n"
+        setup = (
+            f"    ctx = runtime_context_for(home, install, state, {port})\n"
+            "    before = native_service_projection(ctx)\n"
             "    env = native_process_environment(user_home=home, install_root=install, state_root=state)\n"
             f"    result = run_command(Path({str(executable)!r}), env, 'install', '--asset', {str(asset)!r}, "
             f"'--trust-anchor', {str(anchor)!r}, '--port', {str(port)!r}, '--json')\n"
             "    assert result['state'] == 'installed'\n"
-            f"    Path({str(ready)!r}).write_text('installed')\n"
+            if fixture == "signed-install"
+            else "    detached = SubprocessFixture()\n"
+            "    detached.setup_method()\n"
+            f"    root, ctx, _owned = detached._installed_fixture(release='1.0.25', port={port}, upstream_url='http://127.0.0.1:1')\n"
+            "    before = native_service_projection(ctx)\n"
+            "    start_real_proxy(ctx, upstream_url='http://127.0.0.1:1', log_path=root / 'proxy.log')\n"
+        )
+        source.write_text(
+            "import json\n"
+            "from dataclasses import asdict\n"
+            "from pathlib import Path\n"
+            "from threading import Event\n"
+            "from tests.release.fixtures import run_command, runtime_context_for\n"
+            "from tests.release.fixtures import native_service_projection\n"
+            "from tests.serving.handoff.subprocess.fixtures import SubprocessFixture\n"
+            "from tests.serving.handoff.fixtures import start_real_proxy\n"
+            "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
+            "def test_killed_native():\n"
+            f"    home, install, state = map(Path, {tuple(map(str, (home, install, state)))!r})\n"
+            + setup
+            + f"    Path({str(ready)!r}).write_text(json.dumps({{'context':asdict(ctx), 'before':before}}))\n"
             "    Event().wait(180)\n",
             encoding="utf-8",
         )
@@ -182,6 +199,7 @@ class TestSignedNativeLifecycle:
             **os.environ,
             verification._TEST_ROOT: str(test_root),
             verification._CONTEXTS: str(contexts),
+            "OPENAI_RESPONSES_PROXY_EXECUTABLE": str(executable),
         }
         monkeypatch.delenv(verification._TEST_ROOT, raising=False)
         monkeypatch.delenv(verification._CONTEXTS, raising=False)
@@ -212,9 +230,16 @@ class TestSignedNativeLifecycle:
                     time.sleep(0.05)
                 assert ready.is_file(), (tmp_path / "killed-child.log").read_text()
                 assert child.poll() is None
+                observed = json.loads(ready.read_text())
+                ctx = runtime_context.RuntimeContext(**observed["context"])
+                before = observed["before"]
+                install = Path(ctx.install_dir)
                 owned_contexts = generation.owned_contexts(ctx)
                 assert owned_contexts
-                assert native_service_projection(ctx)["status"] != "absent"
+                if fixture == "signed-install":
+                    assert native_service_projection(ctx)["status"] != "absent"
+                else:
+                    assert native_service_projection(ctx)["processes"]
                 child.kill()
                 assert child.wait(timeout=10) != 0
                 assert install.exists()

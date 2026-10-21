@@ -338,6 +338,31 @@ def test_native_context_requires_caller_custody_before_installation(
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.parametrize("invalid", ["relative", "symlink", "missing-custody"])
+def test_native_home_refuses_unproved_custody_before_allocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid: str
+) -> None:
+    """Allocation cannot silently escape the declared root or its surviving record."""
+    root = tmp_path / "owned"
+    contexts = tmp_path / "contexts.jsonl"
+    contexts.touch()
+    if invalid == "symlink":
+        target = tmp_path / "preserved"
+        target.mkdir()
+        root.symlink_to(target, target_is_directory=True)
+    monkeypatch.setenv(verification._TEST_ROOT, "relative" if invalid == "relative" else str(root))
+    monkeypatch.setenv(verification._CONTEXTS, str(contexts))
+    if invalid == "missing-custody":
+        monkeypatch.delenv(verification._CONTEXTS)
+    before = sorted(tmp_path.iterdir())
+
+    with pytest.raises(errors.InstallError):
+        verification.temporary_home()
+
+    assert sorted(tmp_path.iterdir()) == before
+    assert contexts.read_bytes() == b""
+
+
 def test_native_teardown_recovers_pending_transaction_before_purge(tmp_path: Path, mocker) -> None:
     root = tmp_path / "owned"
     root.mkdir()

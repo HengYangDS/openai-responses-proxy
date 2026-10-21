@@ -133,11 +133,7 @@ def test_linux_asset_build_and_native_lifecycle_have_distinct_execution_hosts() 
     lifecycle_steps = _sequence(lifecycle["steps"])
     assert any(
         _mapping(step).get("name") == "Prove the native Linux service lifecycle"
-        and _mapping(step).get("run")
-        == (
-            "uv run --locked --no-sync python -m pytest -q --rootdir . "
-            "-c .config/checks/pytest/pytest.toml tests/release/lifecycle"
-        )
+        and _mapping(step).get("run") == ("uv run --locked --no-sync nox -s native_lifecycle")
         for step in lifecycle_steps
     )
     assert any(

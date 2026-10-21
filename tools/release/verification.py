@@ -112,6 +112,19 @@ def retain_context(ctx: runtime_context.RuntimeContext) -> None:
         os.fsync(output.fileno())
 
 
+def temporary_home(*, delete: bool = True) -> TemporaryDirectory[str]:
+    """Allocate a native fixture home inside its surviving executor's ownership."""
+    selected = os.environ.get(_TEST_ROOT)
+    root = Path(selected) if selected is not None else None
+    if root is not None:
+        if not root.is_absolute() or root.resolve() != root:
+            raise errors.InstallError("native test root identity changed")
+        if os.environ.get(_CONTEXTS) is None:
+            raise errors.InstallError("native test teardown custody is unavailable")
+        root.mkdir(exist_ok=True)
+    return TemporaryDirectory(dir=root, delete=delete)
+
+
 def _require_owned_context(ctx: runtime_context.RuntimeContext, root: Path) -> None:
     if not root.is_absolute() or root.resolve() != root:
         raise errors.InstallError("native test root identity changed")

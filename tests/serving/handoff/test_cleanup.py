@@ -2,19 +2,53 @@
 
 from __future__ import annotations
 
+import json
+import os
 import tempfile
+from dataclasses import asdict
+from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
+from tests.serving.handoff import fixtures as handoff_fixtures
 from tests.serving.handoff.fixtures import terminate_owned_proxy
+from tests.serving.handoff.fixtures import write_installed_payload
 from tests.serving.handoff.subprocess import fixtures as subprocess_fixtures
 from tests.serving.handoff.subprocess.fixtures import SubprocessFixture
+from tools.release import verification
 
 
 class TestHandoffCleanup(SubprocessFixture):
+    def test_detached_fixture_stays_beneath_the_surviving_executor_root(
+        self, *, tmp_path, monkeypatch, mocker
+    ) -> None:
+        root = tmp_path / "owned"
+        root.mkdir()
+        contexts = tmp_path / "contexts.jsonl"
+        contexts.touch()
+        monkeypatch.setenv(verification._TEST_ROOT, str(root))
+        monkeypatch.setenv(verification._CONTEXTS, str(contexts))
+        failure = RuntimeError("stop before runtime effects")
+        allocated = []
+
+        def stop(candidate, **_kwargs):
+            allocated.append(candidate)
+            raise failure
+
+        mocker.patch.object(subprocess_fixtures, "write_installed_payload", side_effect=stop)
+        with pytest.raises(RuntimeError) as raised:
+            self._installed_fixture(release="test", port=43210, upstream_url="http://127.0.0.1")
+
+        assert raised.value is failure
+        assert len(allocated) == 1
+        assert allocated[0].is_relative_to(root)
+        assert not allocated[0].exists()
+        assert contexts.read_bytes() == b""
+
     @pytest.mark.parametrize("partial_payload", [False, True])
     def test_failed_fixture_initialization_removes_its_temporary_payload(
         self, *, mocker, tmp_path, partial_payload
@@ -150,3 +184,47 @@ class TestHandoffCleanup(SubprocessFixture):
         mocker.patch.object(process, "terminate_executable", return_value=False)
         with pytest.raises(RuntimeError, match="owned proxy child 123 did not terminate"):
             terminate_owned_proxy(123, proxy_script)
+
+
+def test_installed_payload_retains_complete_custody_before_native_prewarm(
+    tmp_path: Path, monkeypatch, mocker
+) -> None:
+    """The surviving executor sees the exact generation before a child can exist."""
+    root = tmp_path / "owned"
+    root.mkdir()
+    contexts = tmp_path / "contexts.jsonl"
+    contexts.touch()
+    monkeypatch.setenv(verification._TEST_ROOT, str(root))
+    monkeypatch.setenv(verification._CONTEXTS, str(contexts))
+    source = (
+        tmp_path / "candidate" / "bin" / product_identity.executable_name(windows=os.name == "nt")
+    )
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"native candidate fixture")
+    library = source.parent / "_internal" / "runtime.dat"
+    library.parent.mkdir()
+    library.write_bytes(b"complete frozen dependency")
+    monkeypatch.setenv("OPENAI_RESPONSES_PROXY_EXECUTABLE", str(source))
+    observed = []
+
+    def prewarm(ctx):
+        observed.append(ctx)
+        rows = contexts.read_bytes().splitlines()
+        assert len(rows) == 1, "complete cleanup custody must precede native execution"
+        assert json.loads(rows[0]) == asdict(ctx)
+
+    from openai_responses_proxy.lifecycle import candidate
+
+    mocker.patch.object(candidate, "prewarm", side_effect=prewarm)
+    ctx = write_installed_payload(
+        root / "fixture", release="test", port=43210, upstream_url="http://127.0.0.1:43211"
+    )
+
+    assert observed == [ctx]
+    assert ctx.port == 43210
+    assert Path(ctx.executable).is_file()
+    manifest = json.loads(handoff_fixtures.projection.payload_manifest_path(ctx).read_bytes())
+    assert manifest["files"]["bin/_internal/runtime.dat"]
+    selection = handoff_fixtures.generation.read(ctx)
+    assert selection is not None
+    assert selection.active == "0" * 32
