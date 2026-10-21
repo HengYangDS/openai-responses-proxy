@@ -13,6 +13,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
+from tests.quality.fixtures import git
 from tools.quality import governance
 
 
@@ -115,7 +116,12 @@ def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
     completed = mocker.Mock(returncode=0)
     tracked = mocker.Mock(
         returncode=0,
-        stdout=b"README.md\0.gitlab-ci.yml\0.config/mise/config.toml\0openspec/changes/archive/old.md\0",
+        stdout=(
+            b"H 100644 fixture 0\tREADME.md\0"
+            b"H 100644 fixture 0\t.gitlab-ci.yml\0"
+            b"H 100644 fixture 0\t.config/mise/config.toml\0"
+            b"H 100644 fixture 0\topenspec/changes/archive/old.md\0"
+        ),
     )
     run = mocker.patch.object(
         governance.subprocess,
@@ -139,8 +145,8 @@ def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
             "--no-editorconfig",
             "--ignore-path",
             os.devnull,
-            "README.md",
             ".gitlab-ci.yml",
+            "README.md",
         ),
         (
             "taplo",
@@ -266,6 +272,45 @@ def test_native_formatter_isolates_editorconfig_and_preserves_check_inputs(
     scratch.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="formatter-input-", dir=scratch) as directory:
         _assert_native_formatter_preserves_inputs(Path(directory), indent_size, suffix)
+
+
+@pytest.mark.repository_toolchain
+def test_native_fix_requires_index_owned_inputs_and_is_idempotent(monkeypatch) -> None:
+    scratch = ROOT / ".nox"
+    scratch.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="formatter-owned-", dir=scratch) as directory:
+        root = Path(directory)
+        git(root, "init", "-q", "--initial-branch=formatter-fixture")
+        for relative in (
+            ".config/checks/prettier/prettier.toml",
+            ".config/checks/taplo/taplo.toml",
+        ):
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / relative).read_bytes())
+        (root / "model.cue").write_text("package fixture\n\nvalue: 1\n", encoding="utf-8")
+        note = root / "note.md"
+        note.write_text("# Owned input\n\n\nA paragraph.\n", encoding="utf-8")
+        git(root, "add", ".config", "model.cue")
+        monkeypatch.setattr(governance, "ROOT", root)
+        monkeypatch.setattr(governance, "model_inputs", lambda: ("model.cue",))
+        before = note.read_bytes()
+        with pytest.raises(governance.GovernanceError, match=r"formatter_input_untracked:note\.md"):
+            governance.fix()
+        assert note.read_bytes() == before
+        git(root, "add", "note.md")
+        markdown = governance._tracked_current((".md", ".yaml", ".yml"))
+        toml = governance._tracked_current((".toml",))
+        commands = governance._formatter_commands(markdown, toml, write=False)
+        with pytest.raises(governance.GovernanceError):
+            governance._run(commands)
+        assert note.read_bytes() == before
+        governance.fix()
+        canonical = note.read_bytes()
+        assert canonical == b"# Owned input\n\nA paragraph.\n"
+        governance.fix()
+        governance._run(commands)
+        assert note.read_bytes() == canonical
 
 
 def _assert_native_formatter_preserves_inputs(

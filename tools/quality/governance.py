@@ -22,18 +22,53 @@ DEPENDENCY_POLICY = ROOT / ".config/checks/deptry/policy.toml"
 
 
 def _tracked_current(suffixes: tuple[str, ...]) -> tuple[str, ...]:
-    """Return tracked current authorities for one native formatter."""
+    """Admit complete index-owned inputs before any native formatter runs."""
     completed = subprocess.run(
-        ("git", "--git-dir=.git", "--work-tree=.", "ls-files", "-z"),
+        (
+            "git",
+            "--git-dir=.git",
+            "--work-tree=.",
+            "ls-files",
+            "-t",
+            "--stage",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            *(f"*{suffix}" for suffix in suffixes),
+        ),
         cwd=ROOT,
         check=True,
         capture_output=True,
     )
-    return tuple(
-        path
-        for path in completed.stdout.decode().split("\0")
-        if path and path.endswith(suffixes) and not path.startswith("openspec/changes/archive/")
-    )
+    paths: set[str] = set()
+    for entry in completed.stdout.decode().split("\0"):
+        if not entry:
+            continue
+        tag, _, record = entry.partition(" ")
+        metadata, separator, relative = record.partition("\t")
+        relative = record if tag == "?" or not separator else relative
+        if not relative.endswith(suffixes) or relative.startswith("openspec/changes/archive/"):
+            continue
+        if tag == "?":
+            raise GovernanceError(f"formatter_input_untracked:{relative}")
+        fields = metadata.split()
+        if (
+            tag not in {"H", "S"}
+            or not separator
+            or len(fields) != 3
+            or fields[0] not in {"100644", "100755"}
+            or fields[2] != "0"
+        ):
+            raise GovernanceError(f"formatter_input_index_invalid:{relative}")
+        path = ROOT / relative
+        if path.is_symlink() or not path.is_file() or path.resolve() != ROOT.resolve() / relative:
+            raise GovernanceError(f"formatter_input_unavailable:{relative}")
+        paths.add(relative)
+    if not paths:
+        raise GovernanceError("formatter_input_empty")
+    return tuple(sorted(paths))
 
 
 class GovernanceError(RuntimeError):

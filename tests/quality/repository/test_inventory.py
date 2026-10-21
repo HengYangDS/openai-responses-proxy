@@ -57,6 +57,65 @@ class TestOwnedInventory:
             with pytest.raises(subprocess.CalledProcessError):
                 read()
 
+    @pytest.mark.parametrize("suffix", [".md", ".yaml", ".toml"])
+    @pytest.mark.parametrize("state", ["untracked", "missing", "symlink"])
+    @pytest.mark.parametrize("write", [False, True])
+    def test_formatter_refuses_unowned_inputs_before_any_write(
+        self, suffix: str, state: str, write: bool, *, monkeypatch
+    ) -> None:
+        current = f"current{suffix}"
+        selected = f"selected{suffix}"
+        tracked = (current,) if state == "untracked" else (current, selected)
+        with repository((current, selected), tracked=tracked) as root:
+            target = root / selected
+            if state == "missing":
+                target.unlink()
+            elif state == "symlink":
+                target.unlink()
+                target.symlink_to(root / current)
+                git(root, "add", "--", selected)
+            before = (root / current).read_bytes()
+            monkeypatch.setattr(governance, "ROOT", root)
+            launched: list[tuple[str, ...]] = []
+            monkeypatch.setattr(governance, "_run", lambda commands: launched.extend(commands))
+            operation = governance.fix if write else governance.audit
+            with pytest.raises(governance.GovernanceError, match="formatter_input"):
+                operation()
+            assert launched == []
+            assert (root / current).read_bytes() == before
+            assert target.is_symlink() == (state == "symlink")
+            assert target.exists() == (state != "missing")
+
+    def test_formatter_uses_staged_rename_and_preserves_archived_records(
+        self, *, monkeypatch
+    ) -> None:
+        archived = "openspec/changes/archive/fixture/design.md"
+        with repository(("original.md", archived)) as root:
+            git(root, "mv", "original.md", "renamed.md")
+            (root / archived).unlink()
+            monkeypatch.setattr(governance, "ROOT", root)
+            assert governance._tracked_current((".md",)) == ("renamed.md",)
+
+    def test_formatter_rejects_untracked_filename_that_looks_like_index_metadata(
+        self, *, monkeypatch
+    ) -> None:
+        with repository(("README.md",)) as root:
+            monkeypatch.setattr(governance, "ROOT", root)
+            original_run = subprocess.run
+
+            def inventory(command, **kwargs):
+                completed = original_run(command, **kwargs)
+                tag = b"? " if "-t" in command else b""
+                return subprocess.CompletedProcess(
+                    command,
+                    completed.returncode,
+                    stdout=tag + b"100644 fixture 0\tREADME.md\0" + completed.stdout,
+                )
+
+            monkeypatch.setattr(governance.subprocess, "run", inventory)
+            with pytest.raises(governance.GovernanceError, match="formatter_input_untracked"):
+                governance._tracked_current((".md",))
+
     def test_quality_inventory_reads_the_linked_worktree_index(self, tmp_path: Path) -> None:
         with repository(("src/current.py", "tests/test_current.py")) as root:
             git(
