@@ -28,12 +28,16 @@ from tests.release.compatibility.fixtures import _required_path
 from tests.release.compatibility.fixtures import _wait_for_upgrade_drain
 from tests.release.compatibility.fixtures import admitted_predecessor
 from tests.release.compatibility.fixtures import renamed_product_lifecycle
+from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
 from tests.serving.handoff.fixtures import wait_until
 from tools.release import verification
 
-pytestmark = pytest.mark.native_distribution
+pytestmark = [
+    pytest.mark.usefixtures(preserve_native_host_projection.__name__),
+    pytest.mark.native_distribution,
+]
 
 
 def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -> None:
@@ -52,13 +56,11 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         return
 
     current_version = (native_release.ROOT / "VERSION").read_text(encoding="ascii").strip()
-    published_predecessor, previous_bundle, previous_version, previous_executable = (
-        admitted_predecessor(
-            tmp_path,
-            previous_asset=previous_asset,
-            previous_trust=previous_trust,
-            current_version=current_version,
-        )
+    published_predecessor, previous_version, previous_executable = admitted_predecessor(
+        tmp_path,
+        previous_asset=previous_asset,
+        previous_trust=previous_trust,
+        current_version=current_version,
     )
 
     home, install, state = (
@@ -81,14 +83,6 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
     upstream = ScriptedUpstream()
     upstream.start()
     upstream_url = upstream.base_url().replace("127.0.0.1", "localhost")
-    previous_fixture = native_release.signed_asset(
-        previous_bundle,
-        tmp_path / "previous-assets",
-        version=previous_version,
-        upstream_url=upstream_url,
-        key=key,
-        trust=trust,
-    )
     current_fixture = native_release.signed_asset(
         current_bundle,
         tmp_path / "current-assets",
@@ -111,14 +105,22 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             environment,
             "install",
             "--asset",
-            str(previous_fixture),
+            str(previous_asset),
             "--trust-anchor",
-            str(anchor),
+            str(previous_trust),
+            "--upstream-base-url",
+            upstream_url,
             "--port",
             str(port),
             "--json",
         )
         assert installed["state"] == "installed"
+        assert (
+            native_release.run_command(
+                previous_executable, environment, "doctor", "--port", str(port), "--json"
+            )["ok"]
+            is True
+        )
         before = native_release.run_command(
             current_executable,
             environment,
@@ -130,10 +132,14 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert before["release"] == previous_version
         before_runtime = before.get("runtime")
         assert isinstance(before_runtime, dict)
+        assert before_runtime.get("release_receipt_sha256") == published_predecessor.receipt_sha256
         previous_pid = before_runtime.get("pid")
         assert type(previous_pid) is int
         upstream.push((200, b'{"id":"before","status":"completed"}'))
-        assert native_release.post_response(port) == b'{"id":"before","status":"completed"}'
+        assert (
+            native_release.post_response(port, route="upstream")
+            == b'{"id":"before","status":"completed"}'
+        )
 
         stream_started = threading.Event()
         normal_started = threading.Barrier(4)
@@ -166,7 +172,8 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         held: dict[str, bytes] = {}
         stream_holder = threading.Thread(
             target=lambda: held.setdefault(
-                "stream", native_release.post_response(port, stream=True, timeout=90)
+                "stream",
+                native_release.post_response(port, stream=True, timeout=90, route="upstream"),
             ),
             daemon=True,
         )
@@ -178,7 +185,8 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             upstream.push(held_response)
             holder = threading.Thread(
                 target=lambda slot=index: held.setdefault(
-                    f"normal-{slot}", native_release.post_response(port, timeout=90)
+                    f"normal-{slot}",
+                    native_release.post_response(port, timeout=90, route="upstream"),
                 ),
                 daemon=True,
             )
@@ -271,11 +279,20 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         for relative in previous_paths - current_paths:
             assert not install.joinpath(*PurePosixPath(relative).parts).exists()
         upstream.push((200, b'{"id":"after","status":"completed"}'))
-        assert native_release.post_response(port) == b'{"id":"after","status":"completed"}'
+        assert (
+            native_release.post_response(port, route="upstream")
+            == b'{"id":"after","status":"completed"}'
+        )
 
         current_selection = generation.read(ctx)
         assert current_selection is not None
         assert current_selection.predecessor is not None
+        retained = payload_rollback.load_retained(ctx)
+        assert retained.predecessor.release_receipt_sha256 == published_predecessor.receipt_sha256
+        assert (
+            retained.predecessor.serving_payload_sha256
+            == published_predecessor.serving_payload_sha256
+        )
         installed_before_recovery = Path(records.installed_path(ctx)).read_bytes()
         command_before_recovery = Path(ctx.command).resolve(strict=True)
         reverse = payload_transaction.begin_rollback_transaction(
@@ -336,7 +353,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             while not traffic_stop.is_set():
                 upstream.push((200, b'{"id":"traffic","status":"completed"}'))
                 try:
-                    traffic_bodies.append(native_release.post_response(port, timeout=10))
+                    traffic_bodies.append(
+                        native_release.post_response(port, timeout=10, route="upstream")
+                    )
                 except urllib.error.HTTPError as error:  # pragma: no cover - asserted by parent
                     with error:
                         detail = error.read().decode("utf-8", errors="replace")
@@ -350,7 +369,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         rollback_held: dict[str, bytes] = {}
         rollback_holder = threading.Thread(
             target=lambda: rollback_held.setdefault(
-                "body", native_release.post_response(port, timeout=90)
+                "body", native_release.post_response(port, timeout=90, route="upstream")
             ),
             daemon=True,
         )
@@ -426,6 +445,14 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         _assert_same_runtime_identity(rolled_back, after_rollback)
         predecessor_runtime = after_rollback.get("runtime")
         assert isinstance(predecessor_runtime, dict)
+        assert (
+            predecessor_runtime.get("release_receipt_sha256")
+            == published_predecessor.receipt_sha256
+        )
+        assert (
+            predecessor_runtime.get("serving_payload_sha256")
+            == published_predecessor.serving_payload_sha256
+        )
         predecessor_counters = predecessor_runtime.get("counters")
         assert isinstance(predecessor_counters, dict)
         assert (

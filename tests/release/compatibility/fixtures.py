@@ -6,7 +6,6 @@ import os
 import platform
 from collections.abc import Mapping
 from concurrent.futures import Future
-from contextlib import ExitStack
 from pathlib import Path
 from pathlib import PurePosixPath
 
@@ -16,7 +15,6 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control as lifecycle_control
-from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
@@ -123,8 +121,8 @@ def admitted_predecessor(
     previous_asset: Path,
     previous_trust: Path,
     current_version: str,
-) -> tuple[artifact.VerifiedArtifact, Path, str, Path]:
-    """Qualify authentic published installation before the retained-state transition."""
+) -> tuple[artifact.VerifiedArtifact, str, Path]:
+    """Admit exact published bytes for the retained installation journey."""
     published_predecessor = artifact.admit(
         previous_asset,
         trust_anchor=previous_trust,
@@ -139,69 +137,7 @@ def admitted_predecessor(
         windows=platform.system() == "Windows"
     )
 
-    published_home = tmp_path / "published-home"
-    published_install = tmp_path / "published-payload"
-    published_state = tmp_path / "published-state"
-    published_home.mkdir()
-    published_port = free_port()
-    published_context = runtime_context_for(
-        published_home,
-        published_install,
-        published_state,
-        published_port,
-    )
-    published_environment = native_process_environment(
-        user_home=published_home,
-        install_root=published_install,
-        state_root=published_state,
-    )
-    with ExitStack() as published_cleanups:
-        published_cleanups.callback(cleanup_runtime, published_context)
-        installed_published = run_command(
-            previous_executable,
-            published_environment,
-            "install",
-            "--asset",
-            str(previous_asset),
-            "--trust-anchor",
-            str(previous_trust),
-            "--port",
-            str(published_port),
-            "--json",
-        )
-        assert installed_published["state"] == "installed"
-        published_status = run_command(
-            previous_executable,
-            published_environment,
-            "status",
-            "--port",
-            str(published_port),
-            "--json",
-        )
-        assert published_status["release"] == previous_version
-        assert (
-            run_command(
-                previous_executable,
-                published_environment,
-                "doctor",
-                "--port",
-                str(published_port),
-                "--json",
-            )["ok"]
-            is True
-        )
-        run_command(
-            previous_executable,
-            published_environment,
-            "uninstall",
-            "--port",
-            str(published_port),
-            "--purge",
-            "--json",
-        )
-        assert not published_install.exists()
-        assert not records.transaction_root(published_context).exists()
-    return published_predecessor, previous_bundle, previous_version, previous_executable
+    return published_predecessor, previous_version, previous_executable
 
 
 def renamed_product_lifecycle(
