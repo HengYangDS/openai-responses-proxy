@@ -37,7 +37,8 @@ def test_native_lifecycle_rejects_competing_writers_without_blocking_readers(
     lock_path = state / "lifecycle.lock"
 
     with FileLock(lock_path, timeout=0, fallback_to_soft=False, preserve_lock_file=True):
-        lock_bytes = lock_path.read_bytes()
+        # Observe identity without reading the byte range that Windows exclusively locks.
+        lock_metadata = lock_path.stat()
         for arguments in (
             ("install", "--asset", str(tmp_path / "absent.tar.gz"), "--trust-anchor", str(home)),
             ("recover",),
@@ -58,7 +59,14 @@ def test_native_lifecycle_rejects_competing_writers_without_blocking_readers(
         doctor = run_command(executable, environment, "doctor", *output, expected=1)
         assert doctor["state"] == "not_installed"
         assert doctor["ok"] is False
-        assert lock_path.read_bytes() == lock_bytes
+        current_lock = lock_path.stat()
+        assert (current_lock.st_dev, current_lock.st_ino) == (
+            lock_metadata.st_dev,
+            lock_metadata.st_ino,
+        )
+        assert current_lock.st_size == lock_metadata.st_size
+        assert current_lock.st_mtime_ns == lock_metadata.st_mtime_ns
+        assert current_lock.st_ctime_ns == lock_metadata.st_ctime_ns
         assert not install.exists()
         assert not Path(ctx.command).exists()
         assert not records.journal_path(ctx).exists()

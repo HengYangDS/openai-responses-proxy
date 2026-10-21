@@ -67,7 +67,7 @@ def snapshot(command_path: Path, target: Path) -> Snapshot:
 
 
 def write_snapshot(root: Path, value: Snapshot) -> None:
-    """Persist the command rollback fact beside the payload snapshot."""
+    """Persist the command rollback fact in the transaction-owned directory."""
     owned_files.write_bytes(
         root / SNAPSHOT_FILENAME,
         snapshot_bytes(value),

@@ -40,8 +40,9 @@ resolves to the newer verified selected release. Explicit serving rollback
 therefore cannot downgrade lifecycle control or reopen replay admission.
 Finalization atomically advances that selector, retires superseded generations,
 and proves the closed terminal state. The active transaction remains the
-recovery authority throughout every intermediate state. Its payload snapshot
-is temporary bootstrap or recovery evidence, never a second retained store.
+recovery authority throughout every intermediate state. It retains only the
+command rollback record; payload rollback reuses the selected immutable
+generations rather than copying a second store.
 The first release that introduces immutable generations is a bounded bootstrap
 exception: its verified executable drives that one upgrade because the older
 installed executable cannot own semantics it never shipped. Source-level
