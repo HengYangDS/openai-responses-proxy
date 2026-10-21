@@ -37,7 +37,7 @@ import "list"
 			run:  "uv sync --locked --group quality"
 		}, {
 			name: "Build and accept the native release asset"
-			run:  "uv run --locked --no-sync nox -s release -- \"${{ runner.temp }}/native-assets\""
+			run:  "uv run --locked --no-sync nox -s release -- \"${{ runner.temp }}/native-assets\" --basetemp=\"${{ runner.temp }}/native-pytest\""
 		}, {
 			uses: #Toolchains.githubActions.upload
 			with: {

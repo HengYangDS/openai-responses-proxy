@@ -238,6 +238,9 @@ def native_lifecycle(session: nox.Session) -> None:
 
 def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> None:
     """Accept shared artifact behavior and selected lifecycle cases before packaging."""
+    arguments = session.posargs[1:]
+    if arguments and (len(arguments) != 1 or not arguments[0].startswith("--basetemp=")):
+        session.error("native builders accept only an output directory and --basetemp=<path>")
     work, bundle, executable = _build_native_candidate(session)
     environment = {
         **_environment(),
@@ -252,6 +255,7 @@ def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> Non
             *lifecycle_cases,
             "tests/serving/handoff/subprocess",
             "tests/relay/native/test_recovery.py",
+            *arguments,
         ),
         work=ROOT / "build" / "native-verification",
         environment=environment,
@@ -328,13 +332,8 @@ def published_release_compatibility(session: nox.Session) -> None:
         product_identity.environment_name("PREVIOUS_RELEASE_TRUST_ANCHOR"),
         "published predecessor trust anchor",
     )
-    _install_tools(session, "quality")
     _assert_release_runtime(session)
-    work = Path(session.create_tmp()).resolve()
-    work.mkdir(parents=True, exist_ok=True)
-    wheel = _build_wheel(session, work)
-    _install_wheel(session, wheel)
-    _assert_installed_product(session, work)
+    work = _prepare_product_session(session, "quality")
     bundle, executable = verification.materialize_published_bundle(
         session,
         current_asset,

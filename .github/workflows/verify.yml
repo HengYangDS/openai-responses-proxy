@@ -377,7 +377,7 @@ jobs:
       - name: Install the locked release tool environment
         run: uv sync --locked --group quality
       - name: Build and accept the native release asset
-        run: uv run --locked --no-sync nox -s release -- "${{ runner.temp }}/native-assets"
+        run: uv run --locked --no-sync nox -s release -- "${{ runner.temp }}/native-assets" --basetemp="${{ runner.temp }}/native-pytest"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: native-${{ matrix.platform }}

@@ -39,6 +39,15 @@ def test_native_asset_jobs_install_the_product_before_loading_noxfile() -> None:
         if job_id == "native-linux":
             assert install["working-directory"] == "/workspace"
 
+    native_steps = _sequence(_mapping(jobs["native-assets"])["steps"])
+    native_build = next(
+        _mapping(step)
+        for step in native_steps
+        if _mapping(step).get("name") == "Build and accept the native release asset"
+    )
+    command = shlex.split(_string(native_build["run"]))
+    assert command[-1] == "--basetemp=${{ runner.temp }}/native-pytest"
+
     linux_steps = _sequence(_mapping(jobs["native-linux"])["steps"])
     linux_build = next(
         _mapping(step)

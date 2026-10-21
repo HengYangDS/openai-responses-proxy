@@ -207,6 +207,7 @@ def test_failed_native_acceptance_cannot_publish_an_asset(
     nox_configuration: ModuleType,
 ) -> None:
     session = mocker.Mock()
+    session.posargs = []
     mocker.patch.object(
         nox_configuration,
         "_build_native_candidate",
@@ -221,6 +222,76 @@ def test_failed_native_acceptance_cannot_publish_an_asset(
     assert raised.value is failure
     session.run.assert_called_once()
     assert session.run.call_args.args[:4] == ("python", "-m", "pytest", "-q")
+
+
+@pytest.mark.parametrize("session_name", ["release_asset", "release"])
+def test_native_builder_preserves_the_callers_explicit_test_root(
+    session_name: str,
+    tmp_path: Path,
+    mocker: MockerFixture,
+    nox_configuration: ModuleType,
+) -> None:
+    """A native caller can avoid deep frozen-library paths without losing custody."""
+    output = tmp_path / "assets"
+    selected = tmp_path / "selected"
+    session = mocker.Mock()
+    session.posargs = [str(output), f"--basetemp={selected}"]
+    mocker.patch.object(
+        nox_configuration,
+        "_build_native_candidate",
+        return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
+    )
+    mocker.patch.object(nox_configuration, "ROOT", tmp_path)
+    observed = []
+
+    def populate(*arguments: str, **_kwargs: object) -> None:
+        if "pytest" not in arguments:
+            return
+        assert str(output) not in arguments
+        root = Path(
+            next(item.split("=", 1)[1] for item in arguments if item.startswith("--basetemp="))
+        )
+        observed.append(root)
+        root.mkdir(parents=True)
+        (root / "owned.txt").write_bytes(b"native test scratch")
+
+    session.run.side_effect = populate
+    getattr(nox_configuration, session_name)(session)
+
+    assert observed == [selected]
+    assert not selected.exists()
+    assert session.run.call_args.args[-2:] == ("--output", str(output))
+    assert list((tmp_path / "build" / "native-verification").iterdir()) == []
+
+
+@pytest.mark.parametrize("session_name", ["release_asset", "release"])
+@pytest.mark.parametrize(
+    "arguments", [["--collect-only"], ["-k", "test_subset"], ["--basetemp=one", "--basetemp=two"]]
+)
+def test_native_builders_refuse_arguments_that_replace_complete_acceptance(
+    session_name: str,
+    arguments: list[str],
+    tmp_path: Path,
+    mocker: MockerFixture,
+    nox_configuration: ModuleType,
+) -> None:
+    session = mocker.Mock()
+    session.posargs = [str(tmp_path / "assets"), *arguments]
+    session.error.side_effect = RuntimeError("native acceptance arguments refused")
+    build = mocker.patch.object(
+        nox_configuration,
+        "_build_native_candidate",
+        return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
+    )
+    accept = mocker.patch.object(nox_configuration.verification, "accept")
+    package = mocker.patch.object(nox_configuration, "_package_release_asset")
+
+    with pytest.raises(RuntimeError, match="native acceptance arguments refused"):
+        getattr(nox_configuration, session_name)(session)
+
+    build.assert_not_called()
+    accept.assert_not_called()
+    package.assert_not_called()
 
 
 @pytest.mark.parametrize("session_name", ["release", "release_compatibility", "native_lifecycle"])
