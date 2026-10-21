@@ -26,8 +26,7 @@ class TestPackageMetadata:
         assert metadata["build-system"]["build-backend"] == "hatchling.build"
         assert metadata["tool"]["hatch"]["version"]["path"] == "VERSION"
         assert "setuptools" not in metadata["tool"]
-        assert "requires-python" not in metadata["tool"]["openai-responses-proxy"]
-        assert "version-source" not in metadata["tool"]["openai-responses-proxy"]
+        assert "openai-responses-proxy" not in metadata["tool"]
 
     @pytest.mark.parametrize(
         ("requirement", "accepted"), [(">=3.12,<3.15", True), (">=3.12", False)]

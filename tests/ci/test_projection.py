@@ -15,6 +15,10 @@ MODEL = """package ci
 import "strings"
 #RuntimeMatrix: python: ["3.12", "3.13", "3.14"]
 #PythonVersions: strings.Join(#RuntimeMatrix.python, "\\n")
+#ReleaseRuntime: {
+python: "3.14.7"
+linuxImage: "python:" + python + "-bookworm@sha256:" + strings.Repeat("a", 64)
+}
 #VerificationJobs: quality: session: "quality"
 """
 
@@ -67,6 +71,10 @@ def test_native_cue_projects_one_matrix_and_refuses_drift_without_mutation(
     project.main(("--write",))
     versions = tmp_path / ".config/ci/python-versions"
     assert versions.read_bytes() == b"3.12\n3.13\n3.14\n"
+    assert (tmp_path / ".config/mise/python-release").read_bytes() == b"3.14.7\n"
+    assert (tmp_path / ".config/ci/linux-release-image").read_bytes() == (
+        f"python:3.14.7-bookworm@sha256:{'a' * 64}\n".encode()
+    )
     before = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
     project.main(())
     model.write_text(
@@ -210,3 +218,48 @@ def test_ci_projection_renderer_binds_the_locked_repository(
     command.side_effect = subprocess.CalledProcessError(1, args)
     with pytest.raises(subprocess.CalledProcessError):
         project.render("workflow")
+
+
+@pytest.mark.repository_toolchain
+def test_native_release_projections_share_one_cue_owner(tmp_path, monkeypatch):
+    root = project.ROOT
+    for relative in (
+        ".config/mise/config.toml",
+        ".config/mise/mise.lock",
+        ".config/miserc.toml",
+        *(str(Path(path).relative_to(root)) for path in project.model_inputs()),
+    ):
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root / relative).read_bytes())
+    monkeypatch.setattr(project, "ROOT", tmp_path)
+    monkeypatch.setattr(project, "MODEL", tmp_path / ".config/ci")
+    monkeypatch.setattr(
+        project,
+        "PROJECTIONS",
+        tuple(
+            project.Projection(
+                tmp_path / item.path.relative_to(root), item.expression, item.output_format
+            )
+            for item in project.PROJECTIONS
+        ),
+    )
+    project.main(("--write",))
+    before = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
+    model = tmp_path / ".config/ci/graph/toolchains.cue"
+    source = model.read_text()
+    updated, count = re.subn(r'(python:\s+)"3\.14\.7"', r'\g<1>"3.14.8"', source)
+    assert count == 1
+    model.write_text(updated)
+    assert set(project.reconcile(write=False)) == {
+        ".config/mise/python-release",
+        ".config/ci/linux-release-image",
+    }
+    assert {path: path.read_bytes() for path in before} == before
+    project.main(("--write",))
+    assert (tmp_path / ".config/mise/python-release").read_bytes() == b"3.14.8\n"
+    assert (tmp_path / ".config/ci/linux-release-image").read_text().startswith("python:3.14.8-")
+    accepted = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
+    project.main(("--write",))
+    assert project.reconcile(write=False) == ()
+    assert {path: path.read_bytes() for path in accepted} == accepted

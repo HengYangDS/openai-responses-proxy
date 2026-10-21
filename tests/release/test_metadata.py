@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import tomllib
 from datetime import date
 from pathlib import Path
 
@@ -120,10 +119,9 @@ def test_version_file_uses_the_product_grammar(
         ('requires-python = ">=3.12,<3.15"', 'requires-python = ">=3.12"', "require Python"),
         ('dynamic = ["version"]', "dynamic = []", "sole version owner"),
         ('path = "VERSION"', 'path = "version.txt"', "read package version"),
-        ('distribution = "native-executable"', 'distribution = "wheel"', "native executable"),
     ],
 )
-def test_package_metadata_keeps_version_and_distribution_owners(
+def test_package_metadata_keeps_one_version_owner(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     before: str,
@@ -383,8 +381,7 @@ def test_github_tag_metadata_fetches_complete_provider_tags() -> None:
 
 def test_native_bundle_has_one_runtime_and_one_signer() -> None:
     """Build every platform once and sign only the complete assembled bundle."""
-    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    image = metadata["tool"]["openai-responses-proxy"]["linux-release-image"]
+    image = (ROOT / ".config/ci/linux-release-image").read_text(encoding="ascii").strip()
     github = (ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
     gitlab = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
     assert "@sha256:" in image, "Linux release runtime must be immutable"

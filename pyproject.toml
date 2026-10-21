@@ -20,10 +20,6 @@ dependencies = [
 [project.scripts]
 openai-responses-proxy = "openai_responses_proxy.cli.application:main"
 
-[tool.openai-responses-proxy]
-distribution = "native-executable"
-linux-release-image = "python:3.14.7-bookworm@sha256:ecac9e212daacda8a702eae372fceebc0ee36f5805abe087880367e8d061fa5b"
-
 [dependency-groups]
 quality = [
   "coverage==7.16.2",

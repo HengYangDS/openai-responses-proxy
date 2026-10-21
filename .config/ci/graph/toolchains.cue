@@ -13,3 +13,9 @@ package ci
 	gitlabMiseImage: "ghcr.io/jdx/mise@sha256:f01b88463f3a8396b2273d88469bd09d097aa3cacfe343177eb5457f1d8d2a92"
 	quality:         "python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"
 }
+
+// Local Nox and hosted CI consume text projections of this one release runtime.
+#ReleaseRuntime: {
+	python:     "3.14.7"
+	linuxImage: "python:" + python + "-bookworm@sha256:ecac9e212daacda8a702eae372fceebc0ee36f5805abe087880367e8d061fa5b"
+}

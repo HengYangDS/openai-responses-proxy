@@ -96,11 +96,12 @@ prefixes = [".ethos/"]
 id = "ci-model"
 description = "Provider-neutral continuous-integration model."
 owner = "continuous-integration"
-consumer = "GitHub and GitLab workflow projections"
-source_of_truth = "provider-neutral CUE pipeline model"
+consumer = "GitHub and GitLab workflows, Nox and native release sessions"
+source_of_truth = "provider-neutral CUE pipeline and release-runtime model"
 change_condition = "CI semantics, stages, triggers, or evidence requirements change"
 dependency_direction = "Forge-specific workflows derive from the provider-neutral model"
 retirement_condition = "CI is retired or replaced by one equivalent provider-neutral authority"
+files = [".config/mise/python-release"]
 prefixes = [".config/ci/"]
 
 [[roles]]
@@ -186,7 +187,6 @@ change_condition = "a supported runtime or verified stable dependency changes"
 dependency_direction = "bootstrap and automation consume the lock-backed declarations"
 retirement_condition = "the declared tool or dependency loses its final verified consumer"
 files = [
-  ".config/mise/python-release",
   ".config/mise/config.toml",
   ".config/mise/mise.lock",
   ".config/mise/uv.toml",

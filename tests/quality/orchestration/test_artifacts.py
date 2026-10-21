@@ -546,3 +546,22 @@ def test_runtime_context_uses_the_native_command_projection(tmp_path: Path, *, m
     assert PureWindowsPath(ctx.command) == PureWindowsPath(
         home / "AppData" / "Local" / "Microsoft" / "WindowsApps" / "openai-responses-proxy.cmd"
     )
+
+
+@pytest.mark.parametrize("invalid", [None, "python:3.14.7-bookworm@sha256:a"])
+def test_release_runtime_refuses_invalid_projection_before_build(
+    tmp_path, mocker, nox_configuration, invalid
+):
+    release = tmp_path / ".config/mise/python-release"
+    release.parent.mkdir(parents=True)
+    release.write_text("3.14.7\n")
+    if invalid is not None:
+        image = tmp_path / ".config/ci/linux-release-image"
+        image.parent.mkdir(parents=True)
+        image.write_text(invalid + "\n")
+    mocker.patch.object(nox_configuration, "ROOT", tmp_path)
+    session = mocker.Mock()
+    session.error.side_effect = RuntimeError
+    with pytest.raises(RuntimeError):
+        nox_configuration._assert_release_runtime(session)
+    session.run.assert_not_called()

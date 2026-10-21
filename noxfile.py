@@ -7,7 +7,6 @@ import importlib.util
 import json
 import os
 import platform
-import re
 import sys
 import tomllib
 from pathlib import Path
@@ -31,6 +30,7 @@ def _load_repository_module(name: str, relative: str) -> ModuleType:
     return module
 
 
+python_matrix = _load_repository_module("proxy_python_matrix", "tools/quality/python_matrix.py")
 python_quality = _load_repository_module("proxy_python_quality", "tools/quality/python.py")
 verification = _load_repository_module("proxy_native_verification", "tools/release/verification.py")
 PYTHONS = tuple((ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines())
@@ -542,9 +542,13 @@ def _build_executable(session: nox.Session, work: Path) -> tuple[Path, Path]:
 
 def _assert_release_runtime(session: nox.Session) -> None:
     """Reject native builds outside the repository-declared runtime."""
-    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    image = metadata["tool"][product_identity.PRODUCT_SLUG]["linux-release-image"]
-    match = re.search(r"python:(\d+\.\d+\.\d+)-", image)
+    try:
+        release_version, _ = python_matrix.release_runtime(
+            release=ROOT / ".config/mise/python-release",
+            image=ROOT / ".config/ci/linux-release-image",
+        )
+    except (OSError, ValueError) as error:
+        session.error(str(error))
     version = session.run(
         "python",
         "-c",
@@ -552,12 +556,7 @@ def _assert_release_runtime(session: nox.Session) -> None:
         env=_environment(),
         silent=True,
     )
-    if (
-        match is None
-        or RELEASE_PYTHON != match.group(1)
-        or not isinstance(version, str)
-        or version.strip() != RELEASE_PYTHON
-    ):
+    if not (isinstance(version, str) and version.strip() == RELEASE_PYTHON == release_version):
         session.error("release interpreter differs from the immutable release runtime")
 
 

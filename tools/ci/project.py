@@ -31,6 +31,8 @@ PROJECTIONS = (
     Projection(ROOT / ".github/workflows/admission.yml", "githubAdmission"),
     Projection(ROOT / ".github/workflows/verify.yml", "githubVerify"),
     Projection(ROOT / ".config/ci/python-versions", "#PythonVersions", "text"),
+    Projection(ROOT / ".config/mise/python-release", "#ReleaseRuntime.python", "text"),
+    Projection(ROOT / ".config/ci/linux-release-image", "#ReleaseRuntime.linuxImage", "text"),
 )
 
 

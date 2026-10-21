@@ -50,10 +50,6 @@ def check_python_metadata() -> None:
     hatch_version = metadata.get("tool", {}).get("hatch", {}).get("version", {})
     if hatch_version.get("path") != "VERSION":
         raise ValueError("pyproject.toml must read package version from VERSION")
-    if metadata.get("tool", {}).get(product_identity.PRODUCT_SLUG, {}).get("distribution") != (
-        "native-executable"
-    ):
-        raise ValueError("the product distribution must be the native executable")
 
 
 def _version_key(version: str) -> tuple[int, int, int]:

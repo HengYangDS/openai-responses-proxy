@@ -27,6 +27,10 @@ verification tools. `.config/ci/graph/` owns the shared matrix, verification
 commands and supply contract; `.config/ci/peers/` adapts them to each Forge.
 The existing projector composes every CUE source in `.config/ci/` through the
 locked native CUE executor. `.config/ci/python-versions` is the tracked matrix projection.
+The release runtime in `graph/toolchains.cue` also projects
+`.config/mise/python-release` and `.config/ci/linux-release-image`; Nox and CI
+validate that same exact Python version and immutable Linux image. Package
+metadata in `pyproject.toml` does not select release execution.
 Nox reads it and uses the uv backend to provision each isolated interpreter
 session. Change the CUE declaration, then regenerate the matrix and both Forge
 workflows:

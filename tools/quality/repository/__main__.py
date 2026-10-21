@@ -350,8 +350,6 @@ def audit() -> AuditReport:
     config = tomllib.loads(PROJECT.read_text(encoding="utf-8"))
     tool = config.get("tool", {})
     project = config.get("project", {})
-    project_name = project.get("name") if isinstance(project, dict) else None
-    repository = tool.get(project_name, {}) if isinstance(project_name, str) else {}
     policy_errors: list[str] = []
     if not isinstance(project, dict) or project.get("requires-python") != supported_requirement(
         ROOT / ".config/ci/python-versions"
@@ -360,8 +358,8 @@ def audit() -> AuditReport:
     hatch_version = tool.get("hatch", {}).get("version", {})
     if project.get("dynamic") != ["version"] or hatch_version.get("path") != "VERSION":
         policy_errors.append("version_source_must_remain_VERSION")
-    if repository.get("distribution") != "native-executable" or "build-system" not in config:
-        policy_errors.append("distribution_must_be_native_executable")
+    if "build-system" not in config:
+        policy_errors.append("build_system_must_be_declared")
     source_roots = _string_list(policy, "source_roots", policy_errors)
     test_roots = _string_list(policy, "test_roots", policy_errors)
     configuration_roots = _string_list(policy, "root_configuration_modules", policy_errors)

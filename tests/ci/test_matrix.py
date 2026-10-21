@@ -15,20 +15,14 @@ from tools.quality import python_matrix
 def test_python_matrix_output_comes_from_the_repository_ssot(tmp_path: Path) -> None:
     module = importlib.import_module("tools.quality.python_matrix")
     versions = tmp_path / "versions"
-    metadata = tmp_path / "pyproject.toml"
+    image = tmp_path / "image"
     output = tmp_path / "github-output"
     versions.write_text("3.12\n3.13\n3.14\n", encoding="ascii")
     release = tmp_path / "release"
     release.write_text("3.14.7\n", encoding="ascii")
-    metadata.write_text(
-        '[project]\nname = "openai-responses-proxy"\n'
-        '[tool.openai-responses-proxy]\nlinux-release-image = "python:3.14.7-bookworm@sha256:'
-        + "a" * 64
-        + '"\n',
-        encoding="ascii",
-    )
+    image.write_text(f"python:3.14.7-bookworm@sha256:{'a' * 64}\n", encoding="ascii")
 
-    module.write(versions=versions, release=release, metadata=metadata, output=output)
+    module.write(versions=versions, release=release, image=image, output=output)
 
     assert output.read_text(encoding="utf-8") == (
         'value=["3.12", "3.13", "3.14"]\nfloor=3.12\nlatest=3.14\nrelease=3.14.7\n'
@@ -54,22 +48,16 @@ def test_python_matrix_rejects_invalid_or_mismatched_release_runtime(
     module = importlib.import_module("tools.quality.python_matrix")
     versions = tmp_path / "versions"
     release = tmp_path / "release"
-    metadata = tmp_path / "pyproject.toml"
+    image = tmp_path / "image"
     versions.write_text("3.12\n3.13\n3.14\n", encoding="ascii")
     release.write_text(f"{release_value}\n", encoding="ascii")
-    metadata.write_text(
-        '[project]\nname = "openai-responses-proxy"\n'
-        '[tool.openai-responses-proxy]\nlinux-release-image = "python:'
-        f"{image_version}-bookworm@sha256:{'a' * 64}"
-        '"\n',
-        encoding="ascii",
-    )
+    image.write_text(f"python:{image_version}-bookworm@sha256:{'a' * 64}\n", encoding="ascii")
 
     with pytest.raises(ValueError, match=message):
         module.write(
             versions=versions,
             release=release,
-            metadata=metadata,
+            image=image,
             output=tmp_path / "github-output",
         )
 
@@ -82,8 +70,8 @@ def test_matrix_cli_projects_to_exact_selected_output(explicit, tmp_path, monkey
         str(ROOT / ".config/ci/python-versions"),
         "--release",
         str(ROOT / ".config/mise/python-release"),
-        "--metadata",
-        str(ROOT / "pyproject.toml"),
+        "--image",
+        str(ROOT / ".config/ci/linux-release-image"),
     )
     if explicit:
         monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
@@ -109,7 +97,7 @@ def test_matrix_cli_requires_an_output_and_nonempty_unique_versions(tmp_path, mo
         python_matrix.write(
             versions=versions,
             release=ROOT / ".config/mise/python-release",
-            metadata=ROOT / "pyproject.toml",
+            image=ROOT / ".config/ci/linux-release-image",
             output=tmp_path / "output",
         )
 
@@ -130,3 +118,26 @@ def test_package_python_bounds_require_an_ordered_contiguous_matrix(tmp_path, ve
     path.write_text(versions)
     with pytest.raises(ValueError, match="matrix is unavailable or invalid"):
         python_matrix.supported_requirement(path)
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "",
+        "python:3.14.7-bookworm",
+        "python:3.14.7-bookworm@sha256:a",
+        "prefix-python:3.14.7-bookworm@sha256:" + "a" * 64,
+    ],
+)
+def test_release_runtime_refuses_invalid_images_before_output_mutation(tmp_path, invalid):
+    versions = tmp_path / "versions"
+    release = tmp_path / "release"
+    image = tmp_path / "image"
+    output = tmp_path / "output"
+    versions.write_text("3.12\n3.13\n3.14\n")
+    release.write_text("3.14.7\n")
+    image.write_text(invalid + "\n")
+    output.write_bytes(b"preserve existing output\n")
+    with pytest.raises(ValueError, match="Linux release runtime is unavailable or mutable"):
+        python_matrix.write(versions=versions, release=release, image=image, output=output)
+    assert output.read_bytes() == b"preserve existing output\n"

@@ -6,7 +6,6 @@ import json
 import os
 import re
 import sys
-import tomllib
 from pathlib import Path
 
 from cyclopts import App
@@ -30,36 +29,53 @@ def supported_requirement(versions: Path) -> str:
     return f">={values[0]},<{major}.{minor + 1}"
 
 
-def write(*, versions: Path, release: Path, metadata: Path, output: Path) -> None:
-    """Write Python and native-runtime outputs from repository SSOTs."""
+def release_runtime(*, release: Path, image: Path) -> tuple[str, str]:
+    """Read one exact Python version and its immutable official Linux image.
+
+    Args:
+        release: Tracked Python version projected from the CUE release owner.
+        image: Tracked Linux image projected from the same release owner.
+    """
+    version = release.read_text(encoding="utf-8").strip()
+    if re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        raise ValueError("native release Python is unavailable or invalid")
+    linux_image = image.read_text(encoding="utf-8").strip()
+    if (
+        re.fullmatch(
+            rf"python:{re.escape(version)}-[a-z0-9][a-z0-9.-]*@sha256:[0-9a-f]{{64}}", linux_image
+        )
+        is None
+    ):
+        raise ValueError("Linux release runtime is unavailable or mutable")
+    return version, linux_image
+
+
+def write(*, versions: Path, release: Path, image: Path, output: Path) -> None:
+    """Write Python and native-runtime outputs from repository SSOTs.
+
+    Args:
+        versions: Tracked supported Python lines.
+        release: Tracked release Python version.
+        image: Tracked immutable Linux release image.
+        output: Exact native output file to append after input admission.
+    """
     values = supported_versions(versions)
     if output.is_symlink():
         raise ValueError("supported Python matrix is unavailable or invalid")
-    release_version = release.read_text(encoding="utf-8").strip()
-    if re.fullmatch(r"\d+\.\d+\.\d+", release_version) is None:
-        raise ValueError("native release Python is unavailable or invalid")
-    project = tomllib.loads(metadata.read_text(encoding="utf-8"))
-    project_name = project["project"]["name"]
-    image = project["tool"][project_name]["linux-release-image"]
-    if (
-        not isinstance(image, str)
-        or f"python:{release_version}-" not in image
-        or "@sha256:" not in image
-    ):
-        raise ValueError("Linux release runtime is unavailable or mutable")
+    release_version, linux_image = release_runtime(release=release, image=image)
     with output.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(f"value={json.dumps(values)}\n")
         stream.write(f"floor={values[0]}\n")
         stream.write(f"latest={values[-1]}\n")
         stream.write(f"release={release_version}\n")
-        stream.write(f"linux-release-image={image}\n")
+        stream.write(f"linux-release-image={linux_image}\n")
 
 
 def _command(
     *,
     versions: Path = Path(".config/ci/python-versions"),
     release: Path = Path(".config/mise/python-release"),
-    metadata: Path = Path("pyproject.toml"),
+    image: Path = Path(".config/ci/linux-release-image"),
     output: Path | None = None,
 ) -> None:
     """Project the matrix to an explicit or GitHub-provided output path."""
@@ -67,7 +83,7 @@ def _command(
     if output is None and not configured:
         raise SystemExit("GitHub output path is unavailable")
     target = output or Path(configured or "")
-    write(versions=versions, release=release, metadata=metadata, output=target)
+    write(versions=versions, release=release, image=image, output=target)
 
 
 def main(argv: tuple[str, ...] | None = None) -> None:

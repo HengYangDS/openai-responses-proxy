@@ -25,7 +25,6 @@ projections = [
 projection_checks = [
   { source = "PACKAGE_NAME", target = "pyproject.toml", selector = "project.name", match = "toml-value" },
   { source = "COMMAND_NAME", target = "pyproject.toml", selector = "project.scripts", match = "toml-key" },
-  { source = "PRODUCT_SLUG", target = "pyproject.toml", selector = "tool", match = "toml-key" },
 ]
 
 [[controls]]
@@ -49,13 +48,13 @@ projections = ["README.md", "src/", "tests/"]
 [[controls]]
 id = "release-python"
 kind = "supply-chain-pin"
-owner = ".config/mise/python-release"
+owner = ".config/ci/graph/toolchains.cue"
 invariant = "Every native release is built by one exact reproducible Python runtime."
-rationale = "Native release construction uses one exact Python patch release."
+rationale = "The CUE release-runtime declaration projects one exact Python patch and immutable Linux image for local and hosted construction."
 projections = [
-  ".config/mise/config.toml",
-  "pyproject.toml",
-  ".config/ci/",
+  ".config/mise/python-release",
+  ".config/ci/linux-release-image",
+  "noxfile.py",
   "tools/",
   "tests/",
 ]

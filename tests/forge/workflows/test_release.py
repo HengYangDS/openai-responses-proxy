@@ -3,7 +3,6 @@
 import re
 import shlex
 import subprocess
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -274,9 +273,7 @@ def test_published_release_bytes_run_the_full_native_journey_on_each_platform() 
 
 def test_native_release_runtime_is_exact_and_platform_independent() -> None:
     native_runtime = (ROOT / ".config/mise/python-release").read_text(encoding="ascii").strip()
-    image = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
-        "openai-responses-proxy"
-    ]["linux-release-image"]
+    image = (ROOT / ".config/ci/linux-release-image").read_text(encoding="ascii").strip()
     image_version = re.search(r"python:(\d+\.\d+\.\d+)-", image)
     nox_source = (ROOT / "noxfile.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
