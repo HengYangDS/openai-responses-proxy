@@ -341,9 +341,9 @@ rollback store. The selector's active generation owns serving and native
 supervision. The user command deterministically resolves to the newer verified
 release among the two selected generations, preserving current lifecycle
 control when serving rolls back. Future installation admission uses that same
-control release as its replay and downgrade floor. A transaction may carry a
-temporary snapshot only to bootstrap an older single-directory installation or
-recover an interrupted transition.
+control release as its replay and downgrade floor. Transactions retain only the
+command rollback record; selected payload generations are not copied into a
+temporary payload snapshot.
 The selector is committed before obsolete-generation cleanup, so interruption
 leaves either the prior selection or a recoverable new selection. Until the
 transaction closes, it alone owns recovery and rollback status.
@@ -369,11 +369,12 @@ snapshot's exact digest before writing it. Terminal cleanup removes only that
 snapshot and its known empty container; replacements and unrelated transaction
 content remain untouched and keep recovery authority available.
 
-The release that first introduces this transition must drive its own one-time
-upgrade from an older installed release: the predecessor cannot execute
-finalization semantics that did not yet exist. This is an explicit bootstrap
-at the installer boundary, not a second carrier schema or a runtime migration
-path. Once established, the installed release owns adjacent upgrades normally.
+An installed payload without a valid generation selector is not an upgrade
+predecessor. Its existing uninstaller must remove the owned service and payload
+before the verified release is installed into a fresh target. Unknown residue
+remains operator-owned and blocks installation; no compatibility migration or
+temporary payload snapshot bypasses that admission boundary. The retained
+selected-generation contract qualifies adjacent upgrades and rollback.
 
 Reload is a same-payload handoff that then binds native supervision to the
 lifecycle control executable, as an upgrade's handoff does; when a verified
