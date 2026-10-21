@@ -11,6 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import psutil
 import pytest
 
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -37,7 +38,8 @@ pytestmark = [
 
 class TestSignedNativeLifecycle:
     @pytest.mark.parametrize(
-        "interruption", [None, AssertionError, RuntimeError, TimeoutError, KeyboardInterrupt]
+        "interruption",
+        [None, AssertionError, RuntimeError, TimeoutError, KeyboardInterrupt],
     )
     def test_native_teardown_survives_test_control_flow_failures(
         self,
@@ -135,10 +137,16 @@ class TestSignedNativeLifecycle:
         workspace.cleanup()
         assert not Path(directory).exists()
 
+    @pytest.mark.parametrize("phase", ["installed", "before-setup", "setup-failure"])
     @pytest.mark.parametrize("controller", ["pytest", "nox"])
     @pytest.mark.parametrize("fixture", ["signed-install", "detached-listener"])
     def test_native_teardown_reclaims_an_externally_killed_controller(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str, controller: str
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        fixture: str,
+        controller: str,
+        phase: str,
     ) -> None:
         """Recover exact native custody after pytest or its Nox executor is killed."""
         executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
@@ -165,6 +173,8 @@ class TestSignedNativeLifecycle:
             trust=trust,
         )
         ready = tmp_path / "installed"
+        registered = tmp_path / "registered"
+        proceed = tmp_path / "proceed"
         source = tmp_path / "test_killed_native.py"
         setup = (
             f"    ctx = runtime_context_for(home, install, state, {port})\n"
@@ -182,7 +192,6 @@ class TestSignedNativeLifecycle:
         )
         source.write_text(
             "import json, os\n"
-            "from dataclasses import asdict\n"
             "from pathlib import Path\n"
             "from threading import Event\n"
             "from tests.release.fixtures import run_command, runtime_context_for\n"
@@ -191,10 +200,18 @@ class TestSignedNativeLifecycle:
             "from tests.serving.handoff.fixtures import start_real_proxy\n"
             "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
             "def test_killed_native():\n"
+            f"    Path({str(registered)!r}).write_text(json.dumps({{'pid':os.getpid(), 'root':os.environ[{verification._TEST_ROOT!r}], 'custody':os.environ[{verification._CONTEXTS!r}]}}))\n"
+            f"    while not Path({str(proceed)!r}).exists():\n"
+            "        Event().wait(0.05)\n"
             f"    home, install, state = (Path(os.environ[{verification._TEST_ROOT!r}]) / name for name in ('home', 'payload', 'state'))\n"
             "    home.mkdir(parents=True, exist_ok=True)\n"
             + setup
-            + f"    Path({str(ready)!r}).write_text(json.dumps({{'context':asdict(ctx), 'before':before, 'pid':os.getpid(), 'root':os.environ[{verification._TEST_ROOT!r}], 'custody':os.environ[{verification._CONTEXTS!r}]}}))\n"
+            + (
+                "    raise RuntimeError('setup failed before readiness')\n"
+                if phase == "setup-failure"
+                else ""
+            )
+            + f"    Path({str(ready)!r}).touch()\n"
             "    Event().wait(180)\n",
             encoding="utf-8",
         )
@@ -223,16 +240,22 @@ class TestSignedNativeLifecycle:
             runner.write_text(
                 "import nox, sys\n"
                 f"sys.path.insert(0, {str(ROOT)!r})\n"
-                "from pathlib import Path\n"
-                "from tools.release import verification\n"
                 "@nox.session(python=False)\n"
                 "def interrupted(session):\n"
                 f"    session.chdir({str(ROOT)!r})\n"
-                f"    verification.accept(session, {tuple(command)!r}, work=Path({str(tmp_path / 'nox-custody')!r}), environment={{}})\n",
+                f"    session.run(*{tuple(command)!r})\n",
                 encoding="utf-8",
             )
-            command = [sys.executable, "-m", "nox", "-f", str(runner), "-s", "interrupted"]
-        child_cleanup = ExitStack()
+            command = [
+                sys.executable,
+                "-m",
+                "nox",
+                "-f",
+                str(runner),
+                "-s",
+                "interrupted",
+            ]
+        child_processes: dict[int, process.OwnedProcess] = {}
         with (tmp_path / "killed-child.log").open("w") as log:
             child = subprocess.Popen(
                 command,
@@ -245,40 +268,77 @@ class TestSignedNativeLifecycle:
             owned_contexts = ()
             try:
                 deadline = time.monotonic() + 90
-                while not ready.is_file() and child.poll() is None and time.monotonic() < deadline:
+                while (
+                    not registered.is_file()
+                    and child.poll() is None
+                    and time.monotonic() < deadline
+                ):
                     time.sleep(0.05)
-                assert ready.is_file(), (tmp_path / "killed-child.log").read_text()
+                assert registered.is_file(), (tmp_path / "killed-child.log").read_text()
                 assert child.poll() is None
-                observed = json.loads(ready.read_text())
-                ctx = runtime_context.RuntimeContext(**observed["context"])
-                before = observed["before"]
-                test_root, contexts = Path(observed["root"]), Path(observed["custody"])
+                observed = json.loads(registered.read_text())
+                assert observed["root"] == str(test_root)
+                assert observed["custody"] == environment[verification._CONTEXTS]
                 if controller == "nox":
-                    assert contexts.parent.parent == tmp_path / "nox-custody"
                     assert observed["pid"] != child.pid
                 pytest_process = process.capture_generation(observed["pid"], sys.executable)
                 assert pytest_process is not None
-                child_cleanup.callback(process.terminate_owned_process, pytest_process)
-                install = Path(ctx.install_dir)
-                owned_contexts = generation.owned_contexts(ctx)
-                assert owned_contexts
-                if fixture == "signed-install":
-                    assert native_service_projection(ctx)["status"] != "absent"
+                child_processes[pytest_process.pid] = pytest_process
+                if phase != "before-setup":
+                    proceed.touch()
+                    while (
+                        not ready.is_file() and child.poll() is None and time.monotonic() < deadline
+                    ):
+                        time.sleep(0.05)
+                    if phase == "setup-failure":
+                        assert child.wait(timeout=10) != 0
+                        assert not ready.exists()
+                    else:
+                        assert ready.is_file(), (tmp_path / "killed-child.log").read_text()
+                    retained = tuple(
+                        runtime_context.RuntimeContext(**json.loads(line))
+                        for line in contexts.read_bytes().splitlines()
+                    )
+                    assert retained
+                    ctx = retained[-1]
+                    before = {**before, "service_id": ctx.service_id}
+                    install = Path(ctx.install_dir)
+                    owned_contexts = generation.owned_contexts(ctx)
+                    assert owned_contexts
+                    if fixture == "signed-install":
+                        assert native_service_projection(ctx)["status"] != "absent"
+                    else:
+                        assert native_service_projection(ctx)["processes"]
+                    assert install.exists()
                 else:
-                    assert native_service_projection(ctx)["processes"]
-                child.kill()
-                assert child.wait(timeout=10) != 0
-                assert install.exists()
-            finally:
+                    assert contexts.read_bytes() == b""
+                    assert not ready.exists()
+                    assert not install.exists()
                 if child.poll() is None:
                     child.kill()
+                    assert child.wait(timeout=10) != 0
+            finally:
+                if registered.is_file():
+                    observed = json.loads(registered.read_text())
+                    assert observed["root"] == str(test_root)
+                    assert observed["custody"] == str(contexts)
+                    if observed["pid"] not in child_processes:
+                        owned = process.capture_generation(observed["pid"], sys.executable)
+                        if owned is not None:
+                            child_processes[owned.pid] = owned
+                if child.poll() is None:
+                    for descendant in psutil.Process(child.pid).children(recursive=True):
+                        owned = process.capture_generation(descendant.pid, sys.executable)
+                        if owned is not None:
+                            child_processes.setdefault(owned.pid, owned)
+                    child.kill()
                 child.wait(timeout=10)
-                child_cleanup.close()
+                for owned in child_processes.values():
+                    assert process.terminate_owned_process(owned)
+                assert not any(
+                    process.owned_process_alive(owned) for owned in child_processes.values()
+                )
                 verification.reclaim(test_root, contexts)
-                if controller == "nox" and contexts.parent.parent == tmp_path / "nox-custody":
-                    contexts.unlink()
-                    contexts.parent.rmdir()
-                    assert list((tmp_path / "nox-custody").iterdir()) == []
                 workspace.cleanup()
         assert native_service_projection(ctx) == before
         assert native_service_projection(canonical) == canonical_before
