@@ -78,6 +78,11 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
     )
     canonical_before = process.listener_pids(runtime_config.DEFAULT_PORT)
 
+    def run_candidate(*arguments: str) -> dict[str, object]:
+        return native_release.run_command(current_executable, environment, *arguments)
+
+    command_output = ("--port", str(port), "--json")
+
     key, trust, anchor = native_release.signing_inputs(tmp_path)
 
     upstream = ScriptedUpstream()
@@ -110,9 +115,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             str(previous_trust),
             "--upstream-base-url",
             upstream_url,
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert installed["state"] == "installed"
         assert (
@@ -121,13 +124,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             )["ok"]
             is True
         )
-        before = native_release.run_command(
-            current_executable,
-            environment,
+        before = run_candidate(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert before["release"] == previous_version
         before_runtime = before.get("runtime")
@@ -197,7 +196,8 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         cleanups.callback(executor.shutdown, wait=True, cancel_futures=True)
         cleanups.callback(release.set)
 
-        upgrade_arguments = (
+        upgrade_future = executor.submit(
+            run_candidate,
             "install",
             "--asset",
             str(current_fixture),
@@ -208,12 +208,6 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             "--timeout-seconds",
             "60",
             "--json",
-        )
-        upgrade_future = executor.submit(
-            native_release.run_command,
-            current_executable,
-            environment,
-            *upgrade_arguments,
         )
         assert _wait_for_upgrade_drain(
             upgrade_future,
@@ -238,17 +232,17 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         }
         assert upgraded["state"] == "upgraded"
 
-        after = native_release.run_command(
-            current_executable,
-            environment,
+        after = run_candidate(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert after["release"] == current_version
         assert after["payload_transaction"] is None
         installed_command = Path(ctx.command)
+
+        def run_installed(*arguments: str) -> dict[str, object]:
+            return native_release.run_command(installed_command, environment, *arguments)
+
         control_executable = Path(generation.control_context(ctx).executable)
         assert command.status(installed_command, control_executable)["state"] == "owned"
         after_runtime = after.get("runtime")
@@ -266,13 +260,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         _assert_same_runtime_identity(upgraded, after)
         assert candidate_pid != previous_pid
         assert (
-            native_release.run_command(
-                current_executable,
-                environment,
+            run_candidate(
                 "doctor",
-                "--port",
-                str(port),
-                "--json",
+                *command_output,
             )["ok"]
             is True
         )
@@ -305,13 +295,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         Path(rollback_snapshot, command.SNAPSHOT_FILENAME).unlink()
         rollback_snapshot.rmdir()
 
-        recovered = native_release.run_command(
-            current_executable,
-            environment,
+        recovered = run_candidate(
             "recover",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert recovered == {
             "transaction_id": current_selection.predecessor,
@@ -323,13 +309,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert Path(records.installed_path(ctx)).read_bytes() == (installed_before_recovery)
         assert Path(ctx.command).resolve(strict=True) == command_before_recovery
         assert not Path(records.transaction_root(ctx)).exists()
-        recovered_status = native_release.run_command(
-            current_executable,
-            environment,
+        recovered_status = run_candidate(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         _assert_same_runtime_identity(after, recovered_status)
 
@@ -384,9 +366,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         completed_before_rollback = len(traffic_bodies)
 
         rollback_future = executor.submit(
-            native_release.run_command,
-            current_executable,
-            environment,
+            run_candidate,
             "rollback",
             "--to-release",
             previous_version,
@@ -432,13 +412,9 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert rolled_back["to_release"] == previous_version
         assert Path(generation.control_context(ctx).executable) == control_executable
         assert command.status(installed_command, control_executable)["state"] == "owned"
-        after_rollback = native_release.run_command(
-            installed_command,
-            environment,
+        after_rollback = run_installed(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert after_rollback["release"] == previous_version
         assert after_rollback["payload_transaction"] is None
@@ -467,9 +443,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         rollback_runtime = after_rollback.get("runtime")
         assert rollback_selection is not None
         assert isinstance(rollback_runtime, dict)
-        repeated = native_release.run_command(
-            installed_command,
-            environment,
+        repeated = run_installed(
             "rollback",
             "--to-release",
             previous_version,
@@ -485,27 +459,17 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             "next": "openai-responses-proxy status",
         }
         assert generation.read(ctx) == rollback_selection
-        repeated_status = native_release.run_command(
-            installed_command,
-            environment,
+        repeated_status = run_installed(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         _assert_same_runtime_identity(after_rollback, repeated_status)
-        assert native_release.run_command(
-            installed_command,
-            environment,
+        assert run_installed(
             "recover",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         ) == {"state": "not_required", "next": None}
 
-        restored = native_release.run_command(
-            installed_command,
-            environment,
+        restored = run_installed(
             "rollback",
             "--to-release",
             current_version,
@@ -518,21 +482,15 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert restored["state"] == "rolled_back"
         assert restored["from_release"] == previous_version
         assert restored["to_release"] == current_version
-        restored_status = native_release.run_command(
-            installed_command,
-            environment,
+        restored_status = run_installed(
             "status",
-            "--port",
-            str(port),
-            "--json",
+            *command_output,
         )
         assert restored_status["release"] == current_version
         assert restored_status["payload_transaction"] is None
         _assert_same_runtime_identity(restored, restored_status)
 
-        reloaded = native_release.run_command(
-            current_executable,
-            environment,
+        reloaded = run_candidate(
             "reload",
             "--port",
             str(port),
@@ -542,9 +500,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         )
         assert reloaded["new_pid"] != after_runtime.get("pid")
         owned_contexts = (*verification.owned_runtime_contexts(ctx), ctx)
-        removed = native_release.run_command(
-            current_executable,
-            environment,
+        removed = run_candidate(
             "uninstall",
             "--port",
             str(port),
