@@ -14,6 +14,7 @@ from tempfile import TemporaryDirectory
 import psutil
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
@@ -34,6 +35,43 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
+
+
+def _stop_controller(
+    child: subprocess.Popen[bytes],
+    child_processes: dict[int, process.OwnedProcess],
+    test_root: Path,
+    contexts: Path,
+) -> None:
+    """Attempt every known child exit; preserve custody if any exit is unproved."""
+    failures: list[Exception] = []
+    if child.poll() is None:
+        try:
+            for descendant in psutil.Process(child.pid).children(recursive=True):
+                owned = process.capture_generation(descendant.pid, sys.executable)
+                if owned is not None:
+                    child_processes.setdefault(owned.pid, owned)
+        except psutil.Error as error:
+            failures.append(error)
+        try:
+            child.kill()
+        except OSError as error:
+            failures.append(error)
+    try:
+        child.wait(timeout=10)
+    except (OSError, subprocess.SubprocessError) as error:
+        failures.append(error)
+    for owned in child_processes.values():
+        try:
+            assert process.terminate_owned_process(owned)
+        except Exception as error:
+            failures.append(error)
+    if failures:
+        raise errors.InstallError(
+            "controller teardown is unproved; scratch preserved"
+        ) from failures[0]
+    assert not any(process.owned_process_alive(owned) for owned in child_processes.values())
+    verification.reclaim(test_root, contexts)
 
 
 class TestSignedNativeLifecycle:
@@ -191,7 +229,7 @@ class TestSignedNativeLifecycle:
             "    start_real_proxy(ctx, upstream_url='http://127.0.0.1:1', log_path=root / 'proxy.log')\n"
         )
         source.write_text(
-            "import json, os\n"
+            "import json, os, time\n"
             "from pathlib import Path\n"
             "from threading import Event\n"
             "from tests.release.fixtures import run_command, runtime_context_for\n"
@@ -199,9 +237,13 @@ class TestSignedNativeLifecycle:
             "from tests.serving.handoff.subprocess.fixtures import SubprocessFixture\n"
             "from tests.serving.handoff.fixtures import start_real_proxy\n"
             "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
+            "from openai_responses_proxy.lifecycle.owned_files import write_bytes\n"
             "def test_killed_native():\n"
-            f"    Path({str(registered)!r}).write_text(json.dumps({{'pid':os.getpid(), 'root':os.environ[{verification._TEST_ROOT!r}], 'custody':os.environ[{verification._CONTEXTS!r}]}}))\n"
+            f"    write_bytes(Path({str(registered)!r}), json.dumps({{'pid':os.getpid(), 'root':os.environ[{verification._TEST_ROOT!r}], 'custody':os.environ[{verification._CONTEXTS!r}]}}).encode(), mode=0o600)\n"
+            "    deadline = time.monotonic() + 90\n"
             f"    while not Path({str(proceed)!r}).exists():\n"
+            "        if time.monotonic() >= deadline:\n"
+            "            raise TimeoutError('parent did not acknowledge custody')\n"
             "        Event().wait(0.05)\n"
             f"    home, install, state = (Path(os.environ[{verification._TEST_ROOT!r}]) / name for name in ('home', 'payload', 'state'))\n"
             "    home.mkdir(parents=True, exist_ok=True)\n"
@@ -318,27 +360,7 @@ class TestSignedNativeLifecycle:
                     child.kill()
                     assert child.wait(timeout=10) != 0
             finally:
-                if registered.is_file():
-                    observed = json.loads(registered.read_text())
-                    assert observed["root"] == str(test_root)
-                    assert observed["custody"] == str(contexts)
-                    if observed["pid"] not in child_processes:
-                        owned = process.capture_generation(observed["pid"], sys.executable)
-                        if owned is not None:
-                            child_processes[owned.pid] = owned
-                if child.poll() is None:
-                    for descendant in psutil.Process(child.pid).children(recursive=True):
-                        owned = process.capture_generation(descendant.pid, sys.executable)
-                        if owned is not None:
-                            child_processes.setdefault(owned.pid, owned)
-                    child.kill()
-                child.wait(timeout=10)
-                for owned in child_processes.values():
-                    assert process.terminate_owned_process(owned)
-                assert not any(
-                    process.owned_process_alive(owned) for owned in child_processes.values()
-                )
-                verification.reclaim(test_root, contexts)
+                _stop_controller(child, child_processes, test_root, contexts)
                 workspace.cleanup()
         assert native_service_projection(ctx) == before
         assert native_service_projection(canonical) == canonical_before
