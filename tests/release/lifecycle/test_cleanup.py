@@ -16,6 +16,7 @@ import pytest
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
+from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from tests.release.fixtures import ROOT
 from tests.release.fixtures import native_service_projection
@@ -134,11 +135,12 @@ class TestSignedNativeLifecycle:
         workspace.cleanup()
         assert not Path(directory).exists()
 
+    @pytest.mark.parametrize("controller", ["pytest", "nox"])
     @pytest.mark.parametrize("fixture", ["signed-install", "detached-listener"])
-    def test_native_teardown_reclaims_an_externally_killed_pytest_process(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str
+    def test_native_teardown_reclaims_an_externally_killed_controller(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str, controller: str
     ) -> None:
-        """A surviving executor purges the killed test's exact native installation."""
+        """Recover exact native custody after pytest or its Nox executor is killed."""
         executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(
             strict=True
         )
@@ -179,7 +181,7 @@ class TestSignedNativeLifecycle:
             "    start_real_proxy(ctx, upstream_url='http://127.0.0.1:1', log_path=root / 'proxy.log')\n"
         )
         source.write_text(
-            "import json\n"
+            "import json, os\n"
             "from dataclasses import asdict\n"
             "from pathlib import Path\n"
             "from threading import Event\n"
@@ -189,9 +191,10 @@ class TestSignedNativeLifecycle:
             "from tests.serving.handoff.fixtures import start_real_proxy\n"
             "from openai_responses_proxy.runtime.process_environment import native_process_environment\n"
             "def test_killed_native():\n"
-            f"    home, install, state = map(Path, {tuple(map(str, (home, install, state)))!r})\n"
+            f"    home, install, state = (Path(os.environ[{verification._TEST_ROOT!r}]) / name for name in ('home', 'payload', 'state'))\n"
+            "    home.mkdir(parents=True, exist_ok=True)\n"
             + setup
-            + f"    Path({str(ready)!r}).write_text(json.dumps({{'context':asdict(ctx), 'before':before}}))\n"
+            + f"    Path({str(ready)!r}).write_text(json.dumps({{'context':asdict(ctx), 'before':before, 'pid':os.getpid(), 'root':os.environ[{verification._TEST_ROOT!r}], 'custody':os.environ[{verification._CONTEXTS!r}]}}))\n"
             "    Event().wait(180)\n",
             encoding="utf-8",
         )
@@ -203,20 +206,36 @@ class TestSignedNativeLifecycle:
         }
         monkeypatch.delenv(verification._TEST_ROOT, raising=False)
         monkeypatch.delenv(verification._CONTEXTS, raising=False)
+        command = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "--rootdir",
+            str(ROOT),
+            "-c",
+            str(ROOT / ".config/checks/pytest/pytest.toml"),
+            f"--basetemp={tmp_path / 'child-pytest'}",
+            str(source),
+        ]
+        if controller == "nox":
+            runner = tmp_path / "noxfile.py"
+            runner.write_text(
+                "import nox, sys\n"
+                f"sys.path.insert(0, {str(ROOT)!r})\n"
+                "from pathlib import Path\n"
+                "from tools.release import verification\n"
+                "@nox.session(python=False)\n"
+                "def interrupted(session):\n"
+                f"    session.chdir({str(ROOT)!r})\n"
+                f"    verification.accept(session, {tuple(command)!r}, work=Path({str(tmp_path / 'nox-custody')!r}), environment={{}})\n",
+                encoding="utf-8",
+            )
+            command = [sys.executable, "-m", "nox", "-f", str(runner), "-s", "interrupted"]
+        child_cleanup = ExitStack()
         with (tmp_path / "killed-child.log").open("w") as log:
             child = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "--rootdir",
-                    str(ROOT),
-                    "-c",
-                    str(ROOT / ".config/checks/pytest/pytest.toml"),
-                    f"--basetemp={tmp_path / 'child-pytest'}",
-                    str(source),
-                ],
+                command,
                 cwd=ROOT,
                 env=environment,
                 stdin=subprocess.DEVNULL,
@@ -233,6 +252,13 @@ class TestSignedNativeLifecycle:
                 observed = json.loads(ready.read_text())
                 ctx = runtime_context.RuntimeContext(**observed["context"])
                 before = observed["before"]
+                test_root, contexts = Path(observed["root"]), Path(observed["custody"])
+                if controller == "nox":
+                    assert contexts.parent.parent == tmp_path / "nox-custody"
+                    assert observed["pid"] != child.pid
+                pytest_process = process.capture_generation(observed["pid"], sys.executable)
+                assert pytest_process is not None
+                child_cleanup.callback(process.terminate_owned_process, pytest_process)
                 install = Path(ctx.install_dir)
                 owned_contexts = generation.owned_contexts(ctx)
                 assert owned_contexts
@@ -247,7 +273,12 @@ class TestSignedNativeLifecycle:
                 if child.poll() is None:
                     child.kill()
                 child.wait(timeout=10)
+                child_cleanup.close()
                 verification.reclaim(test_root, contexts)
+                if controller == "nox" and contexts.parent.parent == tmp_path / "nox-custody":
+                    contexts.unlink()
+                    contexts.parent.rmdir()
+                    assert list((tmp_path / "nox-custody").iterdir()) == []
                 workspace.cleanup()
         assert native_service_projection(ctx) == before
         assert native_service_projection(canonical) == canonical_before
