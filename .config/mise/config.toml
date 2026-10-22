@@ -9,11 +9,11 @@ use_versions_host = false
 
 [tools]
 # Language runtimes
-node = "26.9.0"
+node = "26.12.1"
 python = "3.14.9"
 
 # Dependency management
-uv = "0.13.4"
+uv = "0.13.5"
 
 # Specification and CI modeling
 cue = "0.17.1"

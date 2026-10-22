@@ -275,8 +275,8 @@ stages:
 variables:
   DEBIAN_FRONTEND: noninteractive
   OPENAI_RESPONSES_PROXY_RELEASE_TAG_REMOTE: origin
-  UV_PYTHON_FLOOR_IMAGE: ghcr.io/astral-sh/uv:0.13.4-python3.12-trixie-slim@sha256:0d42b7b065ada5139af940bf3fb178b926675450e786badc854c9f73736cc6c4
-  UV_PYTHON_LATEST_IMAGE: ghcr.io/astral-sh/uv:0.13.4-python3.14-trixie-slim@sha256:db955a4c5fd85c9e08ae2c02f3fcedf76765aebc7c9bc10c55a6bbcc1b0510be
+  UV_PYTHON_FLOOR_IMAGE: ghcr.io/astral-sh/uv:0.13.5-python3.12-trixie-slim@sha256:9b8477a5f2e2f96fa99eaecb7680c1c4c9f527926430f3b630bfb2c3641f8f20
+  UV_PYTHON_LATEST_IMAGE: ghcr.io/astral-sh/uv:0.13.5-python3.14-trixie-slim@sha256:d8e732839dfc4225a1ff698803b478b2223c05636c055d3add41ab9dbec0f315
   UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
   UV_PYTHON_INSTALL_DIR: $CI_PROJECT_DIR/.cache/uv/python
   OPENAI_RESPONSES_PROXY_CI_TARGET: linux-arm64
