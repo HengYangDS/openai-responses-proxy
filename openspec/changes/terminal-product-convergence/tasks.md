@@ -43,7 +43,7 @@ This checklist retains the original task identities and completion states.
 
 ## 5. Native Lifecycle and Resource Ownership
 
-- [ ] 5.1 Converge lifecycle commands on one transaction and mutation lock; verify durable states, failure recovery and exact disposal on every platform. Native Windows requalification of the repaired lock test remains pending. Evidence: `test-ownership-20261021/native-lock-windows-observation-diagnosis-20261022.json`.
+- [x] 5.1 Converge lifecycle commands on one transaction and mutation lock; verify durable states, failure recovery and exact disposal on every platform. Repaired packaged lock acceptance passes on Windows, macOS and Linux at `e3ee5a4f`, with only declared OS-boundary skips. Evidence: `test-ownership-20261021/native-lock-pr156-successor-terminal-assessment-20261022.json`; final release and installation remain under 10/13.
 - [x] 5.2 Make payload generation, manifest, command projection, transaction journal, rollback snapshot, service declaration, listener, watchdog, and handoff child each have exact ownership identity and one cleanup owner. Evidence: `test-ownership-20261021/native-generation-ownership-closure-assessment-20261022.json`; final release and installation remain under 10/13.
 - [x] 5.3 Prove macOS launchd creation and teardown share the exact label and plist path; remove every suffixed test service, process, and plist while preserving the canonical installed service.
 - [x] 5.4 Prove Linux systemd behavior on a real supported user service and in the declared container boundary, including explicit behavior when no user bus exists; remove session-only fallback processes.
