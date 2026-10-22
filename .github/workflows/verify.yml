@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -67,14 +67,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version-file: .config/mise/python-release
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         with:
           install: true
           cache: true
@@ -106,7 +106,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -155,10 +155,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -183,10 +183,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -205,10 +205,10 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version-file: .config/mise/python-release
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -232,10 +232,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version-file: .config/mise/python-release
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -263,14 +263,14 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.latest }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         with:
           install: true
           cache: true
@@ -301,14 +301,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.floor }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         with:
           install: true
           cache: true
@@ -329,16 +329,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.release }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
       - name: Measure deterministic product overhead
         run: uv run --locked --group quality nox -s performance -- "$RUNNER_TEMP/performance"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: performance
           path: ${{ runner.temp }}/performance/*.json
@@ -367,10 +367,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.release }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -378,7 +378,7 @@ jobs:
         run: uv sync --locked --group quality
       - name: Build and accept the native release asset
         run: uv run --locked --no-sync nox -s release -- "${{ runner.temp }}/native-assets" --basetemp="${{ runner.temp }}/native-pytest"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: native-${{ matrix.platform }}
           path: ${{ runner.temp }}/native-assets
@@ -400,7 +400,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -416,7 +416,7 @@ jobs:
       - name: Retire the canonical release source root
         if: always() && steps.release-source.outcome == 'success'
         run: git -c safe.directory="$GITHUB_WORKSPACE" worktree remove --force /workspace
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: native-linux-x86_64
           path: ${{ github.workspace }}/.release-assets/linux-x86_64
@@ -439,14 +439,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.release }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: native-linux-x86_64
           path: ${{ runner.temp }}/native-linux
@@ -495,14 +495,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.release }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: native-${{ matrix.platform }}
           path: ${{ runner.temp }}/candidate-assets
@@ -554,10 +554,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ needs.python-matrix.outputs.latest }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -578,7 +578,7 @@ jobs:
           RELEASE_ASSET_SIGNING_KEY_PATH: ${{ runner.temp }}/release-asset-signing-key
           RELEASE_ASSET_TRUST: ${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}
         run: uv run --locked --no-sync python -m tools.release.artifact assemble --input "$RUNNER_TEMP/native/native-linux-x86_64" --input "$RUNNER_TEMP/native/native-macos-arm64" --input "$RUNNER_TEMP/native/native-windows-x86_64" --output "$RUNNER_TEMP/release-assets" --sign
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-assets
           path: ${{ runner.temp }}/release-assets
@@ -608,10 +608,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version-file: .config/mise/python-release
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
@@ -677,7 +677,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version-file: .config/mise/python-release
       - name: Reject missing branch proof
