@@ -10,7 +10,7 @@ use_versions_host = false
 [tools]
 # Language runtimes
 node = "26.9.0"
-python = "3.14.7"
+python = "3.14.9"
 
 # Dependency management
 uv = "0.13.4"

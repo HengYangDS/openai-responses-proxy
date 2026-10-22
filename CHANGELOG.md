@@ -8,6 +8,16 @@ publication authority.
 
 ## [Unreleased]
 
+### Security
+
+- Build the native release assets with CPython 3.14.9. The macOS and Windows
+  assets bundle OpenSSL 3.5.9 instead of 3.5.7, and the Linux asset builds on
+  the current `python:3.14.9-bookworm` image. This brings in the OpenSSL 3.5.8
+  and 3.5.9 and CPython 3.14.8 and 3.14.9 security fixes.
+- Upgrade the locked developer virtualenv to 21.14.12, which fixes the
+  activation-script and console-launcher advisories published on 2026-10-21,
+  such as GHSA-5vjq-rrrf-7h2q.
+
 ## [5.1.0] - 2026-10-22
 
 ### Security
