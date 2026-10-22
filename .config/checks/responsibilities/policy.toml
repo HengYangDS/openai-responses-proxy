@@ -271,6 +271,7 @@ id = "toml-formatted"
 roles = [
   "product-python",
   "ethos-adoption",
+  "ci-model",
   "quality-policy",
   "quality-tool-configuration",
   "toolchain",
