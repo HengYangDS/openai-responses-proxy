@@ -1,0 +1,10 @@
+# Executables that each Forge's CI runner image provides. ETHOS counts each one as
+# owned only in that Forge's own pipeline files.
+
+[[runner]]
+forge = "github"
+executables = ["apt-get", "install", "npm", "systemctl", "tar"]
+
+[[runner]]
+forge = "gitlab"
+executables = ["apt-get", "npm"]
