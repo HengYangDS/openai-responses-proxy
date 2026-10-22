@@ -339,7 +339,7 @@ def _command(
     changelog: Annotated[Path | None, Parameter(show=False)] = None,
 ) -> None:
     """Validate release identity and repository governance."""
-    if prepare_release and tag:
+    if prepare_release and tag is not None and tag != "":
         raise SystemExit("--prepare-release cannot be combined with --tag")
     version = read_version()
     check_python_metadata()
@@ -383,7 +383,7 @@ def _command(
         check_governance_contract()
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    if tag:
+    if tag is not None and tag != "":
         try:
             check_release_tag(tag, version)
         except ValueError as exc:

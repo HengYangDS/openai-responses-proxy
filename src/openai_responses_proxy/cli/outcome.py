@@ -72,7 +72,7 @@ def next_action(command: str, evidence: Mapping[str, object]) -> str | None:
     state = evidence.get("state")
     if command == "status":
         arguments = _STATUS_NEXT.get(str(state or "degraded"))
-        return product_identity.command(*arguments) if arguments else None
+        return product_identity.command(*arguments) if arguments is not None else None
     if command == "doctor":
         named = evidence.get("next")
         return named if isinstance(named, str) else None

@@ -31,7 +31,7 @@ WantedBy=default.target
 
 
 def _has_user_systemd() -> bool:
-    if not shutil.which("systemctl"):
+    if shutil.which("systemctl") is None:
         return False
     result = subprocess.run(
         ["systemctl", "--user", "show", "--property=SystemState", "--value"],
@@ -151,7 +151,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     service = f"{ctx.service_id}.service"
     registered = status(ctx) != "absent"
     if registered or unit.exists():
-        if not shutil.which("systemctl"):
+        if shutil.which("systemctl") is None:
             raise errors.InstallError("systemctl is unavailable; service removal is unproven")
         disabled = subprocess.run(
             ["systemctl", "--user", "disable", "--now", service],
@@ -187,7 +187,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
 def status(ctx: runtime_spec.NativeServiceContext) -> str:
     """Return the Linux service manager's read-only status classification."""
     unit = Path(_unit_path(ctx))
-    if shutil.which("systemctl"):
+    if shutil.which("systemctl") is not None:
         observed = subprocess.run(
             [
                 "systemctl",

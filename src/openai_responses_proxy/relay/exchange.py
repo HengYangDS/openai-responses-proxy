@@ -164,7 +164,7 @@ class Exchange:
         if (
             not self.used_input_variant_dialogue
             and self.used_response_failed_dialogue
-            and self.dialogue_metrics
+            and self.dialogue_metrics is not None
         ):
             telemetry.record_counter("response_failed_dialogue_recovery_accepted")
             m = self.dialogue_metrics
@@ -175,7 +175,7 @@ class Exchange:
                 f"dropped_input_items={m['dropped_input_items']} "
                 f"pair_safe_stages={self.response_failed_stages} ",
             )
-        elif self.used_response_failed_compaction and self.compact_metrics:
+        elif self.used_response_failed_compaction and self.compact_metrics is not None:
             telemetry.record_counter("response_failed_compaction_accepted")
             m = self.compact_metrics
             self.log(

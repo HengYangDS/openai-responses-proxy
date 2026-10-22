@@ -209,7 +209,7 @@ def request(
 ):
     """Send one loopback request without host proxies."""
     request_headers = {"Content-Type": "application/json"}
-    if headers:
+    if headers is not None:
         request_headers.update(headers)
     outbound = urllib.request.Request(
         f"http://127.0.0.1:{proxy_port}{path}",

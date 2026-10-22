@@ -102,7 +102,7 @@ def status(
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
         upstream = dict(sorted(_UPSTREAM_CLASSIFICATIONS.items()))
-        last_failure = dict(_LAST_FAILURE) if _LAST_FAILURE else None
+        last_failure = dict(_LAST_FAILURE) if _LAST_FAILURE is not None else None
     snapshot: dict[str, object] = {
         "release": release,
         "serving_payload_sha256": serving_payload_sha256,

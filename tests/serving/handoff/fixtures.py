@@ -271,7 +271,7 @@ def http_json(port: int, path: str, *, method: str = "GET", body=None, timeout: 
         f"http://127.0.0.1:{port}{path}",
         data=data,
         method=method,
-        headers={"Content-Type": "application/json"} if data else {},
+        headers={"Content-Type": "application/json"} if data is not None else {},
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=timeout) as response:
@@ -507,7 +507,7 @@ def start_real_proxy(
     env["OPENAI_RESPONSES_PROXY_STATE_HOME"] = str(log_path.parent / "state")
     env["OPENAI_RESPONSES_PROXY_EXECUTABLE"] = ctx.executable
     env.pop("PYTHONPATH", None)
-    if extra_env:
+    if extra_env is not None:
         env.update(extra_env)
     with log_path.open("ab") as diagnostic:
         process = subprocess.Popen(

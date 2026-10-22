@@ -118,7 +118,7 @@ def _acquire_lifecycle_lock(ctx: runtime_context.RuntimeContext) -> FileLock:
 def _release_version() -> str:
     if bundle_root := getattr(sys, "_MEIPASS", None):
         return (Path(bundle_root) / "VERSION").read_text(encoding="utf-8").strip()
-    if source_version := _source_version():
+    if (source_version := _source_version()) is not None:
         return source_version
     return importlib.metadata.version(product_identity.PACKAGE_NAME)
 
@@ -129,7 +129,7 @@ def _source_version() -> str | None:
     repository = source_root.parent
     if source_root.name != "src" or not (repository / "pyproject.toml").is_file():
         return None
-    return (repository / "VERSION").read_text(encoding="utf-8").strip()
+    return (repository / "VERSION").read_text(encoding="utf-8").strip() or None
 
 
 def _path_argument(arguments: Mapping[str, object], name: str) -> Path:
@@ -545,7 +545,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             str(error),
             as_json="--json" in arguments,
             next_command=product_identity.command(command, "--help")
-            if command
+            if command is not None
             else product_identity.command("--help"),
         )
     return result if isinstance(result, int) else 0

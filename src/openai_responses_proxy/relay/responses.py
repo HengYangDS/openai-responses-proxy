@@ -143,7 +143,7 @@ def _request_headers(handler: BaseHTTPRequestHandler) -> dict[str, str]:
 
 def _read_responses_body(handler: BaseHTTPRequestHandler) -> tuple[bytes | None, str]:
     """Read one unambiguous length-framed body before protocol or upstream admission."""
-    if handler.headers.get_all("Transfer-Encoding"):
+    if handler.headers.get_all("Transfer-Encoding", []):
         return None, "unsupported_transfer_encoding"
     lengths = handler.headers.get_all("Content-Length", [])
     if not lengths:

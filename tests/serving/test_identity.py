@@ -256,7 +256,7 @@ def test_loaded_identity_accepts_only_exact_native_projection(subtests) -> None:
         )
         for name, changes, candidate in cases:
             with subtests.test(name=name):
-                if changes:
+                if changes is not None:
                     _write_manifest(root, {**manifest, **changes})
                 assert identity.freeze_loaded_payload(candidate) is None
                 _write_manifest(root, manifest)

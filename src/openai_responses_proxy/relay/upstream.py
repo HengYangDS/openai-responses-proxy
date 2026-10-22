@@ -293,7 +293,9 @@ def read_chunk(
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ExchangeDeadlineError("upstream exchange deadline expired during body read")
-    set_read_timeout(response, min(remaining, idle_timeout) if idle_timeout else remaining)
+    set_read_timeout(
+        response, min(remaining, idle_timeout) if idle_timeout is not None else remaining
+    )
     try:
         chunk = response.read1(max_bytes)
     except Exception as error:

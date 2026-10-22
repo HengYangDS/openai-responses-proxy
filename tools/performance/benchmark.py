@@ -7,7 +7,7 @@ import io
 import json
 import threading
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from typing import override
@@ -125,7 +125,7 @@ class _Environment:
 
 
 @contextlib.contextmanager
-def _environment() -> Iterator[_Environment]:
+def _environment() -> Generator[_Environment]:
     environment = _Environment()
     try:
         yield environment

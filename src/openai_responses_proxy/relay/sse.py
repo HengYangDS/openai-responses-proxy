@@ -184,7 +184,7 @@ def _read_one_stream(
         search_start = max(0, len(buffer) - 3)
         buffer.extend(chunk)
         try:
-            while event := _pop_event(buffer, search_start):
+            while (event := _pop_event(buffer, search_start)) is not None:
                 process_event(event)
                 search_start = 0
                 if terminal_event is not None or upstream_detail == "projection_failed":
@@ -201,7 +201,7 @@ def _read_one_stream(
             break
         if not chunk or terminal_event is not None or upstream_detail == "projection_failed":
             break
-    detail = terminal_event.rpartition(".")[2] if terminal_event else upstream_detail
+    detail = terminal_event.rpartition(".")[2] if terminal_event is not None else upstream_detail
     return {
         "terminal": terminal_event,
         "events": event_count,
@@ -317,7 +317,7 @@ def relay(
         else:
             telemetry.record_failure(f"stream_{detail}")
     safe_path = operational_log.safe_request_path(path)
-    if result["terminal"]:
+    if result["terminal"] is not None:
         operational_log.log(
             f"req={request_id} event=sse_terminal terminal={result['terminal']} "
             f"events={result['events']} path={safe_path}"

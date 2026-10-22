@@ -59,7 +59,9 @@ def gitlab_ready(runners: Sequence[Mapping[str, object]], runner_tag: str | None
             and runner.get("runner_type") == "project_type"
             and runner.get("online") is True
             and runner.get("paused") is False
-            and (tag_matches if runner_tag else runner.get("run_untagged") is True)
+            and (
+                tag_matches if runner_tag not in (None, "") else runner.get("run_untagged") is True
+            )
             and runner.get("access_level") in {"not_protected", "ref_protected"}
         )
 

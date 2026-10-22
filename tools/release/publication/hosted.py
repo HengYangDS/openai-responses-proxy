@@ -12,7 +12,7 @@ from pathlib import Path
 def executable(name: str, error_type: type[Exception]) -> str:
     """Resolve one required Forge CLI to a canonical absolute path."""
     candidate = shutil.which(name)
-    if not candidate:
+    if candidate is None:
         raise error_type(f"{name} is unavailable")
     return str(Path(candidate).resolve())
 

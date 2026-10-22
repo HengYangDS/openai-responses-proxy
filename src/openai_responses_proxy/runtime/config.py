@@ -133,7 +133,7 @@ def path_join(root: str, *parts: str) -> str:
 
 
 def _absolute_override(source: Mapping[str, str], name: str) -> str | None:
-    raw = source.get(name)
+    raw = source.get(name, "")
     if not raw:
         return None
     if raw == "~" or raw.startswith(("~/", "~\\")):
@@ -147,7 +147,7 @@ def _absolute_override(source: Mapping[str, str], name: str) -> str | None:
 def data_dir(environment: Mapping[str, str] | None = None) -> str:
     """Return the portable product data root, allowing an explicit override."""
     source = os.environ if environment is None else environment
-    if override := _absolute_override(source, HOME_ENV):
+    if (override := _absolute_override(source, HOME_ENV)) is not None:
         return override
     return default_data_dir(source)
 
@@ -172,7 +172,7 @@ def state_dir(environment: Mapping[str, str] | None = None) -> str:
     purge verify, so taking the lifecycle lock never creates content there.
     """
     source = os.environ if environment is None else environment
-    if override := _absolute_override(source, STATE_HOME_ENV):
+    if (override := _absolute_override(source, STATE_HOME_ENV)) is not None:
         return override
     home = home_dir()
     if os.name == "nt":

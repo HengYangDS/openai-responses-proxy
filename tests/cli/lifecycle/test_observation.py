@@ -161,7 +161,7 @@ def test_doctor_classifies_an_unavailable_listener_without_false_success(
             assert not report["ok"]
             assert report["state"] == state
             assert report["checks"]["listener"]["status"] == (
-                "passed" if evidence["runtime"] else "failed"
+                "passed" if evidence["runtime"] is not None else "failed"
             )
             assert report["next"] == next_command
             assert report["checks"]["service"] == {

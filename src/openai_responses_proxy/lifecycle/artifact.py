@@ -303,7 +303,7 @@ def admit(asset: Path, *, trust_anchor: Path) -> VerifiedArtifact:
 
 def _verify_signature(content: bytes, signature: Path, trust_anchor: Path) -> None:
     ssh_keygen = shutil.which("ssh-keygen")
-    if not ssh_keygen:
+    if ssh_keygen is None:
         raise errors.InstallError("ssh-keygen is required to verify release assets")
     found = subprocess.run(
         [

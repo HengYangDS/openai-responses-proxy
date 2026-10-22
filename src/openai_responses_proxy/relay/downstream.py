@@ -71,7 +71,7 @@ def send_payload(
     """Send one length-delimited local response."""
     handler.send_response(status)
     handler.send_header("Content-Type", content_type)
-    if retry_after:
+    if retry_after is not None:
         handler.send_header("Retry-After", retry_after)
     if close:
         handler.send_header("Connection", "close")
@@ -254,7 +254,12 @@ def relay_readonly_body(
             if (
                 overflow
                 or terminal
-                or (not chunk and isinstance(native, http.client.HTTPResponse) and native.length)
+                or (
+                    not chunk
+                    and isinstance(native, http.client.HTTPResponse)
+                    and native.length is not None
+                    and native.length != 0
+                )
             ):
                 handler.close_connection = True
                 return

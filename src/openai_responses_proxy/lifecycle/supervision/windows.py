@@ -117,7 +117,8 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     if (
         len(commands) != 1
         or len(arguments) != 1
-        or not commands[0].text
+        or commands[0].text is None
+        or commands[0].text == ""
         or arguments[0].text != serving_roles.WATCHDOG_MODE
     ):
         raise errors.InstallError("scheduled task watchdog identity is unproved")

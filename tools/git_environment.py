@@ -23,7 +23,7 @@ def isolated_config_environment(
 ) -> dict[str, str]:
     """Return the host environment without personal Git configuration."""
     environment = os.environ | _CONFIG_ISOLATION
-    if overrides:
+    if overrides is not None:
         environment.update(overrides)
     return environment
 

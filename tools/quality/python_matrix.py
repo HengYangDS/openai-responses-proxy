@@ -79,10 +79,10 @@ def _command(
     output: Path | None = None,
 ) -> None:
     """Project the matrix to an explicit or GitHub-provided output path."""
-    configured = os.environ.get("GITHUB_OUTPUT")
+    configured = os.environ.get("GITHUB_OUTPUT", "")
     if output is None and not configured:
         raise SystemExit("GitHub output path is unavailable")
-    target = output or Path(configured or "")
+    target = output or Path(configured)
     write(versions=versions, release=release, image=image, output=target)
 
 

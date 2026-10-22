@@ -30,7 +30,7 @@ def _page(
 ) -> str:
     lines = [f"{product_identity.DISPLAY_NAME}  {title}", _RULE, ""]
     lines.extend(starmap(_row, rows))
-    if next_command:
+    if next_command is not None:
         lines.extend(("", "Next", f"  {next_command}"))
     return "\n".join(lines)
 

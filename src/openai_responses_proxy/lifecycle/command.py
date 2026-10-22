@@ -38,7 +38,7 @@ def path(home: str, environment: Mapping[str, str], *, windows: bool) -> Path:
         return Path(
             str(PureWindowsPath(local) / "Microsoft" / "WindowsApps" / f"{COMMAND_NAME}.cmd")
         )
-    configured = environment.get("XDG_BIN_HOME")
+    configured = environment.get("XDG_BIN_HOME", "")
     if configured:
         directory = Path(configured).expanduser()
         if not directory.is_absolute():

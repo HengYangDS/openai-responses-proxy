@@ -40,7 +40,7 @@ def _is_replayable_image_url(value: object) -> bool:
             return False
     try:
         parsed = urllib.parse.urlsplit(value)
-        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        if parsed.scheme not in ("http", "https") or parsed.hostname is None:
             return False
         _ = parsed.port
     except ValueError:

@@ -6,7 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -21,7 +21,7 @@ class SignatureError(RuntimeError):
 
 
 @contextmanager
-def _signing_key(key: Path) -> Iterator[Path]:
+def _signing_key(key: Path) -> Generator[Path]:
     """Preserve provider-owned key identity unless POSIX newline repair is needed."""
     content = key.read_bytes()
     if content.endswith(b"\n") or os.name != "posix":
@@ -39,7 +39,7 @@ def _signing_key(key: Path) -> Iterator[Path]:
 def sign_and_verify(*, assets: Path, key: Path, trust: str) -> None:
     """Sign and verify the canonical checksum inventory with explicit inputs."""
     ssh_keygen = shutil.which("ssh-keygen")
-    if not ssh_keygen or not key.is_file() or key.is_symlink() or not trust.strip():
+    if ssh_keygen is None or not key.is_file() or key.is_symlink() or not trust.strip():
         raise SignatureError("release signing inputs are unavailable")
     checksums = assets / "SHA256SUMS"
     if not checksums.is_file() or checksums.is_symlink():
@@ -78,7 +78,7 @@ def verify(*, assets: Path, trust: str) -> None:
     ssh_keygen = shutil.which("ssh-keygen")
     checksums, signature = assets / "SHA256SUMS", assets / "SHA256SUMS.sig"
     if (
-        not ssh_keygen
+        ssh_keygen is None
         or not trust.strip()
         or not checksums.is_file()
         or checksums.is_symlink()

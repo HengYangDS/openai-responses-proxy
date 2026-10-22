@@ -491,7 +491,7 @@ class TestVerificationContracts:
         hook_tree = ast.parse(hook.read_text(encoding="utf-8"))
         executable_statements = hook_tree.body[1:]
 
-        assert ast.get_docstring(hook_tree)
+        assert ast.get_docstring(hook_tree) not in (None, "")
         assert len(executable_statements) == 1
         assignment = executable_statements[0]
         assert isinstance(assignment, ast.Assign)

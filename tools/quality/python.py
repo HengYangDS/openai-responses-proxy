@@ -251,7 +251,7 @@ def _native_session(session: nox.Session) -> str:
 
 def _output_directory(session: nox.Session) -> Path | None:
     """Resolve the selected native report directory before any report producer runs."""
-    selected = os.environ.get("ETHOS_NATIVE_OUTPUT_DIR")
+    selected = os.environ.get("ETHOS_NATIVE_OUTPUT_DIR", "")
     if not selected:
         return None
     output = Path(selected)

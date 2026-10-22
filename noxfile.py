@@ -98,7 +98,7 @@ def quality(session: nox.Session) -> None:
     }
     python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
     python_quality.behavior(session, environment=environment, require_coverage=True)
-    if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR"):
+    if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR", ""):
         session.run(
             *PYTEST_COMMAND,
             "tests/quality/orchestration/test_observation.py",

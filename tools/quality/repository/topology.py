@@ -40,7 +40,7 @@ def _absolute_imports(path: Path) -> Iterator[str]:
     """Yield every absolute module name that one Python file imports."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+        if isinstance(node, ast.ImportFrom) and node.module is not None and node.level == 0:
             yield node.module
         elif isinstance(node, ast.Import):
             yield from (alias.name for alias in node.names)

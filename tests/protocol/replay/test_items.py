@@ -133,7 +133,7 @@ def test_projection_diagnosis_and_recovery_share_tool_relationships(
     [
         (kind, policy.paired_output)
         for kind, policy in ITEM_POLICIES.items()
-        if policy.paired_output
+        if policy.paired_output is not None
     ],
 )
 def test_declared_tool_relationship_owns_identity_and_diagnostics(

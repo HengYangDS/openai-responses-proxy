@@ -25,11 +25,11 @@ def collect(*, provider: str, remote: str, tag: str, anchor: Path) -> dict[str, 
     if not anchor.is_file() or anchor.is_symlink():
         raise GitProofError("publication trust anchor is unavailable")
     ssh_keygen = shutil.which("ssh-keygen")
-    if not ssh_keygen:
+    if ssh_keygen is None:
         raise GitProofError("ssh-keygen is unavailable")
     ssh_keygen = str(Path(ssh_keygen).resolve())
     git = shutil.which("git")
-    if not git:
+    if git is None:
         raise GitProofError("git is unavailable")
     git = str(Path(git).resolve())
     environment = immutable_remote_proof_environment()

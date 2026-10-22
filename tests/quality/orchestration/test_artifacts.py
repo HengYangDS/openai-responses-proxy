@@ -75,7 +75,7 @@ def test_installed_product_probe_distinguishes_environment_from_source_checkout(
     )
     mocker.patch.object(nox_configuration, "ROOT", checkout)
 
-    if defect:
+    if defect is not None:
         with pytest.raises(subprocess.CalledProcessError):
             nox_configuration._assert_installed_product(session, work)
     else:

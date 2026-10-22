@@ -6,7 +6,7 @@ import importlib.machinery
 import inspect
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -39,7 +39,7 @@ def _manifest(root: Path, text: str) -> Path:
 
 
 @contextmanager
-def _policy_package(root: Path, name: str, modules: Mapping[str, str], *, mocker) -> Iterator[str]:
+def _policy_package(root: Path, name: str, modules: Mapping[str, str], *, mocker) -> Generator[str]:
     package = root / name
     policies = package / "policies"
     policies.mkdir(parents=True)

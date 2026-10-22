@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
@@ -44,7 +44,9 @@ def git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
 
 
 @contextmanager
-def repository(files: tuple[str, ...], *, tracked: tuple[str, ...] | None = None) -> Iterator[Path]:
+def repository(
+    files: tuple[str, ...], *, tracked: tuple[str, ...] | None = None
+) -> Generator[Path]:
     """Yield one isolated Git fixture with explicit tracked ownership."""
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)

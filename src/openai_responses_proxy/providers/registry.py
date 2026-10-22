@@ -247,7 +247,7 @@ def _base_url(name: str, value: object) -> str:
         raise ValueError(message) from None
     if (
         parsed.scheme.lower() not in ("http", "https")
-        or not parsed.hostname
+        or parsed.hostname is None
         or parsed.username is not None
         or parsed.password is not None
         or parsed.query
