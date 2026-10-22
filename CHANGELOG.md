@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.2] - 2026-10-22
+
 ### Fixed
 
 - Keep the previous listener serving its accepted responses through an
