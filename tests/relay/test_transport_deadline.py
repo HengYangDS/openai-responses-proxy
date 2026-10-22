@@ -26,6 +26,43 @@ from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
 
 
+@pytest.fixture(scope="module")
+def tls_material(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """Create one loopback identity per module; a cold hosted Windows openssl can exceed 10 s."""
+    directory = tmp_path_factory.mktemp("tls")
+    certificate = directory / "certificate.pem"
+    key = directory / "key.pem"
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
+            "-nodes",
+            "-batch",
+            "-days",
+            "1",
+            "-subj",
+            "/CN=127.0.0.1",
+            "-addext",
+            "subjectAltName=IP:127.0.0.1",
+            "-keyout",
+            str(key),
+            "-out",
+            str(certificate),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        check=True,
+        timeout=60,
+    )
+    return certificate, key
+
+
 class TestTransportDeadline(InputTransportFixture):
     @pytest.mark.parametrize(
         ("idle_timeout", "deadline_bound"),
@@ -354,37 +391,8 @@ class TestTransportDeadline(InputTransportFixture):
             assert listener.fileno() == -1
 
     @pytest.fixture
-    def tls_context(self, tmp_path: Path) -> tuple[ssl.SSLContext, ssl.SSLContext]:
-        certificate = tmp_path / "certificate.pem"
-        key = tmp_path / "key.pem"
-        subprocess.run(
-            [
-                "openssl",
-                "req",
-                "-x509",
-                "-newkey",
-                "ec",
-                "-pkeyopt",
-                "ec_paramgen_curve:P-256",
-                "-nodes",
-                "-batch",
-                "-days",
-                "1",
-                "-subj",
-                "/CN=127.0.0.1",
-                "-addext",
-                "subjectAltName=IP:127.0.0.1",
-                "-keyout",
-                str(key),
-                "-out",
-                str(certificate),
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            check=True,
-            timeout=10,
-        )
+    def tls_context(self, tls_material: tuple[Path, Path]) -> tuple[ssl.SSLContext, ssl.SSLContext]:
+        certificate, key = tls_material
         server = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         server.load_cert_chain(certificate, key)
         return server, ssl.create_default_context(cafile=str(certificate))
