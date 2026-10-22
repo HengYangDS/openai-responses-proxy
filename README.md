@@ -266,7 +266,9 @@ cleanup, and recovery until it closes. `status` therefore reports rollback as
 state as an independent rollback authority. Upgrade and rollback use the same
 capability-qualified handoff. A runtime that advertises
 `admission-preserving-handoff` transfers listener ownership while continuing to
-admit new requests and lets already accepted requests finish. Draining is used
+admit new requests and lets already accepted requests finish. The previous
+listener keeps serving them until they end or reach the configured upstream
+timeout, at most 900 seconds, and the command returns after it exits. Draining is used
 only for the bounded native-generation replacement of an older runtime that
 cannot preserve admission.
 

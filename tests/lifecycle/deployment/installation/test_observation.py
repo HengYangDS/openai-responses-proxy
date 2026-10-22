@@ -77,6 +77,23 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                 timeout_seconds=1,
             )
 
+    def test_request_handoff_leases_the_predecessor_its_exchange_deadline(self, *, mocker) -> None:
+        current = self.current_runtime()
+        expected = FakeTransaction(self.ctx).expected
+        self.ctx.upstream_timeout = 900.0
+        request = mocker.patch.object(
+            apply.handoff, "request", return_value={"runtime": self.successor()}
+        )
+        apply.request_handoff(
+            self.ctx,
+            expected,
+            current=current,
+            source_listener=process.OwnedProcess(111, self.ctx.executable, 1.0),
+            runtime_reader=lambda _ctx: current,
+            timeout_seconds=30,
+        )
+        assert request.call_args.kwargs["lease_seconds"] == 900.0
+
     def test_wait_for_serving_runtime_requires_exact_identity(self, *, mocker) -> None:
         expected = FakeTransaction(self.ctx).expected
         match = self.successor()

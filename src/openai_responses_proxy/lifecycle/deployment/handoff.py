@@ -153,6 +153,15 @@ def capture_source_listener(
     return owned
 
 
+def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_seconds: float) -> float:
+    """Keep a handed-off predecessor serving until its accepted exchanges reach their deadline.
+
+    Each accepted Responses exchange is bounded by the configured upstream timeout, so a
+    shorter lease would end streams that are still within their own budget.
+    """
+    return max(1.0, timeout_seconds, ctx.upstream_timeout)
+
+
 def expected_metadata(root: str) -> RuntimeSnapshot:
     """Read release, aggregate payload, receipt, and manifest identity."""
     try:

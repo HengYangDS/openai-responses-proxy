@@ -331,7 +331,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
             next_command=product_identity.command("status", "--json"),
         )
     expected = handoff.expected_metadata(ctx.payload_dir)
-    lease_seconds = max(1.0, timeout_seconds)
+    lease_seconds = handoff.predecessor_lease_seconds(ctx, timeout_seconds)
     source_listener = handoff.capture_source_listener(ctx, runtime)
     reloaded: dict[str, object]
     try:

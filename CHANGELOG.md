@@ -8,6 +8,14 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the previous listener serving its accepted responses through an
+  upgrade, reload or rollback until they end or reach the configured upstream
+  timeout, at most 900 seconds, instead of ending them when the lifecycle
+  timeout, 30 seconds by default, expires. The command returns after that
+  listener exits.
+
 ## [5.1.1] - 2026-10-22
 
 ### Security

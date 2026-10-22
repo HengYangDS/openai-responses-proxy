@@ -366,13 +366,14 @@ def request_handoff(
     timeout_seconds: float,
 ) -> dict[str, object]:
     """Request handoff and resolve controller failure from runtime evidence."""
+    lease_seconds = handoff.predecessor_lease_seconds(ctx, timeout_seconds)
     try:
         result = handoff.request(
             ctx,
             dict(expected),
             runtime_reader=runtime_reader,
             timeout_seconds=timeout_seconds,
-            lease_seconds=max(1.0, timeout_seconds),
+            lease_seconds=lease_seconds,
             source_listener=source_listener,
             source_runtime=current,
         )
@@ -388,7 +389,7 @@ def request_handoff(
                 dict(expected),
                 runtime_reader=runtime_reader,
                 timeout_seconds=timeout_seconds,
-                lease_seconds=max(1.0, timeout_seconds),
+                lease_seconds=lease_seconds,
                 source_listener=source_listener,
             )
         except (OSError, errors.InstallError):

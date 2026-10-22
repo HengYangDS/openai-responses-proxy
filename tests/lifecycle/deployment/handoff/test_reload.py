@@ -45,6 +45,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         request_handoff.assert_called_once()
         terminate.assert_not_called()
         assert result == {"state": "reloaded", "old_pid": 1, "new_pid": 2}
+        assert request_handoff.call_args.kwargs["lease_seconds"] == ctx.upstream_timeout
 
     def test_reload_rejects_handoff_when_installed_payload_integrity_fails(self, *, mocker):
         ctx = install_context(Path(self.tempdir.name))
