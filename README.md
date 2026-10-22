@@ -302,10 +302,11 @@ replaying the request or inventing completion. Both JSON and HTTP error bodies
 are limited to 8 MiB. A malformed or unreadable error body returns a structured
 local failure rather than forwarding a partial upstream response.
 HTTP headers and chunk framing cannot extend the budget by continually sending
-small fragments. DNS resolution and TLS connection setup remain subject to the
-native transport's timeout behavior; a strict wall-clock bound on those phases
-has not been qualified. The upstream budget starts after local request projection;
-client-body reception has its own finite budget.
+small fragments. TCP connection setup, the TLS handshake and request writes use
+only the remaining budget. System DNS resolution stays synchronous and a socket
+timeout cannot cancel it; its wall-clock bound has not been qualified. The
+upstream budget starts after local request projection; client-body reception
+has its own finite budget.
 
 The released UCloud route selects plaintext agent delivery. This requires a
 Codex client with the native plaintext-message path, the `collaboration` tool
