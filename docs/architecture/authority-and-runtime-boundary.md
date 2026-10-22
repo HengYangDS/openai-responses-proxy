@@ -113,8 +113,9 @@ form dependency cycles or import test fixtures.
 | `release`     | Metadata, trust, artifact construction and Release publication | Publishers consume an immutable pre-signed bundle      |
 | `reliability` | Secret-free evaluation of installed status observations        | Reads supplied evidence; does not control the listener |
 
-Release construction belongs to `release/artifact`; `release/publication`
-composes publication and verification, with each Forge's read and write effects
+`release/construction` invokes native freezing and packaging; `release/artifact`
+owns the asset bytes and verification. `release/publication` composes publication
+and verification, with each Forge's read and write effects
 in its own adapter. The shared Git environment module binds repository commands
 without becoming another workflow controller. Tests follow these product and
 tool boundaries; native distribution cases remain separate from source-only

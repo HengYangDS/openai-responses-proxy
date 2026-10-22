@@ -6,7 +6,6 @@ import importlib.machinery
 import importlib.util
 import json
 import os
-import platform
 import sys
 import tomllib
 from pathlib import Path
@@ -32,6 +31,9 @@ def _load_repository_module(name: str, relative: str) -> ModuleType:
 
 python_matrix = _load_repository_module("proxy_python_matrix", "tools/quality/python_matrix.py")
 python_quality = _load_repository_module("proxy_python_quality", "tools/quality/python.py")
+construction = _load_repository_module(
+    "proxy_release_construction", "tools/release/construction.py"
+)
 verification = _load_repository_module("proxy_native_verification", "tools/release/verification.py")
 PYTHONS = tuple((ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").splitlines())
 MIN_PYTHON, *_, MAX_PYTHON = PYTHONS
@@ -260,7 +262,7 @@ def _verify_native_candidate(session: nox.Session, *lifecycle_cases: str) -> Non
         work=ROOT / "build" / "native-verification",
         environment=environment,
     )
-    _package_release_asset(session, bundle, work)
+    construction.pack(session, bundle, work, environment=_environment())
 
 
 def _build_native_candidate(session: nox.Session) -> tuple[Path, Path, Path]:
@@ -280,7 +282,9 @@ def _build_native_candidate(session: nox.Session) -> tuple[Path, Path, Path]:
         env=_environment(),
     )
     _assert_installed_product(session, work)
-    bundle, executable = _build_executable(session, work)
+    bundle, executable = construction.freeze(session, work, root=ROOT, environment=_environment())
+    assert isinstance(bundle, Path)
+    assert isinstance(executable, Path)
     return work, bundle, executable
 
 
@@ -521,46 +525,6 @@ def _installed_executable(session: nox.Session) -> Path:
     return executable
 
 
-def _build_executable(session: nox.Session, work: Path) -> tuple[Path, Path]:
-    """Build one native directory bundle with only release-owned data."""
-    name = product_identity.executable_name(windows=os.name == "nt")
-    dist = work / "dist"
-    command = (
-        "pyinstaller",
-        "--clean",
-        "--noconfirm",
-        "--log-level",
-        "ERROR",
-        "--onedir",
-        "--name",
-        product_identity.PRODUCT_SLUG,
-        "--distpath",
-        str(dist),
-        "--workpath",
-        str(work / "build"),
-        "--specpath",
-        str(work),
-        "--additional-hooks-dir",
-        str(ROOT / "tools/release/hooks"),
-        "--add-data",
-        f"{ROOT / 'VERSION'}{os.pathsep}.",
-        "--add-data",
-        (
-            f"{ROOT / 'src/openai_responses_proxy/providers/manifest.toml'}"
-            f"{os.pathsep}openai_responses_proxy/providers"
-        ),
-        "--collect-submodules",
-        "openai_responses_proxy.providers.policies",
-        str(ROOT / "src/openai_responses_proxy/cli/__main__.py"),
-    )
-    session.run(*command, env=_environment())
-    bundle = dist / product_identity.PRODUCT_SLUG
-    executable = bundle / name
-    if not executable.is_file():
-        session.error(f"native executable was not produced: {executable}")
-    return bundle, executable
-
-
 def _assert_release_runtime(session: nox.Session) -> None:
     """Reject native builds outside the repository-declared runtime."""
     try:
@@ -579,30 +543,6 @@ def _assert_release_runtime(session: nox.Session) -> None:
     )
     if not (isinstance(version, str) and version.strip() == RELEASE_PYTHON == release_version):
         session.error("release interpreter differs from the immutable release runtime")
-
-
-def _package_release_asset(session: nox.Session, bundle: Path, work: Path) -> None:
-    """Export one manifest-bound native asset set after black-box acceptance."""
-    output = Path(session.posargs[0]).resolve() if session.posargs else work / "release-assets"
-    try:
-        platform_id = product_identity.native_release_platform(
-            platform.system(), platform.machine()
-        )
-    except ValueError as error:
-        session.error(str(error))
-    session.run(
-        "python",
-        "-m",
-        "tools.release.artifact",
-        "pack",
-        "--bundle",
-        str(bundle),
-        "--platform",
-        platform_id,
-        "--output",
-        str(output),
-        env=_environment(),
-    )
 
 
 def _environment() -> dict[str, str]:

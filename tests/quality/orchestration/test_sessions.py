@@ -54,7 +54,7 @@ def test_sessions_accept_built_artifacts_before_publication(
     orchestration_session: Session,
 ) -> None:
     mocker.patch.object(
-        nox_configuration,
+        nox_configuration.construction,
         "platform",
         SimpleNamespace(
             system=lambda: system,
@@ -284,7 +284,7 @@ def test_native_builders_refuse_arguments_that_replace_complete_acceptance(
         return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
     )
     accept = mocker.patch.object(nox_configuration.verification, "accept")
-    package = mocker.patch.object(nox_configuration, "_package_release_asset")
+    package = mocker.patch.object(nox_configuration.construction, "pack")
 
     with pytest.raises(RuntimeError, match="native acceptance arguments refused"):
         getattr(nox_configuration, session_name)(session)
