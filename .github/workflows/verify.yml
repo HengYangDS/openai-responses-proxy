@@ -473,7 +473,10 @@ jobs:
   release-compatibility:
     name: Published release compatibility (${{ matrix.platform }})
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
-    needs: python-matrix
+    needs:
+      - python-matrix
+      - native-assets
+      - native-linux
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -499,6 +502,10 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: native-${{ matrix.platform }}
+          path: ${{ runner.temp }}/candidate-assets
       - name: Install the locked release tool environment
         run: uv sync --locked --group quality
       - name: Resolve the exact published predecessor
@@ -526,6 +533,7 @@ jobs:
         run: printf '%s\n' "XDG_RUNTIME_DIR=/run/user/${UID}" "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${UID}/bus" >> "$GITHUB_ENV"
       - name: Prove published predecessor upgrade and rollback
         env:
+          OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS: ${{ runner.temp }}/candidate-assets
           OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/previous-release-asset-trust
           OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/release-asset-trust
         run: uv run --locked --no-sync nox -s release_compatibility

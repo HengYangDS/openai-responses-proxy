@@ -320,6 +320,15 @@ def test_native_acceptance_claims_a_private_test_root_before_pytest(
         path = tmp_path / suffix
         path.touch()
         monkeypatch.setenv(nox_configuration.product_identity.environment_name(suffix), str(path))
+    if session_name == "release_compatibility":
+        candidate = tmp_path / "candidate-assets"
+        candidate.mkdir()
+        monkeypatch.setenv(
+            nox_configuration.product_identity.environment_name("CURRENT_RELEASE_ASSETS"),
+            str(candidate),
+        )
+        mocker.patch.object(nox_configuration, "_prepare_product_session", return_value=tmp_path)
+        mocker.patch.object(nox_configuration, "_assert_release_runtime")
     owned: list[Path] = []
     failure = CommandFailed("test process was terminated", return_code=-9)
 

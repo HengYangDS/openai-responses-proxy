@@ -295,7 +295,28 @@ def release_compatibility(session: nox.Session) -> None:
         product_identity.environment_name("PREVIOUS_RELEASE_TRUST_ANCHOR"),
         "published predecessor trust anchor",
     )
-    _work, bundle, executable = _build_native_candidate(session)
+    candidate_input = os.environ.get(
+        product_identity.environment_name("CURRENT_RELEASE_ASSETS"), ""
+    )
+    candidate_assets = Path(candidate_input)
+    if not candidate_input or candidate_assets.is_symlink() or not candidate_assets.is_dir():
+        raise RuntimeError("candidate native asset directory is unavailable")
+    _assert_release_runtime(session)
+    work = _prepare_product_session(session)
+    candidate = work / "candidate"
+    session.run(
+        "python",
+        "-m",
+        "tools.release.artifact",
+        "materialize",
+        "--source",
+        str(candidate_assets),
+        "--output",
+        str(candidate),
+        env=_environment(),
+    )
+    bundle = candidate / "bin"
+    executable = bundle / product_identity.executable_name(windows=os.name == "nt")
     verification.accept(
         session,
         (

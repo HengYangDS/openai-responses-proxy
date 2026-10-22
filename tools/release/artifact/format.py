@@ -253,9 +253,11 @@ def release_digests(
     signed_assets = expected_names - {CHECKSUM_NAME, SIGNATURE_NAME}
     verify({name: files[name] for name in signed_assets}, files[CHECKSUM_NAME])
     for platform in platforms:
-        verify_platform_archive(
+        document = verify_platform_archive(
             files[archive_name(version, platform)], files[manifest_name(platform)]
         )
+        if document["version"] != version or document["platform"] != platform:
+            raise AssetError("release manifest differs from the selected version or platform")
     return {name: hashlib.sha256(content).hexdigest() for name, content in sorted(files.items())}
 
 

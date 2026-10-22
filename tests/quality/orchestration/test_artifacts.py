@@ -203,7 +203,7 @@ def test_wheel_build_requires_one_unambiguous_artifact(
     session.error.assert_called_once_with(f"expected one wheel, found {wheel_count}")
 
 
-@pytest.mark.parametrize("missing_input", [None, "asset", "trust"])
+@pytest.mark.parametrize("missing_input", ["asset", "trust"])
 def test_release_compatibility_requires_real_predecessor_inputs_before_build(
     missing_input: str | None,
     tmp_path: Path,
@@ -228,26 +228,10 @@ def test_release_compatibility_requires_real_predecessor_inputs_before_build(
         "_build_native_candidate",
         return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
     )
-    if missing_input:
-        with pytest.raises(RuntimeError, match="unavailable"):
-            nox_configuration.release_compatibility(session)
-        build.assert_not_called()
-        session.run.assert_not_called()
-    else:
+    with pytest.raises(RuntimeError, match="unavailable"):
         nox_configuration.release_compatibility(session)
-        session.run.assert_called_once()
-        assert session.run.call_args.args[:-1] == (
-            *nox_configuration.PYTEST_COMMAND,
-            "tests/release/compatibility",
-        )
-        assert session.run.call_args.args[-1].startswith("--basetemp=")
-        environment = session.run.call_args.kwargs["env"]
-        assert environment[
-            nox_configuration.product_identity.environment_name("PREVIOUS_RELEASE_ASSET")
-        ] == str(asset)
-        assert environment[
-            nox_configuration.product_identity.environment_name("PREVIOUS_RELEASE_TRUST_ANCHOR")
-        ] == str(trust)
+    build.assert_not_called()
+    session.run.assert_not_called()
 
 
 def test_published_release_compatibility_uses_supplied_release_bytes(
@@ -565,3 +549,73 @@ def test_release_runtime_refuses_invalid_projection_before_build(
     with pytest.raises(RuntimeError):
         nox_configuration._assert_release_runtime(session)
     session.run.assert_not_called()
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_predecessor_acceptance_consumes_the_built_candidate_without_rebuilding(
+    missing: bool,
+    tmp_path: Path,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    nox_configuration: ModuleType,
+) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    for suffix in ("PREVIOUS_RELEASE_ASSET", "PREVIOUS_RELEASE_TRUST_ANCHOR"):
+        path = tmp_path / suffix
+        path.touch()
+        monkeypatch.setenv(nox_configuration.product_identity.environment_name(suffix), str(path))
+    variable = nox_configuration.product_identity.environment_name("CURRENT_RELEASE_ASSETS")
+    if missing:
+        monkeypatch.delenv(variable, raising=False)
+    else:
+        monkeypatch.setenv(variable, str(assets))
+    work = tmp_path / "work"
+    work.mkdir()
+    mocker.patch.object(nox_configuration, "ROOT", tmp_path)
+    build = mocker.patch.object(nox_configuration, "_build_native_candidate")
+    prepare = mocker.patch.object(nox_configuration, "_prepare_product_session", return_value=work)
+    mocker.patch.object(nox_configuration, "_assert_release_runtime")
+    session = mocker.Mock(posargs=[])
+    executable = (
+        work
+        / "candidate/bin"
+        / nox_configuration.product_identity.executable_name(windows=os.name == "nt")
+    )
+
+    def execute(*arguments: str, **_kwargs: object) -> None:
+        if "materialize" in arguments:
+            executable.parent.mkdir(parents=True)
+            executable.write_bytes(b"existing native candidate")
+
+    session.run.side_effect = execute
+    if missing:
+        with pytest.raises(RuntimeError, match=r"candidate.*unavailable"):
+            nox_configuration.release_compatibility(session)
+        prepare.assert_not_called()
+        session.run.assert_not_called()
+    else:
+        nox_configuration.release_compatibility(session)
+        materialize = session.run.call_args_list[0].args
+        assert materialize == (
+            "python",
+            "-m",
+            "tools.release.artifact",
+            "materialize",
+            "--source",
+            str(assets),
+            "--output",
+            str(work / "candidate"),
+        )
+        acceptance = session.run.call_args_list[-1]
+        assert acceptance.args[:-1] == (
+            *nox_configuration.PYTEST_COMMAND,
+            "tests/release/compatibility",
+        )
+        assert acceptance.kwargs["env"][
+            nox_configuration.product_identity.environment_name("NATIVE_EXECUTABLE")
+        ] == str(executable)
+        assert acceptance.kwargs["env"][
+            nox_configuration.product_identity.environment_name("NATIVE_BUNDLE")
+        ] == str(executable.parent)
+    build.assert_not_called()

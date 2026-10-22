@@ -489,7 +489,7 @@ are generated projections and are checked for drift. Review SHA, proposal update
 maintainer fast-forward, `dev` promotion, `main` promotion, and tag pipelines
 have explicit coverage. Equivalent exact-SHA evidence may be reused through a
 revision-bound attestation; repeated jobs that prove no additional fact are
-removed.
+removed. Compatibility reuses same-workflow native assets without rebuilding.
 
 GitHub branch admission is a generated branch-only workflow that invokes the
 shared Verify graph once. Its stable `Admission` job fails unless the reusable

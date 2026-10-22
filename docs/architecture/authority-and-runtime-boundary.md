@@ -120,6 +120,13 @@ without becoming another workflow controller. Tests follow these product and
 tool boundaries; native distribution cases remain separate from source-only
 contracts.
 
+Native predecessor acceptance consumes the platform builder's complete asset
+set from the same workflow. The artifact owner verifies the selected version,
+platform, checksums and every archive member before materialization; the
+acceptance session never substitutes another source build. This workflow-local
+binding is not published-release signature admission or permission to reuse an
+unrelated run's evidence.
+
 ## Provider routing
 
 The released manifest is the sole provider registry.

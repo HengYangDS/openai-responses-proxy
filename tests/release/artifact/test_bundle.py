@@ -271,3 +271,83 @@ class BundleContracts:
                 platform="macos-arm64",
                 output=tmp_path / "release",
             )
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [None, "archive", "version", "platform", "renamed-version", "renamed-platform", "output"],
+)
+def test_materialization_uses_only_complete_current_platform_assets(tmp_path, mocker, defect):
+    source = tmp_path / "assets"
+    source.mkdir()
+    output = tmp_path / "runtime"
+    version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
+    platform = "windows-x86_64" if os.name == "nt" else "macos-arm64"
+    mocker.patch("platform.system", return_value="Windows" if os.name == "nt" else "Darwin")
+    mocker.patch("platform.machine", return_value="AMD64" if os.name == "nt" else "arm64")
+    executable = "openai-responses-proxy.exe" if os.name == "nt" else "openai-responses-proxy"
+    selected_version = "0.0.0" if defect in {"version", "renamed-version"} else version
+    selected_platform = "linux-x86_64" if defect in {"platform", "renamed-platform"} else platform
+    files = {
+        f"bin/{executable}": assets.ArchiveFile(b"exact candidate", mode=0o755),
+        "bin/_internal/runtime.dat": b"runtime dependency",
+        "providers.toml": b"version = 1\n",
+    }
+    name = assets.archive_name(selected_version, selected_platform)
+    archive = assets.archive_bytes(files, selected_version, selected_platform)
+    manifest = assets.asset_manifest(
+        version=selected_version,
+        platform=selected_platform,
+        archive_name=name,
+        archive=archive,
+        files=files,
+    )
+    inventory = (
+        {assets.archive_name(version, platform): archive, assets.manifest_name(platform): manifest}
+        if defect in {"renamed-version", "renamed-platform"}
+        else {name: archive, assets.manifest_name(selected_platform): manifest}
+    )
+    for filename, content in {
+        **inventory,
+        assets.CHECKSUM_NAME: assets.checksums(inventory),
+    }.items():
+        (source / filename).write_bytes(content)
+    if defect == "archive":
+        (source / name).write_bytes(archive + b"changed")
+    elif defect == "output":
+        output.mkdir()
+        (output / "preserved").write_bytes(b"operator content")
+    before = {p.name: p.read_bytes() for p in source.iterdir()}
+
+    if defect:
+        with pytest.raises((assets.AssetError, SystemExit)):
+            commands.main(("materialize", "--source", str(source), "--output", str(output)))
+        if defect == "output":
+            assert (output / "preserved").read_bytes() == b"operator content"
+        else:
+            assert not output.exists()
+    else:
+        commands.main(("materialize", "--source", str(source), "--output", str(output)))
+        assert (output / "bin" / executable).read_bytes() == b"exact candidate"
+        assert (output / "bin/_internal/runtime.dat").read_bytes() == b"runtime dependency"
+        assert (output / "providers.toml").read_bytes() == files["providers.toml"]
+        if os.name != "nt":
+            assert (output / "bin" / executable).stat().st_mode & 0o777 == 0o755
+    assert {p.name: p.read_bytes() for p in source.iterdir()} == before
+
+
+@pytest.mark.parametrize("defect", ["missing", "empty", "directory", "symlink"])
+def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path, defect):
+    source = tmp_path / "assets"
+    output = tmp_path / "runtime"
+    if defect != "missing":
+        source.mkdir()
+    if defect == "directory":
+        (source / "nested").mkdir()
+    elif defect == "symlink":
+        target = tmp_path / "target"
+        target.write_bytes(b"unowned input")
+        (source / "linked").symlink_to(target)
+    with pytest.raises(SystemExit, match=r"unavailable|invalid"):
+        commands.main(("materialize", "--source", str(source), "--output", str(output)))
+    assert not output.exists()

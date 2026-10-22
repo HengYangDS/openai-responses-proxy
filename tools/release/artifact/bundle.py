@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import csv
+import io
 import os
+import platform
+import tarfile
 from pathlib import Path
 
 from openai_responses_proxy import product_identity
@@ -120,3 +123,28 @@ def pack(*, bundle: Path, platform: str, output: Path) -> None:
         require_signature=False,
     )
     print(f"release assets: {archive_name} {manifest_name} {assets.CHECKSUM_NAME} OK")
+
+
+def materialize(*, source: Path, output: Path) -> None:
+    """Verify one workflow-owned native asset set before exposing its exact bytes."""
+    if source.is_symlink() or not source.is_dir():
+        raise SystemExit("candidate native asset directory is unavailable")
+    if output.exists() or output.is_symlink():
+        raise SystemExit("candidate materialization requires a fresh output directory")
+    members = tuple(source.iterdir())
+    if not members or any(path.is_symlink() or not path.is_file() for path in members):
+        raise SystemExit("candidate native asset inventory is invalid")
+    version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
+    native_platform = product_identity.native_release_platform(
+        platform.system(), platform.machine()
+    )
+    files = {path.name: path.read_bytes() for path in members}
+    assets.release_digests(files, version, (native_platform,), require_signature=False)
+    archive = files[assets.archive_name(version, native_platform)]
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as archive_input:
+        prefix = f"{product_identity.PRODUCT_SLUG}-{version}-{native_platform}/"
+        output.mkdir(parents=True)
+        for member in archive_input.getmembers():
+            member.name = member.name.removeprefix(prefix)
+            archive_input.extract(member, output, filter="data")
+    print("candidate native assets: verified and materialized")

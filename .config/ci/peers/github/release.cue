@@ -48,9 +48,9 @@ import "list"
 		}]
 	}
 	"release-compatibility": {
-		name:              "Published release compatibility (${{ matrix.platform }})"
-		if:                #Conditions.productProof
-		needs:             "python-matrix"
+		name: "Published release compatibility (${{ matrix.platform }})"
+		if:   #Conditions.productProof
+		needs: ["python-matrix", "native-assets", "native-linux"]
 		"runs-on":         "${{ matrix.runner }}"
 		"timeout-minutes": 30
 		strategy: {
@@ -79,6 +79,12 @@ import "list"
 		}, {
 			#UvSetup
 		}, {
+			uses: #Toolchains.githubActions.download
+			with: {
+				name: "native-${{ matrix.platform }}"
+				path: "${{ runner.temp }}/candidate-assets"
+			}
+		}, {
 			name: "Install the locked release tool environment"
 			run:  "uv sync --locked --group quality"
 		}, {
@@ -104,6 +110,7 @@ import "list"
 		}], [{
 			name: "Prove published predecessor upgrade and rollback"
 			env: {
+				OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS:        "${{ runner.temp }}/candidate-assets"
 				OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: "${{ runner.temp }}/previous-release-asset-trust"
 				OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_TRUST_ANCHOR:  "${{ runner.temp }}/release-asset-trust"
 			}

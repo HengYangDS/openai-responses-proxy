@@ -88,6 +88,16 @@ registration. `mise run native` additionally exercises the real host service
 lifecycle; run it only on an explicitly authorized test host. Neither task
 publishes a release or upgrades an installed product.
 
+Hosted predecessor acceptance downloads the native asset from the same workflow
+build rather than rebuilding it. To run that session locally, supply
+`OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS`, the signed
+`OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET`, and its
+`OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR`, then run
+`mise exec -- uv run --locked --no-sync nox -s release_compatibility`.
+The candidate directory must contain one complete current-platform asset set;
+missing or mismatched inputs fail without a source-build fallback. Published
+release acceptance separately requires the current release's signature trust.
+
 Nox installs a non-editable wheel in isolated environments. Do not add
 `PYTHONPATH`, user-site fallback, or another repository's virtual environment
 to make a test pass.

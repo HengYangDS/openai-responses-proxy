@@ -170,7 +170,7 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
     jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
     compatibility = _mapping(jobs["release-compatibility"])
     assert compatibility["runs-on"] == "${{ matrix.runner }}"
-    assert compatibility["needs"] == "python-matrix"
+    assert compatibility["needs"] == ["python-matrix", "native-assets", "native-linux"]
     matrix = _sequence(_mapping(_mapping(compatibility["strategy"])["matrix"])["include"])
     assert matrix == [
         {
@@ -187,6 +187,13 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
         },
     ]
     steps = tuple(_mapping(step) for step in _sequence(compatibility["steps"]))
+    candidate = next(
+        step for step in steps if str(step.get("uses", "")).startswith("actions/download-artifact@")
+    )
+    assert _mapping(candidate["with"]) == {
+        "name": "native-${{ matrix.platform }}",
+        "path": "${{ runner.temp }}/candidate-assets",
+    }
     download = next(
         step for step in steps if step.get("name") == "Download the published predecessor release"
     )
@@ -224,6 +231,9 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
         == "${{ runner.temp }}/previous-release-asset-trust"
     )
     assert proof["run"] == "uv run --locked --no-sync nox -s release_compatibility"
+    assert _mapping(proof["env"])["OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS"] == (
+        "${{ runner.temp }}/candidate-assets"
+    )
 
 
 def test_published_release_bytes_run_the_full_native_journey_on_each_platform() -> None:

@@ -74,6 +74,15 @@ without duplicating jobs that prove no additional fact.
 - **AND** tag, release, and manual verification events SHALL NOT emit that
   required branch check.
 
+#### Scenario: Compatibility consumes a workflow-built candidate
+
+- **WHEN** a workflow verifies upgrade and rollback from a signed published
+  predecessor
+- **THEN** it consumes the same workflow's native platform asset after checking
+  its selected version, platform, complete checksums and internal manifest
+- **AND** missing or mismatched candidate input fails without a source rebuild
+- **AND** published-release signature admission remains independently required.
+
 ### Requirement: Publication closes source, Forge, and branch state
 
 A release SHALL create one signed local commit and annotated tag object, project

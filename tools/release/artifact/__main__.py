@@ -46,6 +46,7 @@ def main(argv: tuple[str, ...] | None = None) -> None:
     app = App(name=f"python -m {__package__}", help=__doc__, result_action="return_value")
     app.command(bundle.normalize, name="normalize")
     app.command(bundle.pack, name="pack")
+    app.command(bundle.materialize, name="materialize")
     app.command(_assemble, name="assemble")
     app.command(_verify, name="verify")
     try:
