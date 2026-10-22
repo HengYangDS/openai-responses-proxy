@@ -10,6 +10,9 @@ publication authority.
 
 ### Security
 
+- Upgrade the packaged Mozilla CA trust store to `certifi` 2026.10.19. Outbound
+  TLS no longer trusts emSign ECC Root CA - G3, whose compromised intermediate
+  keys GHSA-6q48-6c7w-9gw2 covers; the unaffected emSign roots remain.
 - Upgrade the locked developer and CI uv executors to 0.13.4, removing the
   compromised emSign CA trust covered by GHSA-hq85-5cpj-mr62.
 
