@@ -22,11 +22,62 @@ publication authority.
   command that the human output names, or `null` when nothing follows. Human
   and JSON output now derive it from the same result.
 
+### Changed
+
+- Write watchdog and listener lifecycle log lines as `event=` fields, as
+  request events already are, instead of free-form messages such as
+  `ERROR failed to spawn proxy`. Update log searches that match the earlier
+  messages.
+- Read only payload transaction journals in the current format; an earlier
+  journal is reported as unsupported. Finish a transaction that 5.0.x
+  interrupted with that release's `recover` before upgrading.
+
 ### Fixed
 
+- Admit a Responses request body only with one ASCII decimal `Content-Length`,
+  at most 64 MiB, received within 30 seconds. Transfer encodings, missing,
+  repeated or invalid lengths and truncated bodies receive HTTP 400
+  `request_framing_rejected`; oversized bodies receive HTTP 413 and late bodies
+  HTTP 408, both `request_body_rejected`. Rejections send nothing upstream and
+  close the connection. A fresh installation can set
+  `OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES` and
+  `OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT`; upgrades keep persisted values.
+- Reject request JSON containing `NaN`, `Infinity`, `-Infinity`, a number too
+  large to represent or nesting beyond the parser's limit with HTTP 400
+  `provider_portable_projection_rejected` and reason `invalid_json` before any
+  upstream request, instead of forwarding non-finite numbers or dropping the
+  connection. Relay an upstream error body nested too deeply to classify once,
+  unchanged.
+- Reject a non-string replay `role` or `phase`, or local shell call `status`,
+  with HTTP 400 `provider_portable_projection_rejected` and a fixed reason
+  instead of dropping the connection. Plaintext agent delivery checks call types
+  and names only inside its selected namespace; unrelated items keep their
+  bytes.
+- Spend the configured upstream timeout as one deadline per Responses exchange
+  instead of a fresh timeout for each attempt's headers. Connection setup,
+  request writes, headers, retry waits, error and JSON body reads and SSE
+  reconnects draw on it; trickled framing cannot extend it. Expiry before output
+  returns 504 `upstream_deadline_exceeded` without another request, and a
+  committed stream closes without a successful terminator. Upstream error
+  bodies over 8 MiB or unreadable return 502 `upstream_error_body_unreadable`.
+  System DNS resolution cannot be interrupted.
+- Count every started SSE reconnect, including one whose headers fail, in the
+  `attempts` field of the 503 `stream_pre_content_exhausted` error.
+- Bound model-catalog requests by their own 30-second deadline and 8 MiB body
+  limit, covering headers, body reads, downstream writes and relayed HTTP
+  errors; expired headers return HTTP 504 `catalog_deadline_exceeded`.
+  Truncated, oversized or failed bodies close the connection after the relayed
+  prefix; a truncated body no longer ends as complete. A fresh installation can
+  set `OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT` and
+  `OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES`.
 - Verify rollback snapshot bytes against their original journal digest before
   activation or restoration. Replaced snapshots and symbolic links now refuse
   before changing command projections, generations, or native services.
+- Delete only journal-recorded files, as `uninstall --purge` already does, when
+  rollback discards a candidate generation, finalization retires an older one
+  or a finished transaction removes its rollback snapshot, instead of deleting
+  directories recursively. Replaced files, symbolic links and unlisted content
+  stay; `status` reports `recovery_required` and `recover` retries the cleanup.
 - Bound SSE events and held pre-content data without limiting total stream
   output; over-limit streams fail without replay or fabricated completion.
 - Extend fragmented SSE data in place and scan only the new framing suffix,
@@ -44,6 +95,14 @@ publication authority.
   execution-failure recovery, alongside the current task, native turn controls
   and tool dependencies. Validation and execution recovery now share one
   current-turn selection instead of silently dropping instruction roles.
+- Keep native delegation messages and retained messages' original content,
+  such as images, in the invalid `input` union fallback, refusing it when they
+  exceed its budget, instead of reducing messages to text. `response_failed`
+  recovery now also applies to requests carrying native delegation.
+- Build each later recovery stage from the request the failed attempt sent, so
+  a compacted `response_failed` retry is not followed by a fallback that is no
+  smaller; the client receives the upstream error or 503
+  `response_failed_recovery_exhausted`.
 - Keep the default Windows state root, which holds the lifecycle lock and logs,
   outside the installation root as `%LOCALAPPDATA%\openai-responses-proxy-state`.
   A fresh default installation no longer refuses its own lock directory as
