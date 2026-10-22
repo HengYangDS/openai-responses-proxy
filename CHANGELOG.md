@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-10-22
+
 ### Security
 
 - Build the native release assets with CPython 3.14.9. The macOS and Windows
