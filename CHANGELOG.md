@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-10-22
+
 ### Security
 
 - Upgrade the packaged Mozilla CA trust store to `certifi` 2026.10.19. Outbound
