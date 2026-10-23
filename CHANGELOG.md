@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.4] - 2026-10-23
+
 ### Fixed
 
 - Align every value of a human page in one column, two cells after its longest
