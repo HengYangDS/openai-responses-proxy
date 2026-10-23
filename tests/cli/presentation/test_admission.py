@@ -94,7 +94,7 @@ def test_reload_reports_a_started_stopped_installation(as_json: bool, *, mocker,
         assert json.loads(captured.out) == {**result, "next": "openai-responses-proxy status"}
     else:
         assert "OpenAI Responses Proxy  Started" in captured.out
-        assert "Current PID 42" in captured.out
+        assert "Current PID  42" in captured.out
         assert "Previous PID" not in captured.out
         assert captured.out.endswith("Next\n  openai-responses-proxy status\n")
 

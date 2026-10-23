@@ -5,12 +5,12 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Iterable
 from collections.abc import Mapping
-from itertools import starmap
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.cli import outcome
 
 _LABEL_WIDTH = 12
+_COLUMN_GAP = 2
 _RULE = "-" * 40
 
 
@@ -20,16 +20,13 @@ def _width(value: str) -> int:
     )
 
 
-def _row(label: str, value: object) -> str:
-    padding = max(1, _LABEL_WIDTH - _width(label))
-    return f"  {label}{' ' * padding}{value}"
-
-
 def _page(
     title: str, rows: Iterable[tuple[str, object]], *, next_command: str | None = None
 ) -> str:
+    entries = tuple(rows)
+    column = max((_LABEL_WIDTH, *(_width(label) + _COLUMN_GAP for label, _ in entries)))
     lines = [f"{product_identity.DISPLAY_NAME}  {title}", _RULE, ""]
-    lines.extend(starmap(_row, rows))
+    lines.extend(f"  {label}{' ' * (column - _width(label))}{value}" for label, value in entries)
     if next_command is not None:
         lines.extend(("", "Next", f"  {next_command}"))
     return "\n".join(lines)

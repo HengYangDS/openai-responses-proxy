@@ -34,8 +34,8 @@ def test_stopped_installation_names_reload_in_status_and_doctor() -> None:
     assert report.state == "stopped"
     assert report.exit_code == 1
     assert report.evidence["next"] == "openai-responses-proxy reload"
-    assert "State       Stopped" in rendered
-    assert "Listener    Unavailable" in rendered
+    assert "State        Stopped" in rendered
+    assert "Listener     Unavailable" in rendered
     assert rendered.endswith("Next\n  openai-responses-proxy reload")
 
 
@@ -83,6 +83,16 @@ def test_status_human_output_is_aligned_and_not_serialized_json(*, mocker) -> No
         )
     }
     assert len(value_columns) == 1
+
+
+def test_human_pages_share_one_value_column_after_the_longest_label() -> None:
+    reloaded = application.presentation.render("reload", {"old_pid": 74047, "new_pid": 45429})
+    lines = reloaded.splitlines()
+    previous = next(line for line in lines if "Previous PID" in line)
+    current = next(line for line in lines if "Current PID" in line)
+
+    assert previous.index("74047") == current.index("45429")
+    assert previous.index("74047") >= len("  Previous PID") + 2
 
 
 def test_status_human_next_action_follows_the_lifecycle_state() -> None:
@@ -176,8 +186,8 @@ def test_human_projection_covers_degraded_and_complete_command_results() -> None
         {"transaction_id": "tx-closed", "version": "2.0.12", "state": "closed"},
     )
     assert "Closed" in closed
-    assert "Transaction tx-closed" in closed
-    assert "Release     2.0.12" in closed
+    assert "Transaction  tx-closed" in closed
+    assert "Release      2.0.12" in closed
     assert "Not installed" in application.presentation.render(
         "uninstall",
         {

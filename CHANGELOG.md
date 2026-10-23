@@ -8,6 +8,12 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Align every value of a human page in one column, two cells after its longest
+  label. `reload` printed its previous and current listener PIDs one column
+  apart.
+
 ## [5.1.3] - 2026-10-23
 
 ### Security
