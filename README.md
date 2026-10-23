@@ -340,7 +340,14 @@ budget to deliver their bounded error, even when upstream time has expired.
 Encoded path material, dot segments, duplicate separators, absolute targets,
 fragments, and unrelated endpoints are rejected before remote I/O. Provider
 origins come from the product manifest or the explicit installed upstream;
-headers, bodies, and query parameters cannot select another host.
+headers, bodies, and query parameters cannot select another host. The proxy
+never follows an upstream redirect: the client receives the redirect response
+itself, and its credential is sent only to the selected upstream. Lifecycle
+control requests (`/control/drain`, `/control/handoff`) are accepted only from
+a loopback client whose `Host` is a loopback address and that sends no
+`Origin`, so a web page cannot drain the listener. The
+[threat model](docs/architecture/threat-model.md) lists the remaining
+accepted risks.
 
 Each Responses body requires one ASCII decimal `Content-Length` and must
 finish within 30 seconds without exceeding 64 MiB. The body deadline starts
