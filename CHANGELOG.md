@@ -10,6 +10,13 @@ publication authority.
 
 ### Security
 
+- Stop following upstream redirects. The standard redirect handling re-sent
+  the client's `Authorization` header to whatever host and scheme a redirect
+  named, so an upstream redirect could deliver the client's credential to
+  another host. The client now receives the redirect response itself.
+- Accept `/control/drain` and `/control/handoff` only from a loopback client
+  whose `Host` is a loopback address and that sends no `Origin`. A web page in
+  the user's browser could previously drain the listener and refuse new turns.
 - Upgrade the locked developer and CI uv executors to 0.13.5, which rejects
   certificate chains containing the compromised eMudhra intermediate keys, and
   the developer Node runtime to 26.12.1, a security release.
