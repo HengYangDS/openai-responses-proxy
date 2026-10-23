@@ -202,6 +202,20 @@ SHALL probe the upstream again.
 - **AND** another Provider remains usable; after expiry the first Provider is
   probed again.
 
+### Requirement: Upstream redirects reach the client unfollowed
+
+The relay SHALL NOT follow an upstream redirect. A redirect response from the
+selected upstream SHALL reach the client as that response, and the client's
+request, including its credential, SHALL be sent only to the selected route's
+upstream, never to the URL that the redirect names.
+
+#### Scenario: An upstream redirects to another host
+
+- **WHEN** an upstream answers a Responses or model-catalog request with a
+  redirect to another host or scheme
+- **THEN** the proxy sends no request to the redirect target
+- **AND** the client receives the upstream's redirect status and `Location`.
+
 ### Requirement: HTTP event-stream commitment and release are irreversible
 
 Each HTTP Responses stream SHALL forward validated available events without

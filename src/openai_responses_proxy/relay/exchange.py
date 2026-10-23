@@ -50,6 +50,7 @@ def _upstream_tls_context() -> ssl.SSLContext:
 _TLS_CONTEXT = _upstream_tls_context()
 _DIRECT_OPENER = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
+    upstream_transport.RefuseRedirectHandler(),
     urllib.request.HTTPSHandler(context=_TLS_CONTEXT),
 )
 

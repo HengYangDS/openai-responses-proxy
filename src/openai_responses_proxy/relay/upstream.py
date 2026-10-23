@@ -11,6 +11,7 @@ import urllib.request
 from collections.abc import Buffer
 from collections.abc import Iterable
 from functools import partial
+from typing import IO
 from typing import Protocol
 from typing import cast
 from typing import override
@@ -196,10 +197,32 @@ class _DeadlineHTTPSHandler(urllib.request.HTTPSHandler):
         return self.do_open(Connection, req, context=self._tls_context)
 
 
+class RefuseRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Return every upstream redirect to the client instead of following it.
+
+    The standard handler re-sends the client's headers, including its credential, to any host
+    and scheme that a redirect names; the relay sends requests only to the selected upstream.
+    """
+
+    @override
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: http.client.HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 def deadline_opener(deadline: float, context: ssl.SSLContext) -> urllib.request.OpenerDirector:
     """Create one proxy-free native opener scoped to this request's deadline."""
     return urllib.request.build_opener(
         urllib.request.ProxyHandler({}),
+        RefuseRedirectHandler(),
         _DeadlineHTTPHandler(deadline),
         _DeadlineHTTPSHandler(deadline, context),
     )
