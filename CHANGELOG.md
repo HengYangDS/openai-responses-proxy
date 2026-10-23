@@ -8,6 +8,21 @@ publication authority.
 
 ## [Unreleased]
 
+### Security
+
+- Upgrade the locked developer and CI uv executors to 0.13.5, which rejects
+  certificate chains containing the compromised eMudhra intermediate keys, and
+  the developer Node runtime to 26.12.1, a security release.
+- Upgrade the locked OpenSpec repository tool to 1.14.3, which removes `braces`
+  and its GHSA-vfj7-8cjw-p6xm denial-of-service advisory from the developer npm
+  tree.
+
+### Changed
+
+- Bundle `cyclopts` 5.3.0 and `filelock` 4.2.4, and refresh the locked
+  developer tools and CI actions to their current stable releases, including
+  Ruff 0.17.1, ty 0.0.90, Prettier 3.9.10 and mise-action 5.2.2.
+
 ## [5.1.2] - 2026-10-22
 
 ### Fixed
