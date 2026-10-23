@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.3] - 2026-10-23
+
 ### Security
 
 - Stop following upstream redirects. The standard redirect handling re-sent
