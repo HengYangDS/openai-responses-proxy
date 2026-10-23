@@ -225,11 +225,11 @@ def child_pid_observer(
 
 
 def fake_handler(body: dict[str, object], *, mocker):
-    """Return a loopback control-handler fixture containing one JSON body."""
+    """Return a native loopback control-handler fixture containing one JSON body."""
     payload = json.dumps(body).encode()
     handler = mocker.Mock()
     handler.client_address = ("127.0.0.1", 51234)
-    handler.headers = {"Content-Length": str(len(payload))}
+    handler.headers = {"Content-Length": str(len(payload)), "Host": "127.0.0.1:8792"}
     handler.rfile.read.return_value = payload
     return handler
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 import urllib.error
@@ -94,6 +95,28 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert "counters" in status
         assert "upstream_classifications" in status
         assert status["last_failure"] is None
+
+    @pytest.mark.parametrize(
+        "headers",
+        [{"Origin": "https://example.invalid"}, {"Host": "example.invalid"}],
+        ids=["browser-origin", "rebound-host"],
+    )
+    def test_lifecycle_control_refuses_requests_a_browser_page_can_send(self, headers):
+        with running_proxy([]) as (port, _received):
+            for method, path in (
+                ("POST", "/control/drain"),
+                ("DELETE", "/control/drain"),
+                ("POST", "/control/handoff"),
+            ):
+                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                try:
+                    connection.request(method, path, headers=headers)
+                    response = connection.getresponse()
+                    response.read()
+                finally:
+                    connection.close()
+                assert response.status == 403, (method, path)
+            assert not proxy.runtime_status()["draining"]
 
     def test_loopback_drain_rejects_new_responses_and_can_be_reopened(self):
         success = b'{"id":"resp_served","status":"completed"}'

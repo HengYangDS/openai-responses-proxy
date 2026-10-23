@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from email.message import Message
 from pathlib import Path
 from typing import cast
 
@@ -50,6 +51,26 @@ class AdmissionTests:
         )
         for value, expected in ((None, 30), ("invalid", 30), ("0", 1), ("9999", 900)):
             assert admission.bounded_drain_lease_seconds(value) == expected
+
+    def test_local_controller_is_a_native_loopback_request(self) -> None:
+        def headers(**values: str) -> Message:
+            message = Message()
+            for name, value in values.items():
+                message[name.replace("_", "-")] = value
+            return message
+
+        for host in ("127.0.0.1:8792", "localhost:8792", "[::1]:8792", "LOCALHOST"):
+            assert admission.is_local_controller("127.0.0.1", headers(Host=host)), host
+        refused = (
+            ("192.0.2.1", headers(Host="127.0.0.1:8792")),
+            ("127.0.0.1", headers()),
+            ("127.0.0.1", headers(Host="example.invalid:8792")),
+            ("127.0.0.1", headers(Host="127.0.0.1.example.invalid")),
+            ("127.0.0.1", headers(Host="127.0.0.1:8792", Origin="https://example.invalid")),
+            ("127.0.0.1", headers(Host="127.0.0.1:8792", Origin="null")),
+        )
+        for address, message in refused:
+            assert not admission.is_local_controller(address, message), (address, message.items())
 
     def test_drain_lease_expiry_is_observable(self, *, mocker) -> None:
         mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])

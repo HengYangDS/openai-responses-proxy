@@ -88,7 +88,7 @@ class TestHandoffControlHandler:
         control.set_drain(remote, True)
         set_draining.assert_not_called()
         remote.send_error.assert_called_once_with(
-            403, "drain control is available only from loopback"
+            403, "drain control is available only to a local native controller"
         )
 
         local = fake_handler({}, mocker=mocker)
@@ -140,7 +140,7 @@ class TestHandoffControlHandler:
         for headers, raw, expected_status in cases:
             with subtests.test(headers=headers, raw=raw):
                 fake_self = fake_handler({}, mocker=mocker)
-                fake_self.headers = headers
+                fake_self.headers = {**fake_self.headers, **headers}
                 fake_self.rfile.read.return_value = raw
                 prepare = mocker.patch.object(handoff_module, "prepare")
                 control.prepare_handoff(fake_self, self.bindings)

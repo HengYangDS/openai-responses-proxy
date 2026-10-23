@@ -54,8 +54,8 @@ def send_status(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
 
 def set_drain(handler: BaseHTTPRequestHandler, enabled: bool) -> None:
     """Toggle Responses admission for an authorized loopback controller."""
-    if not admission.is_loopback_client(handler.client_address[0]):
-        handler.send_error(403, "drain control is available only from loopback")
+    if not admission.is_local_controller(handler.client_address[0], handler.headers):
+        handler.send_error(403, "drain control is available only to a local native controller")
         return
     lease = handler.headers.get("X-OpenAI-Responses-Proxy-Drain-Lease-Seconds") if enabled else None
     payload = admission.set_draining(enabled, lease_seconds=lease)
@@ -66,8 +66,8 @@ def set_drain(handler: BaseHTTPRequestHandler, enabled: bool) -> None:
 
 def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
     """Prepare one replacement and transfer COMMIT before READY projection."""
-    if not admission.is_loopback_client(handler.client_address[0]):
-        handler.send_error(403, "handoff control is available only from loopback")
+    if not admission.is_local_controller(handler.client_address[0], handler.headers):
+        handler.send_error(403, "handoff control is available only to a local native controller")
         return
     try:
         content_length = int(handler.headers.get("Content-Length", "0"))

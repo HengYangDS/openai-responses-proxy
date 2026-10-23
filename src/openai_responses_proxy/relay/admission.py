@@ -5,8 +5,10 @@ from __future__ import annotations
 import ipaddress
 import threading
 import time
+import urllib.parse
 from collections.abc import Buffer
 from contextlib import suppress
+from email.message import Message
 from typing import SupportsIndex
 from typing import SupportsInt
 
@@ -14,6 +16,7 @@ from openai_responses_proxy.relay import telemetry
 
 _MIN_DRAIN_LEASE_SECONDS = 1
 _MAX_DRAIN_LEASE_SECONDS = 900
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _RESPONSE_GATE_LOCK = threading.Lock()
 _ACTIVE_RESPONSES = 0
 _ACTIVE_HANDLERS = 0
@@ -153,6 +156,19 @@ def is_loopback_client(address: str) -> bool:
     """Require lifecycle control surfaces to remain local."""
     with suppress(ValueError):
         return ipaddress.ip_address(address).is_loopback
+    return False
+
+
+def is_local_controller(address: str, headers: Message) -> bool:
+    """Admit lifecycle control only from a native loopback controller, never from a web page.
+
+    A browser names the page's origin in `Origin` on a cross-origin request and keeps the page's
+    host in `Host` even after DNS rebinding; the native lifecycle controller sends neither.
+    """
+    if not is_loopback_client(address) or headers.get("Origin") is not None:
+        return False
+    with suppress(ValueError):
+        return urllib.parse.urlsplit(f"//{headers.get('Host', '')}").hostname in _LOOPBACK_HOSTS
     return False
 
 

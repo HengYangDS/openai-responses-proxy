@@ -296,6 +296,20 @@ verify.
 - **WHEN** the product resolves its default roots on macOS, Linux or Windows
 - **THEN** taking the lifecycle lock creates content only beneath the state root.
 
+### Requirement: Lifecycle control admits only a local native controller
+
+Drain and handoff control SHALL accept a request only from a loopback client
+whose `Host` names a loopback address and that carries no `Origin`. A web page,
+including one that reaches the listener through DNS rebinding, SHALL NOT change
+Responses admission or start a handoff.
+
+#### Scenario: A web page posts a lifecycle control request
+
+- **WHEN** a control request carries an `Origin` header or a `Host` that is not
+  a loopback address
+- **THEN** the proxy refuses it with HTTP 403
+- **AND** Responses admission and handoff state remain unchanged.
+
 ## MODIFIED Requirements
 
 ### Requirement: Recovery binds candidate, rollback, and live runtime
