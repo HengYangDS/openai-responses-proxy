@@ -3,7 +3,7 @@ subject: openai-responses-proxy:threat-model
 role: explanation
 state: canonical
 relations:
-  part_of: ../README.md
+  part_of: README.md
 ---
 
 # Threat Model
