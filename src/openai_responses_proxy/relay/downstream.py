@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import http.client
+import io
 import time
 import urllib.error
+from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler
 from typing import Protocol
+from typing import cast
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
@@ -32,6 +36,67 @@ HOP_BY_HOP = {
     "accept-encoding",
 }
 MAX_RESPONSES_JSON_BYTES = 8 * 1024 * 1024
+# A write that starts after the exchange deadline, which only its one structured
+# failure does, shares this short budget instead of an unbounded wait.
+LATE_FAILURE_WRITE_SECONDS = 1.0
+
+
+class DownstreamDeadlineError(upstream_transport.ExchangeDeadlineError):
+    """The downstream client did not accept a write within the exchange deadline."""
+
+
+class _DeadlineWriter:
+    """Spend the exchange's remaining time on every downstream write.
+
+    A client that stops reading would otherwise hold its handler thread, the
+    upstream connection and the admission slot until it disconnects.
+    """
+
+    def __init__(self, handler: BaseHTTPRequestHandler, deadline: float) -> None:
+        self._writer = handler.wfile
+        self._connection = handler.connection
+        self._timeout = handler.connection.gettimeout()
+        self._deadline = deadline
+        self._late_deadline: float | None = None
+
+    def write(self, data: bytes) -> int:
+        now = time.monotonic()
+        limit = self._deadline
+        if now >= limit:
+            if self._late_deadline is None:
+                self._late_deadline = now + LATE_FAILURE_WRITE_SECONDS
+            limit = self._late_deadline
+        remaining = limit - now
+        if remaining <= 0:
+            raise DownstreamDeadlineError("downstream write deadline expired")
+        self._connection.settimeout(
+            remaining if self._timeout is None else min(self._timeout, remaining)
+        )
+        try:
+            return self._writer.write(data)
+        except TimeoutError as error:
+            raise DownstreamDeadlineError(
+                "downstream client did not accept the response before its deadline"
+            ) from error
+
+    def flush(self) -> None:
+        self._writer.flush()
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._writer, name)
+
+
+@contextlib.contextmanager
+def write_deadline(handler: BaseHTTPRequestHandler, deadline: float) -> Generator[None]:
+    """Bound every downstream status, header, event and terminal write by ``deadline``."""
+    writer = handler.wfile
+    timeout = handler.connection.gettimeout()
+    handler.wfile = cast("io.BufferedIOBase", _DeadlineWriter(handler, deadline))
+    try:
+        yield
+    finally:
+        handler.wfile = writer
+        handler.connection.settimeout(timeout)
 
 
 class Exchange(Protocol):
@@ -183,6 +248,9 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             exchange.input_variant_accepted()
     except (BrokenPipeError, ConnectionResetError):
         exchange.log("downstream_client_closed")
+    except DownstreamDeadlineError:
+        exchange.handler.close_connection = True
+        exchange.log("downstream_write_deadline")
     except Exception as error:
         exchange.log(
             "stream_handler_exception",

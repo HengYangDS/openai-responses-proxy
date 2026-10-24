@@ -136,3 +136,30 @@ raw bytes, direct TLS routing, retry ownership and resource cleanup. Compare its
 maintained code and frozen assets with the current path, including the added
 pool and dependency lifetime. No new dependency, resolver execution, benchmark
 claim or three-platform replacement proof is implied by this review.
+
+**Amendment, 2026-10-25: resolution and downstream writes.**
+
+The exchange deadline now bounds native address resolution and every write to
+the client. Native `getaddrinfo` still cannot be interrupted, so lookups run on
+at most four daemon resolver threads owned by the upstream transport, and an
+exchange waits for its lookup only until its deadline. Exchanges that need the
+same address share one lookup; numeric addresses need no lookup. A lookup that
+outlives its waiters ends on its thread without holding an exchange, upstream
+connection or admission slot. The fixed set of threads is the bound: no thread
+starts per request and none is left behind per expired wait.
+
+A per-request resolver thread was rejected because stalled lookups would
+accumulate threads. A non-native resolver library was rejected because it would
+bypass the operating system's hosts file, scoped and split DNS, and resolver
+policy. Caching addresses was not adopted: the operating system already caches
+them, and a second cache would add an expiry policy that this product does not
+own.
+
+Every downstream status, header, event and terminator write spends the
+exchange's remaining budget. A client that stops reading is cut off at the
+deadline, which releases the upstream connection and the admission slot. A
+structured failure that starts after the deadline gets one second instead of an
+unbounded write.
+
+Connection reuse remains with the transport acceptance task. This amendment
+admits no dependency and no alternate HTTP parser.

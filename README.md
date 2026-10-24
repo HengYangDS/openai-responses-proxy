@@ -305,10 +305,12 @@ are limited to 8 MiB. A malformed or unreadable error body returns a structured
 local failure rather than forwarding a partial upstream response.
 HTTP headers and chunk framing cannot extend the budget by continually sending
 small fragments. TCP connection setup, the TLS handshake and request writes use
-only the remaining budget. System DNS resolution stays synchronous and a socket
-timeout cannot cancel it; its wall-clock bound has not been qualified. The
-upstream budget starts after local request projection; client-body reception
-has its own finite budget.
+only the remaining budget. Native DNS resolution runs on at most four resolver
+threads, and an exchange waits for it only within its budget. Every write to
+the client also spends that budget, so a client that stops reading is cut off
+at the deadline and releases the upstream connection and its admission slot.
+The upstream budget starts after local request projection; client-body
+reception has its own finite budget.
 
 The released UCloud route selects plaintext agent delivery. This requires a
 Codex client with the native plaintext-message path, the `collaboration` tool
@@ -368,7 +370,7 @@ configuration files receive these defaults without read-time mutation.
 Catalog settings follow the same persisted ownership:
 `OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT` (0.001–300 seconds) and
 `OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES` (4096–67108864 bytes). Catalog bounds
-do not establish inbound header deadlines or synchronous DNS cancellation.
+do not establish inbound header deadlines.
 
 SSE limits each event and the held pre-content prelude to 64 MiB, independently
 of stream duration or total delivered bytes. A fresh installation may select

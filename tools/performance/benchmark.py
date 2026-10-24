@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import http.client
 import io
 import json
 import threading
@@ -22,6 +23,13 @@ from openai_responses_proxy.serving.handoff.protocol import write_control_messag
 
 _SMALL_RESPONSE = b'{"id":"response","status":"completed"}'
 _STREAM_RESPONSE = b'data: {"type":"response.completed"}\n\n'
+_STREAM_FIRST_EVENTS = (
+    b'data: {"type":"response.created"}\n\n'
+    b'data: {"type":"response.output_text.delta","delta":"first"}\n\n'
+)
+# Bounds how long the upstream withholds its terminal event; a relay that waited
+# for upstream completion would deliver its first event only after this.
+_FIRST_EVENT_HOLD_SECONDS = 5.0
 _LARGE_RESPONSE = json.dumps(
     {"id": "response", "status": "completed", "output": [{"text": "x" * (1024 * 1024)}]},
     separators=(",", ":"),
@@ -48,6 +56,8 @@ class _UpstreamHandler(BaseHTTPRequestHandler):
     """Serve deterministic benchmark responses on loopback."""
 
     protocol_version = "HTTP/1.1"
+    first_event_read = threading.Event()
+    terminals_without_first_event = 0
 
     @override
     def log_message(self, *args: object, **kwargs: object) -> None:
@@ -56,6 +66,9 @@ class _UpstreamHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
+        if self.path.endswith("?stream=first"):
+            self._stream_after_first_event()
+            return
         if self.path.endswith("?stream=1"):
             payload, content_type = _STREAM_RESPONSE, "text/event-stream"
         elif self.path.endswith("?large=1"):
@@ -68,6 +81,19 @@ class _UpstreamHandler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(payload)
+
+    def _stream_after_first_event(self) -> None:
+        """Withhold the terminal event until the client has read the first event."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Content-Length", str(len(_STREAM_FIRST_EVENTS) + len(_STREAM_RESPONSE)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(_STREAM_FIRST_EVENTS)
+        if not _UpstreamHandler.first_event_read.wait(_FIRST_EVENT_HOLD_SECONDS):
+            _UpstreamHandler.terminals_without_first_event += 1
+        _UpstreamHandler.first_event_read.clear()
+        self.wfile.write(_STREAM_RESPONSE)
 
 
 class _Environment:
@@ -112,6 +138,39 @@ class _Environment:
             if not isinstance(content, bytes):
                 raise TypeError("benchmark response must be bytes")
             return content
+
+    def first_event(self, loops: int) -> float:
+        """Return the time ``loops`` streams take to deliver their first event.
+
+        The clock stops when the first complete event arrives; the rest of each
+        stream is read afterwards, outside the measurement.
+        """
+        elapsed = 0.0
+        for _ in range(loops):
+            connection = http.client.HTTPConnection(
+                "127.0.0.1", self.proxy.server_address[1], timeout=10
+            )
+            try:
+                started = pyperf.perf_counter()
+                connection.request(
+                    "POST",
+                    "/dmxapi/v1/responses?stream=first",
+                    body=_REQUEST_BODY,
+                    headers={"Content-Type": "application/json"},
+                )
+                response = connection.getresponse()
+                received = b""
+                while b"\n\n" not in received:
+                    chunk = response.read1(65536)
+                    if not chunk:
+                        raise RuntimeError("benchmark stream ended before its first event")
+                    received += chunk
+                elapsed += pyperf.perf_counter() - started
+                _UpstreamHandler.first_event_read.set()
+                response.read()
+            finally:
+                connection.close()
+        return elapsed
 
     def health(self) -> bytes:
         """Return one process-local health response."""
@@ -175,7 +234,7 @@ def main() -> None:
     with _environment() as environment:
         runner.bench_func("health-status", environment.health)
         runner.bench_func("non-streaming-request", environment.exchange)
-        runner.bench_func("streaming-first-event", environment.exchange, "?stream=1")
+        runner.bench_time_func("streaming-first-event", environment.first_event)
         runner.bench_func("forwarding-1mib", environment.exchange, "?large=1")
 
 

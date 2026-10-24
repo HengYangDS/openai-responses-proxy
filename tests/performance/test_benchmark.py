@@ -29,6 +29,16 @@ def test_loopback_workloads_preserve_response_bytes_and_close_listeners() -> Non
     assert environment.upstream.fileno() == -1
 
 
+def test_first_event_latency_stops_before_the_stream_completes() -> None:
+    # The upstream holds its terminal event until the client has read the first
+    # one, so a measurement that waited for completion could not finish early.
+    with benchmark._environment() as environment:
+        before = benchmark._UpstreamHandler.terminals_without_first_event
+        elapsed = environment.first_event(3)
+    assert 0 < elapsed < benchmark._FIRST_EVENT_HOLD_SECONDS
+    assert benchmark._UpstreamHandler.terminals_without_first_event == before
+
+
 def test_workload_failure_still_closes_owned_listeners(mocker) -> None:
     environment = benchmark._Environment()
     mocker.patch.object(benchmark, "_Environment", return_value=environment)
@@ -57,6 +67,9 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
 
     runner = mocker.Mock()
     runner.bench_func.side_effect = execute
+    runner.bench_time_func.side_effect = lambda name, function, *arguments: execute(
+        name, function, 1, *arguments
+    )
     factory = mocker.patch.object(benchmark.pyperf, "Runner", return_value=runner)
     if mode == "latency":
         benchmark.main()
@@ -71,6 +84,7 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
             "forwarding-1mib",
         }
         assert recorded["non-streaming-request"] == benchmark._SMALL_RESPONSE
+        assert 0 < recorded["streaming-first-event"] < benchmark._FIRST_EVENT_HOLD_SECONDS
         assert recorded["handoff-control-round-trip"]["phase"] == "ready"
         factory.assert_called_once_with(program_args=("-m", "tools.performance.benchmark"))
     else:

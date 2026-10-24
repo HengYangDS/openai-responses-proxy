@@ -27,6 +27,7 @@ from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import upstream as upstream_transport
 from openai_responses_proxy.serving import entrypoint as proxy
 
 ScriptedResponse = tuple[int, bytes] | Mapping[str, object]
@@ -362,6 +363,7 @@ class InputTransportFixture:
         admission.reset_for_test()
         telemetry.reset_for_test()
         cooldown.reset_for_test()
+        upstream_transport.reset_for_test()
 
     def teardown_method(self) -> None:
         self._cleanups.close()
