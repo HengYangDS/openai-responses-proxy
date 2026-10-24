@@ -137,7 +137,7 @@ maintained code and frozen assets with the current path, including the added
 pool and dependency lifetime. No new dependency, resolver execution, benchmark
 claim or three-platform replacement proof is implied by this review.
 
-**Amendment, 2026-10-25: resolution and downstream writes.**
+**Amendment, 2026-10-24: resolution and downstream writes.**
 
 The exchange deadline now bounds native address resolution and every write to
 the client. Native `getaddrinfo` still cannot be interrupted, so lookups run on
