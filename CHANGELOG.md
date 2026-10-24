@@ -8,6 +8,19 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.5] - 2026-10-24
+
+### Fixed
+
+- Bound every write to the client by the exchange deadline. A client that
+  stopped reading held its handler, the upstream connection and an admission
+  slot until it disconnected; it is now cut off at the deadline.
+- Bound native DNS resolution by the exchange deadline. A stalled lookup held
+  the exchange until the system resolver gave up; lookups now run on at most
+  four resolver threads and the exchange stops waiting at its deadline.
+- Measure `streaming-first-event` at the first event. The benchmark timed whole
+  responses under that name.
+
 ## [5.1.4] - 2026-10-23
 
 ### Fixed

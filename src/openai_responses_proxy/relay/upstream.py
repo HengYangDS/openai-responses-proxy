@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import http.client
 import io
+import ipaddress
+import queue
 import socket
 import ssl
+import threading
 import time
 import urllib.request
 from collections.abc import Buffer
 from collections.abc import Iterable
 from functools import partial
 from typing import IO
+from typing import Literal
 from typing import Protocol
 from typing import cast
 from typing import override
@@ -33,6 +37,101 @@ def _remaining(deadline: float) -> float:
     return remaining
 
 
+_AddressInfo = (
+    tuple[Literal[socket.AddressFamily.AF_INET], socket.SocketKind, int, str, tuple[str, int]]
+    | tuple[
+        Literal[socket.AddressFamily.AF_INET6],
+        socket.SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]
+)
+
+
+class _Lookup:
+    """One native address lookup that several exchanges can wait for."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.addresses: list[_AddressInfo] = []
+        self.error: BaseException | None = None
+
+
+class _Resolver:
+    """Run native ``getaddrinfo`` on a small fixed set of daemon threads.
+
+    ``getaddrinfo`` cannot be interrupted, so an exchange waits for its lookup
+    only until its own deadline. Exchanges that need the same address share one
+    lookup and at most four lookups run at once; a lookup that outlives every
+    waiter ends on its thread without holding an exchange, an upstream
+    connection or an admission slot.
+    """
+
+    def __init__(self, threads: int) -> None:
+        self._threads = threads
+        self._started = 0
+        self._lock = threading.Lock()
+        self._queue: queue.SimpleQueue[tuple[tuple[str, int], _Lookup]] = queue.SimpleQueue()
+        self._pending: dict[tuple[str, int], _Lookup] = {}
+
+    def resolve(self, host: str, port: int, deadline: float) -> list[_AddressInfo]:
+        key = (host, port)
+        with self._lock:
+            lookup = self._pending.get(key)
+            if lookup is None:
+                lookup = _Lookup()
+                self._pending[key] = lookup
+                self._queue.put((key, lookup))
+                if self._started < self._threads:
+                    self._started += 1
+                    threading.Thread(
+                        target=self._work, name="upstream-resolver", daemon=True
+                    ).start()
+        if not lookup.done.wait(_remaining(deadline)):
+            raise ExchangeDeadlineError(
+                "upstream address resolution exceeded the exchange deadline"
+            )
+        if lookup.error is not None:
+            raise lookup.error.with_traceback(None)
+        return lookup.addresses
+
+    def reset(self) -> None:
+        with self._lock:
+            self._pending.clear()
+
+    def _work(self) -> None:
+        while True:
+            key, lookup = self._queue.get()
+            try:
+                lookup.addresses = socket.getaddrinfo(*key, 0, socket.SOCK_STREAM)
+            except BaseException as error:
+                lookup.error = error
+            finally:
+                with self._lock:
+                    if self._pending.get(key) is lookup:
+                        del self._pending[key]
+                lookup.done.set()
+
+
+_RESOLVER = _Resolver(threads=4)
+
+
+def resolve(host: str, port: int, deadline: float) -> list[_AddressInfo]:
+    """Resolve one upstream address within ``deadline`` through the native resolver."""
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return _RESOLVER.resolve(host, port, deadline)
+    # A numeric address needs no lookup, so it never waits for a resolver thread.
+    return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM, 0, socket.AI_NUMERICHOST)
+
+
+def reset_for_test() -> None:
+    """Forget pending lookups between isolated tests."""
+    _RESOLVER.reset()
+
+
 def _connect(
     address: tuple[str, int],
     timeout: float,
@@ -40,9 +139,9 @@ def _connect(
     *,
     deadline: float,
 ) -> socket.socket:
-    """Resolve natively, then spend one budget across address attempts and TLS."""
+    """Resolve natively within the deadline, then spend one budget across address attempts and TLS."""
     _remaining(deadline)
-    addresses = socket.getaddrinfo(*address, 0, socket.SOCK_STREAM)
+    addresses = resolve(*address, deadline)
     _remaining(deadline)
     failure: OSError | None = None
     for family, kind, protocol, _, target in addresses:

@@ -234,8 +234,9 @@ WebSocket that can carry successive responses and steering events.
 ### Requirement: Upstream connection release and failure commitment are bounded
 
 Every upstream attempt SHALL release its connection after success, rejection,
-exception or downstream disconnect. Before downstream commitment, a malformed
-event SHALL yield one structured HTTP failure.
+exception, downstream disconnect or a downstream write that misses the exchange
+deadline. Before downstream commitment, a malformed event SHALL yield one
+structured HTTP failure.
 
 #### Scenario: Retries and reads share the original exchange deadline
 
@@ -278,9 +279,21 @@ event SHALL yield one structured HTTP failure.
 - **THEN** each blocking socket phase uses only the remaining monotonic budget
 - **AND** an expired resolution starts no socket or request, failed address
   sockets close, and TLS retains the selected trust store and hostname checking
-- **AND** system DNS remains synchronous and is not cancellable by a socket
-  timeout; its wall-clock cancellation is unproved, not hidden by a worker or
-  alternate resolver.
+- **AND** the exchange waits for native address resolution only within that
+  budget: at most four resolver threads run lookups, exchanges that need the
+  same address share one lookup, and a lookup that outlives its waiters ends on
+  its thread without holding an exchange, an upstream connection or an
+  admission slot.
+
+#### Scenario: A client stops reading the response
+
+- **WHEN** the downstream client stops reading while the proxy writes the
+  status, headers, events or terminator of one exchange
+- **THEN** each write uses only the exchange's remaining budget, and at the
+  deadline the proxy closes the downstream connection and releases the upstream
+  connection and the admission slot
+- **AND** a structured failure that starts after the deadline has one short
+  write budget of one second instead of an unbounded wait.
 
 #### Scenario: Output is malformed after downstream commitment
 

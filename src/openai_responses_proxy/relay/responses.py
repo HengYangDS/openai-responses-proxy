@@ -350,14 +350,18 @@ def relay(
     if _cooldown_active(exchange) or not _admit(exchange):
         return
     try:
-        response = upstream_exchange.open_upstream(exchange)
-        if response is None:
-            return
-        content_type = header_value(response.headers, "Content-Type")
-        if "text/event-stream" in content_type.lower():
-            downstream.relay_sse(exchange, response)
-        else:
-            downstream.relay_responses_json(exchange, response)
+        with downstream.write_deadline(handler, exchange.deadline):
+            response = upstream_exchange.open_upstream(exchange)
+            if response is None:
+                return
+            content_type = header_value(response.headers, "Content-Type")
+            if "text/event-stream" in content_type.lower():
+                downstream.relay_sse(exchange, response)
+            else:
+                downstream.relay_responses_json(exchange, response)
+    except downstream.DownstreamDeadlineError:
+        handler.close_connection = True
+        exchange.log("downstream_write_deadline")
     finally:
         active_now = admission.release_response()
         exchange.log("responses_released", f"active={active_now} ")
