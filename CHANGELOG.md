@@ -8,6 +8,15 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.6] - 2026-10-24
+
+### Changed
+
+- Reuse upstream connections. Sequential exchanges to one provider address keep
+  one keep-alive connection, idle for at most 30 seconds, instead of opening a
+  TCP connection and a TLS session for every request. A request is sent again
+  only when its send fails on a reused connection, never after it was sent.
+
 ## [5.1.5] - 2026-10-24
 
 ### Fixed
