@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.5] - 2026-10-25
+
 ### Fixed
 
 - Bound every write to the client by the exchange deadline. A client that
