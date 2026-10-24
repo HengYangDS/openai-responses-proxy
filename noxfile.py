@@ -370,6 +370,8 @@ def published_release_compatibility(session: nox.Session) -> None:
         session,
         (
             *PYTEST_COMMAND,
+            # Keep each skipped case's identity and reason in the published release run's log.
+            "-rs",
             "tests/cli/test_interface.py",
             "tests/serving/handoff/subprocess",
             "tests/relay/native/test_recovery.py",
