@@ -12,7 +12,9 @@ import threading
 import time
 import urllib.request
 from collections.abc import Buffer
+from collections.abc import Callable
 from collections.abc import Iterable
+from collections.abc import Mapping
 from functools import partial
 from typing import IO
 from typing import Literal
@@ -20,6 +22,8 @@ from typing import Protocol
 from typing import cast
 from typing import override
 from typing import runtime_checkable
+
+from openai_responses_proxy.relay import connections
 
 
 class ExchangeDeadlineError(TimeoutError):
@@ -128,8 +132,9 @@ def resolve(host: str, port: int, deadline: float) -> list[_AddressInfo]:
 
 
 def reset_for_test() -> None:
-    """Forget pending lookups between isolated tests."""
+    """Forget pending lookups and idle connections between isolated tests."""
     _RESOLVER.reset()
+    _POOL.clear()
 
 
 def _connect(
@@ -170,12 +175,19 @@ def _connect(
 class _DeadlineReader(io.RawIOBase):
     """Clamp every native socket read, including HTTP header and chunk framing."""
 
-    def __init__(self, raw: socket.SocketIO, sock: socket.socket, deadline: float) -> None:
+    def __init__(
+        self,
+        raw: socket.SocketIO,
+        sock: socket.socket,
+        deadline: float,
+        on_close: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__()
         self._raw = raw
         self._sock = sock
         self._deadline = deadline
         self._idle_timeout: float | None = None
+        self._on_close = on_close
 
     def settimeout(self, timeout: float) -> None:
         """Select an idle limit independently of the socket's last armed budget."""
@@ -204,14 +216,22 @@ class _DeadlineReader(io.RawIOBase):
 
     @override
     def close(self) -> None:
+        if self.closed:
+            return
         try:
             self._raw.close()
         finally:
             super().close()
+            if self._on_close is not None:
+                self._on_close()
 
 
-def _bind_response(connection: http.client.HTTPConnection, deadline: float) -> None:
-    """Select the native response-class extension without changing HTTP parsing."""
+def _bind_response(connection: _DeadlineConnection, deadline: float) -> None:
+    """Select the native response-class extension without changing HTTP parsing.
+
+    The response hands its connection back when http.client closes the body after its last byte; a response closed
+    earlier, one whose upstream announced a close, or one that ended before its declared length closes it instead.
+    """
 
     class Response(http.client.HTTPResponse):
         @override
@@ -223,9 +243,20 @@ def _bind_response(connection: http.client.HTTPConnection, deadline: float) -> N
             url: str | None = None,
         ) -> None:
             super().__init__(sock, debuglevel, method, url)
+            self._abandoned = False
             buffered = cast(io.BufferedReader, self.fp)
             raw = cast(socket.SocketIO, buffered.detach())
-            self.fp = io.BufferedReader(_DeadlineReader(raw, sock, deadline))
+            self.fp = io.BufferedReader(_DeadlineReader(raw, sock, deadline, self._complete))
+
+        @override
+        def close(self) -> None:
+            self._abandoned = not self.isclosed()
+            super().close()
+
+        def _complete(self) -> None:
+            connection.finish(
+                reusable=not self._abandoned and not self.will_close and self.length in (0, None)
+            )
 
     connection.response_class = Response
 
@@ -236,10 +267,15 @@ class _ReadableBody(Protocol):
         ...
 
 
-class _DeadlineConnection(http.client.HTTPConnection):
+class _DeadlineConnection(connections.Reusable):
     """Spend the exchange budget at native connection, write and read boundaries."""
 
     _deadline: float
+
+    def renew(self, deadline: float, timeout: float | None) -> None:
+        """Spend a later exchange's budget on this connection."""
+        self._deadline = deadline
+        self.timeout = timeout
 
     @override
     def connect(self) -> None:
@@ -261,8 +297,104 @@ class _DeadlineConnection(http.client.HTTPConnection):
         return super().getresponse()
 
 
+class _DeadlineHTTPSConnection(_DeadlineConnection, http.client.HTTPSConnection):
+    """Verify TLS with the caller's context inside the exchange budget."""
+
+
+_POOL: connections.Pool[_DeadlineConnection] = connections.Pool()
+_SEND_RESETS = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
+
+class _PooledRequest(http.client.HTTPConnection):
+    """The connection object that urllib's do_open creates for one request.
+
+    do_open still builds every header and turns send errors and statuses into its own exceptions. This object drops
+    the ``Connection: close`` header that do_open forces and sends on a pooled connection when one is usable. A send
+    that fails on a reused connection is repeated once on a new connection, because the upstream may have closed the
+    idle connection before reading anything; a failure on a new connection, or after the request was sent, is not.
+    """
+
+    _scheme = "http"
+    _deadline: float
+
+    def __init__(
+        self,
+        host: str,
+        port: int | None = None,
+        timeout: float | None = None,
+        source_address: tuple[str, int] | None = None,
+        blocksize: int = 8192,
+        **_context: object,
+    ) -> None:
+        super().__init__(host, port, timeout, source_address, blocksize)
+        self._connection: _DeadlineConnection | None = None
+
+    def _new(self) -> _DeadlineConnection:
+        return _DeadlineConnection(self.host, self.port, timeout=self.timeout)
+
+    @override
+    def request(
+        self,
+        method: str,
+        url: str,
+        body: _ReadableBody | Iterable[Buffer] | Buffer | str | None = None,
+        headers: Mapping[str, Buffer | str | int] | None = None,
+        *,
+        encode_chunked: bool = False,
+    ) -> None:
+        kept = {
+            name: value
+            for name, value in (headers or {}).items()
+            if name.casefold() != "connection"
+        }
+        address = (self._scheme, self.host, self.port)
+        reused = _POOL.acquire(address)
+        if reused is not None:
+            try:
+                self._send(reused, address, method, url, body, kept, encode_chunked=encode_chunked)
+            except _SEND_RESETS:
+                if not isinstance(body, bytes | bytearray | memoryview | str | None):
+                    raise
+            else:
+                return
+        self._send(self._new(), address, method, url, body, kept, encode_chunked=encode_chunked)
+
+    def _send(
+        self,
+        connection: _DeadlineConnection,
+        address: connections.Address,
+        method: str,
+        url: str,
+        body: _ReadableBody | Iterable[Buffer] | Buffer | str | None,
+        headers: Mapping[str, Buffer | str | int],
+        *,
+        encode_chunked: bool,
+    ) -> None:
+        connection.renew(self._deadline, self.timeout)
+        connection.lend(partial(_POOL.release, address, connection))
+        try:
+            connection.request(method, url, body, headers, encode_chunked=encode_chunked)
+        except BaseException:
+            connection.finish(reusable=False)
+            raise
+        self._connection = connection
+
+    @override
+    def getresponse(self) -> http.client.HTTPResponse:
+        if self._connection is None:
+            raise http.client.ResponseNotReady("no request was sent")
+        return self._connection.getresponse()
+
+    @override
+    def close(self) -> None:
+        connection, self._connection = self._connection, None
+        if connection is not None:
+            connection.finish(reusable=False)
+        super().close()
+
+
 class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
-    """Use the official HTTP connection with deadline-aware raw reads."""
+    """Use the official HTTP pipeline on pooled connections with deadline-aware raw reads."""
 
     def __init__(self, deadline: float) -> None:
         super().__init__()
@@ -272,7 +404,7 @@ class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
     def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
         deadline = self._deadline
 
-        class Connection(_DeadlineConnection):
+        class Connection(_PooledRequest):
             _deadline = deadline
 
         return self.do_open(Connection, req)
@@ -289,11 +421,20 @@ class _DeadlineHTTPSHandler(urllib.request.HTTPSHandler):
     @override
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
         deadline = self._deadline
+        context = self._tls_context
 
-        class Connection(_DeadlineConnection, http.client.HTTPSConnection):
+        class Connection(_PooledRequest):
+            default_port = http.client.HTTPS_PORT
+            _scheme = "https"
             _deadline = deadline
 
-        return self.do_open(Connection, req, context=self._tls_context)
+            @override
+            def _new(self) -> _DeadlineConnection:
+                return _DeadlineHTTPSConnection(
+                    self.host, self.port, timeout=self.timeout, context=context
+                )
+
+        return self.do_open(Connection, req, context=context)
 
 
 class RefuseRedirectHandler(urllib.request.HTTPRedirectHandler):

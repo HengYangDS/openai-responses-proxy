@@ -295,6 +295,20 @@ structured HTTP failure.
 - **AND** a structured failure that starts after the deadline has one short
   write budget of one second instead of an unbounded wait.
 
+#### Scenario: Sequential exchanges reach the same upstream address
+
+- **WHEN** an upstream response was read to the end without an announced close
+  and a later exchange targets the same scheme, host and port
+- **THEN** the later exchange reuses that idle connection only while it is at
+  most 30 seconds old and its peer has not closed it, sends every header that
+  urllib builds except the forced `Connection: close`, and spends only its own
+  budget
+- **AND** at most eight idle connections are kept per address, and a partly
+  read, abandoned or failed response closes its connection
+- **AND** a request whose send fails on a reused connection is sent once more
+  on a new connection; a send that fails on a new connection, and any failure
+  after a request was sent, is not retried.
+
 #### Scenario: Output is malformed after downstream commitment
 
 - **WHEN** output is malformed or unterminated after downstream commitment

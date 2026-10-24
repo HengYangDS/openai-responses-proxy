@@ -309,6 +309,9 @@ only the remaining budget. Native DNS resolution runs on at most four resolver
 threads, and an exchange waits for it only within its budget. Every write to
 the client also spends that budget, so a client that stops reading is cut off
 at the deadline and releases the upstream connection and its admission slot.
+Sequential exchanges to one provider address reuse one keep-alive connection,
+idle for at most 30 seconds; a request is sent again only when its send fails
+on a reused connection.
 The upstream budget starts after local request projection; client-body
 reception has its own finite budget.
 

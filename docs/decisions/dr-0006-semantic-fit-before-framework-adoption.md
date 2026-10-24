@@ -163,3 +163,36 @@ unbounded write.
 
 Connection reuse remains with the transport acceptance task. This amendment
 admits no dependency and no alternate HTTP parser.
+
+**Amendment, 2026-10-24: upstream connection reuse.**
+
+urllib's `do_open` forces `Connection: close`, so every exchange paid for a new
+TCP connection and, for HTTPS, a new TLS handshake. The upstream transport now
+gives `do_open` its own per-request connection object. `do_open` still builds
+every header, turns send errors into `URLError` and leaves non-2xx statuses to
+`HTTPError`; redirects stay refused and environment proxies stay ignored. The
+object drops the forced header and sends on an idle connection to the same
+scheme, host and port when one is usable.
+
+A connection returns to the pool only when http.client closes its response
+after the declared length or the last chunk, and the upstream announced no
+close. A partly read, abandoned, failed or expired response closes its
+connection. The pool keeps at most eight idle connections per address, each
+for at most 30 seconds, and discards one that has become readable, which means
+that the upstream closed it. A reused connection spends only the current
+exchange's deadline.
+
+Reuse adds one replay rule. A send that fails on a reused connection is
+repeated once on a new connection. The upstream may have closed the idle
+connection before reading anything, and a send that fails has not written the
+whole request, which an upstream cannot act on. A failure on a new connection,
+or any failure after a request was sent, is not retried, so the transport never
+sends one inference request twice.
+
+Rebuilding `do_open` in this product was rejected: the per-request object keeps
+the running interpreter's own header construction and error mapping. HTTPCore
+stays a candidate under the conditions above. On loopback, 300 sequential
+exchanges per run opened 300 connections before and none after a warm
+connection existed. Median latency per exchange fell from 0.28 to 0.21 ms over
+HTTP and from 0.83 to 0.23 ms over verified HTTPS. Savings across a real
+network round trip were not measured. This amendment admits no dependency.
