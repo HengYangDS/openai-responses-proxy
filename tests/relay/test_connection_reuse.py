@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import http.client
+import io
 import socket
 import sys
 import threading
@@ -17,6 +18,7 @@ from typing import override
 
 import pytest
 
+from openai_responses_proxy.relay import connections
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import upstream as upstream_transport
 
@@ -268,3 +270,66 @@ class TestConnectionReuse:
                 released.set()
         assert elapsed < 1.5
         assert _shape(upstream) == [2]
+
+    def test_a_send_failure_with_an_unreplayable_body_is_not_retried(self, *, mocker):
+        original = http.client.HTTPConnection.send
+        failures: list[object] = []
+
+        def send(connection: http.client.HTTPConnection, data: bytes) -> None:
+            if not failures:
+                failures.append(connection)
+                raise BrokenPipeError("fixture reset")
+            original(connection, data)
+
+        with _upstream() as upstream:
+            assert _get(upstream.url) == OK
+            mocker.patch.object(http.client.HTTPConnection, "send", send)
+            request = urllib.request.Request(upstream.url, data=io.BytesIO(b"{}"), method="POST")
+            with pytest.raises(urllib.error.URLError):
+                upstream_exchange.urlopen_direct(request, 5, deadline=time.monotonic() + 5)
+        assert len(failures) == 1
+        assert _shape(upstream) == [1]
+
+
+class TestConnectionPool:
+    address = ("http", "127.0.0.1", 9)
+
+    def test_a_connection_beyond_the_idle_bound_is_closed(self, *, mocker):
+        mocker.patch.object(connections, "IDLE_PER_ADDRESS", 0)
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        connection = connections.Reusable("127.0.0.1", 9)
+        local, peer = socket.socketpair()
+        connection.sock = local
+        try:
+            pool.release(self.address, connection)
+            assert connection.sock is None
+            assert local.fileno() == -1
+            assert pool.acquire(self.address) is None
+        finally:
+            local.close()
+            peer.close()
+
+    def test_an_idle_connection_without_a_socket_is_discarded(self):
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        pool.release(self.address, connections.Reusable("127.0.0.1", 9))
+        assert pool.acquire(self.address) is None
+
+
+class TestPooledRequestBoundaries:
+    def test_a_response_without_a_request_is_refused(self):
+        with pytest.raises(http.client.ResponseNotReady):
+            upstream_transport._PooledRequest("127.0.0.1").getresponse()
+
+    def test_a_response_body_reports_its_end_once(self):
+        local, peer = socket.socketpair()
+        ends: list[None] = []
+        reader = upstream_transport._DeadlineReader(
+            socket.SocketIO(local, "rb"), local, time.monotonic() + 5, lambda: ends.append(None)
+        )
+        try:
+            reader.close()
+            reader.close()
+        finally:
+            local.close()
+            peer.close()
+        assert ends == [None]
