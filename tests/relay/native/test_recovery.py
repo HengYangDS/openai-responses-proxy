@@ -405,3 +405,71 @@ def test_frozen_listener_never_resends_a_request_the_upstream_received(stream: b
     assert not proxy_is_up(upstream.port)
     assert not upstream.thread.is_alive()
     assert not root.exists()
+
+
+def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> None:
+    """A kept connection that closes after a complete request is not followed by a resend."""
+    completed = json.dumps(
+        {
+            "id": "fixture",
+            "object": "response",
+            "created_at": 0,
+            "status": "completed",
+            "output": [],
+            "error": None,
+        }
+    ).encode()
+    peers: list[int] = []
+
+    def keep(handler):
+        peers.append(handler.client_address[1])
+        handler.wfile.write(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
+            % (len(completed), completed)
+        )
+        handler.close_connection = False
+
+    def lose(handler):
+        peers.append(handler.client_address[1])
+        handler.close_connection = True
+
+    port = free_port()
+    with ExitStack() as cleanup:
+        root = Path(cleanup.enter_context(verification.temporary_home()))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
+        for behavior in (keep, lose, keep):
+            upstream.push(behavior)
+        ctx = write_installed_payload(
+            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
+        )
+        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        cleanup.callback(terminate_process, child)
+        upstream.start()
+
+        def call(text: str):
+            return http_json(
+                port, "/dmxapi/v1/responses", method="POST", body={"input": text}, timeout=5
+            )
+
+        assert call("warm")[0] == 200
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            call("current")
+        with raised.value as error:
+            assert error.code == 502
+            assert json.loads(error.read())["error"]["code"] == "upstream_outcome_unknown"
+        assert call("next")[0] == 200
+
+        # The kept connection carried the lost request once; the next call opened a new one.
+        assert [b"current" in body for body in upstream.received] == [False, True, False]
+        assert peers[0] == peers[1] != peers[2]
+        assert wait_until(
+            lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,
+            timeout=2,
+        )
+
+    assert child.poll() is not None
+    assert not proxy_is_up(port)
+    assert not proxy_is_up(upstream.port)
+    assert not upstream.thread.is_alive()
+    assert not root.exists()
