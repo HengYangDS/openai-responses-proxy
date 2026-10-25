@@ -281,20 +281,21 @@ path. Automation should use `--json` where the command supports it.
 Every request is projected to a provider-portable Responses grammar before it
 leaves the loopback listener.
 
-| Concern                     | Behavior                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| Storage                     | Sends `store=false`; continuity comes from replayed dialogue and complete tool relationships     |
-| Provider IDs                | Removes response, conversation, cache, stored-item, and provider-issued item bindings            |
-| Encrypted replay            | Removes reasoning history; preserves required native agent payloads without claiming decryption  |
-| Agent delivery              | A selected plaintext route generates readable delegation and restores the native delivery marker |
-| Tool replay                 | Keeps complete function/custom-tool call pairs; rejects unsafe structure locally                 |
-| Empty upstream response     | Returns a retryable local `503` instead of committing false success                              |
-| DMXAPI `477 empty_response` | Retries the already-projected bytes once                                                         |
-| Upstream `429`              | Relays the first response and applies a provider-scoped bounded cooldown                         |
-| Exhausted upstream `503`    | Relays the original error; subsequent turns briefly cool only that provider before probing again |
-| `response_failed`           | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded          |
-| Invalid `input` union       | Uses one smaller current-dialogue fallback, then stops                                           |
-| Exchange deadline           | Header acquisition, recovery waits, error/JSON reads and SSE reconnects share one total budget   |
+| Concern                     | Behavior                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Storage                     | Sends `store=false`; continuity comes from replayed dialogue and complete tool relationships                |
+| Provider IDs                | Removes response, conversation, cache, stored-item, and provider-issued item bindings                       |
+| Encrypted replay            | Removes reasoning history; preserves required native agent payloads without claiming decryption             |
+| Agent delivery              | A selected plaintext route generates readable delegation and restores the native delivery marker            |
+| Tool replay                 | Keeps complete function/custom-tool call pairs; rejects unsafe structure locally                            |
+| Empty upstream response     | Returns a retryable local `503` instead of committing false success                                         |
+| DMXAPI `477 empty_response` | Retries the already-projected bytes once                                                                    |
+| Upstream `429`              | Relays the first response and applies a provider-scoped bounded cooldown                                    |
+| Exhausted upstream `503`    | Relays the original error; subsequent turns briefly cool only that provider before probing again            |
+| `response_failed`           | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded                     |
+| Invalid `input` union       | Uses one smaller current-dialogue fallback, then stops                                                      |
+| Lost upstream connection    | Retries only a request that was never completely sent; otherwise returns one `502 upstream_outcome_unknown` |
+| Exchange deadline           | Header acquisition, recovery waits, error/JSON reads and SSE reconnects share one total budget              |
 
 The proxy never rewrites conversation storage to obtain portability.
 
@@ -309,9 +310,13 @@ only the remaining budget. Native DNS resolution runs on at most four resolver
 threads, and an exchange waits for it only within its budget. Every write to
 the client also spends that budget, so a client that stops reading is cut off
 at the deadline and releases the upstream connection and its admission slot.
-Sequential exchanges to one provider address reuse one keep-alive connection,
-idle for at most 30 seconds; a request is sent again only when its send fails
-on a reused connection.
+Sequential exchanges to one provider address reuse one keep-alive connection
+while it has been idle for at most 30 seconds; an older idle connection is
+closed when it is next needed. A request is sent again only when the previous
+attempt did not deliver it completely. Once the complete request was sent, a
+lost connection, or a stream that ends before content without
+`response.failed`, returns `502 upstream_outcome_unknown`, because the provider
+may have accepted the request.
 The upstream budget starts after local request projection; client-body
 reception has its own finite budget.
 

@@ -196,3 +196,42 @@ exchanges per run opened 300 connections before and none after a warm
 connection existed. Median latency per exchange fell from 0.28 to 0.21 ms over
 HTTP and from 0.83 to 0.23 ms over verified HTTPS. Savings across a real
 network round trip were not measured. This amendment admits no dependency.
+
+**Amendment, 2026-10-25: a sent request is not sent again.**
+
+The 2026-10-24 amendment said the transport never sends one inference request
+twice. That held for the pool but not for the exchange around it, which
+retried every transport exception. A connection that closed after the upstream
+had received the complete request therefore sent that request again. Codex's
+independent qualification of 5.1.6 observed two complete, identical upstream
+requests for one call (BLOCK `bde945c5`). Missing response headers do not show
+that the upstream rejected a request, and no Provider's idempotency is
+qualified, so such a resend can duplicate Provider work and billing.
+
+The transport now reports the boundary where it is known. Once the complete
+request was sent, any failure while the response is awaited raises
+`UpstreamOutcomeUnknownError`, and the exchange answers with one
+`502 upstream_outcome_unknown` instead of a retry. Connection, DNS, TLS and
+send failures before the request was complete keep their bounded retries,
+because an upstream cannot act on an incomplete request. Classified HTTP error
+statuses keep their recovery: an upstream that answered with an error rejected
+the request explicitly.
+
+The same rule now covers an uncommitted stream. A stream that ends before
+content without a `response.failed` event, through end of file, an incomplete
+chunk, an idle timeout or a read error, is no longer reopened, because the
+upstream answered `200` and may still be working. The proxy returns
+`502 upstream_outcome_unknown` and leaves the retry to the client, which then
+knows that its turn failed. Only a pre-content `response.failed` is still
+reopened. The operator's logs of 2026-10-23 to 2026-10-25 hold two reopened
+DMXAPI streams; both had ended before content and both completed on the second
+request. Such a turn now meets one server error instead.
+
+The 2026-10-24 amendment also said that each idle connection is kept for at
+most 30 seconds. The pool implements a demand-driven rule instead: an idle
+connection is reused only while it is at most 30 seconds old, and an older one
+is closed when its address is next needed. Idle connections stay bounded at
+eight per address and never outlive the process; no timer retires them
+earlier. Endpoint concordance moved with this release as well: the AIHubMix
+Provider now uses `https://api.inferera.com/v1`, the documented endpoint that
+AIGW declares, instead of `https://aihubmix.com/v1`.

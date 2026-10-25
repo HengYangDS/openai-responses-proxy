@@ -309,6 +309,17 @@ structured HTTP failure.
   on a new connection; a send that fails on a new connection, and any failure
   after a request was sent, is not retried.
 
+#### Scenario: The upstream may have accepted a request whose response was lost
+
+- **WHEN** the upstream connection closes, resets or returns a malformed reply
+  after the proxy sent the complete request, or an uncommitted stream ends
+  before content without a `response.failed` event
+- **THEN** the proxy SHALL NOT send that request again, on any connection or
+  Provider
+- **AND** it SHALL return one `502` failure with code `upstream_outcome_unknown`
+- **AND** a failure before the request was complete, a classified HTTP error
+  status and a pre-content `response.failed` keep their bounded recovery.
+
 #### Scenario: Output is malformed after downstream commitment
 
 - **WHEN** output is malformed or unterminated after downstream commitment

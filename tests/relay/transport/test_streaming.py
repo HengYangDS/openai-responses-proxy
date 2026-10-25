@@ -46,11 +46,17 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["streams_completed"] == 1
 
     def test_normalizes_exhausted_pre_content_sse_failures_to_retryable_503(self, *, mocker):
-        premature_eof = {"chunks": [b'data: {"type":"response.created"}\n\n']}
+        failed = {
+            "chunks": [
+                b'data: {"type":"response.created"}\n\n',
+                b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n',
+                b"data: [DONE]\n\n",
+            ],
+        }
         body = json.dumps({"stream": True, "input": []}).encode()
         mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
 
-        with running_proxy([premature_eof] * 6) as (port, received):
+        with running_proxy([failed] * 6) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
                 request(port, body)
             error = raised.value
@@ -71,24 +77,6 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["streams_pre_content_exhausted"] == 1
         assert counters["streams_failed"] == 1
         assert last_failure["classification"] == "stream_pre_content_exhausted"
-
-    def test_reconnects_a_pre_content_premature_eof(self, *, mocker):
-        premature_eof = {"chunks": [b'data: {"type":"response.created"}\n\n']}
-        recovered = {
-            "chunks": [
-                b'data: {"type":"response.created"}\n\n',
-                b'data: {"type":"response.output_text.delta","delta":"ok"}\n\n',
-                b'data: {"type":"response.completed"}\n\n',
-            ],
-        }
-        body = json.dumps({"stream": True, "input": []}).encode()
-        mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        received, payload = self.exchange([premature_eof, recovered], body)
-
-        assert len(received) == 2
-        assert b'"delta":"ok"' in payload
-        counters = cast("dict[str, int]", proxy.runtime_status()["counters"])
-        assert counters["streams_pre_content_reconnect_attempts"] == 1
 
     def test_does_not_reconnect_after_downstream_stream_bytes_are_committed(self):
         partial = {

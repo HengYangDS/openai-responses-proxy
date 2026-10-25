@@ -30,6 +30,10 @@ class ExchangeDeadlineError(TimeoutError):
     """The original upstream exchange budget has expired."""
 
 
+class UpstreamOutcomeUnknownError(ConnectionError):
+    """The upstream failed after it received a complete request, so it may have accepted it."""
+
+
 class ResponseSizeError(ValueError):
     """A buffered upstream body exceeds its admitted byte limit."""
 
@@ -311,7 +315,9 @@ class _PooledRequest(http.client.HTTPConnection):
     do_open still builds every header and turns send errors and statuses into its own exceptions. This object drops
     the ``Connection: close`` header that do_open forces and sends on a pooled connection when one is usable. A send
     that fails on a reused connection is repeated once on a new connection, because the upstream may have closed the
-    idle connection before reading anything; a failure on a new connection, or after the request was sent, is not.
+    idle connection before reading anything; a failure on a new connection is not. A failure after the complete
+    request was sent is an ``UpstreamOutcomeUnknownError``: the upstream may have accepted the request, so no caller
+    may send it again.
     """
 
     _scheme = "http"
@@ -383,7 +389,16 @@ class _PooledRequest(http.client.HTTPConnection):
     def getresponse(self) -> http.client.HTTPResponse:
         if self._connection is None:
             raise http.client.ResponseNotReady("no request was sent")
-        return self._connection.getresponse()
+        try:
+            return self._connection.getresponse()
+        except ExchangeDeadlineError:
+            raise
+        except Exception as error:
+            # The complete request was sent, so a lost connection or a malformed reply does not
+            # show that the upstream rejected it.
+            raise UpstreamOutcomeUnknownError(
+                "upstream connection failed after the complete request was sent"
+            ) from error
 
     @override
     def close(self) -> None:

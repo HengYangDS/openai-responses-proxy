@@ -15,6 +15,7 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import upstream as upstream_transport
 from tests.relay.fixtures import EXACT_ERROR
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
@@ -137,10 +138,10 @@ class TestSseRecovery(InputTransportFixture):
             sse,
             "_read_one_stream",
             return_value={
-                "terminal": None,
-                "events": 0,
+                "terminal": "response.failed",
+                "events": 1,
                 "wrote_downstream": False,
-                "detail": "eof",
+                "detail": "failed",
                 "error": None,
             },
         )
@@ -152,8 +153,52 @@ class TestSseRecovery(InputTransportFixture):
         result = sse.relay(handler, DirectResponse(), "/ucloud/v1/responses", 1, reopen=reopen)
 
         assert result["attempts"] == 1
+        assert result["pre_content_exhausted"]
+        assert not result["outcome_unknown"]
         sleep.assert_not_called()
         reopen.assert_not_called()
+
+    @pytest.mark.parametrize("detail", ["eof", "incomplete_read", "timeout"])
+    def test_a_pre_content_ending_without_a_failure_event_is_not_reopened(
+        self, detail, *, mocker
+    ) -> None:
+        handler = MemoryHandler()
+        reopen = mocker.Mock(return_value=DirectResponse())
+        mocker.patch.object(
+            sse,
+            "_read_one_stream",
+            return_value={
+                "terminal": None,
+                "events": 1,
+                "wrote_downstream": False,
+                "detail": detail,
+                "error": None,
+            },
+        )
+        sleep = mocker.patch.object(sse.time, "sleep", return_value=None)
+
+        result = sse.relay(handler, DirectResponse(), "/ucloud/v1/responses", 1, reopen=reopen)
+
+        assert result["outcome_unknown"]
+        assert result["attempts"] == 1
+        reopen.assert_not_called()
+        sleep.assert_not_called()
+        assert handler.output() == b""
+
+    def test_a_reopened_request_lost_after_sending_is_outcome_unknown(self, *, mocker) -> None:
+        failed = (
+            b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
+        )
+        reopen = mocker.Mock(side_effect=upstream_transport.UpstreamOutcomeUnknownError())
+        mocker.patch.object(sse.time, "sleep", return_value=None)
+
+        result = sse.relay(
+            MemoryHandler(), DirectResponse(failed), "/ucloud/v1/responses", 1, reopen=reopen
+        )
+
+        reopen.assert_called_once()
+        assert result["attempts"] == 2
+        assert result["outcome_unknown"]
 
     def test_transient_failure_reconnects_are_bounded(self, *, mocker) -> None:
         raw = (
@@ -195,13 +240,15 @@ class TestSseRecovery(InputTransportFixture):
                 request(port, body)
             with raised.value as error:
                 payload = json.loads(error.read())
-                assert error.code == 503
-                assert payload["error"]["code"] == "stream_pre_content_exhausted"
+                assert error.code == 502
+                assert payload["error"]["code"] == "upstream_outcome_unknown"
+                assert payload["error"]["reason"] == "stream_ended_before_content"
                 assert payload["error"]["attempts"] == 1
 
         assert len(received) == 2
         counters, _classifications = self._status_maps()
         assert counters["streams_pre_content_reconnect_attempts"] == 0
+        assert counters["upstream_outcome_unknown"] == 1
         assert counters["input_variant_dialogue_recovery_exhausted"] == 1
         assert counters["input_variant_dialogue_recovery_accepted"] == 0
 

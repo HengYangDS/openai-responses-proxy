@@ -350,3 +350,58 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     assert not proxy_is_up(upstream.port)
     assert not upstream.thread.is_alive()
     assert not root.exists()
+
+
+@pytest.mark.parametrize(
+    "stream", [False, True], ids=["closed-before-headers", "ended-before-content"]
+)
+def test_frozen_listener_never_resends_a_request_the_upstream_received(stream: bool) -> None:
+    """A lost response returns one outcome-unknown failure instead of a second request (BLOCK bde945c5)."""
+
+    def lose_response(handler):
+        if stream:
+            created = b'data: {"type":"response.created"}\n\n'
+            handler.send_response(200)
+            handler.send_header("Content-Type", "text/event-stream")
+            handler.send_header("Content-Length", str(len(created)))
+            handler.end_headers()
+            handler.wfile.write(created)
+        handler.close_connection = True
+
+    port = free_port()
+    with ExitStack() as cleanup:
+        root = Path(cleanup.enter_context(verification.temporary_home()))
+        upstream = ScriptedUpstream()
+        cleanup.callback(upstream.close)
+        upstream.push(lose_response)
+        ctx = write_installed_payload(
+            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
+        )
+        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        cleanup.callback(terminate_process, child)
+        upstream.start()
+
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            http_json(
+                port,
+                "/dmxapi/v1/responses",
+                method="POST",
+                body={"input": "current", "stream": stream},
+                timeout=5,
+            )
+        with raised.value as error:
+            assert error.code == 502
+            payload = json.loads(error.read())
+        assert payload["error"]["code"] == "upstream_outcome_unknown"
+        assert len(upstream.received) == 1
+        assert wait_until(
+            lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,
+            timeout=2,
+        )
+        assert "event=upstream_outcome_unknown" in (root / "proxy.log").read_text()
+
+    assert child.poll() is not None
+    assert not proxy_is_up(port)
+    assert not proxy_is_up(upstream.port)
+    assert not upstream.thread.is_alive()
+    assert not root.exists()

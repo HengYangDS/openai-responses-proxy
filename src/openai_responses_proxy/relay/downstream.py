@@ -234,6 +234,16 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
                     ),
                 )
             exchange.log("sse_buffer_limit")
+        elif result["outcome_unknown"]:
+            if exchange.used_input_variant_dialogue:
+                exchange.input_variant_exhausted("")
+            # After a pre-content response.failed, only the reopened request can have been lost.
+            reopened = stream is not None and stream["terminal"] == "response.failed"
+            outcome_unknown(
+                exchange,
+                result["attempts"],
+                "response_not_received" if reopened else "stream_ended_before_content",
+            )
         elif result["pre_content_exhausted"]:
             if exchange.used_input_variant_dialogue:
                 exchange.input_variant_exhausted("")
@@ -374,6 +384,26 @@ def deadline_exceeded(exchange: Exchange) -> None:
         ),
     )
     exchange.log("upstream_deadline_exceeded")
+
+
+def outcome_unknown(exchange: Exchange, attempts: int, reason: str, detail: str = "") -> None:
+    """Fail one uncommitted exchange whose upstream may have accepted its request, without resending it."""
+    telemetry.record_counter("upstream_outcome_unknown")
+    telemetry.record_failure("upstream_outcome_unknown")
+    send_payload(
+        exchange.handler,
+        502,
+        live_response.error_payload(
+            "Upstream connection ended after the complete request was sent; the provider may "
+            "have accepted it, so the proxy did not send it again. Retry the turn if it did not "
+            "complete",
+            "upstream_unavailable",
+            "upstream_outcome_unknown",
+            reason=reason,
+            attempts=attempts,
+        ),
+    )
+    exchange.log("upstream_outcome_unknown", f"reason={reason} attempts={attempts} {detail}")
 
 
 def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None:

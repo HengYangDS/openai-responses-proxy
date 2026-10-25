@@ -29,7 +29,6 @@ UPSTREAM_TIMEOUT = runtime_config.load().upstream_timeout
 SSE_BUFFER_MAX_BYTES = runtime_config.load().sse_buffer_max_bytes
 _HELD_TYPES = frozenset(("response.created", "response.in_progress"))
 _TERMINALS = frozenset(("response.completed", "response.failed", "response.incomplete"))
-_CLEAN_TERMINALS = {"response.completed", "response.incomplete"}
 
 
 class StreamResult(TypedDict):
@@ -48,6 +47,7 @@ class RelayResult(TypedDict):
     """Outcome of the bounded pre-content reconnect policy."""
 
     pre_content_exhausted: bool
+    outcome_unknown: bool
     attempts: int
     result: StreamResult | None
 
@@ -240,6 +240,7 @@ def relay(
     result: StreamResult | None = None
     attempt = 0
     attempts_started = 1
+    reopened_outcome_unknown = False
     for attempt in range(max_attempts):
         try:
             result = _read_one_stream(
@@ -257,9 +258,11 @@ def relay(
                 f"committed={result['wrote_downstream']} attempt={attempt + 1} "
                 f"path={operational_log.safe_request_path(path)}"
             )
+        # Only an explicit pre-content failure is reopened. After any other ending the upstream
+        # may have accepted the request, so it is not sent again.
         if (
             result["wrote_downstream"]
-            or terminal in _CLEAN_TERMINALS
+            or terminal != "response.failed"
             or result["detail"] in {"projection_failed", "deadline", "buffer_limit"}
         ):
             break
@@ -286,6 +289,9 @@ def relay(
                 or time.monotonic() >= deadline
             ):
                 result["detail"] = "deadline"
+            reopened_outcome_unknown = isinstance(
+                error, upstream_transport.UpstreamOutcomeUnknownError
+            )
             operational_log.log(
                 f"req={request_id} event=sse_reconnect_failed "
                 f"exception={operational_log.safe_exception_label(error)} "
@@ -294,6 +300,13 @@ def relay(
             break
     pre_content_exhausted = not headers_sent
     assert result is not None
+    outcome_unknown = pre_content_exhausted and (
+        reopened_outcome_unknown
+        or (
+            result["terminal"] is None
+            and result["detail"] not in {"projection_failed", "deadline", "buffer_limit"}
+        )
+    )
     if headers_sent:
         if result["terminal"] is not None:
             handler.wfile.write(b"0\r\n\r\n")
@@ -311,6 +324,9 @@ def relay(
         if detail == "projection_failed":
             telemetry.record_counter("stream_projection_failures")
             telemetry.record_failure("stream_projection_failed")
+        elif outcome_unknown:
+            # The exchange owner reports the outcome-unknown failure once, for streams and JSON alike.
+            pass
         elif pre_content_exhausted:
             telemetry.record_counter("streams_pre_content_exhausted")
             telemetry.record_failure("stream_pre_content_exhausted")
@@ -333,6 +349,7 @@ def relay(
         )
     return {
         "pre_content_exhausted": pre_content_exhausted,
+        "outcome_unknown": outcome_unknown,
         "attempts": attempts_started,
         "result": result,
     }

@@ -480,6 +480,13 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
 
 
 def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
+    if isinstance(error, upstream_transport.UpstreamOutcomeUnknownError):
+        # The upstream received the complete request; only a failure before that may be retried.
+        detail = f"{operational_log.safe_exception_context(error.__cause__ or error)} "
+        if exchange.used_input_variant_dialogue:
+            exchange.input_variant_exhausted(detail)
+        downstream.outcome_unknown(exchange, attempt + 1, "response_not_received", detail)
+        return "terminal"
     if exchange.used_input_variant_dialogue:
         exchange.input_variant_exhausted(f"{operational_log.safe_exception_context(error)} ")
         downstream.send_payload(
