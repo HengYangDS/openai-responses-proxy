@@ -1,7 +1,7 @@
 version = 1
 
 [providers.aihubmix]
-base_url = "https://aihubmix.com/v1"
+base_url = "https://api.inferera.com/v1"
 
 [providers.dmxapi]
 base_url = "https://www.dmxapi.cn/v1"
