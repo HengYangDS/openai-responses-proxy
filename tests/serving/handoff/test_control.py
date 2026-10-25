@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
+import socket
+import threading
+import time
 from pathlib import Path
 
 from openai_responses_proxy.serving import control
@@ -141,7 +145,7 @@ class TestHandoffControlHandler:
             with subtests.test(headers=headers, raw=raw):
                 fake_self = fake_handler({}, mocker=mocker)
                 fake_self.headers = {**fake_self.headers, **headers}
-                fake_self.rfile.read.return_value = raw
+                fake_self.rfile = io.BytesIO(raw)
                 prepare = mocker.patch.object(handoff_module, "prepare")
                 control.prepare_handoff(fake_self, self.bindings)
                 prepare.assert_not_called()
@@ -153,6 +157,28 @@ class TestHandoffControlHandler:
         control.prepare_handoff(unknown, self.bindings)
         prepare.assert_not_called()
         unknown.send_error.assert_called_once_with(400, "handoff request contains unknown fields")
+
+    def test_handler_refuses_an_envelope_that_stalls_past_its_receive_bound(self, *, mocker):
+        mocker.patch.object(handoff_protocol_module, "HANDOFF_CONTROL_RECEIVE_TIMEOUT_SECONDS", 0.2)
+        prepare = mocker.patch.object(handoff_module, "prepare")
+        server_side, client_side = socket.socketpair()
+        # The controller ends its body after three seconds at the latest, so a reader without its
+        # own bound fails with an incomplete envelope instead of hanging the test.
+        end_of_body = threading.Timer(3, client_side.shutdown, args=(socket.SHUT_WR,))
+        with server_side, client_side, server_side.makefile("rb") as rfile:
+            handler = fake_handler(expected_metadata(), mocker=mocker)
+            handler.connection = server_side
+            handler.rfile = rfile
+            client_side.sendall(b"{")
+            end_of_body.start()
+            begin = time.monotonic()
+            control.prepare_handoff(handler, self.bindings)
+            elapsed = time.monotonic() - begin
+            end_of_body.cancel()
+            end_of_body.join()
+        prepare.assert_not_called()
+        handler.send_error.assert_called_once_with(408, "handoff request was not received in time")
+        assert elapsed < 1
 
     def test_handler_rejects_disk_mismatch_and_projects_non_conflict_prepare_failure(
         self, *, mocker

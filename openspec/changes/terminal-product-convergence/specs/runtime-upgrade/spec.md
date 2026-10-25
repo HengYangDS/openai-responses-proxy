@@ -310,6 +310,19 @@ Responses admission or start a handoff.
 - **THEN** the proxy refuses it with HTTP 403
 - **AND** Responses admission and handoff state remain unchanged.
 
+### Requirement: Handoff control receipt is bounded
+
+The handoff control endpoint SHALL read a declared envelope of at most 32 KiB
+within five seconds, and SHALL NOT read beyond its declared length.
+
+#### Scenario: A controller stalls while it sends the envelope
+
+- **WHEN** a handoff control request declares a body that does not arrive
+  completely within five seconds
+- **THEN** the proxy answers HTTP 408, closes that connection and starts no
+  handoff
+- **AND** the serving listener keeps its process identity and admission.
+
 ## MODIFIED Requirements
 
 ### Requirement: Recovery binds candidate, rollback, and live runtime

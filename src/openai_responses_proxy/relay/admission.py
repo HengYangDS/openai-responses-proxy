@@ -9,6 +9,7 @@ import urllib.parse
 from collections.abc import Buffer
 from contextlib import suppress
 from email.message import Message
+from http.server import BaseHTTPRequestHandler
 from typing import SupportsIndex
 from typing import SupportsInt
 
@@ -170,6 +171,37 @@ def is_local_controller(address: str, headers: Message) -> bool:
     with suppress(ValueError):
         return urllib.parse.urlsplit(f"//{headers.get('Host', '')}").hostname in _LOOPBACK_HOSTS
     return False
+
+
+def read_bounded_body(
+    handler: BaseHTTPRequestHandler, length: int, timeout: float
+) -> tuple[bytes | None, str]:
+    """Spend one body deadline without reading beyond the declared frame."""
+    deadline = time.monotonic() + timeout
+    connection = handler.connection
+    previous_timeout = connection.gettimeout()
+    body = bytearray()
+    try:
+        while len(body) < length:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None, "request_body_timeout"
+            connection.settimeout(
+                remaining if previous_timeout is None else min(previous_timeout, remaining)
+            )
+            chunk = handler.rfile.read1(min(length - len(body), 64 * 1024))
+            if not chunk:
+                return None, "incomplete_request_body"
+            body.extend(chunk)
+        if time.monotonic() >= deadline:
+            return None, "request_body_timeout"
+    except TimeoutError:
+        return None, "request_body_timeout"
+    except OSError:
+        return None, "request_body_unreadable"
+    finally:
+        connection.settimeout(previous_timeout)
+    return bytes(body), ""
 
 
 def reset_for_test() -> None:

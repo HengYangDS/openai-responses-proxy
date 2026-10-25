@@ -77,9 +77,15 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
     if content_length <= 0 or content_length > handoff_protocol.HANDOFF_CONTROL_MAX_BYTES:
         handler.send_error(413, "handoff request exceeds the control limit")
         return
-    raw = handler.rfile.read(content_length)
-    if len(raw) != content_length:
-        handler.send_error(400, "incomplete handoff request")
+    raw, failure = admission.read_bounded_body(
+        handler, content_length, handoff_protocol.HANDOFF_CONTROL_RECEIVE_TIMEOUT_SECONDS
+    )
+    if raw is None:
+        # send_error closes the connection, so an unread remainder is never parsed as a request.
+        if failure == "request_body_timeout":
+            handler.send_error(408, "handoff request was not received in time")
+        else:
+            handler.send_error(400, "incomplete handoff request")
         return
     try:
         request = json.loads(raw)

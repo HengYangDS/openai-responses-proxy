@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import threading
+import time
 
 import pytest
 
 from openai_responses_proxy.lifecycle.supervision import process
+from openai_responses_proxy.serving.handoff import protocol as handoff_protocol
 from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import child_pid_observer
@@ -309,3 +312,35 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         assert status_code == 200
         assert health.get("pid") == child_pid["value"]
         assert health.get("accepting") is True
+
+    def test_a_stalled_handoff_envelope_is_refused_and_starts_no_handoff(self):
+        upstream = ScriptedUpstream()
+        self._cleanups.callback(upstream.close)
+        port = free_port()
+        root, ctx, _owned_processes = self._installed_fixture(
+            release="1.0.25", port=port, upstream_url=upstream.base_url()
+        )
+        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        self._cleanups.callback(lambda: terminate_process(old))
+        upstream.start()
+
+        raw = json.dumps(installed_expected_metadata(ctx, "txn-stalled-envelope")).encode()
+        request = (
+            f"POST /control/handoff HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+            f"Content-Type: application/json\r\nContent-Length: {len(raw)}\r\n\r\n"
+        ).encode() + raw[:-1]
+        bound = handoff_protocol.HANDOFF_CONTROL_RECEIVE_TIMEOUT_SECONDS
+        with socket.create_connection(("127.0.0.1", port), timeout=bound + 5) as controller:
+            begin = time.monotonic()
+            controller.sendall(request)
+            with http.client.HTTPResponse(controller) as response:
+                response.begin()
+                elapsed = time.monotonic() - begin
+                assert response.status == 408
+                assert response.headers["Connection"] == "close"
+
+        assert bound <= elapsed < bound + 3
+        status_code, health = http_json(port, "/healthz", timeout=3)
+        assert status_code == 200
+        assert health.get("pid") == old.pid
+        assert process.verified_proxy_listener_pids(ctx) == [old.pid]

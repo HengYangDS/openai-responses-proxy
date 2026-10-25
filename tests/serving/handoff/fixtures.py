@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import errno
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -230,7 +231,8 @@ def fake_handler(body: dict[str, object], *, mocker):
     handler = mocker.Mock()
     handler.client_address = ("127.0.0.1", 51234)
     handler.headers = {"Content-Length": str(len(payload)), "Host": "127.0.0.1:8792"}
-    handler.rfile.read.return_value = payload
+    handler.connection.gettimeout.return_value = None
+    handler.rfile = io.BytesIO(payload)
     return handler
 
 

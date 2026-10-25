@@ -159,36 +159,7 @@ def _read_responses_body(handler: BaseHTTPRequestHandler) -> tuple[bytes | None,
         return None, "invalid_content_length"
     if length > _SETTINGS.request_body_max_bytes:
         return None, "request_body_too_large"
-    return _read_bounded_body(handler, length)
-
-
-def _read_bounded_body(handler: BaseHTTPRequestHandler, length: int) -> tuple[bytes | None, str]:
-    """Spend one body deadline without reading beyond the declared frame."""
-    deadline = time.monotonic() + _SETTINGS.request_body_timeout
-    connection = handler.connection
-    previous_timeout = connection.gettimeout()
-    body = bytearray()
-    try:
-        while len(body) < length:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return None, "request_body_timeout"
-            connection.settimeout(
-                remaining if previous_timeout is None else min(previous_timeout, remaining)
-            )
-            chunk = handler.rfile.read1(min(length - len(body), 64 * 1024))
-            if not chunk:
-                return None, "incomplete_request_body"
-            body.extend(chunk)
-        if time.monotonic() >= deadline:
-            return None, "request_body_timeout"
-    except TimeoutError:
-        return None, "request_body_timeout"
-    except OSError:
-        return None, "request_body_unreadable"
-    finally:
-        connection.settimeout(previous_timeout)
-    return bytes(body), ""
+    return admission.read_bounded_body(handler, length, _SETTINGS.request_body_timeout)
 
 
 def _relay_catalog(
