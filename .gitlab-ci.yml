@@ -1,7 +1,7 @@
 source-and-governance:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise@sha256:f01b88463f3a8396b2273d88469bd09d097aa3cacfe343177eb5457f1d8d2a92
+    name: ghcr.io/jdx/mise@sha256:6bd2515bf27389f537921fc8c3e5a6579f15cf889a63a8432dc542670174e50a
     entrypoint:
       - ""
   tags:
@@ -97,7 +97,7 @@ verify-performance:
 source-and-governance-accepted:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise@sha256:f01b88463f3a8396b2273d88469bd09d097aa3cacfe343177eb5457f1d8d2a92
+    name: ghcr.io/jdx/mise@sha256:6bd2515bf27389f537921fc8c3e5a6579f15cf889a63a8432dc542670174e50a
     entrypoint:
       - ""
   tags:
