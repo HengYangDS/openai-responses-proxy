@@ -19,6 +19,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving import roles as serving_roles
+from tests.lifecycle.fixtures import install_context
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -203,7 +204,12 @@ class ProductInterfaceContracts:
         assert "--no-purge" not in uninstall_help
         assert "[default: False]" not in uninstall_help
 
-    def test_missing_install_inputs_are_clean_usage_errors(self, tmp_path: Path) -> None:
+    def test_missing_install_inputs_are_clean_usage_errors(self, tmp_path: Path, *, mocker) -> None:
+        # A private installation context: the operator's live installation, and a lifecycle writer
+        # holding its lock, must not decide these input errors.
+        mocker.patch.object(
+            application.runtime_context, "create", return_value=install_context(tmp_path)
+        )
         asset = tmp_path / "missing-release.tar.gz"
         trust_anchor = tmp_path / "missing-allowed-signers"
 

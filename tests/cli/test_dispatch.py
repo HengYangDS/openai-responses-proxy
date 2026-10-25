@@ -11,6 +11,7 @@ import pytest
 
 from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
+from tests.lifecycle.fixtures import install_context
 
 
 def test_source_version_requires_the_real_src_checkout_shape(tmp_path, *, mocker) -> None:
@@ -27,7 +28,12 @@ def test_frozen_and_source_release_versions_use_their_bound_owners(tmp_path, *, 
     assert application._release_version() == "2.0.8"
 
 
-def test_internal_dispatch_argument_contracts_fail_closed() -> None:
+def test_internal_dispatch_argument_contracts_fail_closed(tmp_path, *, mocker) -> None:
+    # A private installation context: the operator's live installation, and a lifecycle writer
+    # holding its lock, must not decide this argument contract.
+    mocker.patch.object(
+        application.runtime_context, "create", return_value=install_context(tmp_path)
+    )
     cases = (
         (
             "install",
