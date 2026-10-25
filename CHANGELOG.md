@@ -8,6 +8,28 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.8] - 2026-10-25
+
+### Security
+
+- Bundle `certifi` 2026.10.23, whose trust store no longer contains the
+  `emSign Root CA - C1` and `emSign ECC Root CA - C3` roots; the bundled store
+  now has 118 roots. 5.1.0 had already removed `emSign ECC Root CA - G3`.
+
+### Changed
+
+- Refresh the locked developer tools and CI inputs to their current stable
+  releases: Ruff 0.17.2, ty 0.0.91, OpenSpec 1.15.0, mise-action 5.2.3, the
+  GitLab Mise 2026.10.19 image and the current `python:3.14.9-bookworm` Linux
+  release image.
+
+### Fixed
+
+- Bound the receipt of a handoff control request. A controller that declared a
+  body and stopped sending it held its listener handler until it disconnected;
+  the proxy now reads the envelope within five seconds, answers HTTP 408 and
+  closes the connection without starting a handoff.
+
 ## [5.1.7] - 2026-10-25
 
 ### Changed
