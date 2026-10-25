@@ -280,18 +280,16 @@ structured HTTP failure.
 - **AND** an expired resolution starts no socket or request, failed address
   sockets close, and TLS retains the selected trust store and hostname checking
 - **AND** the exchange waits for native address resolution only within that
-  budget: at most four resolver threads run lookups, exchanges that need the
-  same address share one lookup, and a lookup that outlives its waiters ends on
-  its thread without holding an exchange, an upstream connection or an
-  admission slot.
+  budget; at most four resolver threads run lookups, exchanges for one address
+  share a lookup, and a lookup that outlives its waiters holds no exchange,
+  upstream connection or admission slot.
 
 #### Scenario: A client stops reading the response
 
 - **WHEN** the downstream client stops reading while the proxy writes the
   status, headers, events or terminator of one exchange
-- **THEN** each write uses only the exchange's remaining budget, and at the
-  deadline the proxy closes the downstream connection and releases the upstream
-  connection and the admission slot
+- **THEN** each write uses only the remaining budget; at the deadline the proxy
+  closes both connections and releases the admission slot
 - **AND** a structured failure that starts after the deadline has one short
   write budget of one second instead of an unbounded wait.
 
@@ -305,20 +303,14 @@ structured HTTP failure.
   budget
 - **AND** at most eight idle connections are kept per address, and a partly
   read, abandoned or failed response closes its connection
-- **AND** a request whose send fails on a reused connection is sent once more
-  on a new connection; a send that fails on a new connection, and any failure
-  after a request was sent, is not retried.
 
 #### Scenario: The upstream may have accepted a request whose response was lost
 
-- **WHEN** the upstream connection closes, resets or returns a malformed reply
-  after the proxy sent the complete request, or an uncommitted stream ends
-  before content without a `response.failed` event
-- **THEN** the proxy SHALL NOT send that request again, on any connection or
-  Provider
-- **AND** it SHALL return one `502` failure with code `upstream_outcome_unknown`
-- **AND** a failure before the request was complete, a classified HTTP error
-  status and a pre-content `response.failed` keep their bounded recovery.
+- **WHEN** the connection fails after the complete request was sent, or an
+  uncommitted stream ends before content without `response.failed`
+- **THEN** the proxy returns one `502 upstream_outcome_unknown` and does not
+  send that request again; after a connection failure, only a request that was
+  not sent completely is retried.
 
 #### Scenario: Output is malformed after downstream commitment
 
