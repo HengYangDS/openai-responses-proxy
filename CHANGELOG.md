@@ -8,6 +8,31 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.7] - 2026-10-25
+
+### Changed
+
+- An uncommitted stream that ends before any content without a
+  `response.failed` event is no longer reopened. The upstream had accepted the
+  request and may still be working on it, so the proxy returns
+  `502 upstream_outcome_unknown` and the client decides whether to retry the
+  turn. A pre-content `response.failed` is still reopened.
+
+### Fixed
+
+- Never send a request again after the upstream received it completely. 5.1.6
+  retried every transport failure, so a connection that closed before the
+  response headers sent the same request again, which can duplicate provider
+  work and billing. The proxy now returns `502 upstream_outcome_unknown`;
+  connection, DNS, TLS and send failures before the request was complete are
+  still retried.
+- Send AIHubMix requests to its documented API endpoint
+  `https://api.inferera.com/v1`, the endpoint AIGW declares, instead of
+  `https://aihubmix.com/v1`.
+- Describe idle connection reuse accurately: an idle connection is reused only
+  while it is at most 30 seconds old, and an older one is closed when it is
+  next needed, not after 30 seconds.
+
 ## [5.1.6] - 2026-10-24
 
 ### Changed
