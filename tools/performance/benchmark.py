@@ -6,18 +6,32 @@ import contextlib
 import http.client
 import io
 import json
+import os
+import subprocess
 import threading
+import time
 import urllib.request
 from collections.abc import Generator
+from collections.abc import Mapping
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from typing import override
 
+import psutil
 import pyperf
 
+from openai_responses_proxy.lifecycle import runtime_spec
+from openai_responses_proxy.lifecycle.supervision import process as process_owner
+from openai_responses_proxy.lifecycle.supervision import watchdog
 from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
 from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import entrypoint
+from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving import inventory
+from openai_responses_proxy.serving import roles
 from openai_responses_proxy.serving.handoff.protocol import read_control_message
 from openai_responses_proxy.serving.handoff.protocol import write_control_message
 
@@ -30,6 +44,8 @@ _STREAM_FIRST_EVENTS = (
 # Bounds how long the upstream withholds its terminal event; a relay that waited
 # for upstream completion would deliver its first event only after this.
 _FIRST_EVENT_HOLD_SECONDS = 5.0
+# Bounds one packaged launch; a cold host can need seconds before it binds.
+_STARTUP_DEADLINE_SECONDS = 30.0
 _LARGE_RESPONSE = json.dumps(
     {"id": "response", "status": "completed", "output": [{"text": "x" * (1024 * 1024)}]},
     separators=(",", ":"),
@@ -192,25 +208,124 @@ def _environment() -> Generator[_Environment]:
         environment.close()
 
 
-def _startup_to_ready() -> None:
-    registry = provider_registry.Registry(
-        {"dmxapi": provider_registry.Profile("dmxapi", "https://example.invalid/v1")}
+@dataclass(frozen=True, slots=True)
+class _PackagedListener:
+    """The private packaged generation that startup-to-ready launches."""
+
+    executable: Path
+    port: int
+    expected: Mapping[str, str]
+
+
+def _private_listener() -> _PackagedListener:
+    """Resolve the session's private selected generation as the product does.
+
+    Only an explicit private installation is admitted, so the benchmark can never
+    launch a listener of the operator's installed product.
+    """
+    home = os.environ.get(runtime_config.HOME_ENV, "")
+    if not os.path.isabs(home):
+        raise RuntimeError(
+            "startup-to-ready requires the performance session's private installation"
+        )
+    root = Path(home)
+    selection = identity.read_payload_selection(root / identity.PAYLOAD_SELECTOR_FILENAME)
+    executable = Path(
+        root,
+        identity.PAYLOAD_GENERATIONS_DIRNAME,
+        selection.active,
+        inventory.executable_name(windows=os.name == "nt"),
+    ).resolve(strict=True)
+    committed = identity.committed_payload(executable)
+    if committed is None:
+        raise RuntimeError("the private packaged generation is not a committed payload")
+    settings = runtime_spec.environment(runtime_spec.from_executable(executable))
+    return _PackagedListener(
+        executable, int(settings[runtime_config.PROXY_PORT_ENV]), committed.handoff()
     )
-    server = entrypoint.create_server(("127.0.0.1", 0), providers=registry)
-    thread = threading.Thread(
-        target=server.serve_forever,
-        kwargs={"poll_interval": 0.001},
-        daemon=True,
-    )
-    thread.start()
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _startup_to_ready(loops: int) -> float:
+    """Return the time ``loops`` packaged listener launches take to serve health."""
+    listener = _private_listener()
+    return sum(_observe_startup(listener) for _ in range(loops))
+
+
+def _observe_startup(listener: _PackagedListener) -> float:
+    """Time one launch from process creation through its first complete health body.
+
+    The listener starts exactly as the watchdog starts it. Identity checks and
+    teardown run after the clock stops, and every launched process is retired.
+    """
+    started = pyperf.perf_counter()
+    child = watchdog.spawn_proxy(str(listener.executable))
+    if child is None:
+        raise RuntimeError("the packaged listener did not start")
     try:
-        with opener.open(f"http://127.0.0.1:{server.server_address[1]}/healthz") as response:
-            response.read()
+        body = _first_health(child, listener.port)
+        elapsed = pyperf.perf_counter() - started
+        health: object = json.loads(body)
+        if (
+            not isinstance(health, dict)
+            or not identity.runtime_payload_matches(health, listener.expected)
+            or health.get("pid") != child.pid
+        ):
+            raise RuntimeError("health came from another listener or payload")
+        return elapsed
     finally:
-        server.shutdown()
-        server.server_close()
-        thread.join()
+        _retire(child, listener.executable)
+
+
+def _first_health(child: subprocess.Popen[bytes], port: int) -> bytes:
+    """Return the first complete successful health body of one launched listener."""
+    deadline = time.monotonic() + _STARTUP_DEADLINE_SECONDS
+    while True:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.05)
+        try:
+            connection.request("GET", "/healthz", headers={"Connection": "close"})
+            response = connection.getresponse()
+            body = response.read()
+            if response.status == 200:
+                return body
+        except (OSError, http.client.HTTPException):
+            pass
+        finally:
+            connection.close()
+        if child.poll() is not None:
+            raise RuntimeError("the packaged listener exited before serving health")
+        if time.monotonic() >= deadline:
+            raise TimeoutError("the packaged listener did not serve health before its deadline")
+        time.sleep(0.001)
+
+
+def _retire(child: subprocess.Popen[bytes], executable: Path) -> None:
+    """Retire one launched listener and its descendants through the process owner.
+
+    A process the owner cannot capture is stopped through its launch handle and
+    reported, so cleanup failure cannot pass as a measurement.
+    """
+    captured: list[process_owner.OwnedProcess] = []
+    if child.poll() is None:
+        descendants = [child.pid]
+        with contextlib.suppress(psutil.Error):
+            descendants += [item.pid for item in psutil.Process(child.pid).children(recursive=True)]
+        for pid in descendants:
+            owned = process_owner.capture_executable(
+                pid, str(executable), roles={roles.LISTENER_MODE}
+            )
+            if owned is not None:
+                captured.append(owned)
+        if not any(owned.pid == child.pid for owned in captured):
+            child.kill()
+            child.wait(timeout=5)
+            raise RuntimeError(
+                "packaged listener ownership is unproved; its launch handle stopped it"
+            )
+    for owned in reversed(captured):
+        process_owner.terminate_owned_process(owned, timeout_seconds=5.0)
+    child.wait(timeout=5)
+    if any(process_owner.owned_process_alive(owned) for owned in captured):
+        raise RuntimeError("a packaged listener process remains after teardown")
 
 
 def _handoff_round_trip() -> dict[str, object]:
@@ -229,7 +344,7 @@ def main() -> None:
     )
     runner.bench_func("provider-route-resolution", registry.resolve, "/dmxapi/v1/responses")
     runner.bench_func("responses-projection-4kib", sanitize_responses_body, _REQUEST_BODY)
-    runner.bench_func("startup-to-ready", _startup_to_ready)
+    runner.bench_time_func("startup-to-ready", _startup_to_ready)
     runner.bench_func("handoff-control-round-trip", _handoff_round_trip)
     with _environment() as environment:
         runner.bench_func("health-status", environment.health)

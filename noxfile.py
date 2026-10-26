@@ -6,6 +6,8 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
+import socket
 import sys
 import tomllib
 from pathlib import Path
@@ -15,6 +17,8 @@ from types import ModuleType
 import nox
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle import candidate as payload_candidate
+from openai_responses_proxy.lifecycle import context as runtime_context
 
 ROOT = Path(__file__).parent.resolve()
 
@@ -111,16 +115,21 @@ def quality(session: nox.Session) -> None:
 
 @nox.session(python=RELEASE_PYTHON)
 def performance(session: nox.Session) -> None:
-    """Measure deterministic product overhead and emit machine-readable evidence."""
-    _prepare_product_session(session)
+    """Measure deterministic product overhead and emit machine-readable evidence.
+
+    Startup readiness launches the native candidate that the release sessions
+    build, from one private installed generation that the session retires.
+    """
+    _work, _bundle, executable = _build_native_candidate(session)
     output = Path(session.posargs[0] if session.posargs else session.create_tmp()).resolve()
     output.mkdir(parents=True, exist_ok=True)
     benchmark_log = output / "benchmark.log"
-    environment = {
-        **_environment(),
-        product_identity.environment_name("HOME"): str(output / "payload"),
-        product_identity.environment_name("STATE_HOME"): str(output / "state"),
+    home, state = output / "payload", output / "state"
+    private = {
+        product_identity.environment_name("HOME"): str(home),
+        product_identity.environment_name("STATE_HOME"): str(state),
     }
+    environment = {**_environment(), **private}
     execution = tomllib.loads(PERFORMANCE_POLICY.read_text(encoding="utf-8"))["execution"]
     common = [
         "--quiet",
@@ -132,28 +141,45 @@ def performance(session: nox.Session) -> None:
         str(execution["warmups"]),
         "--min-time",
         str(execution["minimum_time_seconds"]),
+        # pyperf workers keep only a minimal environment unless told otherwise.
+        "--inherit-environ",
+        ",".join(private),
         "--output",
     ]
-    with benchmark_log.open("w", encoding="utf-8") as log:
-        session.run(
-            "python",
-            "-m",
-            "tools.performance.benchmark",
-            *common,
-            str(output / "latency.json"),
-            env=environment,
-            stderr=log,
-        )
-        session.run(
-            "python",
-            "-m",
-            "tools.performance.memory",
-            "--track-memory",
-            *common,
-            str(output / "memory.json"),
-            env=environment,
-            stderr=log,
-        )
+    ctx = verification.install_private_generation(
+        verification.private_installation(home, state),
+        executable,
+        port=_free_loopback_port(),
+        release=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
+        providers=_PERFORMANCE_PROVIDERS,
+        receipt=b'{"performance":"startup-to-ready"}\n',
+    )
+    try:
+        # A newly copied frozen payload can pay a one-time host assessment
+        # before its first launch; pay it outside every measurement.
+        payload_candidate.prewarm(ctx)
+        with benchmark_log.open("w", encoding="utf-8") as log:
+            session.run(
+                "python",
+                "-m",
+                "tools.performance.benchmark",
+                *common,
+                str(output / "latency.json"),
+                env=environment,
+                stderr=log,
+            )
+            session.run(
+                "python",
+                "-m",
+                "tools.performance.memory",
+                "--track-memory",
+                *common,
+                str(output / "memory.json"),
+                env=environment,
+                stderr=log,
+            )
+    finally:
+        _retire_private_installation(session, ctx, home)
     session.run(
         "python",
         "-m",
@@ -166,6 +192,26 @@ def performance(session: nox.Session) -> None:
         str(output / "memory.json"),
         env=environment,
     )
+
+
+_PERFORMANCE_PROVIDERS = 'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\npolicy = "dmxapi"\n'
+
+
+def _free_loopback_port() -> int:
+    """Return a loopback port that is free now for one private listener."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+def _retire_private_installation(
+    session: nox.Session, ctx: runtime_context.RuntimeContext, home: Path
+) -> None:
+    """Prove that no private listener outlived the measurements, then remove its payload."""
+    leftover = verification.private_processes(ctx)
+    if leftover:
+        session.error(f"private packaged listeners outlived the performance session: {leftover}")
+    shutil.rmtree(home)
 
 
 @nox.session(python=False)

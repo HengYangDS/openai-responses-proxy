@@ -97,3 +97,41 @@ the facts it proves and SHALL NOT relabel another platform's evidence.
 - **THEN** local and remote `main` and `dev` identify the accepted object
 - **AND** merged proposal branches, remote `work/*`, draft releases, and failed
   unpublished intermediates have been removed.
+
+## MODIFIED Requirements
+
+### Requirement: Performance claims are reproducible and budgeted
+
+The product SHALL publish deterministic local benchmarks and reviewed budgets
+for request-path and lifecycle overhead. Performance acceptance SHALL use
+machine-readable repeated measurements isolated from third-party network
+latency. A passing functional suite SHALL NOT be described as performance
+optimization evidence.
+
+#### Scenario: Proxy data path is measured
+
+- **WHEN** performance acceptance runs
+- **THEN** startup readiness, non-streaming overhead, streaming first-event
+  overhead, sustained forwarding, large-payload memory, route resolution, and
+  protocol transformation SHALL be measured over declared payload sizes
+- **AND** results SHALL include repeated samples and percentile or distribution
+  evidence
+- **AND** the benchmark upstream SHALL be deterministic and local.
+
+#### Scenario: Performance regresses
+
+- **WHEN** a measured metric exceeds its reviewed budget or allowed baseline
+  delta
+- **THEN** the gate SHALL fail with the exact metric and comparison
+- **AND** profiling SHALL identify the bottleneck before implementation changes
+- **AND** correctness, security, portability, and lifecycle guarantees SHALL not
+  be weakened to recover the number.
+
+#### Scenario: Startup readiness is measured on the packaged product
+
+- **WHEN** performance acceptance measures startup readiness
+- **THEN** it SHALL launch the native candidate's listener from one private
+  installed generation, as the product's supervisor starts it, and time it from
+  process creation through the first complete successful health response
+- **AND** identity checks and teardown SHALL stay outside the measured interval,
+  and every launched process SHALL be proven gone before the result counts.

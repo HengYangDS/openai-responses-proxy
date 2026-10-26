@@ -7,7 +7,6 @@ import hashlib
 import io
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -25,9 +24,7 @@ from typing import override
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
-from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
-from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.relay import admission as runtime_state_module
 from openai_responses_proxy.serving import entrypoint as entrypoint_module
@@ -397,37 +394,14 @@ def write_installed_payload(
     root: Path, *, release: str, port: int, upstream_url: str
 ) -> runtime_context.RuntimeContext:
     """Build one selector-bound temporary generation without touching source."""
-    control = install_context(root, windows=os.name == "nt")
-    ctx = generation.context(control, "0" * 32)
-    ctx.port = port
-    verification.retain_context(ctx)
-    install_dir = Path(ctx.payload_dir)
-    source = Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"])
-    target = Path(ctx.executable)
-    # Preserve executable modes, not host-local extended metadata. On macOS,
-    # copy2 propagates provenance attributes to every frozen-runtime file and
-    # turns each isolated test copy into a fresh Gatekeeper scan. Published
-    # archives do not carry those checkout-local attributes.
-    shutil.copytree(source.parent, target.parent, copy_function=shutil.copy)
-    provider_manifest = install_dir / inventory.PROVIDER_MANIFEST
-    provider_manifest.write_text(
-        f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n',
-        encoding="utf-8",
+    ctx = verification.install_private_generation(
+        install_context(root, windows=os.name == "nt"),
+        Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"]),
+        port=port,
+        release=release,
+        providers=f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n',
+        receipt=b'{"fixture":"handoff-subprocess"}\n',
     )
-    receipt = install_dir / inventory.RELEASE_RECEIPT_FILENAME
-    receipt.write_bytes(b'{"fixture":"handoff-subprocess"}\n')
-    files = [provider_manifest, *(path for path in target.parent.rglob("*") if path.is_file())]
-    manifest = projection.manifest_for_digests(
-        release,
-        {
-            path.relative_to(install_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in files
-        },
-        hashlib.sha256(receipt.read_bytes()).hexdigest(),
-    )
-    projection.payload_manifest_path(ctx).write_bytes(projection.manifest_bytes(manifest))
-    runtime_spec.write(ctx)
-    generation.select(control, active="0" * 32, predecessor=None)
     # Exercise the same installed-candidate admission as the product. A copied
     # frozen macOS payload can incur its one-time trust-cache startup before
     # any application log exists; paying that bounded cost here keeps the

@@ -12,9 +12,10 @@ import pytest
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import context as runtime_context
+from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
-from tests.serving.handoff import fixtures as handoff_fixtures
 from tests.serving.handoff.fixtures import terminate_owned_proxy
 from tests.serving.handoff.fixtures import write_installed_payload
 from tests.serving.handoff.subprocess import fixtures as subprocess_fixtures
@@ -223,8 +224,8 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
     assert observed == [ctx]
     assert ctx.port == 43210
     assert Path(ctx.executable).is_file()
-    manifest = json.loads(handoff_fixtures.projection.payload_manifest_path(ctx).read_bytes())
+    manifest = json.loads(projection.payload_manifest_path(ctx).read_bytes())
     assert manifest["files"]["bin/_internal/runtime.dat"]
-    selection = handoff_fixtures.generation.read(ctx)
+    selection = generation.read(ctx)
     assert selection is not None
     assert selection.active == "0" * 32

@@ -71,6 +71,9 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
         name, function, 1, *arguments
     )
     factory = mocker.patch.object(benchmark.pyperf, "Runner", return_value=runner)
+    # Packaged startup needs the performance session's private installation;
+    # its observation has its own tests.
+    startup = mocker.patch.object(benchmark, "_startup_to_ready", return_value=0.5)
     if mode == "latency":
         benchmark.main()
         assert set(recorded) == {
@@ -83,6 +86,8 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
             "streaming-first-event",
             "forwarding-1mib",
         }
+        runner.bench_time_func.assert_any_call("startup-to-ready", startup)
+        startup.assert_called_once_with(1)
         assert recorded["non-streaming-request"] == benchmark._SMALL_RESPONSE
         assert 0 < recorded["streaming-first-event"] < benchmark._FIRST_EVENT_HOLD_SECONDS
         assert recorded["handoff-control-round-trip"]["phase"] == "ready"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -22,11 +23,14 @@ from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
+from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import uninstall
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
@@ -215,6 +219,71 @@ def owned_process_contexts(
     for owned_ctx in contexts:
         unique.setdefault(owned_ctx.executable, owned_ctx)
     return tuple(unique.values())
+
+
+def private_installation(home: Path, state: Path) -> runtime_context.RuntimeContext:
+    """Project a private installation whose data and state roots the caller owns."""
+    windows = os.name == "nt"
+    return runtime_context.RuntimeContext(
+        user_home=str(home.parent),
+        install_dir=str(home),
+        executable=inventory.installed_executable(str(home), windows=windows),
+        command=str(home.parent / "commands" / product_identity.executable_name(windows=windows)),
+        log_dir=str(state),
+    )
+
+
+def install_private_generation(
+    control_ctx: runtime_context.RuntimeContext,
+    source: Path,
+    *,
+    port: int,
+    release: str,
+    providers: str,
+    receipt: bytes,
+) -> runtime_context.RuntimeContext:
+    """Install one built native bundle as the selected generation of a private root.
+
+    The bundle directory of ``source`` becomes the generation's ``bin`` with its
+    provider manifest, release receipt, payload manifest and runtime contract, so
+    the listener verifies and loads it exactly as an installed product.
+    """
+    ctx = replace(generation.context(control_ctx, "0" * 32), port=port)
+    retain_context(ctx)
+    install_dir = Path(ctx.payload_dir)
+    target = Path(ctx.executable)
+    # Preserve executable modes, not host-local extended metadata. On macOS,
+    # copy2 propagates provenance attributes to every frozen-runtime file and
+    # turns each isolated copy into a fresh Gatekeeper scan. Published archives
+    # do not carry those checkout-local attributes.
+    shutil.copytree(source.parent, target.parent, copy_function=shutil.copy)
+    provider_manifest = install_dir / inventory.PROVIDER_MANIFEST
+    provider_manifest.write_text(providers, encoding="utf-8")
+    (install_dir / inventory.RELEASE_RECEIPT_FILENAME).write_bytes(receipt)
+    files = [provider_manifest, *(path for path in target.parent.rglob("*") if path.is_file())]
+    manifest = projection.manifest_for_digests(
+        release,
+        {
+            path.relative_to(install_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in files
+        },
+        hashlib.sha256(receipt).hexdigest(),
+    )
+    projection.payload_manifest_path(ctx).write_bytes(projection.manifest_bytes(manifest))
+    runtime_spec.write(ctx)
+    generation.select(control_ctx, active="0" * 32, predecessor=None)
+    return ctx
+
+
+def private_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
+    """Return the processes that still run an executable of a private installation."""
+    return sorted(
+        {
+            pid
+            for owned_ctx in owned_process_contexts(ctx)
+            for pid in process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES)
+        }
+    )
 
 
 def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = None) -> None:

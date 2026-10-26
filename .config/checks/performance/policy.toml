@@ -1,6 +1,6 @@
 owner = "product-performance"
 risk_model = "unmeasured request and lifecycle overhead can degrade interactive use while functional behavior remains correct"
-measurement = "pyperf process-isolated measurements of provider resolution, Responses projection, lifecycle readiness, loopback forwarding, and peak memory without third-party network latency"
+measurement = "pyperf process-isolated measurements of provider resolution, Responses projection, packaged-listener startup to its first complete health response, loopback forwarding, and peak memory without third-party network latency"
 false_positive_cost = "host noise can move absolute latency, so review uses machine-readable distributions and explicit historical comparison rather than single-sample wall-clock assertions"
 remediation = "reproduce the regressed metric, profile its semantic owner, and remove the measured bottleneck without weakening correctness or portability"
 review_condition = "reassess workloads and budgets when production traces identify a new dominant path or three valid changes exceed the same reviewed budget"

@@ -78,6 +78,9 @@ def test_sessions_accept_built_artifacts_before_publication(
         return ""
 
     command = mocker.patch("nox.command.run", side_effect=execute)
+    # The fixture bundle is not a runnable program, so its native prewarm is
+    # replaced; the performance session still installs and retires it.
+    prewarm = mocker.patch.object(nox_configuration.payload_candidate, "prewarm")
     getattr(nox_configuration, session_name)(orchestration_session)
 
     calls = [call.args[0] for call in command.call_args_list]
@@ -120,6 +123,15 @@ def test_sessions_accept_built_artifacts_before_publication(
             "tools.performance.verify",
         ]
         assert "--track-memory" in performance[1]
+        for args in performance[:2]:
+            inherited = args[args.index("--inherit-environ") + 1].split(",")
+            assert inherited == [
+                nox_configuration.product_identity.environment_name("HOME"),
+                nox_configuration.product_identity.environment_name("STATE_HOME"),
+            ]
+        (installed,) = [call.args[0] for call in prewarm.call_args_list]
+        assert Path(installed.executable).is_relative_to(tmp_path / "assets/payload")
+        assert not (tmp_path / "assets/payload").exists(), "the private payload must be retired"
         assert performance[-1][-4:] == (
             "--latency",
             str(tmp_path / "assets/latency.json"),
