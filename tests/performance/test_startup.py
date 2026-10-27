@@ -24,11 +24,12 @@ from tools.performance import benchmark
 from tools.release import verification
 
 # A stand-in listener: it waits before binding, answers its first health
-# requests as still starting, then serves one identity on /healthz. It keeps
-# the default SIGTERM action, so its teardown does not depend on how quickly an
-# interpreter runs a Python-level signal handler.
+# requests as still starting, then serves one identity on /healthz. Like the
+# product's listener, it binds without HTTPServer's reverse-name lookup of its
+# address: on GitHub's macOS runners that lookup blocked past the health
+# deadline, before the socket listened. It keeps the default SIGTERM action.
 _LISTENER = r"""
-import http.server, json, os, sys, time
+import http.server, json, os, socketserver, sys, time
 port, bind_delay, served, starting = int(sys.argv[2]), float(sys.argv[3]), json.loads(sys.argv[4]), int(sys.argv[5])
 if bind_delay < 0:
     sys.exit(3)
@@ -46,7 +47,11 @@ class Health(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
     def log_message(self, *args):
         pass
-http.server.HTTPServer(("127.0.0.1", port), Health).serve_forever()
+class Loopback(http.server.HTTPServer):
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+Loopback(("127.0.0.1", port), Health).serve_forever()
 """
 _IDENTITY = {
     "release": "9.9.9",
@@ -58,8 +63,7 @@ _IDENTITY = {
 # watchdog runs the declared executable itself, so the launched process is the
 # one that serves health and that the process owner identifies. Started through
 # sys.executable it is not: a Windows virtual environment's launcher runs the
-# interpreter as its child, and on GitHub's macOS runners a stand-in started
-# through the framework build's stub never served health.
+# interpreter as its child.
 _INTERPRETER = Path(psutil.Process().exe())
 _LAUNCHED: list[subprocess.Popen[bytes]] = []
 
