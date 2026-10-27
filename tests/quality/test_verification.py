@@ -52,7 +52,7 @@ class TestVerificationContracts:
         pytest_config = tomllib.loads(
             (ROOT / ".config/checks/pytest/pytest.toml").read_text(encoding="utf-8")
         )["pytest"]
-        assert pytest_config["addopts"] == ["--import-mode=importlib"]
+        assert pytest_config["addopts"] == ["--import-mode=importlib", "-rs"]
         assert pytest_config["strict_config"] is True
         assert pytest_config["strict_markers"] is True
         assert pytest_config["cache_dir"] == ".cache/pytest"

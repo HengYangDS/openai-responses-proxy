@@ -1,5 +1,6 @@
 [pytest]
-addopts = ["--import-mode=importlib"]
+# Every report names each skipped case and its reason.
+addopts = ["--import-mode=importlib", "-rs"]
 strict_config = true
 strict_markers = true
 cache_dir = ".cache/pytest"

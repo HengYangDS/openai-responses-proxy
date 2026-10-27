@@ -270,7 +270,6 @@ def test_published_release_compatibility_uses_supplied_release_bytes(
     proof = session.run.call_args_list[-1]
     assert proof.args == (
         *nox_configuration.PYTEST_COMMAND,
-        "-rs",
         "tests/cli/test_interface.py",
         "tests/serving/handoff/subprocess",
         "tests/relay/native/test_recovery.py",
