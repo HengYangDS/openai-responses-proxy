@@ -54,10 +54,12 @@ _IDENTITY = {
     "release_receipt_sha256": "b" * 64,
     "manifest_sha256": "c" * 64,
 }
-# The stand-in starts through sys.executable, as Python starts its children,
-# and is identified by the interpreter image this process runs: a virtual
-# environment's link or a framework build's stub re-executes that image, and
-# the process owner identifies the image that runs.
+# The stand-in runs the interpreter image that this process runs, as the
+# watchdog runs the declared executable itself, so the launched process is the
+# one that serves health and that the process owner identifies. Started through
+# sys.executable it is not: a Windows virtual environment's launcher runs the
+# interpreter as its child, and on GitHub's macOS runners a stand-in started
+# through the framework build's stub never served health.
 _INTERPRETER = Path(psutil.Process().exe())
 _LAUNCHED: list[subprocess.Popen[bytes]] = []
 
@@ -104,7 +106,7 @@ def _launches(
     def spawn(_selected: str) -> subprocess.Popen[bytes]:
         child = subprocess.Popen(
             [
-                sys.executable,
+                str(_INTERPRETER),
                 "-c",
                 _LISTENER,
                 roles.LISTENER_MODE,
