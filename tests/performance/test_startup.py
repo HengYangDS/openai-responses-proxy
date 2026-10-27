@@ -7,11 +7,14 @@ import os
 import socket
 import subprocess
 import sys
+import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import psutil
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.runtime import config as runtime_config
@@ -21,14 +24,12 @@ from tools.performance import benchmark
 from tools.release import verification
 
 # A stand-in listener: it waits before binding, answers its first health
-# requests as still starting, then serves one identity on /healthz and, after
-# SIGTERM, waits again before exiting, so a clock that included teardown would
-# include that wait.
+# requests as still starting, then serves one identity on /healthz. It keeps
+# the default SIGTERM action, so its teardown does not depend on how quickly an
+# interpreter runs a Python-level signal handler.
 _LISTENER = r"""
-import http.server, json, os, signal, sys, time
-port, bind_delay, exit_delay, served = int(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), json.loads(sys.argv[5])
-starting = int(sys.argv[6])
-signal.signal(signal.SIGTERM, lambda *_: (time.sleep(exit_delay), os._exit(0)))
+import http.server, json, os, sys, time
+port, bind_delay, served, starting = int(sys.argv[2]), float(sys.argv[3]), json.loads(sys.argv[4]), int(sys.argv[5])
 if bind_delay < 0:
     sys.exit(3)
 time.sleep(bind_delay)
@@ -53,10 +54,23 @@ _IDENTITY = {
     "release_receipt_sha256": "b" * 64,
     "manifest_sha256": "c" * 64,
 }
-# The stand-in runs on the interpreter image this process runs, not on
-# sys.executable: a virtual environment's link or a framework build's stub can
-# re-execute another image, and the process owner identifies the image that runs.
+# The stand-in starts through sys.executable, as Python starts its children,
+# and is identified by the interpreter image this process runs: a virtual
+# environment's link or a framework build's stub re-executes that image, and
+# the process owner identifies the image that runs.
 _INTERPRETER = Path(psutil.Process().exe())
+_LAUNCHED: list[subprocess.Popen[bytes]] = []
+
+
+@pytest.fixture(autouse=True)
+def _stop_stand_ins() -> Iterator[None]:
+    """Stop every stand-in a test left running, after its assertions."""
+    yield
+    while _LAUNCHED:
+        child = _LAUNCHED.pop()
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=5)
 
 
 def _served(**overrides: object) -> dict[str, object]:
@@ -79,7 +93,6 @@ def _launches(
     monkeypatch: pytest.MonkeyPatch,
     *,
     bind_delay: float = 0.0,
-    exit_delay: float = 0.0,
     starting: int = 0,
     served: dict[str, object] | None = None,
     executable: Path | None = None,
@@ -88,16 +101,15 @@ def _launches(
     port = _free_port()
     children: list[subprocess.Popen[bytes]] = []
 
-    def spawn(selected: str) -> subprocess.Popen[bytes]:
+    def spawn(_selected: str) -> subprocess.Popen[bytes]:
         child = subprocess.Popen(
             [
-                selected,
+                sys.executable,
                 "-c",
                 _LISTENER,
                 roles.LISTENER_MODE,
                 str(port),
                 str(bind_delay),
-                str(exit_delay),
                 json.dumps(served or _served()),
                 str(starting),
             ],
@@ -107,16 +119,11 @@ def _launches(
             start_new_session=True,
         )
         children.append(child)
+        _LAUNCHED.append(child)
         return child
 
     monkeypatch.setattr(benchmark.watchdog, "spawn_proxy", spawn)
-    listener = benchmark._PackagedListener(_INTERPRETER, port, dict(_IDENTITY))
-    if executable is not None:
-        listener = benchmark._PackagedListener(executable, port, dict(_IDENTITY))
-        monkeypatch.setattr(
-            benchmark.watchdog, "spawn_proxy", lambda _selected: spawn(str(_INTERPRETER))
-        )
-    return listener, children
+    return benchmark._PackagedListener(executable or _INTERPRETER, port, dict(_IDENTITY)), children
 
 
 def _gone(child: subprocess.Popen[bytes]) -> bool:
@@ -124,9 +131,21 @@ def _gone(child: subprocess.Popen[bytes]) -> bool:
 
 
 def test_startup_stops_at_the_first_complete_health_body(monkeypatch: pytest.MonkeyPatch) -> None:
-    listener, children = _launches(monkeypatch, bind_delay=0.3, exit_delay=0.8)
+    # The stand-in binds after 0.3 s, and its teardown takes 0.8 s longer than
+    # usual: the clock must include the first and exclude the second.
+    listener, children = _launches(monkeypatch, bind_delay=0.3)
+    retire = benchmark._retire
+
+    def slow_retire(child: subprocess.Popen[bytes], executable: Path) -> None:
+        time.sleep(0.8)
+        retire(child, executable)
+
+    monkeypatch.setattr(benchmark, "_retire", slow_retire)
+    started = time.monotonic()
     elapsed = benchmark._observe_startup(listener)
-    assert 0.3 <= elapsed < 0.8, "the clock must cover startup and exclude teardown"
+    total = time.monotonic() - started
+    assert elapsed >= 0.3, "the clock must cover startup"
+    assert total - elapsed >= 0.8, "the clock must exclude teardown"
     (child,) = children
     assert _gone(child), "every launched listener must be proven gone"
 
@@ -201,6 +220,22 @@ def test_startup_refuses_a_listener_that_survives_teardown(
     listener, children = _launches(monkeypatch)
     monkeypatch.setattr(benchmark.process_owner, "owned_process_alive", lambda _owned: True)
     with pytest.raises(RuntimeError, match="remains after teardown"):
+        benchmark._observe_startup(listener)
+    assert all(_gone(child) for child in children)
+
+
+def test_startup_stops_a_listener_whose_termination_is_unproved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A termination the owner cannot prove fails the sample, and the launch
+    # handle still stops the listener, so no process outlives a failed sample.
+    listener, children = _launches(monkeypatch)
+
+    def unproved(*_arguments: object, **_options: object) -> bool:
+        raise errors.InstallError("exit is unproved")
+
+    monkeypatch.setattr(benchmark.process_owner, "terminate_owned_process", unproved)
+    with pytest.raises(errors.InstallError, match="unproved"):
         benchmark._observe_startup(listener)
     assert all(_gone(child) for child in children)
 

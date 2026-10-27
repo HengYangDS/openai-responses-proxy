@@ -301,8 +301,9 @@ def _first_health(child: subprocess.Popen[bytes], port: int) -> bytes:
 def _retire(child: subprocess.Popen[bytes], executable: Path) -> None:
     """Retire one launched listener and its descendants through the process owner.
 
-    A process the owner cannot capture is stopped through its launch handle and
-    reported, so cleanup failure cannot pass as a measurement.
+    A process the owner cannot capture, or whose termination it cannot prove, is
+    stopped through its launch handle and reported, so cleanup failure cannot
+    pass as a measurement and no listener outlives a failed sample.
     """
     captured: list[process_owner.OwnedProcess] = []
     if child.poll() is None:
@@ -321,9 +322,14 @@ def _retire(child: subprocess.Popen[bytes], executable: Path) -> None:
             raise RuntimeError(
                 "packaged listener ownership is unproved; its launch handle stopped it"
             )
-    for owned in reversed(captured):
-        process_owner.terminate_owned_process(owned, timeout_seconds=5.0)
-    child.wait(timeout=5)
+    try:
+        for owned in reversed(captured):
+            process_owner.terminate_owned_process(owned, timeout_seconds=5.0)
+        child.wait(timeout=5)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)
     if any(process_owner.owned_process_alive(owned) for owned in captured):
         raise RuntimeError("a packaged listener process remains after teardown")
 
