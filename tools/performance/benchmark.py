@@ -7,10 +7,12 @@ import http.client
 import io
 import json
 import os
+import socket
 import subprocess
 import threading
 import time
 import urllib.request
+from collections.abc import Buffer
 from collections.abc import Generator
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -46,6 +48,9 @@ _STREAM_FIRST_EVENTS = (
 _FIRST_EVENT_HOLD_SECONDS = 5.0
 # Bounds one packaged launch; a cold host can need seconds before it binds.
 _STARTUP_DEADLINE_SECONDS = 30.0
+# Bounds each wait of one health attempt, so a listener that accepted but has
+# not answered yet is asked again rather than waited on.
+_HEALTH_IDLE_SECONDS = 0.05
 _LARGE_RESPONSE = json.dumps(
     {"id": "response", "status": "completed", "output": [{"text": "x" * (1024 * 1024)}]},
     separators=(",", ":"),
@@ -277,15 +282,19 @@ def _observe_startup(listener: _PackagedListener) -> float:
 
 
 def _first_health(child: subprocess.Popen[bytes], port: int) -> bytes:
-    """Return the first complete successful health body of one launched listener."""
+    """Return the first complete successful health body of one launched listener.
+
+    One deadline bounds every attempt, including a response whose bytes keep
+    arriving within the idle limit, so no sample completes after it.
+    """
     deadline = time.monotonic() + _STARTUP_DEADLINE_SECONDS
     while True:
-        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.05)
+        connection = _HealthConnection(port, deadline)
         try:
             connection.request("GET", "/healthz", headers={"Connection": "close"})
             response = connection.getresponse()
             body = response.read()
-            if response.status == 200:
+            if response.status == 200 and time.monotonic() < deadline:
                 return body
         except (OSError, http.client.HTTPException):
             pass
@@ -296,6 +305,49 @@ def _first_health(child: subprocess.Popen[bytes], port: int) -> bytes:
         if time.monotonic() >= deadline:
             raise TimeoutError("the packaged listener did not serve health before its deadline")
         time.sleep(0.001)
+
+
+class _DeadlineSocket(socket.socket):
+    """A loopback socket whose every wait ends within the idle limit and the deadline.
+
+    http.client reads the status line, headers and body through ``recv_into``,
+    so bounding each receive bounds the whole response.
+    """
+
+    def __init__(self, deadline: float) -> None:
+        super().__init__(socket.AF_INET, socket.SOCK_STREAM)
+        self._deadline = deadline
+
+    def arm(self) -> None:
+        """Bound the next blocking operation, or fail once the deadline has passed."""
+        remaining = self._deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("the health response did not complete before its deadline")
+        self.settimeout(min(_HEALTH_IDLE_SECONDS, remaining))
+
+    @override
+    def recv_into(self, buffer: Buffer, nbytes: int = 0, flags: int = 0) -> int:
+        self.arm()
+        return super().recv_into(buffer, nbytes, flags)
+
+
+class _HealthConnection(http.client.HTTPConnection):
+    """One health request whose connection and response reads share one deadline."""
+
+    def __init__(self, port: int, deadline: float) -> None:
+        super().__init__("127.0.0.1", port)
+        self._deadline = deadline
+
+    @override
+    def connect(self) -> None:
+        sock = _DeadlineSocket(self._deadline)
+        try:
+            sock.arm()
+            sock.connect((self.host, self.port))
+        except BaseException:
+            sock.close()
+            raise
+        self.sock = sock
 
 
 def _retire(child: subprocess.Popen[bytes], executable: Path) -> None:

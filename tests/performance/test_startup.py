@@ -28,9 +28,12 @@ from tools.release import verification
 # product's listener, it binds without HTTPServer's reverse-name lookup of its
 # address: on GitHub's macOS runners that lookup blocked past the health
 # deadline, before the socket listened. It keeps the default SIGTERM action.
+# With a trickled part it sends that part eight bytes every 10 ms: each wait
+# stays within the client's idle limit, while the padded response as a whole
+# takes about six seconds.
 _LISTENER = r"""
 import http.server, json, os, socketserver, sys, time
-port, bind_delay, served, starting = int(sys.argv[2]), float(sys.argv[3]), json.loads(sys.argv[4]), int(sys.argv[5])
+port, bind_delay, served, starting, trickle = int(sys.argv[2]), float(sys.argv[3]), json.loads(sys.argv[4]), int(sys.argv[5]), sys.argv[6]
 if bind_delay < 0:
     sys.exit(3)
 time.sleep(bind_delay)
@@ -41,10 +44,25 @@ class Health(http.server.BaseHTTPRequestHandler):
         if starting > 0:
             starting -= 1
             status, body = 503, b'{"status":"starting"}'
+        if trickle:
+            self.trickle(status, body)
+            return
         self.send_response(status)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+    def trickle(self, status, body):
+        if trickle == "body":
+            body += b" " * 4800
+        head = b"HTTP/1.0 %d OK\r\nContent-Length: %d\r\n" % (status, len(body))
+        if trickle == "headers":
+            head += b"X-Padding: " + b"x" * 4800 + b"\r\n"
+        head += b"\r\n"
+        prompt, slow = (b"", head + body) if trickle == "headers" else (head, body)
+        self.wfile.write(prompt)
+        for start in range(0, len(slow), 8):
+            time.sleep(0.01)
+            self.wfile.write(slow[start:start + 8])
     def log_message(self, *args):
         pass
 class Loopback(http.server.HTTPServer):
@@ -102,6 +120,7 @@ def _launches(
     starting: int = 0,
     served: dict[str, object] | None = None,
     executable: Path | None = None,
+    trickle: str = "",
 ) -> tuple[benchmark._PackagedListener, list[subprocess.Popen[bytes]]]:
     """Return a listener whose launches start the stand-in as the watchdog would."""
     port = _free_port()
@@ -118,6 +137,7 @@ def _launches(
                 str(bind_delay),
                 json.dumps(served or _served()),
                 str(starting),
+                trickle,
             ],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
@@ -186,6 +206,22 @@ def test_startup_has_a_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
     listener, children = _launches(monkeypatch, bind_delay=30)
     with pytest.raises(TimeoutError):
         benchmark._observe_startup(listener)
+    assert all(_gone(child) for child in children)
+
+
+@pytest.mark.parametrize("trickle", ["headers", "body"])
+def test_startup_deadline_ends_a_response_that_keeps_arriving(
+    trickle: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The response would complete after about six seconds, and a check made only
+    # after reading it would reject the sample that late. The deadline has to
+    # end the read itself, and no sample completes after it.
+    monkeypatch.setattr(benchmark, "_STARTUP_DEADLINE_SECONDS", 1.5)
+    listener, children = _launches(monkeypatch, trickle=trickle)
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        benchmark._observe_startup(listener)
+    assert time.monotonic() - started < 4.0, "the deadline must end the read, not follow it"
     assert all(_gone(child) for child in children)
 
 
