@@ -10,6 +10,8 @@ import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import psutil
 import pytest
@@ -154,7 +156,47 @@ def _launches(
 
 
 def _gone(child: subprocess.Popen[bytes]) -> bool:
-    return child.returncode is not None and not psutil.pid_exists(child.pid)
+    """Whether a stand-in has exited and no process still runs under its PID.
+
+    Waiting on the PID returns at once for a process that has exited, even one
+    whose object a held launch handle keeps visible on Windows; a PID that is
+    no longer visible at all is gone as well.
+    """
+    if child.returncode is None:
+        return False
+    try:
+        psutil.Process(child.pid).wait(timeout=0)
+    except psutil.NoSuchProcess:
+        return True
+    except psutil.TimeoutExpired:
+        return False
+    return True
+
+
+@pytest.mark.parametrize(
+    ("returncode", "observed", "gone"),
+    [(None, "exited", False), (1, "exited", True), (1, "missing", True), (1, "running", False)],
+)
+def test_a_stand_in_is_gone_once_its_exit_is_observed(
+    returncode: int | None, observed: str, gone: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # On Windows the launch handle that a test holds keeps an exited process's
+    # object, so its PID can stay visible for a moment after the exit; only a
+    # process that still runs under that PID makes a stand-in not gone.
+    class _Process:
+        def __init__(self, pid: int) -> None:
+            if observed == "missing":
+                raise psutil.NoSuchProcess(pid)
+
+        def wait(self, timeout: float) -> int:
+            if observed == "running":
+                raise psutil.TimeoutExpired(timeout)
+            return 1
+
+    monkeypatch.setattr(psutil, "pid_exists", lambda _pid: observed != "missing")
+    monkeypatch.setattr(psutil, "Process", _Process)
+    child = cast("subprocess.Popen[bytes]", SimpleNamespace(returncode=returncode, pid=4321))
+    assert _gone(child) is gone
 
 
 def test_startup_stops_at_the_first_complete_health_body(monkeypatch: pytest.MonkeyPatch) -> None:
