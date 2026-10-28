@@ -252,12 +252,20 @@ def test_native_builder_preserves_the_callers_explicit_test_root(
     selected = tmp_path / "selected"
     session = mocker.Mock()
     session.posargs = [str(output), f"--basetemp={selected}"]
+    session.error.side_effect = RuntimeError
     mocker.patch.object(
         nox_configuration,
         "_build_native_candidate",
         return_value=(tmp_path, tmp_path / "bundle", tmp_path / "proxy"),
     )
     mocker.patch.object(nox_configuration, "ROOT", tmp_path)
+    # Packing names the host's release platform; pin one so that a host outside the
+    # release inventory, such as GitLab's Linux ARM64 runner, still runs this test.
+    mocker.patch.object(
+        nox_configuration.construction,
+        "platform",
+        SimpleNamespace(system=lambda: "Linux", machine=lambda: "x86_64"),
+    )
     observed = []
 
     def populate(*arguments: str, **_kwargs: object) -> None:
