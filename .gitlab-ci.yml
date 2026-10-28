@@ -1,7 +1,7 @@
 source-and-governance:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise@sha256:6bd2515bf27389f537921fc8c3e5a6579f15cf889a63a8432dc542670174e50a
+    name: ghcr.io/jdx/mise:2026.10.19-debian@sha256:9b8995abd457c975a4f5150b423f6569ee5a01960662ffa4c06c859867e59a21
     entrypoint:
       - ""
   tags:
@@ -41,8 +41,7 @@ verify-python:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
-    - apt-get install -qq -y --no-install-recommends binutils
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
     - uv sync --locked --group quality --python python --no-python-downloads
     - uv python install --no-bin $PYTHON_VERSION
@@ -65,8 +64,7 @@ verify-python-quality:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
-    - apt-get install -qq -y --no-install-recommends binutils
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
@@ -85,7 +83,7 @@ verify-performance:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
     - uv run --locked --no-sync --python python --no-python-downloads nox -s performance -- "$CI_PROJECT_DIR/.performance"
@@ -97,7 +95,7 @@ verify-performance:
 source-and-governance-accepted:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise@sha256:6bd2515bf27389f537921fc8c3e5a6579f15cf889a63a8432dc542670174e50a
+    name: ghcr.io/jdx/mise:2026.10.19-debian@sha256:9b8995abd457c975a4f5150b423f6569ee5a01960662ffa4c06c859867e59a21
     entrypoint:
       - ""
   tags:
@@ -137,8 +135,7 @@ verify-python-accepted:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
-    - apt-get install -qq -y --no-install-recommends binutils
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
     - uv sync --locked --group quality --python python --no-python-downloads
     - uv python install --no-bin $PYTHON_VERSION
@@ -161,8 +158,7 @@ verify-python-quality-accepted:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
-    - apt-get install -qq -y --no-install-recommends binutils
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
@@ -181,7 +177,7 @@ verify-performance-accepted:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
     - uv run --locked --no-sync --python python --no-python-downloads nox -s performance -- "$CI_PROJECT_DIR/.performance"
@@ -211,7 +207,7 @@ commit-admission:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
     - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
     - git -C build/runtime/ethos-source checkout --detach 92253d2a82560173f5c645cca419e5f302a11718
@@ -245,7 +241,7 @@ commit-admission-accepted:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
     - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
     - git -C build/runtime/ethos-source checkout --detach 92253d2a82560173f5c645cca419e5f302a11718
@@ -301,7 +297,7 @@ verify-accepted-source:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
     - uv sync --locked --group quality --python python --no-python-downloads
   script:
@@ -321,7 +317,7 @@ verify-promotion:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch origin main dev --tags --force --prune --prune-tags
     - uv sync --locked --group quality --python python --no-python-downloads
   script:
@@ -340,7 +336,7 @@ verify-release-tag:
     - uv tree --frozen --offline --universal --depth 0
     - uv --version
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client
+    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
     - git fetch --tags --force --prune --prune-tags origin
     - uv sync --locked --group quality --python python --no-python-downloads
     - test -f "${OPENAI_RESPONSES_PROXY_GITLAB_TAG_TRUST:-}"

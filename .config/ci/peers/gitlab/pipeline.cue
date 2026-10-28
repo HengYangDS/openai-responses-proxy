@@ -83,11 +83,13 @@ gitlab: {
 		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
 		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\""}]
 	}]
+
+	// Every bootstrapped job installs binutils: PyInstaller needs objdump wherever a session packs the product.
 	#systemBootstrap: [
 		"uv tree --frozen --offline --universal --depth 0",
 		"uv --version",
 		"apt-get update -qq",
-		"apt-get install -qq -y --no-install-recommends git openssh-client",
+		"apt-get install -qq -y --no-install-recommends git openssh-client binutils",
 	]
 	#qualityBootstrap: list.Concat([#systemBootstrap, [
 		"git fetch --tags --force --prune --prune-tags origin",
@@ -121,7 +123,6 @@ gitlab: {
 			parallel: matrix: [{PYTHON_VERSION: #RuntimeMatrix.python}]
 			variables: GIT_DEPTH: "0"
 			before_script: list.Concat([#systemBootstrap, [
-				"apt-get install -qq -y --no-install-recommends binutils",
 				"git fetch --tags --force --prune --prune-tags origin",
 				"uv sync --locked --group quality --python python --no-python-downloads",
 				"uv python install --no-bin $PYTHON_VERSION",
@@ -136,7 +137,6 @@ gitlab: {
 			image: name:          "$UV_PYTHON_FLOOR_IMAGE"
 			variables: GIT_DEPTH: "0"
 			before_script: list.Concat([#systemBootstrap, [
-				"apt-get install -qq -y --no-install-recommends binutils",
 				"git fetch --tags --force --prune --prune-tags origin",
 			]])
 			script: [

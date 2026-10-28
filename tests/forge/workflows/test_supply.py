@@ -84,21 +84,40 @@ def test_gitlab_verification_bootstrap_is_bounded_and_cached() -> None:
     assert _mapping(quality["image"]) == {"name": "$UV_PYTHON_FLOOR_IMAGE"}
     assert "python -m pip install" not in text
     assert "uv sync --locked --group quality --python python --no-python-downloads" in text
-    assert "apt-get install -qq -y --no-install-recommends binutils" in _strings(
-        quality["before_script"]
-    )
     python = _mapping(gitlab["verify-python"])
     assert "uv python install --no-bin $PYTHON_VERSION" in _strings(python["before_script"])
 
 
+def test_gitlab_bootstrapped_jobs_install_the_native_packaging_tools() -> None:
+    """Give every apt-bootstrapped GitLab job the binutils whose objdump PyInstaller needs."""
+    bootstrapped: dict[str, list[str]] = {}
+    for name, raw in _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")).items():
+        if isinstance(raw, dict):
+            script = _strings(_mapping(raw).get("before_script", []))
+            if "apt-get update -qq" in script:
+                bootstrapped[name] = script
+    expected = {"verify-performance", "verify-performance-accepted", "verify-python-quality"}
+    assert expected <= set(bootstrapped)
+    missing = [
+        name
+        for name, script in bootstrapped.items()
+        if not any(
+            line.startswith("apt-get install") and "binutils" in line.split() for line in script
+        )
+    ]
+    assert missing == []
+
+
 def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
-    """Run source policy from the immutable mise image and repository lock."""
+    """Run source policy from the immutable Debian mise image, whose shell GitLab needs."""
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
     source = _mapping(gitlab["source-and-governance"])
     toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())
 
     image = _mapping(source["image"])
-    assert re.fullmatch(r"ghcr.io/jdx/mise@sha256:[0-9a-f]{64}", _string(image["name"]))
+    assert re.fullmatch(
+        r"ghcr.io/jdx/mise:\d{4}\.\d+\.\d+-debian@sha256:[0-9a-f]{64}", _string(image["name"])
+    )
     assert image["entrypoint"] == [""]
     variables = _mapping(source["variables"])
     assert set(variables) == {"GIT_DEPTH", "MISE_ENABLE_TOOLS", "UV_CONFIG_FILE", "UV_NO_CONFIG"}
