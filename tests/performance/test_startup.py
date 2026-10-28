@@ -201,20 +201,25 @@ def test_a_stand_in_is_gone_once_its_exit_is_observed(
 
 def test_startup_stops_at_the_first_complete_health_body(monkeypatch: pytest.MonkeyPatch) -> None:
     # The stand-in binds after 0.3 s, and its teardown takes 0.8 s longer than
-    # usual: the clock must include the first and exclude the second.
+    # usual: the clock must include the first and exclude the second. Both sides
+    # read the benchmark's own high-resolution clock; on Windows time.monotonic
+    # advances in ~16 ms steps, which made the teardown look a few ms short.
     listener, children = _launches(monkeypatch, bind_delay=0.3)
     retire = benchmark._retire
+    teardown: list[float] = []
 
     def slow_retire(child: subprocess.Popen[bytes], executable: Path) -> None:
+        slept = time.perf_counter()
         time.sleep(0.8)
+        teardown.append(time.perf_counter() - slept)
         retire(child, executable)
 
     monkeypatch.setattr(benchmark, "_retire", slow_retire)
-    started = time.monotonic()
+    started = time.perf_counter()
     elapsed = benchmark._observe_startup(listener)
-    total = time.monotonic() - started
+    total = time.perf_counter() - started
     assert elapsed >= 0.3, "the clock must cover startup"
-    assert total - elapsed >= 0.8, "the clock must exclude teardown"
+    assert total - elapsed >= teardown[0] >= 0.79, "the clock must exclude teardown"
     (child,) = children
     assert _gone(child), "every launched listener must be proven gone"
 
