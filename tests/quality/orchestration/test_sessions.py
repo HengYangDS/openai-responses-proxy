@@ -132,11 +132,15 @@ def test_sessions_accept_built_artifacts_before_publication(
         (installed,) = [call.args[0] for call in prewarm.call_args_list]
         assert Path(installed.executable).is_relative_to(tmp_path / "assets/payload")
         assert not (tmp_path / "assets/payload").exists(), "the private payload must be retired"
-        assert performance[-1][-4:] == (
+        # Verification reads the identity of the installed payload that the
+        # packaged runs must name, so it is given that executable.
+        assert performance[-1][-6:] == (
             "--latency",
             str(tmp_path / "assets/latency.json"),
             "--memory",
             str(tmp_path / "assets/memory.json"),
+            "--executable",
+            str(installed.executable),
         )
     elif session_name == "quick":
         assert calls[behavior][-3:] == (

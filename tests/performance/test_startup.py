@@ -21,6 +21,7 @@ from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles
 from tools.performance import benchmark
+from tools.performance import payload
 from tools.release import verification
 
 # A stand-in listener: it waits before binding, answers its first health
@@ -342,5 +343,24 @@ def test_startup_times_one_launch_per_loop(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         benchmark, "_observe_startup", lambda selected: launches.append(selected) or 0.25
     )
-    assert benchmark._startup_to_ready(3) == pytest.approx(0.75)
+    named = benchmark._startup_metadata()
+    assert named == payload.metadata(_IDENTITY, Path(sys.executable))
+    assert benchmark._startup_to_ready(3, named) == pytest.approx(0.75)
     assert launches == [listener] * 3
+
+
+def test_startup_refuses_a_payload_that_changed_after_its_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Each run records the payload it launches; a sample of any other payload
+    # would be attributed to the wrong identity, so none is taken.
+    listener = benchmark._PackagedListener(Path(sys.executable), 1, dict(_IDENTITY))
+    monkeypatch.setattr(benchmark, "_private_listener", lambda: listener)
+
+    def launched(_selected: benchmark._PackagedListener) -> float:
+        raise AssertionError("a changed payload was launched")
+
+    monkeypatch.setattr(benchmark, "_observe_startup", launched)
+    named = {**benchmark._startup_metadata(), "payload_release": "0.0.1"}
+    with pytest.raises(RuntimeError, match="changed after its identity was recorded"):
+        benchmark._startup_to_ready(1, named)

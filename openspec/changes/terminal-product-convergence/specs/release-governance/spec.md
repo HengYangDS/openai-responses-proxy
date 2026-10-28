@@ -135,3 +135,6 @@ optimization evidence.
   process creation through the first complete successful health response
 - **AND** identity checks and teardown SHALL stay outside the measured interval,
   and every launched process SHALL be proven gone before the result counts.
+- **AND** each measured run SHALL name the committed payload identity and the
+  executable SHA-256 that its samples launched, and verification SHALL refuse a
+  run that names another payload or none.

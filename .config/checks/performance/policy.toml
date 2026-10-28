@@ -13,6 +13,9 @@ minimum_time_seconds = 0.03
 minimum_latency_samples = 48
 minimum_memory_samples = 6
 percentile = 95
+# Metrics that launch the native candidate: each of their runs names the payload
+# it launched, and verification requires that identity.
+packaged_metrics = ["startup-to-ready"]
 
 [budgets.maximum_seconds]
 provider-route-resolution = 0.000050

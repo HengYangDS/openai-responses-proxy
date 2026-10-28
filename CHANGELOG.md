@@ -8,6 +8,13 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- Name the measured native payload in performance evidence. Every
+  `startup-to-ready` run records the committed payload identity and the SHA-256
+  of the executable that it launched, and performance verification refuses a
+  run that names another payload or none.
+
 ## [5.1.8] - 2026-10-25
 
 ### Security

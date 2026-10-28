@@ -178,20 +178,24 @@ def performance(session: nox.Session) -> None:
                 env=environment,
                 stderr=log,
             )
+        # Verification reads the installed payload's identity, which every
+        # packaged run must name, so it runs before the installation is retired.
+        session.run(
+            "python",
+            "-m",
+            "tools.performance.verify",
+            "--policy",
+            str(PERFORMANCE_POLICY),
+            "--latency",
+            str(output / "latency.json"),
+            "--memory",
+            str(output / "memory.json"),
+            "--executable",
+            str(ctx.executable),
+            env=environment,
+        )
     finally:
         _retire_private_installation(session, ctx, home)
-    session.run(
-        "python",
-        "-m",
-        "tools.performance.verify",
-        "--policy",
-        str(PERFORMANCE_POLICY),
-        "--latency",
-        str(output / "latency.json"),
-        "--memory",
-        str(output / "memory.json"),
-        env=environment,
-    )
 
 
 _PERFORMANCE_PROVIDERS = 'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\npolicy = "dmxapi"\n'

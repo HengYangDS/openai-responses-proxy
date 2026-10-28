@@ -67,13 +67,15 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
 
     runner = mocker.Mock()
     runner.bench_func.side_effect = execute
-    runner.bench_time_func.side_effect = lambda name, function, *arguments: execute(
+    runner.bench_time_func.side_effect = lambda name, function, *arguments, **_options: execute(
         name, function, 1, *arguments
     )
     factory = mocker.patch.object(benchmark.pyperf, "Runner", return_value=runner)
     # Packaged startup needs the performance session's private installation;
-    # its observation has its own tests.
+    # its observation and its payload identity have their own tests.
     startup = mocker.patch.object(benchmark, "_startup_to_ready", return_value=0.5)
+    named = {"payload_release": "9.9.9"}
+    mocker.patch.object(benchmark, "_startup_metadata", return_value=named)
     if mode == "latency":
         benchmark.main()
         assert set(recorded) == {
@@ -86,8 +88,8 @@ def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) 
             "streaming-first-event",
             "forwarding-1mib",
         }
-        runner.bench_time_func.assert_any_call("startup-to-ready", startup)
-        startup.assert_called_once_with(1)
+        runner.bench_time_func.assert_any_call("startup-to-ready", startup, named, metadata=named)
+        startup.assert_called_once_with(1, named)
         assert recorded["non-streaming-request"] == benchmark._SMALL_RESPONSE
         assert 0 < recorded["streaming-first-event"] < benchmark._FIRST_EVENT_HOLD_SECONDS
         assert recorded["handoff-control-round-trip"]["phase"] == "ready"

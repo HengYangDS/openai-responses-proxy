@@ -36,6 +36,7 @@ from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles
 from openai_responses_proxy.serving.handoff.protocol import read_control_message
 from openai_responses_proxy.serving.handoff.protocol import write_control_message
+from tools.performance import payload
 
 _SMALL_RESPONSE = b'{"id":"response","status":"completed"}'
 _STREAM_RESPONSE = b'data: {"type":"response.completed"}\n\n'
@@ -250,9 +251,21 @@ def _private_listener() -> _PackagedListener:
     )
 
 
-def _startup_to_ready(loops: int) -> float:
-    """Return the time ``loops`` packaged listener launches take to serve health."""
+def _startup_metadata() -> dict[str, str]:
+    """Name the committed payload whose listener every startup-to-ready sample launches."""
     listener = _private_listener()
+    return payload.metadata(listener.expected, listener.executable)
+
+
+def _startup_to_ready(loops: int, named: Mapping[str, str]) -> float:
+    """Return the time ``loops`` launches of the named packaged payload take to serve health.
+
+    The payload is resolved and checked again for every value, so no sample of
+    a payload other than the one named in its run's metadata is taken.
+    """
+    listener = _private_listener()
+    if payload.metadata(listener.expected, listener.executable) != named:
+        raise RuntimeError("the packaged payload changed after its identity was recorded")
     return sum(_observe_startup(listener) for _ in range(loops))
 
 
@@ -402,7 +415,8 @@ def main() -> None:
     )
     runner.bench_func("provider-route-resolution", registry.resolve, "/dmxapi/v1/responses")
     runner.bench_func("responses-projection-4kib", sanitize_responses_body, _REQUEST_BODY)
-    runner.bench_time_func("startup-to-ready", _startup_to_ready)
+    startup = _startup_metadata()
+    runner.bench_time_func("startup-to-ready", _startup_to_ready, startup, metadata=startup)
     runner.bench_func("handoff-control-round-trip", _handoff_round_trip)
     with _environment() as environment:
         runner.bench_func("health-status", environment.health)
