@@ -59,8 +59,8 @@ gitlab: {
 	variables: {
 		DEBIAN_FRONTEND:                           "noninteractive"
 		OPENAI_RESPONSES_PROXY_RELEASE_TAG_REMOTE: "origin"
-		UV_PYTHON_FLOOR_IMAGE:                     "ghcr.io/astral-sh/uv:0.13.5-python3.12-trixie-slim@sha256:9b8477a5f2e2f96fa99eaecb7680c1c4c9f527926430f3b630bfb2c3641f8f20"
-		UV_PYTHON_LATEST_IMAGE:                    "ghcr.io/astral-sh/uv:0.13.5-python3.14-trixie-slim@sha256:d8e732839dfc4225a1ff698803b478b2223c05636c055d3add41ab9dbec0f315"
+		UV_PYTHON_FLOOR_IMAGE:                     "ghcr.io/astral-sh/uv:0.13.6-python3.12-trixie-slim@sha256:bf889bda77474aa50c351caf1538b855ef2b7a30add45f26ca50dcb6ade06402"
+		UV_PYTHON_LATEST_IMAGE:                    "ghcr.io/astral-sh/uv:0.13.6-python3.14-trixie-slim@sha256:637619278855a77885a94312efa7decd8479ca6cec5f959e134cbab96582821e"
 		UV_CACHE_DIR:                              "$CI_PROJECT_DIR/.cache/uv"
 		UV_PYTHON_INSTALL_DIR:                     "$CI_PROJECT_DIR/.cache/uv/python"
 		OPENAI_RESPONSES_PROXY_CI_TARGET:          "linux-arm64"
