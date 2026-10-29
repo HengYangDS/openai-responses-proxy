@@ -8,12 +8,28 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.9] - 2026-10-29
+
+### Security
+
+- Build the native release assets with CPython 3.14.10. Its `ssl` module now
+  rejects certificate chains that contain the compromised eMudhra intermediate
+  CA keys (CVE-2026-115557), and `tarfile.tar_filter()` rejects link members
+  that resolve to the destination directory itself (CVE-2026-114583). The
+  macOS and Windows assets use python-build-standalone 20261026, and Linux uses
+  the current `python:3.14.10-bookworm` image.
+
 ### Changed
 
 - Name the measured native payload in performance evidence. Every
   `startup-to-ready` run records the committed payload identity and the SHA-256
   of the executable that it launched, and performance verification refuses a
   run that names another payload or none.
+- Bundle `cyclopts` 5.3.2 and `rich-rst` 2.2.0, and refresh the locked
+  developer tools and CI inputs to their current stable releases: hatchling
+  1.33.0, pyflakes 4.1.0, pytest 9.2.0, Ruff 0.17.3, ty 0.0.94, Node 26.13.0,
+  uv 0.13.6 with both GitLab uv images, setup-uv 10.3.3, mise-action 5.2.4 and
+  the GitLab Mise 2026.10.22 image.
 
 ## [5.1.8] - 2026-10-25
 
