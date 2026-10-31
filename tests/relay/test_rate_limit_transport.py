@@ -17,6 +17,7 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.relay import wire_recovery
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
@@ -202,8 +203,8 @@ class TestRateLimitTransport(InputTransportFixture):
         )
 
         with pytest.raises(RuntimeError, match="wire recovery requires a provider policy"):
-            upstream_exchange._reject_wire_failure(exchange, "fingerprint", 2, "event", "")
-        assert not upstream_exchange._retry_wire_failure(exchange)
+            wire_recovery.reject(exchange, "fingerprint", 2, "event", "")
+        assert not wire_recovery.retry(exchange)
 
         sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
         assert upstream_exchange._transport_error(exchange, OSError("private"), 0) == "retry"

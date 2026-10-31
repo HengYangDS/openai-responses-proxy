@@ -95,24 +95,19 @@ acceptance; universal client/provider immunity is outside this increment.
 
 ### Select readable delegation before generation
 
-One released provider profile selects native or plaintext agent delivery; the
-protocol package owns the complete request/response adaptation. The plaintext
-selection aliases the reserved collaboration namespace and its explicit tool
-choice, removes only message encryption annotations before generation, and
-restores the client's native namespace after readable call content is proved.
-Only function calls regain their empty encrypted-argument marker; custom calls
-retain their native `input`. A request-local selection binds JSON, streaming
-output and replay. It preserves call content, call identities and old
-ciphertext; failures do not retry with missing messages. Client configuration
-remains with its existing owner and must align the namespace and model agent
-version. Native compaction's empty current-turn tool catalog is a valid control.
+One released provider profile selects native or plaintext agent delivery, and
+the protocol package owns the complete request/response adaptation; the
+requirement "Plaintext agent delivery is selected before generation" states its
+aliasing, annotation, restoration, ciphertext and acceptance rules. A
+request-local selection binds JSON, streaming output and replay, and failures do
+not retry with missing messages. Client configuration remains with its existing
+owner and must align the namespace and model agent version. Native compaction's
+empty current-turn tool catalog is a valid control.
 
-Acceptance uses the signed client and selected route for actual child work,
-bidirectional messages, automatic completion, followup tasks, native resume,
-compaction and exact content witnesses. Source acceptance precedes release,
-native installation, scoped client selection, original-chat acceptance and
-rollback. Old ciphertext readability is a separate unproved boundary until a
-supported decode or exact source binding establishes it.
+Source acceptance precedes release, native installation, scoped client
+selection, original-chat acceptance and rollback. Old ciphertext readability is
+a separate unproved boundary until a supported decode or exact source binding
+establishes it.
 
 ### One Change, ordered semantic closures
 
@@ -219,21 +214,19 @@ each retains its own explicitly declared tracked or pending-file semantics.
 
 Ruff owns blocking `C901` complexity across product, tools, tests and Nox. Keep
 20: the 15 probe flags ten validation, transaction and streaming owners without
-proving that splitting their invariants lowers risk. ETHOS alone owns the 512
-file-ELOC bound; do not duplicate it locally. Function ELOC includes decorators
-and excludes only comments and actual docstrings. Syntax statements count
-semicolon-separated nodes, not physical newlines. The existing audit measures
-module, class and function control depth independently; same-indent `elif` is a
-sibling. Architecture policy owns a five-block bound, matching Ruff's guidance.
-`PLR1702` is preview-only, so retain this owner until stable rather than alter
-unrelated lint semantics. Missing or invalid depth policy cannot admit source.
+proving that splitting their invariants lowers risk. ETHOS alone owns the
+file-ELOC bound, 500 since its v0.2.0-alpha.22; do not duplicate it locally.
+Function ELOC includes decorators and excludes only comments and actual
+docstrings. Syntax statements count semicolon-separated nodes, not physical
+newlines. The existing audit measures module, class and function control depth
+independently; same-indent `elif` is a sibling. Architecture policy owns a
+five-block bound, matching Ruff's guidance. `PLR1702` is preview-only, so retain
+this owner until stable rather than alter unrelated lint semantics. Missing or
+invalid depth policy cannot admit source.
 
 File-role coverage does not prove package cohesion. CLI parsing/presentation and
 lifecycle observation/mutation/locking retain separate owners, with output capture
-in one fixture. Test relocation preserves bodies and parameterization. Native
-coverage.py includes product, repository tools, Nox and unexecuted namespace
-modules; admission evaluates their declared source scopes independently, never
-substituting a product aggregate for tooling or orchestration evidence.
+in one fixture. Test relocation preserves bodies and parameterization.
 
 The terminal acceptance scopes are explicit:
 
@@ -299,8 +292,9 @@ Generic ETHOS scope, lifecycle, hook dispatch, and capability-reporting defects
 belong to ETHOS. Product policy, native tool configuration, tests, and CI remain
 this repository's responsibility and continue without waiting for ETHOS changes.
 
-Coverage.py owns discovery and executable counts; the existing admission command
-owns nonzero decisions for independent product, tooling and orchestration scopes.
+Coverage.py owns discovery and executable counts across product, repository
+tools, Nox and unexecuted namespace modules; the existing admission command owns
+nonzero decisions for independent product, tooling and orchestration scopes.
 Keep their floors and resolve gaps with meaningful tests, deletion or simpler
 responsibilities, not combined denominators or product-only green evidence.
 
@@ -402,23 +396,15 @@ there is no separate uninstall log, retry engine, or inferred recursive deletion
 Windows can reject a delete while a native image or external handle is still
 mapped after the process-exit barrier, and a later empty holder snapshot does
 not prove what held the file. The same purge owner therefore allows only native
-delete-access and sharing errors one shared five-second retry window. Each
-attempt revalidates the captured file and ancestor identities, no-follow
-regular-file access, and the journal digest; a replacement stops disposal even
-with equal bytes. No permission change, holder termination, background deletion,
-or error suppression is added, and persistent failure keeps the native cause and
-recovery authority.
+delete-access and sharing errors one shared five-second retry window, under the
+revalidation that "Native payload disposal revalidates a bounded sharing retry"
+requires. A replacement stops disposal even with equal bytes, and no background
+deletion or error suppression is added.
 
-Process termination preserves its exact failure phase and a safe native reason.
-Capture denial, generation mismatch, unreadable status, signal failure, wait
-timeout, and unreadable timeout observation remain distinct unproved outcomes,
-and none of them establishes that a process survived. Deployment preserves
-recovery authority after an unknown predecessor exit instead of rolling back
-or disposing the payload on a collapsed boolean. Existing success, proven
+Process termination keeps each unproved outcome distinct, as "Unproved process
+exit retains its exact failure phase" requires, instead of rolling back or
+disposing the payload on a collapsed boolean. Existing success, proven
 disappearance, zombie handling, identity refusal, and deadlines are unchanged.
-Test teardown records the first safe failure while continuing independent,
-already-owned processes, and an unproved exit prevents the corresponding
-payload and outer native test root from being discarded.
 
 Fresh-install failure retains its initial boundary when native cleanup or
 payload rollback also fails. Public causes stay readable; other exceptions

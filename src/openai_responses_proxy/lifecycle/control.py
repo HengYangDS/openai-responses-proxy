@@ -20,6 +20,7 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import uninstall
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.deployment import handoff
+from openai_responses_proxy.lifecycle.deployment import strategy
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.supervision.native_service import adapter
 from openai_responses_proxy.lifecycle.transaction import recovery as transaction
@@ -309,7 +310,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
             )
         raise errors.RecoveryRequiredError("complete payload recovery before reloading")
     runtime = read_runtime(ctx)
-    if not handoff.runtime_supports_handoff(runtime):
+    if not strategy.runtime_supports_handoff(runtime):
         if runtime is None and status(ctx, include_rollback=False)["state"] == "stopped":
             started = start_supervised(ctx, timeout_seconds=timeout_seconds)
             return {"state": "started", "new_pid": started["pid"]}

@@ -24,6 +24,7 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay import upstream as upstream_transport
+from openai_responses_proxy.relay import wire_recovery
 from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
@@ -331,65 +332,6 @@ def _exhaust_response_failed(exchange: Exchange) -> None:
     )
 
 
-def _reject_wire_failure(
-    exchange: Exchange, fingerprint: str, attempts: int, event: str, detail: str
-) -> None:
-    policy = exchange.profile.wire_policy
-    if policy is None:
-        raise RuntimeError("wire recovery requires a provider policy")
-    telemetry.record_counter("wire_failure_recovery_exhausted")
-    telemetry.record_failure("wire_failure_recovery_exhausted")
-    cooldown.remember_failure(
-        fingerprint,
-        capacity=policy.FAILURE_CACHE_CAPACITY,
-        cooldown_seconds=policy.FAILURE_COOLDOWN_SECONDS,
-    )
-    downstream.send_wire_failure_exhausted(exchange.handler, policy, attempts)
-    exchange.log(event, detail)
-
-
-def _retry_wire_failure(exchange: Exchange) -> bool:
-    policy = exchange.profile.wire_policy
-    if policy is None:
-        return False
-    fingerprint = policy.request_fingerprint(exchange.body)
-    telemetry.record_counter("wire_failure_retry_attempts")
-    exchange.log(
-        "wire_failure_retry",
-        f"bytes={len(exchange.attempt_body)} policy={policy.POLICY_VERSION} ",
-    )
-    try:
-        exchange_response = exchange.upstream()
-    except urllib.error.HTTPError as error:
-        try:
-            status = error.code
-        finally:
-            error.close()
-        _reject_wire_failure(
-            exchange,
-            fingerprint,
-            2,
-            "wire_failure_retry_failed",
-            f"upstream_status={status} attempts=2 ",
-        )
-        return True
-    except ExchangeDeadlineError:
-        raise
-    except Exception as error:
-        _reject_wire_failure(
-            exchange,
-            fingerprint,
-            2,
-            "wire_failure_retry_failed",
-            f"exception={operational_log.safe_exception_label(error)} attempts=2 ",
-        )
-        return True
-    telemetry.record_counter("wire_failure_retry_accepted")
-    exchange.log("wire_failure_retry_accepted")
-    exchange.response = exchange_response
-    return False
-
-
 def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int) -> str:
     try:
         payload = upstream_transport.read_body(
@@ -463,7 +405,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         exchange.pause(delay)
         return "retry"
     if wire_failure:
-        return "terminal" if _retry_wire_failure(exchange) else "accepted"
+        return "terminal" if wire_recovery.retry(exchange) else "accepted"
     if status_code == 503:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(

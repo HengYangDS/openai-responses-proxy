@@ -13,6 +13,7 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.deployment import handoff
+from openai_responses_proxy.lifecycle.deployment import strategy
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
@@ -76,8 +77,8 @@ def install(
     pid = current.get("pid")
     if type(pid) is not int:
         raise errors.InstallError("installed runtime identity is not verified")
-    strategy = handoff.deployment_strategy(current)
-    if strategy == "unsupported":
+    selected = strategy.deployment_strategy(current)
+    if selected == "unsupported":
         raise errors.InstallError(
             "installed runtime is incompatible; remove it before installing this release"
         )
@@ -96,7 +97,7 @@ def install(
         adapter=adapter,
         current=current,
         source_listener=source_listener,
-        native_generation=strategy == "native_generation",
+        native_generation=selected == "native_generation",
         runtime_reader=runtime_reader,
         timeout_seconds=timeout_seconds,
     )

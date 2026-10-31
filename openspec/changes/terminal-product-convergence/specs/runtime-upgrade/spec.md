@@ -323,6 +323,24 @@ within five seconds, and SHALL NOT read beyond its declared length.
   handoff
 - **AND** the serving listener keeps its process identity and admission.
 
+### Requirement: Retained runtime settings admit new budgets without rewrite
+
+A retained native runtime configuration that predates the Responses body,
+catalog or SSE budget fields SHALL read each absent budget's validated default
+without rewriting the file. A fresh configuration SHALL persist the selected
+budgets, and later contexts SHALL keep them despite unrelated ambient
+replacements.
+
+#### Scenario: A successor reads retained native runtime settings
+
+- **WHEN** an installed configuration predates the body, catalog or SSE budget
+  fields
+- **THEN** the reader supplies validated defaults without rewriting that file
+- **AND** a fresh installation persists the selected budgets; later contexts
+  preserve its stored values rather than taking unrelated ambient replacements
+- **AND** catalog budgets leave Responses unchanged, and upgrades retain a
+  selected SSE byte budget.
+
 ## MODIFIED Requirements
 
 ### Requirement: Recovery binds candidate, rollback, and live runtime

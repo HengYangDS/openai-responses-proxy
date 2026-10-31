@@ -9,6 +9,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff
+from openai_responses_proxy.lifecycle.deployment import strategy
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
@@ -102,7 +103,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         cases.extend((runtime, False) for runtime in unsupported)
         for runtime, supported in cases:
             with subtests.test(runtime=runtime, supported=supported):
-                assert handoff.runtime_supports_handoff(runtime) is supported
+                assert strategy.runtime_supports_handoff(runtime) is supported
 
     def test_deployment_strategy_requires_complete_identity_and_explicit_repeatability(
         self, subtests
@@ -150,7 +151,7 @@ class TestControllerHandoffWiring(HandoffFixture):
 
         for runtime, expected in cases:
             with subtests.test(runtime=runtime):
-                assert handoff.deployment_strategy(runtime) == expected
+                assert strategy.deployment_strategy(runtime) == expected
 
     def test_expected_metadata_reads_and_validates_each_release_identity(self, *, mocker):
         root = Path(self.tempdir.name)

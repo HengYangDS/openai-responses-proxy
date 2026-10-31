@@ -195,14 +195,14 @@ keep-alive request, and the original socket timeout is restored after admission.
 
 The pipeline keeps transformation and resource ownership explicit:
 
-| Stage                                 | Owner                                                         | Input and output                                                                           |
-| ------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Route and body admission              | `relay/responses.py`, `providers/registry.py`                 | HTTP request to one declared profile and bounded body, or a local failure                  |
-| Replay projection                     | `protocol/replay/projection.py`                               | Body bytes to `ProjectionResult`, including portable bytes, metrics and dependencies       |
-| Item and relationship validation      | `protocol/replay/items.py`, `protocol/replay/input.py`        | Ordered input to one policy disposition and retained dependency edges                      |
-| Delegation selection                  | `protocol/agent_delivery.py`                                  | Portable bytes and delivery mode to `PreparedRequest`, binding response restoration        |
-| Upstream exchange and recovery        | `relay/exchange.py`, `relay/upstream.py`                      | `Exchange` to `UpstreamResponse` or a terminal failure within the original deadline        |
-| Live response validation and delivery | `protocol/response.py`, `relay/downstream.py`, `relay/sse.py` | Upstream bytes to validated JSON or events, then one committed response or bounded failure |
+| Stage                                 | Owner                                                              | Input and output                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Route and body admission              | `relay/responses.py`, `providers/registry.py`                      | HTTP request to one declared profile and bounded body, or a local failure                  |
+| Replay projection                     | `protocol/replay/projection.py`                                    | Body bytes to `ProjectionResult`, including portable bytes, metrics and dependencies       |
+| Item and relationship validation      | `protocol/replay/items.py`, `protocol/replay/input.py`             | Ordered input to one policy disposition and retained dependency edges                      |
+| Delegation selection                  | `protocol/agent_delivery.py`                                       | Portable bytes and delivery mode to `PreparedRequest`, binding response restoration        |
+| Upstream exchange and recovery        | `relay/exchange.py`, `relay/wire_recovery.py`, `relay/upstream.py` | `Exchange` to `UpstreamResponse` or a terminal failure within the original deadline        |
+| Live response validation and delivery | `protocol/response.py`, `relay/downstream.py`, `relay/sse.py`      | Upstream bytes to validated JSON or events, then one committed response or bounded failure |
 
 `relay/responses.py` checks cooldown and acquires admission before upstream I/O,
 then releases the admission slot in `finally`. Each transport owner releases its

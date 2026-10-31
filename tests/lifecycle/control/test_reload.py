@@ -45,7 +45,7 @@ def _serving_installation(root: Path, *, service: str, mocker):
     native.status.return_value = service
     native.configured_executable.return_value = control_ctx.executable
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
-    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(
         control.handoff,
         "capture_source_listener",
@@ -90,7 +90,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
     native = mocker.patch.object(control, "adapter").return_value
     native.configured_executable.return_value = ctx.executable
     mocker.patch.object(control, "read_runtime", return_value=runtime)
-    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(control.projection, "verify_payload_manifest", return_value=(True, "ok"))
     mocker.patch.object(control.handoff, "expected_metadata", return_value=expected)
     mocker.patch.object(
@@ -112,7 +112,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
         "recovered_after_controller_failure": True,
     }
     mocker.patch.object(control, "read_runtime", return_value=runtime)
-    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(
         control.projection,
         "verify_payload_manifest",
@@ -127,7 +127,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
         ("rolled_back", OSError),
     ):
         mocker.patch.object(control, "read_runtime", return_value=runtime)
-        mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+        mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
         mocker.patch.object(
             control.projection,
             "verify_payload_manifest",
@@ -155,7 +155,7 @@ def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, moc
     mocker.patch.object(control.records, "read_installed", return_value={})
     mocker.patch.object(control.records, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=runtime)
-    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(
         control.projection,
         "verify_payload_manifest",
@@ -212,7 +212,7 @@ def test_status_and_reload_bound_unobservable_failures(
     native = mocker.patch.object(control, "adapter").return_value
     native.configured_executable.return_value = ctx.executable
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})
-    mocker.patch.object(control.handoff, "runtime_supports_handoff", return_value=True)
+    mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(control.projection, "verify_payload_manifest", return_value=(True, "ok"))
     mocker.patch.object(control.handoff, "expected_metadata", return_value={"transaction_id": "tx"})
     mocker.patch.object(

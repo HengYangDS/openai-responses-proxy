@@ -15,6 +15,7 @@ from nox.command import CommandFailed
 from nox.sessions import Session
 from pytest_mock import MockerFixture
 
+from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from tests.quality.fixtures import ROOT
 
 
@@ -80,7 +81,7 @@ def test_sessions_accept_built_artifacts_before_publication(
     command = mocker.patch("nox.command.run", side_effect=execute)
     # The fixture bundle is not a runnable program, so its native prewarm is
     # replaced; the performance session still installs and retires it.
-    prewarm = mocker.patch.object(nox_configuration.payload_candidate, "prewarm")
+    prewarm = mocker.patch.object(payload_candidate, "prewarm")
     getattr(nox_configuration, session_name)(orchestration_session)
 
     calls = [call.args[0] for call in command.call_args_list]

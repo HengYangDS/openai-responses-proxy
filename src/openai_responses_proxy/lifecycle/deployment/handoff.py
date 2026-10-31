@@ -18,7 +18,6 @@ import urllib.request
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
 from typing import TypeGuard
 
 from openai_responses_proxy import errors
@@ -30,111 +29,30 @@ from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
-from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 
 HANDOFF_PROTOCOL_VERSION = 2
 _MAX_BODY_BYTES = 64 * 1024
 _TRANSPORT_MARGIN_SECONDS = 1.0
-_RUNTIME_DIGEST_FIELDS = [
+RUNTIME_DIGEST_FIELDS = [
     "serving_payload_sha256",
     "release_receipt_sha256",
     "payload_manifest_sha256",
 ]
-_RUNTIME_IDENTITY_FIELDS = ["release", *_RUNTIME_DIGEST_FIELDS]
+_RUNTIME_IDENTITY_FIELDS = ["release", *RUNTIME_DIGEST_FIELDS]
 
 RuntimeSnapshot = dict[str, object]
 RuntimeReader = Callable[[runtime_context.RuntimeContext], RuntimeSnapshot | None]
-type DeploymentStrategy = Literal["handoff", "native_generation", "unsupported"]
 _LISTENER_ROLES = {serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE}
 
 
-def _fields_match(actual: RuntimeSnapshot, expected: dict[str, object]) -> bool:
+def fields_match(actual: RuntimeSnapshot, expected: dict[str, object]) -> bool:
+    """Return whether every expected runtime field holds its expected value."""
     return all(actual.get(field) == value for field, value in expected.items())
 
 
-def _positive_int(value: object) -> TypeGuard[int]:
+def positive_int(value: object) -> TypeGuard[int]:
+    """Return whether a runtime value is a positive integer and not a boolean."""
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
-
-
-def _available_transaction(state: object, transaction_id: object) -> bool:
-    if state == "idle":
-        return transaction_id is None
-    if state != "finalized":
-        return False
-    return isinstance(transaction_id, str) and bool(transaction_id)
-
-
-def runtime_supports_selected_generation_handoff(
-    runtime: RuntimeSnapshot | None,
-) -> bool:
-    """Return whether a runtime can launch the selected payload generation."""
-    if not isinstance(runtime, dict):
-        return False
-    capabilities = runtime.get("handoff_capabilities")
-    return (
-        isinstance(capabilities, list)
-        and all(isinstance(capability, str) for capability in capabilities)
-        and handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY in capabilities
-    )
-
-
-def runtime_supports_admission_preserving_handoff(
-    runtime: RuntimeSnapshot | None,
-) -> bool:
-    """Return whether selected-generation handoff keeps admission open."""
-    if not runtime_supports_selected_generation_handoff(runtime):
-        return False
-    assert isinstance(runtime, dict)
-    capabilities = runtime["handoff_capabilities"]
-    assert isinstance(capabilities, list)
-    return handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY in capabilities
-
-
-def deployment_strategy_identity_is_valid(runtime: RuntimeSnapshot | None) -> bool:
-    """Return whether runtime identity permits a lifecycle transition."""
-    if not isinstance(runtime, dict):
-        return False
-    digests_valid = all(digest.is_sha256(runtime.get(field)) for field in _RUNTIME_DIGEST_FIELDS)
-    pid = runtime.get("pid")
-    release = runtime.get("release")
-    if not all(
-        (
-            _positive_int(pid),
-            isinstance(release, str) and bool(release),
-            digests_valid,
-            _fields_match(
-                runtime,
-                {
-                    "handoff_protocol_version": HANDOFF_PROTOCOL_VERSION,
-                    "accepting": True,
-                    "draining": False,
-                },
-            ),
-        )
-    ):
-        return False
-    return _available_transaction(
-        runtime.get("handoff_state"),
-        runtime.get("handoff_transaction_id"),
-    )
-
-
-def deployment_strategy(runtime: RuntimeSnapshot | None) -> DeploymentStrategy:
-    """Select the safe deployment transition proved by runtime capabilities."""
-    if not deployment_strategy_identity_is_valid(runtime):
-        return "unsupported"
-    if runtime_supports_admission_preserving_handoff(runtime):
-        return "handoff"
-    return "native_generation"
-
-
-def runtime_supports_handoff(runtime: RuntimeSnapshot | None) -> bool:
-    """Return whether a live runtime explicitly supports selected-generation handoff."""
-    if not isinstance(runtime, dict):
-        return False
-    return deployment_strategy_identity_is_valid(
-        runtime
-    ) and runtime_supports_selected_generation_handoff(runtime)
 
 
 def capture_source_listener(
@@ -143,7 +61,7 @@ def capture_source_listener(
 ) -> process.OwnedProcess:
     """Boundedly prove one runtime process owns admission before mutation."""
     pid = runtime.get("pid")
-    if not _positive_int(pid):
+    if not positive_int(pid):
         raise errors.InstallError("installed runtime identity is not verified")
     owned = process.capture_executable(pid, ctx.executable, roles=_LISTENER_ROLES)
     if owned is None:
@@ -248,7 +166,7 @@ def post_ready(
     for key, value in loaded_response.items():
         assert isinstance(key, str)
         response_payload[key] = value
-    if not _fields_match(
+    if not fields_match(
         response_payload,
         {"ok": True, "state": "ready", "protocol_version": HANDOFF_PROTOCOL_VERSION},
     ):
@@ -258,7 +176,7 @@ def post_ready(
     if response_payload.get("transaction_id") != expected["transaction_id"]:
         raise errors.InstallError("handoff control acknowledged an unexpected transaction")
     child_pid = response_payload.get("child_pid")
-    if not _positive_int(child_pid):
+    if not positive_int(child_pid):
         raise errors.InstallError("handoff control response is missing a valid child pid")
     return response_payload
 
@@ -397,7 +315,7 @@ def request(
         timeout_seconds=timeout_seconds,
     )
     child_pid = ready["child_pid"]
-    if not _positive_int(child_pid):
+    if not positive_int(child_pid):
         raise errors.InstallError("handoff control response lost its verified child pid")
     successor = process.wait_for_executable(
         child_pid,
@@ -467,7 +385,7 @@ def resolve_after_controller_failure(
 ) -> tuple[str, RuntimeSnapshot | None]:
     """Resolve caller failure without racing listener-owned finalization."""
     old_pid = old_runtime["pid"]
-    if not _positive_int(old_pid):
+    if not positive_int(old_pid):
         return "unknown", None
     deadline = time.monotonic() + timeout_seconds + max(1.0, lease_seconds) + 5.0
     while time.monotonic() < deadline:
@@ -475,7 +393,7 @@ def resolve_after_controller_failure(
         if isinstance(runtime, dict):
             pid = runtime.get("pid")
             if (
-                _positive_int(pid)
+                positive_int(pid)
                 and pid != old_pid
                 and (
                     successor := process.capture_executable(
@@ -530,7 +448,7 @@ def _runtime_is_captured_source(
         and source_runtime.get("pid") == source_listener.pid
         and isinstance(source_runtime.get("release"), str)
         and bool(source_runtime["release"])
-        and all(digest.is_sha256(source_runtime.get(field)) for field in _RUNTIME_DIGEST_FIELDS)
+        and all(digest.is_sha256(source_runtime.get(field)) for field in RUNTIME_DIGEST_FIELDS)
         and runtime.get("pid") == source_listener.pid
         and all(
             runtime.get(field) == source_runtime.get(field) for field in _RUNTIME_IDENTITY_FIELDS
@@ -546,7 +464,7 @@ def _runtime_matches(
     """Require the transaction-complete successor identity."""
     if not isinstance(runtime, dict):
         return False
-    return identity.runtime_payload_matches(runtime, expected) and _fields_match(
+    return identity.runtime_payload_matches(runtime, expected) and fields_match(
         runtime,
         {
             "pid": child_pid,
@@ -565,7 +483,7 @@ def _old_runtime_resumed(
 ) -> bool:
     if not isinstance(runtime, dict):
         return False
-    return _fields_match(
+    return fields_match(
         runtime,
         {
             "pid": old_runtime["pid"],

@@ -45,18 +45,6 @@ or fallback SHALL reinterpret it independently.
 - **AND** valid search history leaves portable dialogue unchanged; an unmatched
   call alone does not invent an output or change the existing pending-call policy.
 
-#### Scenario: Replay contains an inline screenshot
-
-- **WHEN** image-capable input contains an HTTP(S) image URL or a nonempty,
-  strictly Base64-encoded PNG, JPEG, WebP, or GIF data URL
-- **THEN** the shared content projection preserves the original URL, detail,
-  content order, and image-only message or paired tool output
-- **AND** repeated projection and classified retries retain those image bytes without increasing
-  the omitted-image count
-- **AND** transport validation performs no filesystem access, network image
-  fetch, raster decoding, or image re-encoding. Local file references and
-  malformed image transports retain their existing disposition.
-
 #### Scenario: A running tool delivers later results
 
 - **WHEN** a function or custom-tool call already has its initial result and
@@ -142,13 +130,6 @@ SHALL own and validate these budgets independently of upstream inference.
 - **AND** a subsequent keep-alive request remains parseable; the body deadline
   does not shorten inference, streamed output or the next request.
 
-#### Scenario: A successor reads retained native runtime settings
-
-- **WHEN** an installed configuration predates body-budget fields
-- **THEN** the reader supplies validated defaults without rewriting that file
-- **AND** a fresh installation persists selected budgets; later contexts preserve
-  its stored values rather than taking unrelated ambient replacements.
-
 ### Requirement: Catalog exchanges have independent finite budgets
 
 Each model catalog GET SHALL use one validated deadline and byte limit,
@@ -175,13 +156,6 @@ all paths SHALL release upstream ownership and restore the socket timeout.
 - **THEN** its status, end-to-end headers and exact body are relayed once
 - **AND** normal HTTP completion remains distinguishable from truncation;
   catalog failures do not enter Responses admission, cooldown or recovery.
-
-#### Scenario: Native configuration predates catalog budgets
-
-- **WHEN** the reader loads a retained configuration without catalog fields
-- **THEN** validated defaults apply without rewriting the retained file
-- **AND** fresh configuration persists selected limits; later contexts retain
-  them despite unrelated ambient replacements, without changing Responses.
 
 ### Requirement: Sustained upstream unavailability does not amplify demand
 
@@ -268,9 +242,7 @@ structured HTTP failure.
   committed exchange preserves emitted bytes and closes without success
 - **AND** bounded events keep their order and exact bytes, including ciphertext;
   total stream output is not capped, and fragmented input is extended in place
-  with framing searches limited to the newly extended suffix
-- **AND** initial configuration validates the selected byte budget, upgrades
-  retain it, and older carriers receive defaults without read-time mutation.
+  with framing searches limited to the newly extended suffix.
 
 #### Scenario: Connection setup and request writes spend the original budget
 
@@ -563,13 +535,15 @@ SHALL NOT depend on provider IDs or opaque metadata.
 
 #### Scenario: Replay contains an inline screenshot
 
-- **WHEN** image-capable input contains a nonempty, strictly Base64-encoded
-  PNG, JPEG, WebP, or GIF data URL
-- **THEN** projection retains its original URL, detail, and order in dialogue
-  and paired tool-output input, including image-only content
+- **WHEN** image-capable input contains an HTTP(S) image URL or a nonempty,
+  strictly Base64-encoded PNG, JPEG, WebP, or GIF data URL
+- **THEN** the shared content projection retains its original URL, detail, and
+  order in dialogue and paired tool-output input, including image-only content
 - **AND** repeated projection and classified retries preserve the image bytes
+  without increasing the omitted-image count
 - **AND** validation performs no filesystem access, network fetch, raster
-  decoding, or image re-encoding.
+  decoding, or image re-encoding; local file references and malformed image
+  transports retain their existing disposition.
 
 #### Scenario: Classified DMX retry retains replayable input images
 
