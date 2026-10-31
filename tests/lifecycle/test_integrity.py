@@ -219,7 +219,7 @@ class TestPayloadValidation:
             transaction.activate()
             transaction.finalize({"pid": 1})
             path = Path(payload_projection.payload_manifest_path(transaction.context))
-            decoded: object = json.loads(path.read_text())
+            decoded: object = json.loads(path.read_text(encoding="utf-8"))
             assert isinstance(decoded, dict)
             assert all(isinstance(key, str) for key in decoded)
             manifest: dict[str, object] = {}

@@ -48,7 +48,7 @@ class TestPayloadProjection:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(blob.content)
         path = payload_projection._write_payload_manifest_for_fixture(ctx)
-        assert "release_receipt_sha256" not in json.loads(Path(path).read_text())
+        assert "release_receipt_sha256" not in json.loads(Path(path).read_text(encoding="utf-8"))
         assert payload_projection.verify_payload_manifest(ctx)[0]
 
     def test_manifest_detects_payload_and_aggregate_tampering(

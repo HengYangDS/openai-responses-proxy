@@ -444,7 +444,9 @@ def test_finalization_journal_omits_private_failure_details(tmp_path: Path, *, m
     journal = records.read_journal(ctx)
     assert journal["state"] == "recovery_required"
     assert journal["reason"] == "finalization failed"
-    assert "/Users/private/payload" not in Path(records.journal_path(ctx)).read_text()
+    assert "/Users/private/payload" not in Path(records.journal_path(ctx)).read_text(
+        encoding="utf-8"
+    )
 
 
 def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(

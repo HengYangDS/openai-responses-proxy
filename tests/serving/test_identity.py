@@ -95,7 +95,9 @@ class TestServiceIdentity:
         assert loaded is not None
 
         Path(ctx.executable).write_bytes(b"tampered-after-freeze")
-        manifest = json.loads(Path(projection.payload_manifest_path(ctx)).read_text())
+        manifest = json.loads(
+            Path(projection.payload_manifest_path(ctx)).read_text(encoding="utf-8")
+        )
 
         assert loaded.release == "1.2.3"
         assert loaded.serving_payload_sha256 == manifest["serving_payload_sha256"]

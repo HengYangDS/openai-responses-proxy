@@ -125,7 +125,7 @@ class TestSseRecovery(InputTransportFixture):
 
         sse.relay(MemoryHandler(), DirectResponse(raw), "/ucloud/v1/responses", 7, reopen=reopen)
 
-        logs = Path(operational_log.LOG_PATH).read_text()
+        logs = Path(operational_log.LOG_PATH).read_text(encoding="utf-8")
         assert f"upstream_request_id={request_id}" in logs
         assert "code=server_error" in logs
         assert "req=7 event=sse_upstream_failed" in logs
