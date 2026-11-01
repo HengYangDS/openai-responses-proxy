@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "openai-responses-proxy"
 dynamic = ["version"]
-description = "Local compatibility proxy for third-party OpenAI Responses APIs, preserving tool calls and readable collaboration on qualified routes, with streaming adaptation, portable replay, bounded recovery and native service lifecycle."
+description = "Local compatibility proxy between OpenAI Responses clients, such as Codex, and third-party providers: on qualified routes it keeps tool calls and collaboration messages intact and adapts streaming and replay, leaving conversation state untouched."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = "MIT"
