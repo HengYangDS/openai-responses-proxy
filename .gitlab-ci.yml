@@ -1,7 +1,7 @@
 source-and-governance:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise:2026.10.22-debian@sha256:d54a295f3df1d041e289e7643655ff771df15ce74eece5c62ef72b41c9d9a132
+    name: ghcr.io/jdx/mise:2026.10.25-debian@sha256:00a8a9d05a300e5a15a89d6d3a87ea88ec4e78c4702b78d49aa1d3250af61427
     entrypoint:
       - ""
   tags:
@@ -95,7 +95,7 @@ verify-performance:
 source-and-governance-accepted:
   stage: verify
   image:
-    name: ghcr.io/jdx/mise:2026.10.22-debian@sha256:d54a295f3df1d041e289e7643655ff771df15ce74eece5c62ef72b41c9d9a132
+    name: ghcr.io/jdx/mise:2026.10.25-debian@sha256:00a8a9d05a300e5a15a89d6d3a87ea88ec4e78c4702b78d49aa1d3250af61427
     entrypoint:
       - ""
   tags:

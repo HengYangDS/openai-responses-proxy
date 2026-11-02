@@ -13,6 +13,7 @@ static-analysis = "python-quality"
 [[proof.gates]]
 id = "python-quality"
 kind = "static"
+timeout_seconds = 900
 command = [
   "mise",
   "exec",
@@ -60,6 +61,7 @@ dependency_groups = ["quality"]
 [[proof.gates]]
 id = "python-matrix"
 kind = "test"
+timeout_seconds = 1800
 command = [
   "mise",
   "exec",
