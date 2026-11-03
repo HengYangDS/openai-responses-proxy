@@ -16,7 +16,7 @@ publication authority.
   Cyclopts 5.3.3 converts a `NewType` inside a container or union to its
   underlying type and completes a default command's positional arguments
   alongside subcommands in bash, zsh and fish. Refresh the CI inputs to their
-  current stable releases: mise-action 5.2.5 and the GitLab Mise 2026.10.25
+  current stable releases: mise-action 5.2.6 and the GitLab Mise 2026.10.25
   image.
 
 ## [5.1.9] - 2026-10-29
