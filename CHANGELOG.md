@@ -20,7 +20,7 @@ publication authority.
   and uv 0.13.7 with its GitLab images. uv 0.13.7 embeds `rustls` 0.23.46,
   which fixes `GHSA-c8m5-c952-6cm4` and three low-severity `rustls` advisories.
   Mise 2026.11.0 refuses a locked install without a recorded checksum, so the
-  Mise lock now records the checksums of taplo's release assets.
+  Mise lock now records the checksums of Taplo's release assets.
 
 ## [5.1.9] - 2026-10-29
 
