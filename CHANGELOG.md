@@ -10,11 +10,14 @@ publication authority.
 
 ### Changed
 
-- Bundle `filelock` 4.2.6. Since 4.2.4, a nested acquire of a held lock no
-  longer recreates a renamed parent directory, and the read-only reopen of a
-  lock file keeps the path that the acquisition pinned. Refresh the CI inputs
-  to their current stable releases: mise-action 5.2.5 and the GitLab Mise
-  2026.10.25 image.
+- Bundle `filelock` 4.2.7 and `cyclopts` 5.3.3. Since 4.2.4, a nested acquire
+  of a held lock no longer recreates a renamed parent directory, and the
+  read-only reopen of a lock file keeps the path that the acquisition pinned.
+  Cyclopts 5.3.3 converts a `NewType` inside a container or union to its
+  underlying type and completes a default command's positional arguments
+  alongside subcommands in bash, zsh and fish. Refresh the CI inputs to their
+  current stable releases: mise-action 5.2.5 and the GitLab Mise 2026.10.25
+  image.
 
 ## [5.1.9] - 2026-10-29
 
