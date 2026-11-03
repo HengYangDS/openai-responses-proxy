@@ -131,6 +131,42 @@ Statement and measured branch coverage must each be strictly above 95%.
 Warnings are errors. Product and development dependencies come from this
 repository's locked environment.
 
+## Dependency maintenance
+
+[Renovate](../../.config/checks/renovate/renovate.json5) is the one dependency
+proposal policy. It reads the authored manifests, locks and CUE declarations:
+`pyproject.toml` with `uv.lock`, the npm tool manifest with its lock, the Mise
+configuration with its lock, `uv.toml`, and the CUE supply contract with the
+GitLab peer's images. The generated Forge workflows are projections, so neither
+Forge's native updater owns proposals, and the repository has no Dependabot or
+Forge-discovered Renovate configuration.
+
+- npm updates wait three days, which cover npm's unpublish window. Hash-locked
+  Python packages, checksum-locked tools, and digest-pinned Actions and images
+  move at release.
+- A security fix skips the release age and the proposal queue. It still needs
+  signatures, the current-commit tests and Change admission.
+- Python packages and npm tools form separate groups. uv moves with its required
+  version and the GitLab images that carry it. The development runtime moves
+  with the release Python image and stays on Python 3.14.
+- Only minor and patch updates of stable Python packages and npm tools, at
+  version 1.0 or later, may merge automatically. Toolchains, Actions, images,
+  pre-1.0 and major versions need deliberate admission.
+- Proposals target `dev` from `proposal/dependencies/`, one at a time.
+
+A maintenance run computes candidates against one selected Forge with
+Renovate's `--dry-run=full` and publishes nothing. The Work Lane owner admits
+the exact paths, regenerates locks and projections, and signs the result.
+Publication then gives both Forges the same signed object, so they cannot hold
+competing updates of one change. Validate the policy and its offline inventory
+with the cached pinned image, which needs a local Docker engine and runs
+without network, credentials or writable source:
+
+```bash
+mise run dependencies:check
+mise run dependencies:inspect
+```
+
 ## Local-first closure
 
 A clean accepted checkout can build, verify, install, exercise, and uninstall

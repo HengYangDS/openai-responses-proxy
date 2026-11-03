@@ -1,5 +1,7 @@
 package ci
 
+import "strings"
+
 // One supply contract selects immutable executors for each peer adapter.
 #Toolchains: {
 	githubActions: {
@@ -15,8 +17,9 @@ package ci
 	quality:         "python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"
 }
 
-// Local Nox and hosted CI consume text projections of this one release runtime.
+// Local Nox and hosted CI consume text projections of this one release runtime. The image reference is its only
+// literal, so one dependency proposal moves the Python patch and the image digest together.
 #ReleaseRuntime: {
-	python:     "3.14.10"
-	linuxImage: "python:" + python + "-bookworm@sha256:a8cf203c684b61fd2676ec5a17159cf68ed38ad471481e1f4ebc4679825250bd"
+	linuxImage: "python:3.14.10-bookworm@sha256:a8cf203c684b61fd2676ec5a17159cf68ed38ad471481e1f4ebc4679825250bd"
+	python:     strings.TrimSuffix(strings.TrimPrefix(strings.SplitN(linuxImage, "@", 2)[0], "python:"), "-bookworm")
 }

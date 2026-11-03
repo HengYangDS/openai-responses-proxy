@@ -160,6 +160,7 @@ files = [
   ".config/checks/lychee/lychee.toml",
   ".config/checks/prettier/prettier.toml",
   ".config/checks/pytest/pytest.toml",
+  ".config/checks/renovate/renovate.json5",
   ".config/checks/ruff/ruff.toml",
   ".config/checks/taplo/taplo.toml",
   ".config/checks/ty/ty.toml",

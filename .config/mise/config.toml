@@ -27,6 +27,10 @@ cue = "0.17.1"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
 
+[vars]
+# The digest-pinned Renovate release that validates and inspects the dependency proposal policy.
+renovate_image = "ghcr.io/renovatebot/renovate:44.209.0@sha256:3609f05e0513fddd410666053c1a849397b57df40d68ec37fd747c7703222407"
+
 [env]
 UV_PROJECT_ENVIRONMENT = "{{config_root}}/.venv"
 VIRTUAL_ENV = false
@@ -87,3 +91,29 @@ run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s release
 [tasks.release]
 description = "Build and verify the native release asset without service registration"
 run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s release_asset'
+
+[tasks."dependencies:check"]
+description = "Validate the dependency proposal policy with the cached pinned Renovate image"
+timeout = "2m"
+run = """
+docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+  --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
+  --workdir /workspace --env HOME=/tmp \
+  --entrypoint renovate-config-validator {{vars.renovate_image}} \
+  --strict --no-global .config/checks/renovate/renovate.json5
+"""
+
+[tasks."dependencies:inspect"]
+description = "Extract the dependency inventory offline with the cached pinned Renovate image"
+timeout = "2m"
+run = """
+docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+  --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
+  --workdir /workspace --env HOME=/tmp --env RENOVATE_BASE_DIR=/tmp/renovate \
+  --env RENOVATE_CACHE_DIR=/tmp/renovate/cache \
+  --env RENOVATE_ONBOARDING=false --env RENOVATE_REQUIRE_CONFIG=ignored \
+  --env RENOVATE_GITHUB_TOKEN_WARN=false \
+  --env LOG_LEVEL=debug --env LOG_FORMAT=json \
+  --env RENOVATE_CONFIG_FILE=/workspace/.config/checks/renovate/renovate.json5 \
+  --entrypoint renovate {{vars.renovate_image}} --platform=local --dry-run=extract
+"""

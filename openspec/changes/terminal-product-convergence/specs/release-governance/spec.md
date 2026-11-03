@@ -98,6 +98,49 @@ the facts it proves and SHALL NOT relabel another platform's evidence.
 - **AND** merged proposal branches, remote `work/*`, draft releases, and failed
   unpublished intermediates have been removed.
 
+### Requirement: One dependency proposal policy
+
+The repository SHALL keep one Forge-neutral dependency proposal policy that
+reads every pinned input from its authored manifest, lock or CUE declaration,
+never from a Forge projection. A maintenance run SHALL compute candidates
+against one selected Forge, and publication SHALL give the other Forge the same
+signed object.
+
+#### Scenario: A pinned input has a newer stable release
+
+- **WHEN** a maintenance run calculates candidates
+- **THEN** exactly one rule of the one policy reads every pinned input
+- **AND** the run proposes at most one update branch at a time against `dev`.
+
+#### Scenario: A second updater is configured
+
+- **WHEN** a Dependabot configuration, a Forge-discovered Renovate
+  configuration, or a Forge job that runs an updater appears
+- **THEN** repository tests SHALL fail
+- **AND** neither Forge can open a competing update for the same change.
+
+### Requirement: Dependency updates follow release age and kind
+
+Ordinary npm updates SHALL wait the policy's release age; hash-locked,
+checksum-locked and digest-pinned inputs MAY move at release. Only minor and
+patch updates of stable dependencies MAY merge automatically; toolchains,
+Actions, images, pre-1.0 and major versions SHALL need deliberate admission.
+
+#### Scenario: A security fix is published
+
+- **WHEN** an advisory affects a locked version
+- **THEN** its fixed release is proposed without the release age and ahead of
+  queued proposals
+- **AND** admission still requires signatures, the current-commit tests and the
+  Change's approval.
+
+#### Scenario: A major or pre-1.0 update is available
+
+- **WHEN** a candidate is a major version, a pre-1.0 release, a toolchain, an
+  Action or an image
+- **THEN** the policy does not merge it automatically
+- **AND** a Work Lane admits it with its own evidence.
+
 ## MODIFIED Requirements
 
 ### Requirement: Performance claims are reproducible and budgeted

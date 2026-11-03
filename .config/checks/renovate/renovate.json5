@@ -1,0 +1,138 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "The one dependency proposal policy of this repository. A maintenance run computes candidates against one selected Forge, and the other Forge receives the same signed object through publication, so no Forge-native updater owns proposals.",
+    "Inputs are the authored manifests, locks and CUE declarations; generated Forge workflows are projections, not inputs.",
+    "The content stays strict JSON, so repository tests read it with the standard library."
+  ],
+  "enabledManagers": ["pep621", "npm", "mise", "custom.regex"],
+  "includePaths": [
+    "pyproject.toml",
+    "uv.lock",
+    "package.json",
+    "package-lock.json",
+    ".config/npm/npmrc",
+    ".config/mise/config.toml",
+    ".config/mise/mise.lock",
+    ".config/mise/uv.toml",
+    ".config/ci/graph/toolchains.cue",
+    ".config/ci/peers/gitlab/pipeline.cue"
+  ],
+  "baseBranchPatterns": ["dev"],
+  "branchPrefix": "proposal/dependencies/",
+  "dependencyDashboard": false,
+  "prConcurrentLimit": 1,
+  "branchConcurrentLimit": 1,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "build",
+  "semanticCommitScope": "toolchain",
+  "ignoreUnstable": true,
+  "minimumReleaseAge": "3 days",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "internalChecksFilter": "strict",
+  "prCreation": "immediate",
+  "rangeStrategy": "pin",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "description": "A security fix skips the release age and, natively, the proposal quota and queue; it still needs signatures, current-commit tests and Change admission.",
+    "minimumReleaseAge": "0 days",
+    "groupName": null,
+    "automerge": false,
+    "vulnerabilityFixStrategy": "highest"
+  },
+  "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "fast-forward",
+  "platformAutomerge": false,
+  "packageRules": [
+    {
+      "description": "Hash-locked Python packages and checksum-locked tools move at release; npm keeps three days, which cover its unpublish window.",
+      "matchManagers": ["pep621", "mise"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": "Digest-pinned Actions and images move at release; their current stable release still needs its own admission evidence.",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags", "github-releases", "docker"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": "CUE owns the supported Python range, 3.12 to 3.14, so no proposal edits requires-python.",
+      "matchManagers": ["pep621"],
+      "matchDepNames": ["python"],
+      "enabled": false
+    },
+    {
+      "description": "The development runtime and the release image stay on Python 3.14 and move together.",
+      "matchManagers": ["mise", "custom.regex"],
+      "matchDepNames": ["python"],
+      "allowedVersions": "<3.15",
+      "groupName": "Python release runtime"
+    },
+    {
+      "description": "uv, its required version and the GitLab images that carry it move together.",
+      "matchDepNames": ["uv", "ghcr.io/astral-sh/uv"],
+      "groupName": "uv"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": ">=1.0.0",
+      "groupName": "Python dependencies",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": ">=1.0.0",
+      "groupName": "repository tools",
+      "automerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Pinned GitHub Actions in the CUE supply contract",
+      "managerFilePatterns": ["/^\\.config/ci/graph/toolchains\\.cue$/"],
+      "matchStrings": [
+        "\"(?<depName>[\\w.-]+/[\\w.-]+)@(?<currentDigest>[a-f0-9]{40})\"\\s*//\\s*(?<currentValue>v[\\d.]+)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Pinned registry images in their declared authorities",
+      "managerFilePatterns": [
+        "/^\\.config/ci/graph/toolchains\\.cue$/",
+        "/^\\.config/ci/peers/gitlab/pipeline\\.cue$/",
+        "/^\\.config/mise/config\\.toml$/"
+      ],
+      "matchStrings": [
+        "\"(?<depName>(?:ghcr|docker)\\.io/[\\w./-]+):(?<currentValue>[\\w.-]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The release Python image in the CUE release runtime",
+      "managerFilePatterns": ["/^\\.config/ci/graph/toolchains\\.cue$/"],
+      "matchStrings": [
+        "linuxImage:\\s*\"(?<depName>python):(?<currentValue>[\\w.-]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The uv release that uv itself requires",
+      "managerFilePatterns": ["/^\\.config/mise/uv\\.toml$/"],
+      "matchStrings": ["required-version = \"==(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
+      "depNameTemplate": "uv",
+      "packageNameTemplate": "astral-sh/uv",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
+  ]
+}

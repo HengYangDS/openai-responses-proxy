@@ -96,6 +96,14 @@ rationale = "Repository Node tools and their complete transitive dependency grap
 projections = ["package.json", ".config/npm/npmrc", ".config/ci/"]
 
 [[controls]]
+id = "dependency-proposals"
+kind = "policy-parameter"
+owner = ".config/checks/renovate/renovate.json5"
+invariant = "Every dependency update proposal comes from one Forge-neutral policy that reads each pinned input from its authored owner."
+rationale = "Release ages, grouping, security handling, and auto-merge criteria form one repository policy; a Forge-native updater or a second configuration would open competing proposals."
+projections = [".config/mise/config.toml", "docs/", "tests/"]
+
+[[controls]]
 id = "ci-proof-graph"
 kind = "derived-projection"
 owner = ".config/ci/"
