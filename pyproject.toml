@@ -34,7 +34,7 @@ quality = [
   "pytest-subtests==0.15.0",
   "pyyaml==6.0.3",
   "ruff==0.17.3",
-  "ty==0.0.94",
+  "ty==0.0.96",
   "vulture==2.16",
 ]
 release = ["pyinstaller==6.22.3"]
