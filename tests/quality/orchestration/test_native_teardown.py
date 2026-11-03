@@ -27,12 +27,16 @@ def test_surviving_executor_reclaims_an_externally_killed_pytest_child(
     """Killing pytest skips its fixture cleanup, not the surviving native owner."""
     ready = tmp_path / "ready"
     source = tmp_path / "test_interrupted.py"
+    # The child publishes its readiness record by rename, so the poll below never reads a
+    # record that exists but is still empty.
     source.write_text(
         "from pathlib import Path\n"
         "from threading import Event\n"
         "def test_interrupted(tmp_path):\n"
         "    (tmp_path / 'owned.txt').write_text('owned child scratch')\n"
-        f"    Path({str(ready)!r}).write_text(str(tmp_path))\n"
+        f"    partial = Path({str(ready)!r} + '.partial')\n"
+        "    partial.write_text(str(tmp_path))\n"
+        f"    partial.replace({str(ready)!r})\n"
         "    Event().wait(60)\n",
         encoding="utf-8",
     )
