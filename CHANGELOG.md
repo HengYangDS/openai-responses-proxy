@@ -16,9 +16,11 @@ publication authority.
   Cyclopts 5.3.3 converts a `NewType` inside a container or union to its
   underlying type and completes a default command's positional arguments
   alongside subcommands in bash, zsh and fish. Refresh the CI inputs to their
-  current stable releases: mise-action 5.2.6, the GitLab Mise 2026.10.25 image,
+  current stable releases: mise-action 5.2.6, the GitLab Mise 2026.11.0 image,
   and uv 0.13.7 with its GitLab images. uv 0.13.7 embeds `rustls` 0.23.46,
   which fixes `GHSA-c8m5-c952-6cm4` and three low-severity `rustls` advisories.
+  Mise 2026.11.0 refuses a locked install without a recorded checksum, so the
+  Mise lock now records the checksums of taplo's release assets.
 
 ## [5.1.9] - 2026-10-29
 

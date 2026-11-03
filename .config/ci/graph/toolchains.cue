@@ -13,7 +13,7 @@ import "strings"
 		download: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" // v8.0.2
 	}
 	// The Debian variant carries the shell that GitLab's Docker executor runs; the scratch default has none.
-	gitlabMiseImage: "ghcr.io/jdx/mise:2026.10.25-debian@sha256:00a8a9d05a300e5a15a89d6d3a87ea88ec4e78c4702b78d49aa1d3250af61427"
+	gitlabMiseImage: "ghcr.io/jdx/mise:2026.11.0-debian@sha256:294f2f1e29c0755bca7835a26e52a99eee0522381259c0be5834eaacc07a64c6"
 	quality:         "python,uv,node,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"
 }
 

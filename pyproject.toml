@@ -22,7 +22,7 @@ openai-responses-proxy = "openai_responses_proxy.cli.application:main"
 
 [dependency-groups]
 quality = [
-  "coverage==7.17.0",
+  "coverage==7.17.1",
   "deptry==0.25.1",
   "hatchling==1.33.0",
   "nox==2026.10.20",
