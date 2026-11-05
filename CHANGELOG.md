@@ -10,7 +10,7 @@ publication authority.
 
 ### Changed
 
-- Bundle `filelock` 4.2.7 and `cyclopts` 5.3.3. Since 4.2.4, a nested acquire
+- Bundle `filelock` 4.2.8 and `cyclopts` 5.3.3. Since 4.2.4, a nested acquire
   of a held lock no longer recreates a renamed parent directory, and the
   read-only reopen of a lock file keeps the path that the acquisition pinned.
   Cyclopts 5.3.3 converts a `NewType` inside a container or union to its

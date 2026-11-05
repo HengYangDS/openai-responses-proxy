@@ -90,6 +90,7 @@ import "list"
 		}, {
 			uses: #Toolchains.githubActions.mise
 			with: {
+				version: #Toolchains.miseVersion
 				install: true
 				cache:   true
 			}
@@ -243,6 +244,7 @@ import "list"
 		}, {
 			uses: #Toolchains.githubActions.mise
 			with: {
+				version: #Toolchains.miseVersion
 				install: true
 				cache:   true
 			}

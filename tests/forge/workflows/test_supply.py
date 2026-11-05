@@ -66,6 +66,25 @@ def test_github_actions_consume_one_immutable_toolchain_catalog() -> None:
     assert projected == set(catalog)
 
 
+def test_both_peers_install_the_mise_release_of_the_gitlab_image() -> None:
+    """Install on GitHub the Mise release that GitLab's image carries, so no release arrives unannounced."""
+    source = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")["source-and-governance"])
+    image = _string(_mapping(source["image"])["name"])
+    release = re.fullmatch(r"ghcr.io/jdx/mise:(\d{4}\.\d+\.\d+)-debian@sha256:[0-9a-f]{64}", image)
+    assert release is not None, image
+    action = _string(_mapping(yaml.safe_load(render("#Toolchains.githubActions")))["mise"]).split(
+        "@", 1
+    )[0]
+    steps = [
+        step
+        for job in _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"]).values()
+        for raw_step in _sequence(_mapping(job)["steps"])
+        if _string((step := _mapping(raw_step)).get("uses", "")).split("@", 1)[0] == action
+    ]
+    assert steps
+    assert {str(_mapping(step["with"]).get("version")) for step in steps} == {release.group(1)}
+
+
 def test_gitlab_verification_bootstrap_is_bounded_and_cached() -> None:
     """Start verification from immutable UV/Python executors, not pip bootstrap."""
     text = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
@@ -189,10 +208,9 @@ def test_github_python_quality_installs_its_declared_projection_toolchain() -> N
         if str((step := _mapping(raw_step)).get("uses", "")).startswith("jdx/mise-action@")
     }
     assert mise_actions == {mise["uses"]}
-    assert _mapping(mise["with"]) == {
-        "install": "true",
-        "cache": "true",
-    }
+    assert set(_mapping(mise["with"])) == {"version", "install", "cache"}
+    assert _mapping(mise["with"])["install"] == "true"
+    assert _mapping(mise["with"])["cache"] == "true"
 
 
 @pytest.mark.repository_toolchain
