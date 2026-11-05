@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import TypeGuard
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.json_value import JsonObject
@@ -119,8 +120,7 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
         or journal.get("state")
         not in {"prepared", "materialized", "activated", "recovery_required"} | TERMINAL_STATES
         or not identity.is_payload_generation_name(transaction_id)
-        or not isinstance(version, str)
-        or _STRICT_VERSION.fullmatch(version) is None
+        or not is_version(version)
         or not digest.is_sha256(receipt_sha256)
         or type(fresh) is not bool
         or (
@@ -260,7 +260,7 @@ def read_installed(ctx: runtime_context.RuntimeContext) -> JsonObject | None:
 def require_version(state: ReadOnlyJsonObject) -> str:
     """Return a strict installed-state version."""
     version = state.get("version")
-    if not isinstance(version, str) or _STRICT_VERSION.fullmatch(version) is None:
+    if not is_version(version):
         raise errors.InstallError("installed release state version is invalid")
     return version
 
@@ -279,9 +279,14 @@ def compare_versions(left: str, right: str) -> int:
     return (versions[0] > versions[1]) - (versions[0] < versions[1])
 
 
+def is_version(value: object) -> TypeGuard[str]:
+    """Return whether a value is one strict MAJOR.MINOR.PATCH release version."""
+    return isinstance(value, str) and _STRICT_VERSION.fullmatch(value) is not None
+
+
 def version_key(value: str) -> tuple[int, int, int]:
-    """Return one strict release tuple shared by lifecycle ordering decisions."""
-    if _STRICT_VERSION.fullmatch(value) is None:
+    """Return one strict release tuple shared by lifecycle and release ordering decisions."""
+    if not is_version(value):
         raise errors.InstallError("installed release state version is invalid")
     major, minor, patch = value.split(".")
     return int(major), int(minor), int(patch)

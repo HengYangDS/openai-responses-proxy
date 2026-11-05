@@ -16,6 +16,7 @@ from cyclopts import App
 from cyclopts import Parameter
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle.records import is_version
 from tools.quality.python_matrix import supported_requirement
 from tools.release import identity
 
@@ -31,7 +32,7 @@ SEMVER_URL = "https://semver.org/"
 def read_version() -> str:
     """Return the repository release version after strict SemVer validation."""
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if not identity.is_version(version):
+    if not is_version(version):
         raise ValueError(f"VERSION is not a release SemVer: {version!r}")
     return version
 

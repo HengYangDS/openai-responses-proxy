@@ -13,6 +13,7 @@ from cyclopts import Parameter
 
 from openai_responses_proxy import json_value
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle.records import is_version
 from tools.release import identity
 from tools.release.publication import verification
 from tools.release.publication.github import observe as github_observer
@@ -178,7 +179,7 @@ def _predecessor(
             candidate_version = (candidate_source / "VERSION").read_text(encoding="utf-8").strip()
         except OSError as error:
             raise ValueError("candidate source VERSION is unavailable") from error
-        if not identity.is_version(candidate_version):
+        if not is_version(candidate_version):
             raise ValueError("candidate source VERSION is not a release SemVer")
     version = (
         candidate_version

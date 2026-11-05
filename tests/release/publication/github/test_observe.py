@@ -149,6 +149,28 @@ class GitHubObservationContracts:
             ):
                 github.published_predecessor(repository="owner/repo", version="3.1.2")
 
+    @pytest.mark.parametrize(
+        ("repository", "version"),
+        [("", "3.1.2"), ("owner/repo", "03.1.2"), ("owner/repo", "v3.1.2")],
+    )
+    def test_github_predecessor_request_requires_a_repository_and_strict_version(
+        self, repository: str, version: str, *, mocker
+    ) -> None:
+        """Refuse a malformed candidate before any hosted read."""
+        pages = mocker.patch.object(github, "_api_pages")
+        with pytest.raises(github.GitHubProofError, match="request is invalid"):
+            github.published_predecessor(repository=repository, version=version)
+        pages.assert_not_called()
+
+    def test_github_predecessor_rejects_a_published_tag_outside_the_release_grammar(
+        self, *, mocker
+    ) -> None:
+        """A published release named by a non-canonical tag cannot become the predecessor."""
+        releases = [{"tag_name": "v03.1.0", "draft": False, "prerelease": False}]
+        mocker.patch.object(github, "_api_pages", return_value=[releases])
+        with pytest.raises(github.GitHubProofError, match="published release tag is invalid"):
+            github.published_predecessor(repository="owner/repo", version="3.1.2")
+
     def test_github_collection_binds_api_tag_object_to_fetched_identity(self, *, mocker) -> None:
         commit = "a" * 40
         tag_object = "b" * 40

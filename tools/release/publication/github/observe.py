@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Final
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle.records import is_version
+from openai_responses_proxy.lifecycle.records import version_key
 from tools.release import identity
 from tools.release.artifact import format as release_assets
 from tools.release.publication import hosted
@@ -30,15 +32,9 @@ class GitHubProofError(RuntimeError):
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def _version_key(version: str) -> tuple[int, int, int]:
-    """Return one strict release version as an ordering key."""
-    major, minor, patch = version.split(".")
-    return int(major), int(minor), int(patch)
-
-
 def published_predecessor(*, repository: str, version: str, root: Path = ROOT) -> str:
     """Return the newest published release tag that is an ancestor of ``HEAD``."""
-    if not repository or not identity.is_version(version):
+    if not repository or not is_version(version):
         raise GitHubProofError("published predecessor request is invalid")
     malformed = "GitHub release response is malformed"
     releases = [
@@ -46,7 +42,7 @@ def published_predecessor(*, repository: str, version: str, root: Path = ROOT) -
         for page in _api_pages(f"repos/{repository}/releases?per_page=100")
         for release in _mappings(page, malformed)
     ]
-    current = _version_key(version)
+    current = version_key(version)
     candidates: list[str] = []
     for release in releases:
         tag = release.get("tag_name")
@@ -54,13 +50,13 @@ def published_predecessor(*, repository: str, version: str, root: Path = ROOT) -
             continue
         if not isinstance(tag, str) or not identity.is_tag(tag):
             raise GitHubProofError("GitHub published release tag is invalid")
-        if _version_key(identity.version_from_tag(tag)) < current:
+        if version_key(identity.version_from_tag(tag)) < current:
             candidates.append(tag)
     if len(candidates) != len(set(candidates)):
         raise GitHubProofError("GitHub published predecessor identity is ambiguous")
     for tag in sorted(
         candidates,
-        key=lambda item: _version_key(identity.version_from_tag(item)),
+        key=lambda item: version_key(identity.version_from_tag(item)),
         reverse=True,
     ):
         result = subprocess.run(

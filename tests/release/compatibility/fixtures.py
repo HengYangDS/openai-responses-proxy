@@ -15,6 +15,7 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control as lifecycle_control
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
@@ -37,14 +38,6 @@ def _required_path(variable: str) -> Path:
     if value is None:
         pytest.skip(f"{variable} is supplied by the release compatibility session")
     return Path(value).resolve(strict=True)
-
-
-def _version(value: str) -> tuple[int, int, int]:
-    parts = value.split(".")
-    assert len(parts) == 3
-    assert all(part.isascii() and part.isdigit() for part in parts)
-    major, minor, patch = parts
-    return int(major), int(minor), int(patch)
 
 
 def _assert_same_runtime_identity(
@@ -128,7 +121,7 @@ def admitted_predecessor(
         trust_anchor=previous_trust,
     )
     previous_version = published_predecessor.version
-    assert _version(previous_version) < _version(current_version)
+    assert records.version_key(previous_version) < records.version_key(current_version)
     previous_bundle = _materialize_native_bundle(
         published_predecessor,
         tmp_path / "published-predecessor-bundle",

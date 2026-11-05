@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from openai_responses_proxy.lifecycle import records
 from tools.release import identity
 from tools.release import metadata
 
@@ -50,12 +51,12 @@ def changelog_document(sections: str) -> str:
 def test_release_identity_has_one_strict_semver_and_tag_contract() -> None:
     """Keep release versions and annotated tag names on one exact grammar."""
     for version in ("0.0.0", "1.2.3", "20.56.300"):
-        assert identity.is_version(version)
+        assert records.is_version(version)
         tag = f"v{version}"
         assert identity.is_tag(tag)
         assert identity.version_from_tag(tag) == version
     for invalid in ("01.2.3", "1.02.3", "1.2", "1.2.3-rc.1", "v1.2.3"):
-        assert not identity.is_version(invalid)
+        assert not records.is_version(invalid)
     for invalid in ("1.2.3", "v01.2.3", "v1.2", "v1.2.3-rc.1"):
         assert not identity.is_tag(invalid)
         with pytest.raises(ValueError, match=re.escape("exact vMAJOR.MINOR.PATCH")):
@@ -106,7 +107,7 @@ def test_version_file_uses_the_product_grammar(
 ) -> None:
     (tmp_path / "VERSION").write_text(version + "\n", encoding="utf-8")
     monkeypatch.setattr(metadata, "ROOT", tmp_path)
-    if identity.is_version(version):
+    if records.is_version(version):
         assert metadata.read_version() == version
     else:
         with pytest.raises(ValueError, match="release SemVer"):

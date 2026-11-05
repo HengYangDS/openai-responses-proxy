@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import Path
@@ -17,12 +16,11 @@ from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
-
-_STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
 
 def validate(
@@ -32,7 +30,7 @@ def validate(
     receipt: ReadOnlyJsonObject,
 ) -> None:
     """Reject an admitted candidate whose payload contract is inconsistent."""
-    if _STRICT_VERSION.fullmatch(version) is None:
+    if not records.is_version(version):
         raise errors.InstallError("released payload version is invalid")
     if not isinstance(receipt_sha256, str) or len(receipt_sha256) != 64:
         raise errors.InstallError("released payload receipt digest is invalid")

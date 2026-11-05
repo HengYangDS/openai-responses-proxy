@@ -14,8 +14,8 @@ from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle.records import is_version
 from openai_responses_proxy.serving.digest import is_sha256
-from tools.release import identity
 
 ARCHIVE_NAME = f"{product_identity.PRODUCT_SLUG}-{{version}}-{{platform}}.tar.gz"
 MANIFEST_NAME = f"{product_identity.PRODUCT_SLUG}-{{platform}}.manifest.json"
@@ -302,5 +302,5 @@ def _safe_relative(value: str) -> bool:
 
 
 def _validate_identity(version: str, platform: str) -> None:
-    if not identity.is_version(version) or _PLATFORM.fullmatch(platform) is None:
+    if not is_version(version) or _PLATFORM.fullmatch(platform) is None:
         raise AssetError("release version or platform identity is invalid")
