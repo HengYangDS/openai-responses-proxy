@@ -281,7 +281,6 @@ def check_governance_contract() -> None:
         "tools/release/publication/__main__.py",
         "tools/release/publication/github/publish.py",
         "tools/release/publication/gitlab/publish.py",
-        "tools/reliability/observe.py",
         ".github/workflows/admission.yml",
         ".github/workflows/verify.yml",
     )

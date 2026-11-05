@@ -103,15 +103,14 @@ released runtime. Product code never imports it or the test tree. Tool domains
 may consume product contracts and lower-level repository owners, but may not
 form dependency cycles or import test fixtures.
 
-| Domain        | Owns                                                           | Boundary                                               |
-| ------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| `ci`          | CUE projection and hosted branch-proof evaluation              | Renders peer workflows; does not publish branches      |
-| `forge`       | Runner admission and read-only exact-object parity             | Observes peers; ETHOS owns branch and tag writes       |
-| `governance`  | Bounded reads of the native ETHOS command plane                | Consumes decisions without reconstructing policy       |
-| `quality`     | Native check composition and repository-specific contracts     | Uses declared scopes and original tool reports         |
-| `performance` | Reproducible latency and memory measurements and budget checks | Measures product behavior without provider latency     |
-| `release`     | Metadata, trust, artifact construction and Release publication | Publishers consume an immutable pre-signed bundle      |
-| `reliability` | Secret-free evaluation of installed status observations        | Reads supplied evidence; does not control the listener |
+| Domain        | Owns                                                           | Boundary                                           |
+| ------------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| `ci`          | CUE projection and hosted branch-proof evaluation              | Renders peer workflows; does not publish branches  |
+| `forge`       | Read-only exact-object parity                                  | Observes peers; ETHOS owns branch and tag writes   |
+| `governance`  | Bounded reads of the native ETHOS command plane                | Consumes decisions without reconstructing policy   |
+| `quality`     | Native check composition and repository-specific contracts     | Uses declared scopes and original tool reports     |
+| `performance` | Reproducible latency and memory measurements and budget checks | Measures product behavior without provider latency |
+| `release`     | Metadata, trust, artifact construction and Release publication | Publishers consume an immutable pre-signed bundle  |
 
 `release/construction` invokes native freezing and packaging; `release/artifact`
 owns the asset bytes and verification. `release/publication` composes publication

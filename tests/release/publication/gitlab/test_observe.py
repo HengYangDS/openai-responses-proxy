@@ -89,7 +89,7 @@ class GitLabObservationContracts:
             ]
         }
         tag_record = {"name": "v1.2.3", "target": tag_object, "commit": {"id": commit}}
-        mocker.patch.object(gitlab, "_api", side_effect=[tag_record, pipeline])
+        api = mocker.patch.object(gitlab, "_api", side_effect=[tag_record, pipeline])
         mocker.patch.object(gitlab.hosted, "executable", return_value="glab")
         download = mocker.patch.object(
             gitlab.hosted, "api_bytes", side_effect=list(asset_bytes.values())
@@ -103,6 +103,9 @@ class GitLabObservationContracts:
             commit_oid=commit,
         )
         assert result["repository"] == "group/repo"
+        assert api.call_args_list[0].args[0] == (
+            "https://gitlab.example/api/v4/projects/group%2Frepo/repository/tags/v1.2.3"
+        )
         assert [call.args[0] for call in download.call_args_list] == [
             ("glab", "api", "--method", "GET", f"https://gitlab.example/assets/{index}")
             for index in range(1, len(asset_bytes) + 1)
