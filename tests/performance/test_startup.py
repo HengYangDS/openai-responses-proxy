@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -22,6 +21,7 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles
+from tests.serving.handoff.fixtures import free_port
 from tools.performance import benchmark
 from tools.performance import payload
 from tools.release import verification
@@ -110,12 +110,6 @@ def _served(**overrides: object) -> dict[str, object]:
     return runtime
 
 
-def _free_port() -> int:
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        return int(probe.getsockname()[1])
-
-
 def _launches(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -126,7 +120,7 @@ def _launches(
     trickle: str = "",
 ) -> tuple[benchmark._PackagedListener, list[subprocess.Popen[bytes]]]:
     """Return a listener whose launches start the stand-in as the watchdog would."""
-    port = _free_port()
+    port = free_port()
     children: list[subprocess.Popen[bytes]] = []
 
     def spawn(_selected: str) -> subprocess.Popen[bytes]:
@@ -277,7 +271,7 @@ def test_startup_refuses_a_launch_that_did_not_start(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(benchmark.watchdog, "spawn_proxy", lambda _selected: None)
     with pytest.raises(RuntimeError, match="did not start"):
         benchmark._observe_startup(
-            benchmark._PackagedListener(Path(sys.executable), _free_port(), dict(_IDENTITY))
+            benchmark._PackagedListener(Path(sys.executable), free_port(), dict(_IDENTITY))
         )
 
 
@@ -360,7 +354,7 @@ def _private_generation(root: Path, port: int) -> runtime_context.RuntimeContext
 def test_startup_resolves_the_selected_private_generation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    port = _free_port()
+    port = free_port()
     ctx = _private_generation(tmp_path, port)
     monkeypatch.setenv(runtime_config.HOME_ENV, ctx.install_dir)
     listener = benchmark._private_listener()
@@ -376,7 +370,7 @@ def test_startup_resolves_the_selected_private_generation(
 def test_startup_refuses_a_generation_whose_payload_changed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ctx = _private_generation(tmp_path, _free_port())
+    ctx = _private_generation(tmp_path, free_port())
     Path(ctx.executable).write_bytes(b"changed native fixture")
     monkeypatch.setenv(runtime_config.HOME_ENV, ctx.install_dir)
     with pytest.raises(RuntimeError, match="not a committed payload"):

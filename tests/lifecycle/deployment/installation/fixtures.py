@@ -15,10 +15,10 @@ from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
-from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.serving.handoff.fixtures import idle_runtime
 
 
 class FakeTransaction:
@@ -180,24 +180,16 @@ class ReleasedDeploymentFixture:
 
     @staticmethod
     def current_runtime(**changes: object) -> dict[str, object]:
-        value: dict[str, object] = {
-            "pid": 111,
-            "handoff_protocol_version": 2,
-            "handoff_capabilities": [
-                handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
-                handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
-            ],
-            "handoff_state": "idle",
-            "handoff_transaction_id": None,
-            "release": "1.2.2",
-            "serving_payload_sha256": "1" * 64,
-            "payload_manifest_sha256": "2" * 64,
-            "release_receipt_sha256": "3" * 64,
-            "accepting": True,
-            "draining": False,
-        }
-        value.update(changes)
-        return value
+        return idle_runtime(
+            **{
+                "pid": 111,
+                "release": "1.2.2",
+                "serving_payload_sha256": "1" * 64,
+                "payload_manifest_sha256": "2" * 64,
+                "release_receipt_sha256": "3" * 64,
+                **changes,
+            }
+        )
 
     @staticmethod
     def successor(**changes: object) -> dict[str, object]:

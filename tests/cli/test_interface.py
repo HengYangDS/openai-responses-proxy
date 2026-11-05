@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
 import importlib.metadata
-import io
 import json
 import os
 import runpy
@@ -19,6 +17,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving import roles as serving_roles
+from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,14 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class ProductInterfaceContracts:
     """Keep one executable and one bounded public command grammar."""
 
-    def invoke(self, *arguments: str) -> tuple[int, str, str]:
-        stdout, stderr = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            code = application.main(list(arguments))
-        return code, stdout.getvalue(), stderr.getvalue()
-
     def test_help_exposes_exactly_the_declared_public_commands(self) -> None:
-        code, stdout, stderr = self.invoke("--help")
+        code, stdout, stderr = invoke("--help")
         assert code == 0
         assert stderr == ""
         assert all(command in stdout for command in application.PUBLIC_COMMANDS)
@@ -44,13 +37,13 @@ class ProductInterfaceContracts:
             (),
             *((command, "--help") for command in application.PUBLIC_COMMANDS),
         ):
-            code, stdout, stderr = self.invoke(*arguments)
+            code, stdout, stderr = invoke(*arguments)
             assert code == 0
             assert "Usage: openai-responses-proxy" in stdout
             assert stderr == ""
 
     def test_top_level_version_flag_is_the_only_version_surface(self) -> None:
-        code, stdout, stderr = self.invoke("--version")
+        code, stdout, stderr = invoke("--version")
 
         assert code == 0
         assert stdout.strip() == application._release_version()
@@ -58,7 +51,7 @@ class ProductInterfaceContracts:
 
     def test_every_public_command_offers_the_same_machine_output_switch(self) -> None:
         for command in application.PUBLIC_COMMANDS:
-            code, stdout, stderr = self.invoke(command, "--help")
+            code, stdout, stderr = invoke(command, "--help")
             assert code == 0
             assert "--json" in stdout
             assert "stable JSON" in stdout
@@ -77,7 +70,7 @@ class ProductInterfaceContracts:
             ("uninstall", "--port", "invalid"),
         )
         for arguments in cases:
-            code, stdout, stderr = self.invoke(*arguments)
+            code, stdout, stderr = invoke(*arguments)
             assert code == 2
             assert stdout == ""
             assert stderr
@@ -136,11 +129,11 @@ class ProductInterfaceContracts:
         dispatch = mocker.patch.object(application, "dispatch")
         for command in application.PUBLIC_COMMANDS:
             dispatch.return_value = results[command]
-            code, stdout, stderr = self.invoke(command, *arguments[command], "--json")
+            code, stdout, stderr = invoke(command, *arguments[command], "--json")
             assert code == 0
             assert json.loads(stdout) == {**results[command], "next": expected_next[command]}
             assert stderr == ""
-            code, human, stderr = self.invoke(command, *arguments[command])
+            code, human, stderr = invoke(command, *arguments[command])
             lines = human.splitlines()
             shown = lines[lines.index("Next") + 1].strip() if "Next" in lines else None
             assert (code, shown, stderr) == (0, expected_next[command], "")
@@ -151,7 +144,7 @@ class ProductInterfaceContracts:
             (("--json",), True),
         )
         for arguments, as_json in cases:
-            code, stdout, stderr = self.invoke(*arguments)
+            code, stdout, stderr = invoke(*arguments)
             assert code == 2
             assert stdout == ""
             if as_json:
@@ -166,14 +159,14 @@ class ProductInterfaceContracts:
             assert "Warning" not in stderr
 
     def test_parse_failures_point_to_the_exact_command_help(self) -> None:
-        code, stdout, stderr = self.invoke("install")
+        code, stdout, stderr = invoke("install")
 
         assert code == 2
         assert stdout == ""
         assert "openai-responses-proxy install --help" in stderr
         assert "openai-responses-proxy doctor" not in stderr
 
-        code, stdout, stderr = self.invoke("unknown")
+        code, stdout, stderr = invoke("unknown")
 
         assert code == 2
         assert stdout == ""
@@ -181,7 +174,7 @@ class ProductInterfaceContracts:
         assert "openai-responses-proxy doctor" not in stderr
 
     def test_help_explains_lifecycle_inputs_without_boolean_noise(self) -> None:
-        code, install_help, stderr = self.invoke("install", "--help")
+        code, install_help, stderr = invoke("install", "--help")
         assert code == 0
         assert stderr == ""
         assert "Native release archive" in install_help
@@ -191,13 +184,13 @@ class ProductInterfaceContracts:
         assert "Loopback listener port" in install_help
         assert "Native lifecycle deadline" in install_help
 
-        code, reload_help, stderr = self.invoke("reload", "--help")
+        code, reload_help, stderr = invoke("reload", "--help")
         assert code == 0
         assert stderr == ""
         assert "Native lifecycle deadline" in reload_help
         assert "Installation deadline" not in reload_help
 
-        code, uninstall_help, stderr = self.invoke("uninstall", "--help")
+        code, uninstall_help, stderr = invoke("uninstall", "--help")
         assert code == 0
         assert stderr == ""
         assert "Also remove the verified installed payload" in uninstall_help
@@ -230,7 +223,7 @@ class ProductInterfaceContracts:
                 "--json",
             ),
         ):
-            code, stdout, stderr = self.invoke(*arguments)
+            code, stdout, stderr = invoke(*arguments)
 
             assert code == 2
             assert stdout == ""
@@ -243,7 +236,7 @@ class ProductInterfaceContracts:
 
         asset = tmp_path / "openai-responses-proxy-2.0.48-macos-arm64.tar.gz"
         asset.write_bytes(b"not-admitted")
-        code, stdout, stderr = self.invoke(
+        code, stdout, stderr = invoke(
             "install",
             "--asset",
             str(asset),
@@ -266,7 +259,7 @@ class ProductInterfaceContracts:
             ("reload", "--timeout-seconds", "-1"),
         )
         for arguments in cases:
-            code, stdout, stderr = self.invoke(*arguments)
+            code, stdout, stderr = invoke(*arguments)
             assert code == 2
             assert stdout == ""
             assert f"openai-responses-proxy {arguments[0]} --help" in stderr
@@ -285,7 +278,7 @@ class ProductInterfaceContracts:
     ) -> None:
         expected = importlib.metadata.version("openai-responses-proxy")
         mocker.patch.object(application, "_source_version", return_value=None)
-        code, stdout, stderr = self.invoke("--version")
+        code, stdout, stderr = invoke("--version")
         assert code == 0
         assert stdout.strip() == expected
         assert stderr == ""
@@ -299,7 +292,7 @@ class ProductInterfaceContracts:
                 next_command="openai-responses-proxy status",
             ),
         )
-        code, stdout, stderr = self.invoke("doctor", "--json")
+        code, stdout, stderr = invoke("doctor", "--json")
         assert code == 2
         assert stdout == ""
         payload = json.loads(stderr)
@@ -310,7 +303,7 @@ class ProductInterfaceContracts:
         assert "Warning" not in stderr
 
     def test_unknown_command_is_a_clean_usage_error(self) -> None:
-        code, stdout, stderr = self.invoke("unknown")
+        code, stdout, stderr = invoke("unknown")
         assert code == 2
         assert stdout == ""
         assert "unknown command" in stderr
@@ -325,7 +318,7 @@ class ProductInterfaceContracts:
             side_effect=errors.InstallError("listener unavailable"),
         )
 
-        code, stdout, stderr = self.invoke("status")
+        code, stdout, stderr = invoke("status")
 
         assert code == 2
         assert stdout == ""
@@ -345,7 +338,7 @@ class ProductInterfaceContracts:
             ),
         )
 
-        code, stdout, stderr = self.invoke(
+        code, stdout, stderr = invoke(
             "install",
             "--asset",
             "release.tar.gz",
@@ -505,7 +498,7 @@ class ProductInterfaceContracts:
             },
         )
 
-        code, stdout, stderr = self.invoke("status")
+        code, stdout, stderr = invoke("status")
 
         assert code == 0
         assert stderr == ""

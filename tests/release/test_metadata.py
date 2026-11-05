@@ -17,8 +17,6 @@ from tools.release import metadata
 
 ROOT = Path(__file__).resolve().parents[2]
 METADATA_MODULE = "tools.release.metadata"
-TAG_REFRESH = "git fetch --tags --force --prune --prune-tags origin"
-APT_INSTALL = "apt-get install -qq -y --no-install-recommends"
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
 
 
