@@ -10,13 +10,13 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
@@ -35,7 +35,7 @@ def test_recovery_finalization_selects_the_displaced_predecessor(tmp_path: Path,
     )
 
     assert result["state"] == "finalized"
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     assert retained.predecessor.release == "1.2.2"
     assert retained.successor.release == "1.2.3"
 
@@ -52,7 +52,7 @@ def test_interrupted_reverse_transition_recovers_the_original_successor(
     successor.finalize({"pid": 2})
     original_selection = payload_generation.read(ctx)
     assert original_selection is not None
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     assert reverse.expected["release"] == "1.2.2"
     reverse.commit_projection()
@@ -80,7 +80,7 @@ def test_unselected_reverse_recovery_does_not_require_an_unused_command_snapshot
     successor.finalize({"pid": 2})
     selection = payload_generation.read(ctx)
     assert selection is not None
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.preserve_for_recovery("rollback controller outcome unknown")

@@ -70,7 +70,6 @@ class TestProcessIdentity:
             side_effect=process.psutil.NoSuchProcess(123),
         )
         assert process.process_argv(123) == []
-        assert process.process_command(123) == ""
 
     def test_process_inventory_and_path_discovery_fail_closed(self, *, mocker):
         mocker.patch.object(
@@ -191,14 +190,6 @@ class TestProcessIdentity:
         mocker.patch.object(process, "_process_inventory", return_value=[(17, [executable])])
         mocker.patch.object(process, "pid_names_executable", return_value=True)
         assert process.pids_naming_executable(executable) == [17]
-
-    def test_process_command_quotes_native_argv(self, *, mocker):
-        mocker.patch.object(
-            process,
-            "process_argv",
-            return_value=["/usr/bin/python3", "/installed/proxy with spaces.py"],
-        )
-        assert process.process_command(17) == ("/usr/bin/python3 '/installed/proxy with spaces.py'")
 
     @pytest.mark.skipif(sys.platform != "darwin", reason="real Darwin argv integration")
     def test_real_process_argv_preserves_paths_with_spaces(self):

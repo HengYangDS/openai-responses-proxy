@@ -17,6 +17,7 @@ from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 
 
 def test_rollback_requires_idle_and_verified_retained_authority(
@@ -55,7 +56,7 @@ def test_rollback_converges_on_one_explicit_release(tmp_path: Path, *, mocker) -
     successor.activate()
     successor.finalize({"pid": 2})
     healthy_status_dependencies(ctx, mocker=mocker)
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     load_retained = mocker.patch.object(
         payload_rollback,
         "load_retained_or_none",

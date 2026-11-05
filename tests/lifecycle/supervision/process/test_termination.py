@@ -9,6 +9,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import process
+from tests.lifecycle.supervision.fixtures import capture_generation
 
 
 class TestTermination:
@@ -101,7 +102,7 @@ class TestTermination:
         candidate.cmdline.side_effect = process.psutil.AccessDenied(123)
         mocker.patch.object(process.psutil, "Process", return_value=candidate)
 
-        owned = process.capture_generation(123, "/installed/openai-responses-proxy")
+        owned = capture_generation(123, "/installed/openai-responses-proxy")
 
         assert owned is not None
         assert astuple(owned) == (

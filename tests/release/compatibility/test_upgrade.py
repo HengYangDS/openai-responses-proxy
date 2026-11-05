@@ -16,12 +16,12 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import control as lifecycle_control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
+from tests.lifecycle.fixtures import retained_rollback
 from tests.release import fixtures as native_release
 from tests.release.compatibility.fixtures import _assert_same_runtime_identity
 from tests.release.compatibility.fixtures import _required_path
@@ -277,7 +277,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         current_selection = generation.read(ctx)
         assert current_selection is not None
         assert current_selection.predecessor is not None
-        retained = payload_rollback.load_retained(ctx)
+        retained = retained_rollback(ctx)
         assert retained.predecessor.release_receipt_sha256 == published_predecessor.receipt_sha256
         assert (
             retained.predecessor.serving_payload_sha256
@@ -287,7 +287,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         command_before_recovery = Path(ctx.command).resolve(strict=True)
         reverse = payload_transaction.begin_rollback_transaction(
             ctx,
-            payload_rollback.load_retained(ctx),
+            retained_rollback(ctx),
         )
         reverse.commit_projection()
         reverse.preserve_for_recovery("rollback controller outcome unknown")

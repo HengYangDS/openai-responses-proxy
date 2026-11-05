@@ -23,6 +23,7 @@ from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import _project_as_legacy_flat_install
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
@@ -122,7 +123,7 @@ def test_reverse_transition_rejects_stale_authority(tmp_path: Path, drift: str, 
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     if drift == "installed":
         installed_path = Path(records.installed_path(ctx))
         installed = json.loads(installed_path.read_text(encoding="utf-8"))
@@ -149,13 +150,13 @@ def test_retained_predecessor_rejects_corruption_before_mutation(tmp_path: Path,
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     executable = retained.root / executable_relative()
     executable.write_bytes(b"corrupt")
     before = Path(ctx.executable).read_bytes()
 
     with pytest.raises(errors.InstallError, match="predecessor generation identity"):
-        payload_rollback.load_retained(ctx)
+        payload_rollback.load_retained_or_none(ctx)
 
     assert Path(ctx.executable).read_bytes() == before
 

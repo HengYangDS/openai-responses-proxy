@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -32,6 +33,7 @@ from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_module
 from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.supervision.fixtures import capture_generation
 from tools.release import verification
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -212,7 +214,7 @@ def child_pid_observer(
         if owned_processes is not None and observed["value"] is not None:
             if executable is None:
                 raise ValueError("executable is required when capturing an owned process")
-            owned = process.capture_generation(observed["value"], executable)
+            owned = capture_generation(observed["value"], executable)
             if owned is None:
                 observed["value"] = None
                 return False
@@ -297,13 +299,13 @@ def terminate_owned_proxy(pid: int | None, proxy_script: str) -> None:
     if process.terminate_executable(pid, proxy_script, roles=roles):
         return
     if process.pid_names_executable(pid, proxy_script, roles=roles):
-        command = process.process_command(pid)
+        command = shlex.join(process.process_argv(pid))
         raise RuntimeError(f"owned proxy child {pid} did not terminate: {command!r}")
 
 
 def pid_alive(pid: int | None) -> bool:
     """Return whether an owned handoff child still has a process command."""
-    return pid is not None and bool(process.process_command(pid))
+    return pid is not None and bool(process.process_argv(pid))
 
 
 type UpstreamBehavior = tuple[int, bytes] | Callable[[BaseHTTPRequestHandler], None]

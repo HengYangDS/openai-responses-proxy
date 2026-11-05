@@ -20,6 +20,7 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
+from tests.lifecycle.supervision.fixtures import capture_generation
 from tests.release.fixtures import ROOT
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import preserve_native_host_projection
@@ -48,7 +49,7 @@ def _stop_controller(
     if child.poll() is None:
         try:
             for descendant in psutil.Process(child.pid).children(recursive=True):
-                owned = process.capture_generation(descendant.pid, sys.executable)
+                owned = capture_generation(descendant.pid, sys.executable)
                 if owned is not None:
                     child_processes.setdefault(owned.pid, owned)
         except psutil.Error as error:
@@ -323,7 +324,7 @@ class TestSignedNativeLifecycle:
                 assert observed["custody"] == environment[verification._CONTEXTS]
                 if controller == "nox":
                     assert observed["pid"] != child.pid
-                pytest_process = process.capture_generation(observed["pid"], sys.executable)
+                pytest_process = capture_generation(observed["pid"], sys.executable)
                 assert pytest_process is not None
                 child_processes[pytest_process.pid] = pytest_process
                 if phase != "before-setup":

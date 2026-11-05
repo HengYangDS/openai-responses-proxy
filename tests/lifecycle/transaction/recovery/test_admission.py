@@ -12,7 +12,6 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -20,6 +19,7 @@ from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
@@ -35,7 +35,7 @@ def test_interrupted_reverse_transition_rejects_the_wrong_runtime(
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.activate()
@@ -57,7 +57,7 @@ def test_reverse_recovery_preserves_selection_outside_its_transaction(
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.activate()
@@ -86,9 +86,7 @@ def test_controller_rollback_preserves_selection_outside_its_transaction(
     candidate.activate()
     if reverse:
         candidate.finalize({"pid": 2})
-        candidate = payload_transaction.begin_rollback_transaction(
-            ctx, payload_rollback.load_retained(ctx)
-        )
+        candidate = payload_transaction.begin_rollback_transaction(ctx, retained_rollback(ctx))
         candidate.commit_projection()
         candidate.activate()
     payload_generation.select(
@@ -128,7 +126,7 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
     successor.finalize({"pid": 2})
     selection = payload_generation.read(ctx)
     assert selection is not None
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     reverse.commit_projection()
     reverse.preserve_for_recovery("rollback controller outcome unknown")

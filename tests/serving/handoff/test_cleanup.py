@@ -179,9 +179,10 @@ class TestHandoffCleanup(SubprocessFixture):
 
     def test_owned_child_cleanup_reports_an_unconfirmed_exit(self, *, mocker) -> None:
         proxy_script = "/tmp/owned/.codex/responses-proxy/proxy.py"
-        command = f"python {proxy_script} --handoff-child"
         mocker.patch.object(process, "pid_names_executable", return_value=True)
-        mocker.patch.object(process, "process_command", return_value=command)
+        mocker.patch.object(
+            process, "process_argv", return_value=["python", proxy_script, "--handoff-child"]
+        )
         mocker.patch.object(process, "terminate_executable", return_value=False)
         with pytest.raises(RuntimeError, match="owned proxy child 123 did not terminate"):
             terminate_owned_proxy(123, proxy_script)

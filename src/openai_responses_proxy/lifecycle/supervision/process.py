@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import time
 from dataclasses import dataclass
 
@@ -22,19 +21,6 @@ class OwnedProcess:
     pid: int
     executable: str
     created_at: float
-
-
-def capture_generation(pid: int, expected_path: str) -> OwnedProcess | None:
-    """Capture an already-proven PID as one exact process generation."""
-    try:
-        created_at = _created_at(psutil.Process(pid))
-    except (OSError, TypeError, psutil.Error):
-        return None
-    return OwnedProcess(
-        pid,
-        os.path.normcase(os.path.realpath(os.path.abspath(expected_path))),
-        created_at,
-    )
 
 
 def capture_executable(
@@ -153,11 +139,6 @@ def listener_pids(port: int) -> list[int]:
     except (OSError, psutil.Error):
         pass
     return sorted(listeners)
-
-
-def process_command(pid: int) -> str:
-    """Return a process command line for identity proof, or an empty string."""
-    return shlex.join(process_argv(pid))
 
 
 def process_argv(pid: int) -> list[str]:

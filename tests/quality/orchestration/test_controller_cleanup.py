@@ -11,6 +11,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import process
+from tests.lifecycle.supervision.fixtures import capture_generation
 from tests.release.lifecycle import test_cleanup
 
 
@@ -37,7 +38,7 @@ def test_controller_cleanup_stops_independent_children_after_failure(
             cleanup.callback(child.wait, timeout=10)
             cleanup.callback(lambda item=child: item.kill() if item.poll() is None else None)
             children.append(child)
-            identity = process.capture_generation(child.pid, sys.executable)
+            identity = capture_generation(child.pid, sys.executable)
             assert identity is not None
             owned[identity.pid] = identity
         expected_exit = children[1].pid

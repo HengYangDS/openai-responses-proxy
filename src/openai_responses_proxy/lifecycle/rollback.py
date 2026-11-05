@@ -31,15 +31,6 @@ class RetainedRollbackStatus:
     detail: str | None = None
 
 
-def load_retained(ctx: runtime_context.RuntimeContext) -> RetainedRollback:
-    """Load and verify the sole predecessor bound to the live successor."""
-    selection = generation.read(ctx)
-    _require_closed_generation_store(ctx, selection)
-    if selection is None or selection.predecessor is None:
-        raise errors.InstallError("retained rollback predecessor is unavailable")
-    return _load_selected(ctx, selection)
-
-
 def _load_selected(
     ctx: runtime_context.RuntimeContext,
     selection: generation.Selection,

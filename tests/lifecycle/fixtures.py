@@ -13,6 +13,7 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
+from openai_responses_proxy.lifecycle import rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity
@@ -166,6 +167,13 @@ def install_payload(
     transaction.finalize({"pid": 1})
     ctx.executable = transaction.context.executable
     return transaction
+
+
+def retained_rollback(ctx: runtime_context.RuntimeContext) -> rollback.RetainedRollback:
+    """Return the verified predecessor that the test retained, failing on clean absence."""
+    retained = rollback.load_retained_or_none(ctx)
+    assert retained is not None
+    return retained
 
 
 def running_supervisor(ctx, *, mocker):

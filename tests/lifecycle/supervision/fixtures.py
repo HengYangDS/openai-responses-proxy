@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
+import psutil
+
+from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import install_context
+
+
+def capture_generation(pid: int, expected_path: str) -> process.OwnedProcess | None:
+    """Capture an already-proven PID as one exact process generation without reading argv."""
+    try:
+        created_at = process._created_at(psutil.Process(pid))
+    except (OSError, TypeError, psutil.Error):
+        return None
+    return process.OwnedProcess(
+        pid,
+        os.path.normcase(os.path.realpath(os.path.abspath(expected_path))),
+        created_at,
+    )
 
 
 def completed(cmd=(), returncode=0, stdout="", stderr=""):

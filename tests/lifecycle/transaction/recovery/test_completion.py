@@ -11,13 +11,13 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
@@ -99,9 +99,7 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
     if reverse:
         candidate.finalize({"pid": 2})
         predecessor = candidate
-        candidate = payload_transaction.begin_rollback_transaction(
-            ctx, payload_rollback.load_retained(ctx)
-        )
+        candidate = payload_transaction.begin_rollback_transaction(ctx, retained_rollback(ctx))
         candidate.commit_projection()
         candidate.activate()
     candidate.preserve_for_recovery("handoff outcome unknown")
@@ -144,9 +142,7 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
         candidate.activate()
         candidate.finalize({"pid": 2})
         predecessor = candidate
-        candidate = payload_transaction.begin_rollback_transaction(
-            ctx, payload_rollback.load_retained(ctx)
-        )
+        candidate = payload_transaction.begin_rollback_transaction(ctx, retained_rollback(ctx))
         candidate.commit_projection()
     if phase == "materialized":
         interruption = mocker.patch.object(

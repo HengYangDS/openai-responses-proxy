@@ -14,7 +14,6 @@ from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity
@@ -24,6 +23,7 @@ from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.fixtures import running_supervisor
 
 
@@ -217,7 +217,7 @@ def test_status_reports_retained_rollback_availability_and_corruption(
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     healthy_status_dependencies(ctx, mocker=mocker)
 
     available = control.status(ctx)

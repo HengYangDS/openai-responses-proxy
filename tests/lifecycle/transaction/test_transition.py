@@ -15,7 +15,6 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.lifecycle import records
-from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
@@ -24,6 +23,7 @@ from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.fixtures import runtime_files
 
 
@@ -111,7 +111,7 @@ def test_finalize_retains_exactly_the_displaced_predecessor(tmp_path: Path, *, m
     successor.activate()
     successor.finalize({"pid": 2})
 
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     assert retained.predecessor.release == "1.2.2"
     assert retained.successor.release == "1.2.3"
     selection = payload_generation.read(ctx)
@@ -127,14 +127,14 @@ def test_a_later_finalize_replaces_the_retained_predecessor(tmp_path: Path, *, m
     middle.commit_projection()
     middle.activate()
     middle.finalize({"pid": 2})
-    first = payload_rollback.load_retained(ctx)
+    first = retained_rollback(ctx)
     latest = begin_transaction(ctx, released_artifact("1.2.4"), mocker=mocker)
 
     latest.commit_projection()
     latest.activate()
     latest.finalize({"pid": 3})
 
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     assert retained.predecessor.release == "1.2.3"
     assert retained.successor.release == "1.2.4"
     assert retained.root != first.root
@@ -157,7 +157,7 @@ def test_retained_predecessor_reuses_an_exact_reverse_transaction(
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     control_executable = Path(ctx.command).resolve(strict=True)
     assert control_executable.samefile(successor.context.executable)
 
@@ -194,9 +194,7 @@ def test_finalized_reverse_transition_keeps_newest_control_upgrade_floor(
     successor.activate()
     successor.finalize({"pid": 2})
     control_executable = Path(ctx.command).resolve(strict=True)
-    reverse = payload_transaction.begin_rollback_transaction(
-        ctx, payload_rollback.load_retained(ctx)
-    )
+    reverse = payload_transaction.begin_rollback_transaction(ctx, retained_rollback(ctx))
     reverse.commit_projection()
     reverse.activate()
     reverse.finalize({"pid": 3})
@@ -219,7 +217,7 @@ def test_reverse_transition_rechecks_predecessor_before_materialization(
     successor.commit_projection()
     successor.activate()
     successor.finalize({"pid": 2})
-    retained = payload_rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     reverse = payload_transaction.begin_rollback_transaction(ctx, retained)
     Path(reverse.context.executable).write_bytes(b"corrupt")
 

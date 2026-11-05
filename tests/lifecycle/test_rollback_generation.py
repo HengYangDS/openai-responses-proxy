@@ -17,6 +17,7 @@ from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 
 
 def install_successor(ctx, *, mocker):
@@ -35,7 +36,7 @@ def test_selector_is_the_only_retained_rollback_authority(tmp_path: Path, *, moc
     first, second = install_successor(ctx, mocker=mocker)
 
     selection = generation.read(ctx)
-    retained = rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
 
     assert selection == generation.Selection(
         active=str(second.expected["transaction_id"]),
@@ -52,8 +53,7 @@ def test_clean_absence_has_no_retained_rollback(tmp_path: Path, *, mocker) -> No
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
 
-    with pytest.raises(errors.InstallError, match="predecessor is unavailable"):
-        rollback.load_retained(ctx)
+    assert rollback.load_retained_or_none(ctx) is None
 
 
 def test_retained_predecessor_corruption_is_rejected_from_selected_generation(
@@ -68,7 +68,7 @@ def test_retained_predecessor_corruption_is_rejected_from_selected_generation(
         errors.InstallError,
         match="predecessor generation identity is invalid",
     ):
-        rollback.load_retained(ctx)
+        rollback.load_retained_or_none(ctx)
 
 
 def test_retained_successor_corruption_is_rejected_from_selected_generation(
@@ -81,7 +81,7 @@ def test_retained_successor_corruption_is_rejected_from_selected_generation(
     Path(successor.executable).write_bytes(b"corrupt")
 
     with pytest.raises(errors.InstallError, match="successor generation identity is invalid"):
-        rollback.load_retained(ctx)
+        rollback.load_retained_or_none(ctx)
 
 
 def test_retained_installed_binding_drift_is_rejected(tmp_path: Path, *, mocker) -> None:
@@ -98,7 +98,7 @@ def test_retained_installed_binding_drift_is_rejected(tmp_path: Path, *, mocker)
     )
 
     with pytest.raises(errors.InstallError, match="installed binding is invalid"):
-        rollback.load_retained(ctx)
+        rollback.load_retained_or_none(ctx)
 
 
 @pytest.mark.parametrize("residue_kind", ["directory", "file", "symlink"])
@@ -118,7 +118,20 @@ def test_unselected_generation_residue_invalidates_retained_authority(
         residue.symlink_to(target, target_is_directory=True)
 
     with pytest.raises(errors.InstallError, match="not closed over its selector"):
-        rollback.load_retained(ctx)
+        rollback.load_retained_or_none(ctx)
+
+
+def test_linked_generation_store_invalidates_retained_authority(tmp_path: Path, *, mocker) -> None:
+    """Retained authority never follows a generation store replaced by a symbolic link."""
+    ctx = install_context(tmp_path)
+    install_successor(ctx, mocker=mocker)
+    store = generation.root(ctx)
+    target = tmp_path / "linked-generation-store"
+    store.rename(target)
+    store.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(errors.InstallError, match="generation store is unavailable or invalid"):
+        rollback.load_retained_or_none(ctx)
 
 
 def test_orphan_generation_store_is_not_reported_as_clean_absence(
@@ -139,7 +152,7 @@ def test_rollback_transaction_reuses_the_selected_predecessor_generation(
     ctx = install_context(tmp_path)
     _first, _second = install_successor(ctx, mocker=mocker)
 
-    retained = rollback.load_retained(ctx)
+    retained = retained_rollback(ctx)
     before = generation.read(ctx)
     assert before is not None
     assert before.predecessor is not None

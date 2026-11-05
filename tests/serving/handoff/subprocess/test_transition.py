@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import shlex
 import socket
 import threading
 import time
@@ -122,7 +123,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         retired = wait_until(lambda: not pid_alive(child_one["value"]), timeout=10)
         child_one_pid = child_one["value"]
         detail = (
-            process.process_command(child_one_pid)
+            shlex.join(process.process_argv(child_one_pid))
             if not retired and isinstance(child_one_pid, int)
             else None
         )
