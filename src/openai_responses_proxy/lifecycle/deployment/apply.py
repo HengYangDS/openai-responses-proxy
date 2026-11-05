@@ -422,10 +422,7 @@ def wait_for_serving_runtime(
                 process.capture_executable(
                     pid,
                     ctx.executable,
-                    roles={
-                        serving_roles.LISTENER_MODE,
-                        serving_roles.HANDOFF_CHILD_MODE,
-                    },
+                    roles=serving_roles.LISTENER_ROLES,
                 )
                 if type(pid) is int
                 else None

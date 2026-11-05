@@ -291,10 +291,7 @@ def terminate_process(process: subprocess.Popen[bytes], timeout: float = 5) -> N
 
 def terminate_owned_proxy(pid: int | None, proxy_script: str) -> None:
     """Terminate one child only while its argv names the temporary executable."""
-    roles = {
-        serving_roles.HANDOFF_CHILD_MODE,
-        serving_roles.LISTENER_MODE,
-    }
+    roles = serving_roles.LISTENER_ROLES
     if pid is None or not process.pid_names_executable(pid, proxy_script, roles=roles):
         return
     if process.terminate_executable(pid, proxy_script, roles=roles):

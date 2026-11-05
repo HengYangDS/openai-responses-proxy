@@ -78,7 +78,7 @@ def status(
         process.capture_executable(
             pid,
             active.executable,
-            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
+            roles=serving_roles.LISTENER_ROLES,
         )
         if type(pid) is int
         else None

@@ -34,14 +34,6 @@ from tools.release.artifact import signing
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMAND_TIMEOUT_SECONDS = 180
-_SERVICE_ROLES = frozenset(
-    {
-        serving_roles.LISTENER_MODE,
-        serving_roles.HANDOFF_CHILD_MODE,
-        serving_roles.WATCHDOG_MODE,
-        serving_roles.PREWARM_MODE,
-    }
-)
 
 
 def _macos_service_projection() -> tuple[
@@ -274,7 +266,9 @@ def native_service_projection(ctx: runtime_context.RuntimeContext) -> dict[str, 
         "service_id": ctx.service_id,
         "status": service.status(ctx),
         "configured_executable": service.configured_executable(ctx),
-        "processes": process.pids_naming_executable(ctx.executable, roles=_SERVICE_ROLES),
+        "processes": process.pids_naming_executable(
+            ctx.executable, roles=serving_roles.RUNTIME_ROLES
+        ),
     }
 
 

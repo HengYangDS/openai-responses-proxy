@@ -42,7 +42,6 @@ _RUNTIME_IDENTITY_FIELDS = ["release", *RUNTIME_DIGEST_FIELDS]
 
 RuntimeSnapshot = dict[str, object]
 RuntimeReader = Callable[[runtime_context.RuntimeContext], RuntimeSnapshot | None]
-_LISTENER_ROLES = {serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE}
 
 
 def fields_match(actual: RuntimeSnapshot, expected: dict[str, object]) -> bool:
@@ -63,7 +62,7 @@ def capture_source_listener(
     pid = runtime.get("pid")
     if not positive_int(pid):
         raise errors.InstallError("installed runtime identity is not verified")
-    owned = process.capture_executable(pid, ctx.executable, roles=_LISTENER_ROLES)
+    owned = process.capture_executable(pid, ctx.executable, roles=serving_roles.LISTENER_ROLES)
     if owned is None:
         raise errors.InstallError("installed listener process generation is not verified")
     if not process.owned_process_alive(owned):

@@ -355,7 +355,7 @@ def verified_proxy_listener_pids(context: RuntimeContext) -> list[int]:
         if pid_names_executable(
             pid,
             context.executable,
-            roles={serving_roles.LISTENER_MODE, serving_roles.HANDOFF_CHILD_MODE},
+            roles=serving_roles.LISTENER_ROLES,
         )
     ]
 

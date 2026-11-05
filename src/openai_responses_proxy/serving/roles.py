@@ -9,6 +9,10 @@ LISTENER_MODE = "--internal-listener"
 WATCHDOG_MODE = "--internal-watchdog"
 HANDOFF_CHILD_MODE = "--internal-handoff-child"
 PREWARM_MODE = "--internal-prewarm"
+# Roles in which a process can own the loopback listener and its runtime record.
+LISTENER_ROLES = frozenset({LISTENER_MODE, HANDOFF_CHILD_MODE})
+# Every private role in which the product executable runs.
+RUNTIME_ROLES = LISTENER_ROLES | {WATCHDOG_MODE, PREWARM_MODE}
 
 
 def current_executable() -> str:

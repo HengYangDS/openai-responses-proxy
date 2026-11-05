@@ -39,14 +39,6 @@ if TYPE_CHECKING:
 _TEST_ROOT = product_identity.environment_name("NATIVE_TEST_ROOT")
 _CONTEXTS = product_identity.environment_name("NATIVE_TEST_CONTEXTS")
 _CONTEXT_TYPES = get_type_hints(runtime_context.RuntimeContext)
-_SERVICE_ROLES = frozenset(
-    {
-        serving_roles.LISTENER_MODE,
-        serving_roles.HANDOFF_CHILD_MODE,
-        serving_roles.WATCHDOG_MODE,
-        serving_roles.PREWARM_MODE,
-    }
-)
 
 
 def accept(
@@ -281,7 +273,9 @@ def private_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
         {
             pid
             for owned_ctx in owned_process_contexts(ctx)
-            for pid in process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES)
+            for pid in process.pids_naming_executable(
+                owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
+            )
         }
     )
 
@@ -318,10 +312,12 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
                 except errors.InstallError as error:
                     failure = failure or error
         for owned_ctx in process_contexts:
-            for pid in process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES):
+            for pid in process.pids_naming_executable(
+                owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
+            ):
                 try:
                     if not process.terminate_executable(
-                        pid, owned_ctx.executable, roles=_SERVICE_ROLES
+                        pid, owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
                     ):
                         raise errors.InstallError("test runtime process exit is unproved")
                 except errors.InstallError as error:
@@ -331,7 +327,8 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
     assert service.status(ctx) == "absent"
     assert service.configured_executable(ctx) is None
     assert all(
-        process.pids_naming_executable(owned_ctx.executable, roles=_SERVICE_ROLES) == []
+        process.pids_naming_executable(owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES)
+        == []
         for owned_ctx in process_contexts
     )
 

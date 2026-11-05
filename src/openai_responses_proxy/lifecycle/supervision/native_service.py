@@ -12,13 +12,6 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
-_RUNTIME_ROLES = {
-    serving_roles.LISTENER_MODE,
-    serving_roles.HANDOFF_CHILD_MODE,
-    serving_roles.WATCHDOG_MODE,
-    serving_roles.PREWARM_MODE,
-}
-
 
 class NativeServiceAdapter(Protocol):
     """Complete platform supervision surface selected at the host boundary."""
@@ -78,7 +71,7 @@ class _NativeRuntime:
         return cast(str, self._implementation.status(ctx))
 
     def _runtime_pids(self, ctx: runtime_spec.NativeServiceContext) -> list[int]:
-        return process.pids_naming_executable(ctx.executable, roles=_RUNTIME_ROLES)
+        return process.pids_naming_executable(ctx.executable, roles=serving_roles.RUNTIME_ROLES)
 
     def terminate_runtime(
         self,
@@ -91,7 +84,7 @@ class _NativeRuntime:
             if not process.terminate_executable(
                 pid,
                 ctx.executable,
-                roles=_RUNTIME_ROLES,
+                roles=serving_roles.RUNTIME_ROLES,
                 timeout_seconds=timeout_seconds,
             ):
                 raise errors.InstallError(f"verified runtime process {pid} exit is unproved")

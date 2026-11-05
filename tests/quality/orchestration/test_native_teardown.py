@@ -16,6 +16,7 @@ from nox.command import CommandFailed
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.serving import roles as serving_roles
 from tests.quality.fixtures import ROOT
 from tests.release.fixtures import runtime_context_for
 from tools.release import verification
@@ -304,6 +305,30 @@ def test_native_cleanup_continues_independent_processes_after_unproved_exit(
 
     assert raised.value is failure
     assert [call.args[0] for call in terminate.call_args_list] == [41, 73]
+
+
+def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
+    tmp_path: Path, *, mocker
+) -> None:
+    """A process in any runtime role that survives termination keeps teardown failing."""
+    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    service = mocker.Mock()
+    service.status.return_value = "absent"
+    service.configured_executable.return_value = None
+    mocker.patch.object(verification.native_service, "adapter", return_value=service)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    inventory = mocker.patch.object(
+        verification.process, "pids_naming_executable", return_value=[41]
+    )
+    terminate = mocker.patch.object(
+        verification.process, "terminate_executable", return_value=False
+    )
+
+    with pytest.raises(errors.InstallError, match="test runtime process exit is unproved"):
+        verification.cleanup_runtime(ctx)
+
+    inventory.assert_called_once_with(ctx.executable, roles=serving_roles.RUNTIME_ROLES)
+    terminate.assert_called_once_with(41, ctx.executable, roles=serving_roles.RUNTIME_ROLES)
 
 
 @pytest.mark.parametrize("arguments", [("--basetemp",), ("--basetemp=/a", "--basetemp=/b")])
