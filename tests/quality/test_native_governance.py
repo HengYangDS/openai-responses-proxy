@@ -94,3 +94,38 @@ def test_native_report_preserves_a_block_without_claiming_acceptance(tmp_path, m
         return_value=subprocess.CompletedProcess([], exit_code, json.dumps(report), ""),
     )
     assert observation.read(tmp_path, "status") == report["data"]
+
+
+@pytest.mark.parametrize("path", ["report.json", "absent"])
+def test_native_report_refuses_unverifiable_evidence_paths(tmp_path, mocker, path):
+    content = b"{}"
+    (tmp_path / "report.json").write_bytes(content)
+    reference = path if path == "report.json" else str(tmp_path / f"{path}.json")
+    report = {
+        "command": "status",
+        "verdict": "pass",
+        "data": {
+            "artifact_reference": {
+                "path": reference,
+                "sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
+                "size_bytes": len(content),
+            }
+        },
+    }
+    mocker.patch.object(
+        observation.subprocess,
+        "run",
+        return_value=subprocess.CompletedProcess([], 0, json.dumps(report), ""),
+    )
+    with pytest.raises(observation.ObservationError, match="evidence"):
+        observation.read(tmp_path, "status")
+
+
+def test_native_report_must_be_one_json_object(tmp_path, mocker):
+    mocker.patch.object(
+        observation.subprocess,
+        "run",
+        return_value=subprocess.CompletedProcess([], 0, "[]", ""),
+    )
+    with pytest.raises(observation.ObservationError, match="report is invalid"):
+        observation.read(tmp_path, "status")

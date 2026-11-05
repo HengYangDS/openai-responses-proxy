@@ -430,3 +430,15 @@ class TestPayloadValidation:
         linked_parent.symlink_to(tmp_path, target_is_directory=True)
         with pytest.raises(errors.InstallError, match="symlink ancestor"):
             owned_files._real_parent(linked_parent / "payload", real_root)
+
+
+def test_manifest_file_set_and_journal_shape_fail_closed(tmp_path: Path) -> None:
+    for manifest in ({}, {"files": []}, {"files": {}}):
+        with pytest.raises(errors.InstallError, match="file set is invalid"):
+            owned_files.declared_files(manifest)
+    ctx = install_context(tmp_path)
+    journal = records.journal_path(ctx)
+    journal.parent.mkdir(parents=True, exist_ok=True)
+    journal.write_bytes(b"[]")
+    with pytest.raises(errors.InstallError, match="journal fields are invalid"):
+        records.read_journal(ctx)
