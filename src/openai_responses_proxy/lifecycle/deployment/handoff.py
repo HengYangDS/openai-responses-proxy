@@ -351,28 +351,6 @@ def request(
     )
 
 
-def wait_for_rollback(
-    ctx: runtime_context.RuntimeContext,
-    old_runtime: RuntimeSnapshot,
-    *,
-    runtime_reader: RuntimeReader,
-    timeout_seconds: float,
-) -> RuntimeSnapshot:
-    """Confirm the exact old process resumed normal admission after ABORT."""
-    old_pid = old_runtime["pid"]
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        if process.verified_proxy_listener_pids(ctx) == [old_pid]:
-            runtime = runtime_reader(ctx)
-            if _old_runtime_resumed(runtime, old_runtime):
-                assert runtime is not None
-                return runtime
-        time.sleep(0.1)
-    raise errors.InstallError(
-        f"old proxy listener {old_pid} did not resume after handoff rollback within {timeout_seconds:g}s"
-    )
-
-
 def resolve_after_controller_failure(
     ctx: runtime_context.RuntimeContext,
     old_runtime: RuntimeSnapshot,

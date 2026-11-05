@@ -347,11 +347,6 @@ def pids_naming_executable(
     ]
 
 
-def verified_listener_pids(port: int, expected_path: str) -> list[int]:
-    """Return listeners whose argv exactly names ``expected_path``."""
-    return [pid for pid in listener_pids(port) if pid_names_path(pid, expected_path)]
-
-
 def verified_proxy_listener_pids(context: RuntimeContext) -> list[int]:
     """Return listeners owned by the installed native product executable."""
     return [

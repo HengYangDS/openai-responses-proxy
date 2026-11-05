@@ -52,12 +52,6 @@ def error_payload(
     return json.dumps({"error": error}, separators=(",", ":")).encode()
 
 
-def validate_sse_event(raw_event: bytes) -> bytes:
-    """Validate JSON-bearing SSE data lines and return the exact event bytes."""
-    sse_event_data(raw_event)
-    return raw_event
-
-
 def sse_event_data(raw_event: bytes) -> object:
     """Decode one SSE data field sequence without depending on JSON whitespace."""
     fields: list[bytes] = []

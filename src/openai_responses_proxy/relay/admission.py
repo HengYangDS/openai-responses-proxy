@@ -91,13 +91,6 @@ def snapshot() -> dict[str, object]:
         }
 
 
-def drain_snapshot() -> tuple[bool, int, int]:
-    """Return one admission-consistent drain and active-request snapshot."""
-    with _RESPONSE_GATE_LOCK:
-        _expire_drain_locked()
-        return _DRAINING, _DRAIN_GENERATION, _ACTIVE_RESPONSES
-
-
 def response_gate_lock() -> threading.Lock:
     """Return the lock shared with handoff identity sampling."""
     return _RESPONSE_GATE_LOCK

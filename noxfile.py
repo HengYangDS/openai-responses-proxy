@@ -503,7 +503,7 @@ def _assert_release_runtime(session: nox.Session) -> None:
 
 def _environment() -> dict[str, str]:
     """Return deterministic session settings and only explicitly selected overrides."""
-    optional = (product_identity.environment_name("RELEASE_TAG_REMOTE"), "COVERAGE_FILE")
+    optional = ("COVERAGE_FILE",)
     return {
         "PYTHONHASHSEED": "0",
         "PYTHONDONTWRITEBYTECODE": "1",

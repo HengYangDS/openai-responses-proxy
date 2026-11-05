@@ -15,7 +15,6 @@ SETTINGS = runtime_config.load()
 LOG_PATH = SETTINGS.proxy_log.path
 LOG_MAX_BYTES = SETTINGS.proxy_log.max_bytes
 LOG_BACKUP_COUNT = SETTINGS.proxy_log.backup_count
-LOG_LINE_MAX_BYTES = bounded_log.LINE_MAX_BYTES
 
 
 def safe_request_path(value: str) -> str:

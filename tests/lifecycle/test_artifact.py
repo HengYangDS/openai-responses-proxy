@@ -17,6 +17,8 @@ import pytest
 from pytest_mock import MockerFixture
 
 from openai_responses_proxy import errors
+from openai_responses_proxy.json_value import freeze_object
+from openai_responses_proxy.json_value import thaw_value
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
@@ -114,7 +116,7 @@ def _sign_asset_set(paths: Mapping[str, Path]) -> None:
 
 
 def _plain_receipt(candidate: artifact.VerifiedArtifact) -> dict[str, object]:
-    value = artifact.plain_value(candidate.receipt)
+    value = thaw_value(candidate.receipt)
     assert isinstance(value, dict)
     assert all(isinstance(key, str) for key in value)
     return {str(key): item for key, item in value.items()}
@@ -122,15 +124,15 @@ def _plain_receipt(candidate: artifact.VerifiedArtifact) -> dict[str, object]:
 
 def _rebind_receipt(candidate: artifact.VerifiedArtifact, receipt: dict[str, object]) -> None:
     receipt_sha256 = hashlib.sha256(digest.canonical_json(receipt)).hexdigest()
-    sidecar = artifact.plain_value(candidate.sidecar)
+    sidecar = thaw_value(candidate.sidecar)
     assert isinstance(sidecar, dict)
     sidecar.update(
         receipt_sha256=receipt_sha256,
         serving_payload_sha256=receipt.get("serving_payload_sha256"),
     )
-    object.__setattr__(candidate, "_receipt", digest.freeze_mapping(receipt))
+    object.__setattr__(candidate, "_receipt", freeze_object(receipt))
     object.__setattr__(candidate, "_receipt_sha256", receipt_sha256)
-    object.__setattr__(candidate, "_sidecar", digest.freeze_mapping(sidecar))
+    object.__setattr__(candidate, "_sidecar", freeze_object(sidecar))
 
 
 def _replace_last_blob(
@@ -316,8 +318,8 @@ def test_failed_integrity_check_does_not_consume_authority() -> None:
     assert tuple(blob.path for blob in artifact.claim(candidate)[0]) == runtime_files()
 
 
-def test_plain_value_recursively_unfreezes_json_values() -> None:
-    assert artifact.plain_value(({1: ("value",)},)) == [{"1": ["value"]}]
+def test_thawed_evidence_is_canonical_json() -> None:
+    assert thaw_value(({1: ("value",)},)) == [{"1": ["value"]}]
 
 
 def test_real_signature_admission_mints_exact_native_artifact(tmp_path: Path) -> None:

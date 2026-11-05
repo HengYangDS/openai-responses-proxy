@@ -44,7 +44,7 @@ def validate(
     if (
         len(actual_set) != len(actual_paths)
         or not inventory.required_runtime_files(windows=windows).issubset(actual_set)
-        or any(not inventory.is_runtime_file(path, windows=windows) for path in actual_set)
+        or any(not inventory.is_runtime_file(path) for path in actual_set)
     ):
         raise errors.InstallError("released payload file set mismatch")
     for blob in blobs:

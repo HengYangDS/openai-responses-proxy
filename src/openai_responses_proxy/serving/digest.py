@@ -9,8 +9,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TypeGuard
 
-from openai_responses_proxy.json_value import FrozenJsonObject
-from openai_responses_proxy.json_value import freeze_object
 from openai_responses_proxy.json_value import is_json_object
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -27,11 +25,6 @@ def canonical_json(value: object) -> bytes:
     return (
         json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
     ).encode("utf-8")
-
-
-def freeze_mapping(value: object) -> FrozenJsonObject:
-    """Recursively freeze one JSON-like mapping for immutable release evidence."""
-    return freeze_object(value)
 
 
 def aggregate_file_digests_sha256(file_digests: Mapping[str, str]) -> str:

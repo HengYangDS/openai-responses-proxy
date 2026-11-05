@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 
 from openai_responses_proxy import errors
+from openai_responses_proxy.lifecycle import context as runtime_context
+from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection as payload_projection
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import inventory
@@ -16,6 +18,29 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
+
+
+def _write_payload_manifest(
+    ctx: runtime_context.RuntimeContext, *, release_receipt_sha256: str | None = None
+) -> Path:
+    """Write the production manifest shape for a current test payload."""
+    install = Path(ctx.payload_dir)
+    windows = (install / inventory.WINDOWS_EXECUTABLE).is_file()
+    paths = sorted(inventory.required_runtime_files(windows=windows))
+    digests = {relative: payload_digest.sha256_file(install / relative) for relative in paths}
+    manifest: dict[str, object] = {
+        "schema_version": payload_projection.PAYLOAD_MANIFEST_SCHEMA_VERSION,
+        "release": "0.0.0",
+        "files": digests,
+        "serving_files": dict(digests),
+        "serving_payload_sha256": payload_projection.manifest_serving_payload_sha256(digests),
+    }
+    if release_receipt_sha256 is not None:
+        manifest["release_receipt_sha256"] = release_receipt_sha256
+    path = payload_projection.payload_manifest_path(ctx)
+    owned_files.write_bytes(path, payload_projection.manifest_bytes(manifest))
+    return path
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,7 +72,7 @@ class TestPayloadProjection:
             target = Path(ctx.payload_dir, blob.path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(blob.content)
-        path = payload_projection._write_payload_manifest_for_fixture(ctx)
+        path = _write_payload_manifest(ctx)
         assert "release_receipt_sha256" not in json.loads(Path(path).read_text(encoding="utf-8"))
         assert payload_projection.verify_payload_manifest(ctx)[0]
 
@@ -447,7 +472,5 @@ class TestPayloadProjection:
             target = Path(ctx.payload_dir, blob.path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(blob.content)
-        manifest = payload_projection._write_payload_manifest_for_fixture(
-            ctx, release_receipt_sha256="0" * 64
-        )
+        manifest = _write_payload_manifest(ctx, release_receipt_sha256="0" * 64)
         assert json.loads(manifest.read_text())["release_receipt_sha256"] == "0" * 64

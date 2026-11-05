@@ -186,7 +186,7 @@ def _digest_mapping(manifest: Mapping[str, object], field: str) -> dict[str, str
 def _verify_runtime_files(root: Path, expected: Mapping[str, str], *, windows: bool) -> str:
     paths = set(expected)
     if not inventory.required_runtime_files(windows=windows).issubset(paths) or any(
-        not inventory.is_runtime_file(path, windows=windows) for path in paths
+        not inventory.is_runtime_file(path) for path in paths
     ):
         raise ValueError("installed inventory does not match the executable platform")
     aggregate = inventory.validated_serving_payload_sha256(expected)

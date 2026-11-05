@@ -112,7 +112,7 @@ def read_snapshot(root: Path, *, expected_sha256: str | None = None) -> Snapshot
         or not target
         or not Path(target).is_absolute()
         or not isinstance(kind, str)
-        or kind not in {"", "symlink", "hardlink", "launcher"}
+        or kind not in {"", "symlink", "launcher"}
         or type(device) is not int
         or type(inode) is not int
         or (state == "absent" and any((kind, device, inode)))
@@ -241,8 +241,6 @@ def _classify(command_path: Path, target: Path) -> tuple[str, str]:
             and command_path.read_bytes() == windows_launcher(target)
         ):
             return "owned", "launcher"
-        if command_path.is_file() and target.is_file() and os.path.samefile(command_path, target):
-            return "owned", "hardlink"
     except OSError:
         pass
     return "foreign", ""
@@ -269,8 +267,6 @@ def _restore_snapshot(command_path: Path, target: Path, previous: Snapshot) -> N
     try:
         if previous.kind == "launcher":
             temporary.write_bytes(windows_launcher(target))
-        elif previous.kind == "hardlink":
-            os.link(target, temporary)
         elif previous.kind == "symlink":
             os.symlink(target, temporary)
         else:

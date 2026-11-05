@@ -26,7 +26,12 @@ class AdmissionTests:
 
     def test_admission_is_fail_closed_during_drain(self) -> None:
         assert admission.admit_response() == ("acquired", 1)
-        assert admission.drain_snapshot() == (False, 0, 1)
+        state = admission.snapshot()
+        assert (state["draining"], state["drain_generation"], state["active_responses"]) == (
+            False,
+            0,
+            1,
+        )
         assert admission.set_draining(True, lease_seconds=30)["draining"]
         assert admission.admit_response() == ("draining", 1)
         assert admission.release_response() == 0
@@ -75,7 +80,12 @@ class AdmissionTests:
     def test_drain_lease_expiry_is_observable(self, *, mocker) -> None:
         mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])
         admission.set_draining(True, lease_seconds=2)
-        assert admission.drain_snapshot() == (False, 2, 0)
+        state = admission.snapshot()
+        assert (state["draining"], state["drain_generation"], state["active_responses"]) == (
+            False,
+            2,
+            0,
+        )
         counters = cast(
             "dict[str, int]",
             telemetry.status(

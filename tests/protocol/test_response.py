@@ -21,53 +21,49 @@ class LiveStreamContracts:
     @pytest.mark.parametrize("event", [b'data:{"type":\n\n', b'data: {"type":\ndata: bad}\n\n'])
     def test_validates_all_sse_data_field_spellings(self, event: bytes) -> None:
         with pytest.raises(ValueError, match="invalid_responses_event"):
-            response.validate_sse_event(event)
+            response.sse_event_data(event)
 
     def test_multiline_sse_data_is_one_json_document(self) -> None:
         event = b'data: {"type":\ndata: "response.created"}\n\n'
-        assert response.validate_sse_event(event) == event
+        assert response.sse_event_data(event) == {"type": "response.created"}
 
     def test_preserves_encrypted_agent_payload_for_current_turn_decryption(
         self,
     ) -> None:
-        event = _event(
-            {
-                "item": {
-                    "type": "agent_message",
-                    "content": [
-                        {
-                            "type": "encrypted_content",
-                            "encrypted_content": "agent-secret",
-                        }
-                    ],
-                }
+        value = {
+            "item": {
+                "type": "agent_message",
+                "content": [
+                    {
+                        "type": "encrypted_content",
+                        "encrypted_content": "agent-secret",
+                    }
+                ],
             }
-        )
+        }
 
-        assert response.validate_sse_event(event) == event
+        assert response.sse_event_data(_event(value)) == value
 
     def test_preserves_encrypted_tool_payload_for_current_turn_decryption(self) -> None:
-        event = _event(
-            {
-                "item": {
-                    "type": "custom_tool_call_output",
-                    "call_id": "call-1",
-                    "output": [],
-                    "encrypted_content": "tool-secret",
-                }
+        value = {
+            "item": {
+                "type": "custom_tool_call_output",
+                "call_id": "call-1",
+                "output": [],
+                "encrypted_content": "tool-secret",
             }
-        )
+        }
 
-        assert response.validate_sse_event(event) == event
+        assert response.sse_event_data(_event(value)) == value
 
-    def test_passes_non_json_data_and_events_without_data_unchanged(self, subtests) -> None:
+    def test_done_marker_and_events_without_data_carry_no_document(self, subtests) -> None:
         for event in (b"data: [DONE]\n\n", b"event: ping\n\n"):
             with subtests.test(event=event):
-                assert response.validate_sse_event(event) == event
+                assert response.sse_event_data(event) is None
 
     def test_rejects_malformed_json_data_atomically(self) -> None:
         with pytest.raises(ValueError, match="invalid_responses_event"):
-            response.validate_sse_event(b'data: {"type":\n\n')
+            response.sse_event_data(b'data: {"type":\n\n')
 
 
 class LocalErrorContracts:

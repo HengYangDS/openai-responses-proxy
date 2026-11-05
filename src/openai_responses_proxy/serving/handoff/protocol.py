@@ -32,20 +32,6 @@ type JsonObject = dict[str, object]
 type ReadOnlyJsonObject = Mapping[str, object]
 
 
-class _ShareableSocket(Protocol):
-    """Windows socket capability exposed only on supported interpreters."""
-
-    def share(self, _process_id: int, /) -> bytes:
-        """Serialize this socket for one Windows process."""
-
-
-class _SocketShareModule(Protocol):
-    """Windows socket reconstruction capability."""
-
-    def fromshare(self, info: bytes) -> socket.socket:
-        """Reconstruct one socket from serialized Windows state."""
-
-
 class _PopenKwargs(TypedDict, total=False):
     """Keyword arguments for a binary handoff child process."""
 

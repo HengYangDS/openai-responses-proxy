@@ -21,6 +21,7 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.json_value import FrozenJsonObject
 from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.json_value import ReadOnlyJsonObject
+from openai_responses_proxy.json_value import freeze_object
 from openai_responses_proxy.json_value import is_json_object
 from openai_responses_proxy.json_value import thaw_value
 from openai_responses_proxy.serving import digest
@@ -117,8 +118,8 @@ class VerifiedArtifact:
         if _token is not _AUTHORITY.token:
             raise TypeError("VerifiedArtifact is opaque; use signed asset admission")
         object.__setattr__(self, "_blobs", blobs)
-        object.__setattr__(self, "_receipt", digest.freeze_mapping(receipt))
-        object.__setattr__(self, "_sidecar", digest.freeze_mapping(sidecar))
+        object.__setattr__(self, "_receipt", freeze_object(receipt))
+        object.__setattr__(self, "_sidecar", freeze_object(sidecar))
         object.__setattr__(
             self,
             "_receipt_sha256",
@@ -168,7 +169,7 @@ class VerifiedArtifact:
 
     def _verify_integrity(self) -> None:
         receipt_digest = hashlib.sha256(
-            digest.canonical_json(plain_value(self._receipt))
+            digest.canonical_json(thaw_value(self._receipt))
         ).hexdigest()
         entries = self._receipt.get("payload")
         bound = ("serving_payload_sha256",)
@@ -222,11 +223,6 @@ def claim(
 ) -> tuple[tuple[ArtifactFile, ...], str, str, FrozenJsonObject, FrozenJsonObject]:
     """Consume one live admitted verified-artifact authority."""
     return _AUTHORITY.claim(candidate)
-
-
-def plain_value(value: object) -> object:
-    """Copy frozen payload evidence into canonical JSON-compatible values."""
-    return thaw_value(value)
 
 
 def admit(asset: Path, *, trust_anchor: Path) -> VerifiedArtifact:
@@ -413,8 +409,7 @@ def _archive_blobs(archive: bytes, document: JsonObject) -> tuple[ArtifactFile, 
         not expected
         or not {executable_name, "providers.toml", "LICENSE"}.issubset(expected)
         or any(
-            relative != "LICENSE"
-            and not inventory.is_runtime_file(relative, windows=platform.startswith("windows-"))
+            relative != "LICENSE" and not inventory.is_runtime_file(relative)
             for relative in expected
         )
     ):

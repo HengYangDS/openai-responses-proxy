@@ -237,33 +237,6 @@ def test_windows_projection_launches_the_complete_onedir_payload(
     }
 
 
-def test_windows_transition_replaces_and_restores_the_legacy_executable_link(
-    tmp_path: Path,
-) -> None:
-    legacy_target = tmp_path / "legacy" / f"{command.COMMAND_NAME}.exe"
-    current_target = tmp_path / "current" / f"{command.COMMAND_NAME}.exe"
-    legacy_target.parent.mkdir(parents=True)
-    current_target.parent.mkdir(parents=True)
-    legacy_target.write_bytes(b"legacy onedir executable")
-    current_target.write_bytes(b"current onedir executable")
-    command_root = tmp_path / "WindowsApps"
-    legacy_command = command_root / f"{command.COMMAND_NAME}.exe"
-    current_command = command_root / f"{command.COMMAND_NAME}.cmd"
-    command_root.mkdir()
-    os.link(legacy_target, legacy_command)
-    previous = command.snapshot(legacy_command, legacy_target)
-
-    command.project(current_command, current_target, previous=previous)
-
-    assert not legacy_command.exists()
-    assert current_command.read_bytes() == command.windows_launcher(current_target)
-
-    command.restore(current_command, current_target, previous)
-
-    assert not current_command.exists()
-    assert os.path.samefile(legacy_command, legacy_target)
-
-
 def test_windows_transition_restores_the_previous_launcher_when_projection_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

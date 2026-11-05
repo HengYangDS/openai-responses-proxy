@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from pathlib import Path
 
-from openai_responses_proxy.serving import digest
+from openai_responses_proxy.json_value import freeze_object
 from tools.release import identity
 from tools.release.publication import evaluator
 from tools.release.publication import git
@@ -150,7 +150,7 @@ def verify(
             "dual-Forge release assets differ",
             reasons=("release_assets_differ",),
         )
-    return digest.freeze_mapping(
+    return freeze_object(
         {
             "schema_version": 1,
             "tag": tag,

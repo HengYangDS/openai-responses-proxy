@@ -202,30 +202,6 @@ def _remaining_paths(install: Path) -> tuple[str, ...]:
     return remaining
 
 
-def _write_payload_manifest_for_fixture(
-    ctx: runtime_context.RuntimeContext,
-    *,
-    release_receipt_sha256: str | None = None,
-) -> Path:
-    """Write the production manifest shape for a current test payload."""
-    install = Path(ctx.payload_dir)
-    windows = (install / inventory.WINDOWS_EXECUTABLE).is_file()
-    paths = sorted(inventory.required_runtime_files(windows=windows))
-    digests = {relative: digest.sha256_file(Path(ctx.payload_dir, relative)) for relative in paths}
-    manifest: JsonObject = {
-        "schema_version": PAYLOAD_MANIFEST_SCHEMA_VERSION,
-        "release": "0.0.0",
-        "files": digests,
-        "serving_files": dict(digests),
-        "serving_payload_sha256": manifest_serving_payload_sha256(digests),
-    }
-    if release_receipt_sha256 is not None:
-        manifest["release_receipt_sha256"] = release_receipt_sha256
-    path = payload_manifest_path(ctx)
-    owned_files.write_bytes(path, manifest_bytes(manifest))
-    return path
-
-
 def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, str]:
     """Verify the installed executable and provider manifest."""
     try:
@@ -258,10 +234,7 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
             windows=inventory.WINDOWS_EXECUTABLE in expected_files
         )
         if not required.issubset(expected_files) or any(
-            not inventory.is_runtime_file(
-                relative, windows=inventory.WINDOWS_EXECUTABLE in expected_files
-            )
-            for relative in expected_files
+            not inventory.is_runtime_file(relative) for relative in expected_files
         ):
             return False, "manifest file set mismatch"
     except errors.InstallError as exc:

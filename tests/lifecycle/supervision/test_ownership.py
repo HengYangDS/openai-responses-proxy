@@ -34,7 +34,6 @@ def test_native_service_selection_is_total_for_supported_hosts(subtests, *, mock
         ("linux", "linux"),
         ("linux2", "linux"),
         ("win32", "windows"),
-        ("cygwin", "windows"),
     ):
         mocker.patch.object(sys, "platform", platform)
         with subtests.test(platform=platform):
@@ -55,21 +54,6 @@ def test_native_service_selection_reports_incomplete_product(*, mocker) -> None:
     mocker.patch("builtins.__import__", side_effect=missing_adapters)
     with pytest.raises(errors.ProductAssemblyError, match="installation is incomplete"):
         native_service._platform_adapters()
-
-
-def test_cygwin_selection_reports_missing_windows_adapter(*, mocker) -> None:
-    real_import = __import__
-
-    def missing_windows(name, globals_=None, locals_=None, fromlist=(), level=0):
-        if name.endswith("lifecycle.supervision") and fromlist == ("windows",):
-            raise ImportError("missing bundled Windows adapter")
-        return real_import(name, globals_, locals_, fromlist, level)
-
-    mocker.patch.object(native_service, "_platform_adapters", return_value=())
-    mocker.patch.object(sys, "platform", "cygwin")
-    mocker.patch("builtins.__import__", side_effect=missing_windows)
-    with pytest.raises(errors.ProductAssemblyError, match="installation is incomplete"):
-        native_service.adapter()
 
 
 @pytest.mark.parametrize(

@@ -10,6 +10,7 @@ import pytest
 
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
+from openai_responses_proxy.runtime import bounded_log
 from tests.lifecycle.fixtures import assert_private_log_mode
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import MemoryHandler
@@ -160,7 +161,7 @@ class OperationalLogPrivacyContracts:
         assert_private_log_mode(mode)
         assert (
             max(len(line.encode("utf-8")) for line in text.splitlines())
-            <= operational_log.LOG_LINE_MAX_BYTES + 96
+            <= bounded_log.LINE_MAX_BYTES + 96
         )
 
     def test_log_rotation_discards_an_oversized_segment_without_reading_it(self):

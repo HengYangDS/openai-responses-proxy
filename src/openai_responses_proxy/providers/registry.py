@@ -223,19 +223,6 @@ def _load_policy(name: str) -> WirePolicy:
     return cast(WirePolicy, module)
 
 
-def policy_module_names(registry: Registry) -> tuple[str, ...]:
-    """Return the distinct loaded wire-policy modules in deterministic order."""
-    return tuple(
-        sorted(
-            {
-                policy.__name__
-                for profile in registry.profiles.values()
-                if (policy := profile.wire_policy) is not None
-            }
-        )
-    )
-
-
 def _base_url(name: str, value: object) -> str:
     message = f"provider {name!r} base_url must be an absolute HTTP(S) URL"
     if not isinstance(value, str) or not value or any(character.isspace() for character in value):

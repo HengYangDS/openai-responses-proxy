@@ -208,7 +208,6 @@ def removal_files(journal: ReadOnlyJsonObject) -> dict[str, str]:
                     identity.PAYLOAD_SELECTOR_FILENAME,
                 }
                 and not inventory.is_runtime_file(member)
-                and not inventory.is_runtime_file(member, windows=True)
             )
             or not isinstance(expected, str)
             or re.fullmatch(r"[0-9a-f]{64}", expected) is None

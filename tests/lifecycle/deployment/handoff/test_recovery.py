@@ -5,9 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
-import pytest
-
-from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
@@ -18,10 +15,7 @@ from tests.serving.handoff.fixtures import matching_health
 
 
 class TestControllerHandoffWiring(HandoffFixture):
-    def test_wait_for_rollback_accepts_only_the_exact_resumed_runtime_and_times_out(
-        self, *, mocker
-    ):
-        ctx = install_context(Path(self.tempdir.name))
+    def test_resumed_runtime_requires_the_exact_old_identity_and_admission(self) -> None:
         old = idle_runtime()
         mismatches = (
             None,
@@ -35,28 +29,9 @@ class TestControllerHandoffWiring(HandoffFixture):
             idle_runtime(accepting=False),
             idle_runtime(draining=True),
         )
-        runtimes = iter((*mismatches, old))
-        listeners = ([123], *([[999]] * (len(mismatches) + 1)))
-        mocker.patch.object(process, "verified_proxy_listener_pids", side_effect=listeners)
-        mocker.patch.object(handoff.time, "monotonic", side_effect=range(20))
-        mocker.patch.object(handoff.time, "sleep")
-        assert (
-            handoff.wait_for_rollback(
-                ctx, old, runtime_reader=lambda _ctx: next(runtimes), timeout_seconds=20
-            )
-            == old
-        )
-        mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[1000])
-        mocker.patch.object(handoff.time, "monotonic", side_effect=[0.0, 0.1, 0.2])
-        mocker.patch.object(handoff.time, "sleep")
-
-        with pytest.raises(errors.InstallError, match="did not resume"):
-            handoff.wait_for_rollback(
-                ctx,
-                old,
-                runtime_reader=lambda _ctx: None,
-                timeout_seconds=0.15,
-            )
+        for runtime in mismatches:
+            assert not handoff._old_runtime_resumed(runtime, old)
+        assert handoff._old_runtime_resumed(old, old)
 
     def test_failure_resolver_classifies_finalized_rolled_back_and_unknown_states(
         self, subtests, *, mocker

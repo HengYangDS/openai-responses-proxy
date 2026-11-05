@@ -190,13 +190,10 @@ class ProviderRegistryTests:
             )
         policy = loaded.profiles["gateway"].wire_policy
         assert policy is not None
-        assert policy is not None
+        assert policy.__name__ == "openai_responses_proxy.providers.policies.dmxapi"
         assert policy.POLICY_VERSION == "empty-response-retry-v1"
         assert not hasattr(policy, "build_fallback")
         assert not hasattr(policy, "recover_dialogue")
-        assert registry.policy_module_names(loaded) == (
-            "openai_responses_proxy.providers.policies.dmxapi",
-        )
 
     def test_policy_loader_rejects_path_missing_and_incomplete_extensions(
         self, subtests, *, mocker

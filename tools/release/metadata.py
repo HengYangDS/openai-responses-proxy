@@ -335,14 +335,13 @@ def _command(
         bool,
         Parameter(help="Validate a release commit before its product tag exists."),
     ] = False,
-    changelog: Annotated[Path | None, Parameter(show=False)] = None,
 ) -> None:
     """Validate release identity and repository governance."""
     if prepare_release and tag is not None and tag != "":
         raise SystemExit("--prepare-release cannot be combined with --tag")
     version = read_version()
     check_python_metadata()
-    releases = changelog_releases(changelog)
+    releases = changelog_releases()
     check_changelog_provenance(
         releases,
         pending_version=version,
@@ -373,11 +372,6 @@ def _command(
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    proxy = (ROOT / "src" / "openai_responses_proxy" / "serving" / "entrypoint.py").read_text(
-        encoding="utf-8"
-    )
-    if "release_version()" not in proxy:
-        raise SystemExit("proxy runtime header does not read VERSION")
     try:
         check_governance_contract()
     except ValueError as exc:

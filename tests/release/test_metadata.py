@@ -422,7 +422,9 @@ def test_current_release_metadata_chronology(
     incomplete = tmp_path / "CHANGELOG.md"
     incomplete.write_text(release_section.sub("", source, count=1), encoding="utf-8")
     with pytest.raises(ValueError, match="must appear once"):
-        metadata.main(("--changelog", str(incomplete)))
+        metadata.check_changelog_provenance(
+            metadata.changelog_releases(incomplete), pending_version=version
+        )
     metadata.main(())
     assert f"metadata: {version} OK" in capsys.readouterr().out
 

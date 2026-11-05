@@ -118,12 +118,4 @@ def adapter() -> NativeServiceAdapter:
     for prefix, implementation in _platform_adapters():
         if sys.platform.startswith(prefix):
             return _NativeRuntime(implementation)
-    if sys.platform == "cygwin":
-        try:
-            from openai_responses_proxy.lifecycle.supervision import windows
-        except ImportError as error:
-            raise errors.ProductAssemblyError(
-                "product installation is incomplete; reinstall the verified release"
-            ) from error
-        return _NativeRuntime(windows)
     raise errors.UnsupportedPlatformError(f"unsupported platform: {sys.platform}")

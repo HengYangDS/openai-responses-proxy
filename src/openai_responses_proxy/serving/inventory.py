@@ -27,10 +27,9 @@ def required_runtime_files(*, windows: bool = False) -> frozenset[str]:
     return frozenset((executable_name(windows=windows), PROVIDER_MANIFEST))
 
 
-def is_runtime_file(relative: str, *, windows: bool = False) -> bool:
-    """Return whether a canonical member belongs to the current native bundle."""
-    executable = executable_name(windows=windows)
-    return relative in (PROVIDER_MANIFEST, executable) or relative.startswith("bin/")
+def is_runtime_file(relative: str) -> bool:
+    """Return whether a canonical member belongs to a native bundle."""
+    return relative == PROVIDER_MANIFEST or relative.startswith("bin/")
 
 
 def installed_executable(root: str, *, windows: bool = False) -> str:
@@ -43,7 +42,7 @@ def validated_serving_payload_sha256(file_digests: Mapping[str, str]) -> str:
     paths = set(file_digests)
     windows = WINDOWS_EXECUTABLE in paths
     if not required_runtime_files(windows=windows).issubset(paths) or any(
-        not is_runtime_file(relative, windows=windows) for relative in paths
+        not is_runtime_file(relative) for relative in paths
     ):
         raise digest.PayloadDigestError("serving payload files do not match the declared inventory")
     return digest.aggregate_file_digests_sha256(file_digests)

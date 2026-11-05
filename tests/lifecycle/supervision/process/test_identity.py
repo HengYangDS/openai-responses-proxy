@@ -151,15 +151,6 @@ class TestProcessIdentity:
         )
         assert process.verified_proxy_listener_pids(ctx) == [8]
 
-        foreign = str(Path("/") / "fixture-home" / "foreign" / "listener.py")
-        mocker.patch.object(process, "listener_pids", return_value=[7, 8])
-        mocker.patch.object(
-            process,
-            "process_argv",
-            side_effect=[["python", foreign], [executable, listener]],
-        )
-        assert process.verified_listener_pids(ctx.port, foreign) == [7]
-
     def test_native_identity_survives_a_retired_launcher_argv(self, *, mocker):
         expected = os.path.abspath("/installed/openai-responses-proxy")
         candidate = mocker.Mock()
