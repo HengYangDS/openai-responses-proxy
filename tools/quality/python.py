@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 
 import nox
 
+from openai_responses_proxy.serving.digest import is_sha256
+
 ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ("src/openai_responses_proxy", "tools", "tests", "noxfile.py")
 RUFF_CONFIG = ROOT / ".config/checks/ruff/ruff.toml"
@@ -233,8 +235,7 @@ def native_helper_requirement() -> str:
         or wheel.is_symlink()
         or not wheel.is_file()
         or wheel.suffix != ".whl"
-        or len(digest) != 64
-        or any(character not in "0123456789abcdef" for character in digest)
+        or not is_sha256(digest)
         or hashlib.sha256(wheel.read_bytes()).hexdigest() != digest
     ):
         raise ValueError("native helper wheel identity is invalid")

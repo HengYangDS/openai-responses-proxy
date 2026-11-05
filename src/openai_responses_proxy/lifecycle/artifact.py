@@ -350,7 +350,7 @@ def _parse_checksums(content: bytes) -> dict[str, str]:
         parts = line.split("  ", 1)
         if (
             len(parts) != 2
-            or re.fullmatch(r"[0-9a-f]{64}", parts[0]) is None
+            or not digest.is_sha256(parts[0])
             or Path(parts[1]).name != parts[1]
             or parts[1] in parsed
         ):

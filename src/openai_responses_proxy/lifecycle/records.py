@@ -118,30 +118,18 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
         or set(journal) - allowed
         or journal.get("state")
         not in {"prepared", "materialized", "activated", "recovery_required"} | TERMINAL_STATES
-        or not isinstance(transaction_id, str)
-        or len(transaction_id) != 32
-        or any(character not in "0123456789abcdef" for character in transaction_id)
+        or not identity.is_payload_generation_name(transaction_id)
         or not isinstance(version, str)
         or _STRICT_VERSION.fullmatch(version) is None
-        or not isinstance(receipt_sha256, str)
-        or len(receipt_sha256) != 64
-        or any(character not in "0123456789abcdef" for character in receipt_sha256)
+        or not digest.is_sha256(receipt_sha256)
         or type(fresh) is not bool
         or (
             previous_generation is not None
-            and (
-                not isinstance(previous_generation, str)
-                or len(previous_generation) != 32
-                or any(character not in "0123456789abcdef" for character in previous_generation)
-            )
+            and not identity.is_payload_generation_name(previous_generation)
         )
         or (
             previous_predecessor is not None
-            and (
-                not isinstance(previous_predecessor, str)
-                or len(previous_predecessor) != 32
-                or any(character not in "0123456789abcdef" for character in previous_predecessor)
-            )
+            and not identity.is_payload_generation_name(previous_predecessor)
         )
         or (previous_predecessor is not None and previous_generation is None)
         or (reason is not None and (not isinstance(reason, str) or not reason))
@@ -155,13 +143,7 @@ def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
             journal.get("state") in {"materialized", "activated", "recovery_required", "finalized"}
             and snapshot_sha256 is None
         )
-        or (
-            "snapshot_sha256" in journal
-            and (
-                not isinstance(snapshot_sha256, str)
-                or re.fullmatch(r"[0-9a-f]{64}", snapshot_sha256) is None
-            )
-        )
+        or ("snapshot_sha256" in journal and not digest.is_sha256(snapshot_sha256))
     ):
         raise errors.InstallError("payload transaction journal fields are invalid")
     if journal["state"] == "purged":
@@ -194,24 +176,20 @@ def removal_files(journal: ReadOnlyJsonObject) -> dict[str, str]:
         relative = owned_files.canonical_relative(name, "payload removal")
         parts = relative.split("/")
         if parts[0] == identity.PAYLOAD_GENERATIONS_DIRNAME:
-            if len(parts) < 3 or re.fullmatch(r"[0-9a-f]{32}", parts[1]) is None:
+            if len(parts) < 3 or not identity.is_payload_generation_name(parts[1]):
                 raise errors.InstallError("payload removal generation is invalid")
             member = "/".join(parts[2:])
         else:
             member = relative
         if (
-            (
-                member not in set(owned_files.OWNED_PAYLOAD_METADATA)
-                and relative
-                not in {
-                    inventory.INSTALLED_RELEASE_STATE_FILENAME,
-                    identity.PAYLOAD_SELECTOR_FILENAME,
-                }
-                and not inventory.is_runtime_file(member)
-            )
-            or not isinstance(expected, str)
-            or re.fullmatch(r"[0-9a-f]{64}", expected) is None
-        ):
+            member not in set(owned_files.OWNED_PAYLOAD_METADATA)
+            and relative
+            not in {
+                inventory.INSTALLED_RELEASE_STATE_FILENAME,
+                identity.PAYLOAD_SELECTOR_FILENAME,
+            }
+            and not inventory.is_runtime_file(member)
+        ) or not digest.is_sha256(expected):
             raise errors.InstallError("payload removal file identity is invalid")
         result[relative] = expected
     return result
@@ -267,13 +245,10 @@ def read_installed(ctx: runtime_context.RuntimeContext) -> JsonObject | None:
     state = owned_files.read_canonical_json(path, "installed release state")
     if state.get("schema_version") != INSTALLED_RELEASE_STATE_SCHEMA:
         raise errors.InstallError("installed release state schema is unsupported")
-    receipt_sha256 = state.get("receipt_sha256")
     if (
         not isinstance(state.get("transaction_id"), str)
         or not state["transaction_id"]
-        or not isinstance(receipt_sha256, str)
-        or len(receipt_sha256) != 64
-        or any(character not in "0123456789abcdef" for character in receipt_sha256)
+        or not digest.is_sha256(state.get("receipt_sha256"))
         or not isinstance(state.get("runtime"), dict)
     ):
         raise errors.InstallError("installed release state is invalid")

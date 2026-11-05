@@ -8,11 +8,11 @@ from typing import Final
 from typing import cast
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.serving.digest import is_sha256
 from tools.release import identity
 from tools.release.artifact import format as product_assets
 
 _OID: Final = re.compile(r"^[0-9a-f]{40,64}$")
-_SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 _FORGE_FIELDS: Final = frozenset(
     {
         "provider",
@@ -130,9 +130,7 @@ def _evaluate_forge(
         for field in ("tag_object_oid", "commit_oid", "tree_oid")
     ):
         return None, [f"{provider}.invalid_evidence"]
-    if not isinstance(evidence.get("anchor_sha256"), str) or not _SHA256.fullmatch(
-        cast(str, evidence["anchor_sha256"])
-    ):
+    if not is_sha256(evidence.get("anchor_sha256")):
         return None, [f"{provider}.invalid_evidence"]
 
     assets = evidence.get("assets")
@@ -205,10 +203,6 @@ def _validated_assets(provider: str, tag: str, assets: object) -> Mapping[str, o
     )
     if set(typed_assets) != expected_assets:
         return None
-    if any(
-        not isinstance(typed_assets.get(name), str)
-        or not _SHA256.fullmatch(cast(str, typed_assets[name]))
-        for name in expected_assets
-    ):
+    if any(not is_sha256(typed_assets.get(name)) for name in expected_assets):
         return None
     return typed_assets

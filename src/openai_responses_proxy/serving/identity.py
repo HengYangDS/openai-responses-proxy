@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeGuard
 from typing import cast
 
 from openai_responses_proxy.serving import digest
@@ -21,6 +23,7 @@ PAYLOAD_SELECTOR_FILENAME = "payload-selection.json"
 PAYLOAD_SELECTOR_SCHEMA = 1
 PAYLOAD_GENERATIONS_DIRNAME = "generations"
 _PAYLOAD_SELECTOR_FIELDS = frozenset({"schema_version", "active", "predecessor"})
+_PAYLOAD_GENERATION_NAME = re.compile(r"^[0-9a-f]{32}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,13 +131,14 @@ def read_payload_selection(selector: Path) -> PayloadSelection:
     return PayloadSelection(active, predecessor)
 
 
+def is_payload_generation_name(value: object) -> TypeGuard[str]:
+    """Return whether a value is one canonical immutable-generation identifier."""
+    return isinstance(value, str) and _PAYLOAD_GENERATION_NAME.fullmatch(value) is not None
+
+
 def require_payload_generation_name(value: object) -> str:
     """Return one canonical immutable-generation identifier."""
-    if (
-        not isinstance(value, str)
-        or len(value) != 32
-        or any(character not in "0123456789abcdef" for character in value)
-    ):
+    if not is_payload_generation_name(value):
         raise ValueError("payload generation identity is invalid")
     return value
 

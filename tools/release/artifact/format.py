@@ -14,6 +14,7 @@ from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.serving.digest import is_sha256
 from tools.release import identity
 
 ARCHIVE_NAME = f"{product_identity.PRODUCT_SLUG}-{{version}}-{{platform}}.tar.gz"
@@ -21,7 +22,6 @@ MANIFEST_NAME = f"{product_identity.PRODUCT_SLUG}-{{platform}}.manifest.json"
 CHECKSUM_NAME = "SHA256SUMS"
 SIGNATURE_NAME = "SHA256SUMS.sig"
 RELEASE_PLATFORMS = product_identity.RELEASE_PLATFORMS
-_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLATFORM = re.compile(r"^[a-z0-9]+(?:-[a-z0-9_]+)+$")
 
 
@@ -153,10 +153,7 @@ def verify_platform_archive(archive: bytes, manifest: bytes) -> dict[str, object
         or not isinstance(files, dict)
         or not files
         or any(
-            not isinstance(name, str)
-            or not _safe_relative(name)
-            or not isinstance(digest, str)
-            or not _DIGEST.fullmatch(digest)
+            not isinstance(name, str) or not _safe_relative(name) or not is_sha256(digest)
             for name, digest in files.items()
         )
     ):
@@ -213,7 +210,7 @@ def parse_checksums(content: bytes) -> dict[str, str]:
         raise AssetError("release checksum manifest is not ASCII") from error
     for line in lines:
         parts = line.split("  ", 1)
-        if len(parts) != 2 or not _DIGEST.fullmatch(parts[0]) or not parts[1]:
+        if len(parts) != 2 or not is_sha256(parts[0]) or not parts[1]:
             raise AssetError("release checksum manifest is malformed")
         name = parts[1]
         if PurePosixPath(name).name != name or PureWindowsPath(name).name != name or name in parsed:
