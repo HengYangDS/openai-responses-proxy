@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
 from collections.abc import Mapping
 from typing import Protocol
 
@@ -18,8 +17,6 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
-
-RuntimeReader = Callable[[runtime_context.RuntimeContext], dict[str, object] | None]
 
 
 class ServiceAdapter(Protocol):
@@ -60,7 +57,7 @@ def install(
     payload: transaction.PayloadTransaction,
     *,
     adapter: ServiceAdapter,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float = 30.0,
 ) -> dict[str, object]:
     """Install fresh bytes or hand off one verified current native runtime."""
@@ -108,7 +105,7 @@ def rollback(
     retained: payload_rollback.RetainedRollback,
     *,
     adapter: ServiceAdapter,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float = 30.0,
 ) -> dict[str, object]:
     """Apply one retained predecessor through the ordinary upgrade machinery."""
@@ -136,7 +133,7 @@ def _fresh_install(
     payload: transaction.PayloadTransaction,
     *,
     adapter: ServiceAdapter,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
 ) -> dict[str, object]:
     payload.commit_projection()
@@ -197,7 +194,7 @@ def _upgrade(
     current: dict[str, object],
     source_listener: process.OwnedProcess,
     native_generation: bool,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
 ) -> dict[str, object]:
     payload.commit_projection()
@@ -328,7 +325,7 @@ def _replace_native_generation(
     *,
     adapter: ServiceAdapter,
     source_listener: process.OwnedProcess,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
 ) -> dict[str, object]:
     """Cross the exact predecessor exit barrier and prove its successor."""
@@ -363,7 +360,7 @@ def request_handoff(
     *,
     current: dict[str, object],
     source_listener: process.OwnedProcess,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
 ) -> dict[str, object]:
     """Request handoff and resolve controller failure from runtime evidence."""
@@ -408,7 +405,7 @@ def wait_for_serving_runtime(
     ctx: runtime_context.RuntimeContext,
     expected: Mapping[str, object],
     *,
-    runtime_reader: RuntimeReader,
+    runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
     old_pid: int | None = None,
 ) -> dict[str, object]:

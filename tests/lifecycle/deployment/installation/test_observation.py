@@ -77,6 +77,32 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                 timeout_seconds=1,
             )
 
+    @pytest.mark.parametrize(
+        "unobservable",
+        [OSError("runtime record is unreadable"), errors.InstallError("runtime record is invalid")],
+    )
+    def test_request_handoff_preserves_an_unobservable_controller_failure_as_unknown(
+        self, unobservable: Exception, *, mocker
+    ) -> None:
+        current = self.current_runtime()
+        original = errors.InstallError("handoff failed")
+        mocker.patch.object(apply.handoff, "request", side_effect=original)
+        mocker.patch.object(
+            apply.handoff, "resolve_after_controller_failure", side_effect=unobservable
+        )
+        with pytest.raises(
+            apply.UnknownDeploymentOutcome, match="outcome is unconfirmed"
+        ) as raised:
+            apply.request_handoff(
+                self.ctx,
+                FakeTransaction(self.ctx).expected,
+                current=current,
+                source_listener=process.OwnedProcess(111, self.ctx.executable, 1.0),
+                runtime_reader=lambda _ctx: current,
+                timeout_seconds=1,
+            )
+        assert raised.value.__cause__ is original
+
     def test_request_handoff_leases_the_predecessor_its_exchange_deadline(self, *, mocker) -> None:
         current = self.current_runtime()
         expected = FakeTransaction(self.ctx).expected
