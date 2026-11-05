@@ -84,7 +84,7 @@ def test_release_preparation_rejects_a_retained_nonancestor_tag(
     monkeypatch.setattr(
         metadata,
         "changelog_releases",
-        lambda _path: [
+        lambda: [
             ("2.0.0", "2026-01-02"),
             ("1.0.0", "2026-01-01"),
             ("0.9.0", "2025-12-31"),

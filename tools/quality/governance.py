@@ -171,6 +171,8 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
             "gitlab",
             "--redact",
             "--no-banner",
+            # ETHOS keeps local evidence under refs/ethos; it is not history any Forge clone holds.
+            "--log-opts=--full-history --exclude=refs/ethos/* --all",
             ".",
         ),
         (

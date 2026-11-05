@@ -198,6 +198,7 @@ def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
             "gitlab",
             "--redact",
             "--no-banner",
+            "--log-opts=--full-history --exclude=refs/ethos/* --all",
             ".",
         ),
         (
