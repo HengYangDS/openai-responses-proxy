@@ -66,6 +66,7 @@ def test_github_actions_consume_one_immutable_toolchain_catalog() -> None:
     assert projected == set(catalog)
 
 
+@pytest.mark.repository_toolchain
 def test_both_peers_install_the_mise_release_of_the_gitlab_image() -> None:
     """Install on GitHub the Mise release that GitLab's image carries, so no release arrives unannounced."""
     source = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")["source-and-governance"])
