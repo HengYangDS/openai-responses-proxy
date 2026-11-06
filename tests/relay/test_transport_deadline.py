@@ -271,8 +271,11 @@ class TestTransportDeadline(InputTransportFixture):
             mocker.patch.object(server_context, "wrap_socket", side_effect=server_wrap)
             mocker.patch.object(upstream_exchange, "_TLS_CONTEXT", client_context)
             # This case proves budget arithmetic with real verified TLS, not
-            # runner scheduling. Keep wall-clock expiry in the stalled-TLS case.
-            mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 5.0)
+            # runner scheduling. The frozen clock leaves 26.8 s of the budget
+            # after connecting, and the real handshake gets that much wall-clock
+            # time, so a slow hosted runner cannot exhaust it. Keep wall-clock
+            # expiry in the stalled-TLS case.
+            mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 30.0)
             base_url = upstream.base_url().replace("http://", "https://")
             providers = provider_registry.Registry(
                 {"fixture": provider_registry.Profile("fixture", base_url + "/v1")}
@@ -283,7 +286,7 @@ class TestTransportDeadline(InputTransportFixture):
 
             assert handler.statuses == [200]
             assert len(upstream.received) == 1
-            assert tls_budgets == [pytest.approx(1.8)]
+            assert tls_budgets == [pytest.approx(26.8)]
             assert self._status_snapshot()["active_responses"] == 0
         finally:
             upstream.close()
