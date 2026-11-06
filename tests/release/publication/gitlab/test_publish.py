@@ -94,7 +94,7 @@ def test_publication_creates_and_accepts_only_exact_existing_release(
     mocker.patch.object(publish, "_request", side_effect=request)
     arguments: _PublicationArguments = {
         "api_base": "https://gitlab.example/api/v4",
-        "project_id": 453,
+        "project_id": 101,
         "tag": "v1.2.3",
         "token": "redacted",
         "credential_kind": publish.CredentialKind.JOB_TOKEN,
@@ -174,7 +174,7 @@ def test_publication_reuses_exact_partial_package_and_uploads_only_missing_asset
     assert (
         publish.publish(
             api_base="https://gitlab.example/api/v4",
-            project_id=453,
+            project_id=101,
             tag="v1.2.3",
             token="redacted",
             credential_kind=publish.CredentialKind.JOB_TOKEN,
@@ -217,7 +217,7 @@ def test_publication_rejects_different_existing_package_bytes(tmp_path: Path, mo
     with pytest.raises(publish.GitLabPublishError, match="differs before upload"):
         publish.publish(
             api_base="https://gitlab.example/api/v4",
-            project_id=453,
+            project_id=101,
             tag="v1.2.3",
             token="redacted",
             credential_kind=publish.CredentialKind.JOB_TOKEN,
@@ -228,7 +228,7 @@ def test_publication_rejects_different_existing_package_bytes(tmp_path: Path, mo
 
 def test_gitlab_http_failure_preserves_bounded_provider_detail(mocker) -> None:
     error = urllib.error.HTTPError(
-        "https://gitlab.example/api/v4/projects/453/releases",
+        "https://gitlab.example/api/v4/projects/101/releases",
         422,
         "Unprocessable Entity",
         Message(),
@@ -270,7 +270,7 @@ def test_publication_rejects_unsigned_or_incomplete_bundle(tmp_path: Path) -> No
     with pytest.raises(publish.GitLabPublishError, match="signature verification failed"):
         publish.publish(
             api_base="https://gitlab.example/api/v4",
-            project_id=453,
+            project_id=101,
             tag="v1.2.3",
             token="redacted",
             credential_kind=publish.CredentialKind.JOB_TOKEN,

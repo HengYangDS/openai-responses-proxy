@@ -87,7 +87,7 @@ def test_gitlab_command_reads_only_the_declared_credential(
             "--api-base",
             "https://gitlab.example/api/v4",
             "--project-id",
-            "453",
+            "101",
             "--tag",
             "v1.2.3",
             "--assets",
@@ -99,7 +99,7 @@ def test_gitlab_command_reads_only_the_declared_credential(
 
     adapter.assert_called_once_with(
         api_base="https://gitlab.example/api/v4",
-        project_id=453,
+        project_id=101,
         tag="v1.2.3",
         token=token,
         credential_kind=kind,
@@ -118,7 +118,7 @@ def test_command_fails_closed_without_provider_credentials(tmp_path: Path, mocke
                 "--api-base",
                 "https://gitlab.example/api/v4",
                 "--project-id",
-                "453",
+                "101",
                 "--tag",
                 "v1.2.3",
                 "--assets",
@@ -148,7 +148,7 @@ def test_dual_command_projects_the_same_bundle_to_both_peers(tmp_path: Path, moc
     commands._both(
         github_repository="team/proxy",
         gitlab_api_base="https://gitlab.example/api/v4",
-        gitlab_project_id=453,
+        gitlab_project_id=101,
         tag="v1.2.3",
         commit_oid="a" * 40,
         assets=assets,
@@ -167,7 +167,7 @@ def test_dual_command_projects_the_same_bundle_to_both_peers(tmp_path: Path, moc
     )
     gitlab_dispatch.assert_called_once_with(
         api_base="https://gitlab.example/api/v4",
-        project_id=453,
+        project_id=101,
         tag="v1.2.3",
         assets=assets,
         credential_kind=gitlab.CredentialKind.JOB_TOKEN,
@@ -186,7 +186,7 @@ def test_dual_command_attempts_both_peers_before_reporting_failure(tmp_path: Pat
         commands._both(
             github_repository="team/proxy",
             gitlab_api_base="https://gitlab.example/api/v4",
-            gitlab_project_id=453,
+            gitlab_project_id=101,
             tag="v1.2.3",
             commit_oid="a" * 40,
             assets=tmp_path / "assets",
