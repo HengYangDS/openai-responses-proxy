@@ -22,12 +22,12 @@ Only the signed-asset installer SHALL admit a different release.
   the current product but SHALL NOT accept arbitrary release bytes. Forge
   availability SHALL NOT be an installation input. The payload transaction SHALL
   coordinate the selected serving payload, installed-state record, and native
-  command link as one rollback domain. The selector SHALL determine the active
+  command as one rollback domain. The selector SHALL determine the active
   serving generation and its sole predecessor. The command SHALL resolve to the
   newest verified release among those selected generations so serving rollback
-  cannot downgrade lifecycle control. The command link SHALL be a symbolic link
-  on POSIX and a hard link on Windows; both forms SHALL be admitted only when they
-  identify that exact control executable.
+  cannot downgrade lifecycle control. The command SHALL be a symbolic link on
+  POSIX and a `.cmd` launcher on Windows; each form SHALL be admitted only when it
+  identifies that exact control executable.
 
 #### Scenario: An operator installs a release
 
@@ -38,9 +38,9 @@ Only the signed-asset installer SHALL admit a different release.
 
 #### Scenario: A fresh installation fails after payload projection
 
-- **WHEN** payload bytes and the platform-native command link are projected
+- **WHEN** payload bytes and the platform-native command are projected
 - **AND** native service startup fails
-- **THEN** rollback removes the candidate payload and command link
+- **THEN** rollback removes the candidate payload and command
 - **AND** the pre-install absence is restored exactly.
 
 #### Scenario: An upgrade handoff fails
@@ -53,9 +53,10 @@ Only the signed-asset installer SHALL admit a different release.
 #### Scenario: Windows projects the user command
 
 - **WHEN** installation runs on Windows
-- **THEN** the command path is a hard link to the exact control executable
-- **AND** status, rollback, and uninstall classify ownership by file identity
-- **AND** no symbolic-link privilege, copied executable, or wrapper is required.
+- **THEN** the command path is a `.cmd` launcher whose exact bytes invoke the
+  exact control executable
+- **AND** status, rollback, and uninstall classify ownership by those exact bytes
+- **AND** no symbolic-link privilege or copied executable is required.
 
 #### Scenario: A cold native successor starts within the configured deadline
 
