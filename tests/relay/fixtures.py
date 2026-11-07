@@ -17,6 +17,7 @@ from email.message import Message
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Literal
 from typing import cast
 from typing import override
@@ -348,6 +349,47 @@ class DirectResponse:
     def read1(self, amount: int = -1) -> bytes:
         """Read one scripted transport fragment without combining it with another."""
         return self.read(amount)
+
+
+class TimedResponse(io.BytesIO):
+    """Model an upstream socket whose reads consume its armed idle timeout."""
+
+    def __init__(self, clock, chunks: list[bytes | BaseException], content_type: str) -> None:
+        """Arm the idle timeout and queue the chunks that later reads return."""
+        super().__init__()
+        self.clock = clock
+        self.chunks = iter(chunks)
+        self.timeout = 0.7
+        self.headers = Message()
+        self.headers["Content-Type"] = content_type
+        self.status = 200
+        self.fp = SimpleNamespace(raw=SimpleNamespace(_sock=self))
+
+    def settimeout(self, timeout: float) -> None:
+        self.timeout = timeout
+
+    @override
+    def read1(self, amount: int | None = -1) -> bytes:
+        del amount
+        chunk = next(self.chunks, b"")
+        if isinstance(chunk, BaseException):
+            raise chunk
+        if not chunk:
+            return b""
+        delay = 0.2
+        self.clock[0] += min(delay, self.timeout)
+        if self.timeout < delay - 1e-9:
+            raise TimeoutError("private upstream read timeout")
+        return chunk
+
+    @override
+    def read(self, amount: int | None = -1) -> bytes:
+        if amount is not None and amount >= 0:
+            return self.read1(amount)
+        chunks = []
+        while chunk := self.read1():
+            chunks.append(chunk)
+        return b"".join(chunks)
 
 
 class InputTransportFixture:
