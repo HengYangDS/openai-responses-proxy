@@ -273,7 +273,7 @@ def spawn_child(
             if not callable(share):
                 raise HandoffError("Windows listener sharing is unavailable")
             try:
-                shared = cast(Callable[[int], bytes], share)(runtime_pid)
+                shared = cast("Callable[[int], bytes]", share)(runtime_pid)
             except Exception as exc:
                 raise HandoffError("Windows listener sharing failed") from exc
             message["listener_share_b64"] = base64.b64encode(shared).decode("ascii")
@@ -298,7 +298,7 @@ def listener_from_prepare(message: ReadOnlyJsonObject) -> socket.socket:
             fromshare: object = getattr(socket, "fromshare", None)
             if not callable(fromshare):
                 raise HandoffError("Windows listener reconstruction is unavailable")
-            return cast(Callable[[bytes], socket.socket], fromshare)(shared)
+            return cast("Callable[[bytes], socket.socket]", fromshare)(shared)
         except Exception as exc:
             raise HandoffError("Windows listener reconstruction failed") from exc
     listener_fd = message.get("listener_fd")

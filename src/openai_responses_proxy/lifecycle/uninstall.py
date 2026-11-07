@@ -59,7 +59,7 @@ def uninstall_product(
     ctx: runtime_context.RuntimeContext, *, purge: bool = False
 ) -> dict[str, object]:
     """Remove owned supervision and optionally purge the verified payload."""
-    service = cast(ServiceAdapter, adapter())
+    service = cast("ServiceAdapter", adapter())
 
     transaction_state = records.status(ctx)
     if transaction_state is not None:

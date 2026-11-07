@@ -229,7 +229,7 @@ def _project_agent_message(item: JsonObject) -> tuple[JsonObject, dict[str, int]
 def _project_call(
     item: JsonObject, relationships: item_policy.ToolRelationships
 ) -> tuple[JsonObject, dict[str, int]]:
-    item_type = cast(str, item.get("type"))
+    item_type = cast("str", item.get("type"))
     _unknown_fields(item, _CALL_FIELDS[item_type], "unknown_call_field")
     call_id, name = item.get("call_id"), item.get("name")
     argument_field = _CALL_ARGUMENT_FIELD[item_type]
@@ -237,7 +237,7 @@ def _project_call(
     namespace, caller = item.get("namespace"), item.get("caller")
     if relationships.observe_item(item):
         _reject("invalid_call_id")
-    valid_call_id = cast(str, call_id)
+    valid_call_id = cast("str", call_id)
     if not isinstance(name, str) or not name or not isinstance(argument, str):
         _reject("invalid_call")
     if namespace is not None and (not isinstance(namespace, str) or not namespace):
@@ -335,7 +335,7 @@ def _project_output(
     item: JsonObject,
     relationships: item_policy.ToolRelationships,
 ) -> tuple[JsonObject, dict[str, int]]:
-    item_type = cast(str, item.get("type"))
+    item_type = cast("str", item.get("type"))
     allowed_fields = (
         _FUNCTION_OUTPUT_FIELDS if item_type == "function_call_output" else _OUTPUT_FIELDS
     )
@@ -350,7 +350,7 @@ def _project_output(
                 "mismatched_output_type": "mismatched_output",
             }.get(issue, issue)
         )
-    valid_call_id = cast(str, call_id)
+    valid_call_id = cast("str", call_id)
     if not _valid_caller(caller):
         _reject("invalid_caller")
     raw_output = item.get("output")
@@ -485,7 +485,7 @@ def project_input(
     for raw_item in items:
         if not isinstance(raw_item, dict):
             _reject("invalid_item")
-        item = cast(JsonObject, raw_item)
+        item = cast("JsonObject", raw_item)
         policy = item_policy.classify_input_item(item)
         if policy is None:
             _reject("unknown_item_type")

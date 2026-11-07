@@ -77,8 +77,8 @@ class GitHubObservationContracts:
         commit = "a" * 40
         runs, jobs, release, assets = self._github_fixture(commit)
         result = self._normalize_github(commit, (runs, jobs, release, assets))
-        ci = cast(dict[str, object], result["ci"])
-        release_result = cast(dict[str, object], result["release"])
+        ci = cast("dict[str, object]", result["ci"])
+        release_result = cast("dict[str, object]", result["release"])
         assert ci["status"] == "success"
         assert release_result["commit_oid"] == commit
         runs[0]["head_sha"] = "b" * 40
@@ -92,7 +92,7 @@ class GitHubObservationContracts:
 
         result = self._normalize_github(commit, (runs, jobs, release, assets))
 
-        assert cast(dict[str, object], result["ci"])["id"] == 1
+        assert cast("dict[str, object]", result["ci"])["id"] == 1
 
     def test_github_selects_the_newest_published_ancestor_before_the_candidate(
         self, *, mocker

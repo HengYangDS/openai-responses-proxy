@@ -42,5 +42,5 @@ def open_request(
     timeout_seconds: float,
 ) -> AbstractContextManager[Response]:
     """Open one direct HTTP request to the loopback control plane."""
-    response = cast(Response, opener().open(request, timeout=timeout_seconds))
+    response = cast("Response", opener().open(request, timeout=timeout_seconds))
     return closing(response)

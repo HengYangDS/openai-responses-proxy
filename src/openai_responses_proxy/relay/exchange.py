@@ -65,7 +65,7 @@ def urlopen_direct(
         if deadline is None
         else upstream_transport.deadline_opener(deadline, _TLS_CONTEXT)
     )
-    return cast(UpstreamResponse, opener.open(request, timeout=timeout))
+    return cast("UpstreamResponse", opener.open(request, timeout=timeout))
 
 
 def open_readonly(
@@ -78,7 +78,7 @@ def open_readonly(
     try:
         response = urlopen_direct(_request(url, b"", method, headers), timeout, deadline=deadline)
     except urllib.error.HTTPError as error:
-        response = cast(UpstreamResponse, error)
+        response = cast("UpstreamResponse", error)
     if time.monotonic() >= deadline:
         response.close()
         raise ExchangeDeadlineError("catalog header deadline expired")
@@ -337,7 +337,7 @@ def _exhaust_response_failed(exchange: Exchange) -> None:
 def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int) -> str:
     try:
         payload = upstream_transport.read_body(
-            cast(UpstreamResponse, error), exchange.deadline, downstream.MAX_RESPONSES_JSON_BYTES
+            cast("UpstreamResponse", error), exchange.deadline, downstream.MAX_RESPONSES_JSON_BYTES
         )
         status_code, headers = error.code, error.headers
     except ExchangeDeadlineError:

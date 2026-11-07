@@ -105,7 +105,7 @@ def project_input_content(
     for block in blocks:
         if not isinstance(block, dict):
             reject("invalid_content_block")
-        typed = cast(JsonObject, block)
+        typed = cast("JsonObject", block)
         block_type = typed.get("type")
         if block_type in ("input_text", "output_text"):
             text = _text_block_value(typed, block_type)
@@ -174,7 +174,7 @@ def project_assistant_text(
     for block in cast("list[object]", value):
         if not isinstance(block, dict):
             reject("invalid_content_block")
-        typed = cast(JsonObject, block)
+        typed = cast("JsonObject", block)
         block_type = typed.get("type")
         if block_type in ("input_text", "output_text"):
             text_parts.append(_text_block_value(typed, block_type))
@@ -210,7 +210,7 @@ def empty_assistant_placeholder(value: object) -> bool:
     block = value[0]
     if not isinstance(block, dict):
         return False
-    typed = cast(JsonObject, block)
+    typed = cast("JsonObject", block)
     if typed.get("type") != "output_text":
         return False
     try:

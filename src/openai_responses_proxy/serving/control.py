@@ -124,7 +124,7 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
     try:
         timeout_seconds = min(120.0, max(0.1, float(request.get("timeout_seconds", 30.0))))
         lease_seconds = admission.bounded_drain_lease_seconds(request.get("lease_seconds"))
-        server = cast(ThreadingHTTPServer, handler.server)
+        server = cast("ThreadingHTTPServer", handler.server)
         prepared = handoff.prepare(
             server,
             expected,

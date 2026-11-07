@@ -101,9 +101,9 @@ class GitPublicationContracts:
         )
         assert evidence["provider"] == "gitlab"
         assert evidence["signature_verified"]
-        assert len(cast(str, evidence["tag_object_oid"])) == 40
-        assert len(cast(str, evidence["commit_oid"])) == 40
-        assert len(cast(str, evidence["tree_oid"])) == 40
+        assert len(cast("str", evidence["tag_object_oid"])) == 40
+        assert len(cast("str", evidence["commit_oid"])) == 40
+        assert len(cast("str", evidence["tree_oid"])) == 40
 
     def test_rejects_lightweight_tag_and_wrong_anchor(self) -> None:
         subprocess.run(["git", "-C", self.repo, "tag", "v1.2.4"], check=True)

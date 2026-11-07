@@ -90,7 +90,7 @@ def normalize(
         name = job.get("name")
         if name not in required_jobs:
             continue
-        name = cast(str, name)
+        name = cast("str", name)
         if job.get("allow_failure") is not False:
             raise GitLabProofError("GitLab required job permits failure")
         nested_pipeline = _mapping(

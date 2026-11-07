@@ -92,11 +92,11 @@ class PublicationProofContracts:
         assert result["tree_equal"]
         assert result["assets_equal"]
         assert "release_source" not in result
-        forges = cast(dict[str, dict[str, object]], result["forges"])
+        forges = cast("dict[str, dict[str, object]]", result["forges"])
         assert forges["gitlab"]["provider"] == "gitlab"
         assert forges["github"]["provider"] == "github"
-        assert "jobs" not in cast(dict[str, object], forges["gitlab"]["ci"])
-        assert "jobs" not in cast(dict[str, object], forges["github"]["ci"])
+        assert "jobs" not in cast("dict[str, object]", forges["gitlab"]["ci"])
+        assert "jobs" not in cast("dict[str, object]", forges["github"]["ci"])
         assert result["reasons"] == []
 
     def test_unknown_fields_fail_closed(self) -> None:
@@ -115,7 +115,7 @@ class PublicationProofContracts:
         result = evaluator.evaluate("v1.2.3", gitlab, github)
         assert not result["verified"]
         assert not result["tree_equal"]
-        reasons = cast(list[str], result["reasons"])
+        reasons = cast("list[str]", result["reasons"])
         assert "tree_mismatch" in reasons
         assert "github.signature_unverified" in reasons
 
@@ -123,29 +123,29 @@ class PublicationProofContracts:
         github = _github_forge()
         github["tag_object_oid"] = "b" * 40
         github["commit_oid"] = "e" * 40
-        cast(dict[str, object], github["ci"])["revision_oid"] = "e" * 40
-        cast(dict[str, object], github["release"])["commit_oid"] = "e" * 40
+        cast("dict[str, object]", github["ci"])["revision_oid"] = "e" * 40
+        cast("dict[str, object]", github["release"])["commit_oid"] = "e" * 40
 
         result = evaluator.evaluate("v1.2.3", _gitlab_forge(), github)
 
         assert not result["verified"]
-        reasons = cast(list[str], result["reasons"])
+        reasons = cast("list[str]", result["reasons"])
         assert "tag_object_mismatch" in reasons
         assert "commit_mismatch" in reasons
 
     def test_rejects_cross_forge_asset_mismatch(self) -> None:
         github = _github_forge()
-        cast(dict[str, str], github["assets"])[
+        cast("dict[str, str]", github["assets"])[
             "openai-responses-proxy-1.2.3-linux-x86_64.tar.gz"
         ] = "9" * 64
         result = evaluator.evaluate("v1.2.3", _gitlab_forge(), github)
         assert not result["verified"]
         assert not result["assets_equal"]
-        assert "asset_mismatch" in cast(list[str], result["reasons"])
+        assert "asset_mismatch" in cast("list[str]", result["reasons"])
 
     def test_rejects_incomplete_forge_asset_inventory(self) -> None:
         gitlab = _gitlab_forge()
-        assets = cast(dict[str, str], gitlab["assets"])
+        assets = cast("dict[str, str]", gitlab["assets"])
         for platform in ("macos-arm64", "windows-x86_64"):
             assets.pop(f"openai-responses-proxy-1.2.3-{platform}.tar.gz")
             assets.pop(f"openai-responses-proxy-{platform}.manifest.json")
@@ -153,11 +153,11 @@ class PublicationProofContracts:
         result = evaluator.evaluate("v1.2.3", gitlab, _github_forge())
 
         assert not result["verified"]
-        assert "gitlab.invalid_evidence" in cast(list[str], result["reasons"])
+        assert "gitlab.invalid_evidence" in cast("list[str]", result["reasons"])
 
     def test_rejects_checksum_signature_and_trust_identity_mismatch(self) -> None:
         github = _github_forge()
-        assets = cast(dict[str, str], github["assets"])
+        assets = cast("dict[str, str]", github["assets"])
         assets["SHA256SUMS"] = "8" * 64
         assets["SHA256SUMS.sig"] = "9" * 64
         github["anchor_sha256"] = "7" * 64
@@ -165,7 +165,7 @@ class PublicationProofContracts:
         result = evaluator.evaluate("v1.2.3", _gitlab_forge(), github)
 
         assert not result["verified"]
-        reasons = cast(list[str], result["reasons"])
+        reasons = cast("list[str]", result["reasons"])
         assert "asset_mismatch" in reasons
         assert "trust_anchor_mismatch" in reasons
 
@@ -173,14 +173,14 @@ class PublicationProofContracts:
         gitlab = _gitlab_forge()
         ci = gitlab["ci"]
         assert isinstance(ci, dict)
-        typed_ci = cast(dict[str, object], ci)
+        typed_ci = cast("dict[str, object]", ci)
         typed_ci["revision_oid"] = "0" * 40
         release = gitlab["release"]
         assert isinstance(release, dict)
-        cast(dict[str, object], release)["draft"] = True
+        cast("dict[str, object]", release)["draft"] = True
         result = evaluator.evaluate("v1.2.3", gitlab, _github_forge())
         assert not result["verified"]
-        reasons = cast(list[str], result["reasons"])
+        reasons = cast("list[str]", result["reasons"])
         assert "gitlab.ci_revision_mismatch" in reasons
         assert "gitlab.release_draft" in reasons
 
@@ -200,16 +200,16 @@ class PublicationProofContracts:
                 assert evaluator._evaluate_forge("gitlab", "v1.2.3", evidence)[0] is None
 
         evidence = _gitlab_forge()
-        cast(dict[str, object], evidence["assets"])["SHA256SUMS"] = "not-a-digest"
+        cast("dict[str, object]", evidence["assets"])["SHA256SUMS"] = "not-a-digest"
         assert evaluator._evaluate_forge("gitlab", "v1.2.3", evidence)[0] is None
 
         evidence = _gitlab_forge()
-        cast(dict[str, object], evidence["release"]).pop("name")
+        cast("dict[str, object]", evidence["release"]).pop("name")
         assert evaluator._evaluate_forge("gitlab", "v1.2.3", evidence)[0] is None
 
         evidence = _gitlab_forge()
-        ci = cast(dict[str, object], evidence["ci"])
-        release = cast(dict[str, object], evidence["release"])
+        ci = cast("dict[str, object]", evidence["ci"])
+        release = cast("dict[str, object]", evidence["release"])
         ci.update(status="failed")
         release.update(
             tag="v0.0.0",
@@ -219,7 +219,7 @@ class PublicationProofContracts:
             prerelease=True,
         )
         result = evaluator.evaluate("v1.2.3", evidence, _github_forge())
-        reasons = cast(list[str], result["reasons"])
+        reasons = cast("list[str]", result["reasons"])
         for expected in (
             "gitlab.ci_not_successful",
             "gitlab.release_tag_mismatch",

@@ -59,16 +59,16 @@ class _NativeRuntime:
         self._implementation.install(ctx)
 
     def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str | None:
-        return cast(str | None, self._implementation.configured_executable(ctx))
+        return cast("str | None", self._implementation.configured_executable(ctx))
 
     def projection_is_current(self, ctx: runtime_spec.NativeServiceContext) -> bool:
-        return cast(bool, self._implementation.projection_is_current(ctx))
+        return cast("bool", self._implementation.projection_is_current(ctx))
 
     def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self._implementation.uninstall(ctx)
 
     def status(self, ctx: runtime_spec.NativeServiceContext) -> str:
-        return cast(str, self._implementation.status(ctx))
+        return cast("str", self._implementation.status(ctx))
 
     def _runtime_pids(self, ctx: runtime_spec.NativeServiceContext) -> list[int]:
         return process.pids_naming_executable(ctx.executable, roles=serving_roles.RUNTIME_ROLES)

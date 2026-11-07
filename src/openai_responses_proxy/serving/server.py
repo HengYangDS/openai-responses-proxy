@@ -62,7 +62,7 @@ class ResilientProxyServer(ThreadingHTTPServer):
         # lookup can block listener admission on hosts with degraded DNS.
         socketserver.TCPServer.server_bind(self)
         host, port = self.server_address[:2]
-        self.server_name = cast(str, host)
+        self.server_name = cast("str", host)
         self.server_port = port
         _disable_nagle(self.socket)
 
@@ -83,8 +83,8 @@ class ResilientProxyServer(ThreadingHTTPServer):
         admission.begin_handler()
         try:
             super().process_request_thread(
-                cast(ServerRequest, request),
-                cast(ClientAddress, client_address),
+                cast("ServerRequest", request),
+                cast("ClientAddress", client_address),
             )
         finally:
             admission.end_handler()
@@ -101,7 +101,7 @@ class ResilientProxyServer(ThreadingHTTPServer):
                 f"exception={operational_log.safe_exception_label(error)}"
             )
             return
-        super().handle_error(cast(ServerRequest, request), cast(ClientAddress, client_address))
+        super().handle_error(cast("ServerRequest", request), cast("ClientAddress", client_address))
 
 
 def _disable_nagle(connection: socket.socket) -> None:
@@ -118,10 +118,10 @@ class Handler(BaseHTTPRequestHandler):
     @override
     def version_string(self) -> str:
         """Return the immutable release identity bound to this server."""
-        return cast(ResilientProxyServer, self.server).bindings.server_version
+        return cast("ResilientProxyServer", self.server).bindings.server_version
 
     def _bindings(self) -> Bindings:
-        return cast(ResilientProxyServer, self.server).bindings
+        return cast("ResilientProxyServer", self.server).bindings
 
     @override
     def log_message(self, *args: object, **kwargs: object) -> None:
@@ -167,6 +167,6 @@ def server_from_listener(listener: socket.socket, bindings: Bindings) -> Resilie
     server.socket.close()
     server.socket = listener
     server.server_address = address
-    server.server_name = cast(str, address[0])
+    server.server_name = cast("str", address[0])
     server.server_port = address[1]
     return server

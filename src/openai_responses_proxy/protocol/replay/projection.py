@@ -93,7 +93,7 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
     if not isinstance(payload, dict):
         return ProjectionResult(None, "rejected", reason="request_not_object")
 
-    candidate = cast(JsonObject, dict(payload))
+    candidate = cast("JsonObject", dict(payload))
     store_normalized = candidate.get("store") is not False
     candidate["store"] = False
     provider_bindings = sum(field in candidate for field in _PROVIDER_BINDINGS)

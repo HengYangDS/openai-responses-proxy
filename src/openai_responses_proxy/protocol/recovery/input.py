@@ -161,7 +161,7 @@ def build_recovery(
     retained = sorted(turn.retained | dependencies.required)
     if not dependencies.allows(set(retained)):
         return None, None
-    dialogue = [cast(JsonObject, input_items[index]) for index in retained]
+    dialogue = [cast("JsonObject", input_items[index]) for index in retained]
     candidate = dict(payload)
     candidate["input"] = dialogue
     try:
@@ -271,7 +271,7 @@ class _DiagnosticState:
         if not isinstance(item, dict):
             self.item_types[_value_kind(item)] += 1
             return
-        typed_item = cast(ReadOnlyJsonObject, item)
+        typed_item = cast("ReadOnlyJsonObject", item)
         policy = item_policy.classify_input_item(typed_item)
         raw_type = typed_item.get("type")
         if policy is not None and "type" not in typed_item:
@@ -291,7 +291,7 @@ class _DiagnosticState:
         if not isinstance(block, dict):
             self.content_types[_value_kind(block)] += 1
             return
-        typed_block = cast(ReadOnlyJsonObject, block)
+        typed_block = cast("ReadOnlyJsonObject", block)
         block_type = typed_block.get("type")
         self.content_types[_closed_label(block_type, _KNOWN_CONTENT_TYPES)] += 1
 

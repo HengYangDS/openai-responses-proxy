@@ -154,7 +154,7 @@ def _profile(name: object, raw: object) -> Profile:
         name,
         _base_url(name, raw.get("base_url")),
         None if policy is None else _load_policy(policy),
-        cast(Literal["native", "plaintext"], delivery),
+        cast("Literal['native', 'plaintext']", delivery),
     )
 
 
@@ -220,7 +220,7 @@ def _load_policy(name: str) -> WirePolicy:
     ):
         sys.modules.pop(module_name, None)
         raise ValueError(f"provider policy {name!r} does not implement the wire-policy contract")
-    return cast(WirePolicy, module)
+    return cast("WirePolicy", module)
 
 
 def _base_url(name: str, value: object) -> str:

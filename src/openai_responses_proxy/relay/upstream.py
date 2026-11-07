@@ -249,8 +249,8 @@ def _bind_response(connection: _DeadlineConnection, deadline: float) -> None:
         ) -> None:
             super().__init__(sock, debuglevel, method, url)
             self._abandoned = False
-            buffered = cast(io.BufferedReader, self.fp)
-            raw = cast(socket.SocketIO, buffered.detach())
+            buffered = cast("io.BufferedReader", self.fp)
+            raw = cast("socket.SocketIO", buffered.detach())
             self.fp = io.BufferedReader(_DeadlineReader(raw, sock, deadline, self._complete))
 
         @override

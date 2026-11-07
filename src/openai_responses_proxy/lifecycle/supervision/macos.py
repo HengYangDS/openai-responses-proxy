@@ -55,7 +55,7 @@ def _user_domain() -> str:
     getuid: object = getattr(os, "getuid", None)
     if not callable(getuid):
         raise errors.InstallError("macOS user identity is unavailable")
-    uid = cast(Callable[[], int], getuid)()
+    uid = cast("Callable[[], int]", getuid)()
     return f"user/{uid}"
 
 

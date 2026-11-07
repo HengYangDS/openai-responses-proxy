@@ -55,8 +55,8 @@ class TestTransportFailures(InputTransportFixture):
         self,
     ) -> None:
         contexts = [
-            cast(_HTTPSHandlerWithContext, handler)._context
-            for handler in cast(_OpenerWithHandlers, upstream_exchange._DIRECT_OPENER).handlers
+            cast("_HTTPSHandlerWithContext", handler)._context
+            for handler in cast("_OpenerWithHandlers", upstream_exchange._DIRECT_OPENER).handlers
             if isinstance(handler, urllib.request.HTTPSHandler)
         ]
 

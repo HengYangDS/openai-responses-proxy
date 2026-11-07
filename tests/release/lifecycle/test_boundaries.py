@@ -52,7 +52,9 @@ class TestSignedNativeLifecycle:
         note.write_bytes(b"preserve unknown content")
         windows_library: object = getattr(ctypes, "WinDLL", None)
         assert callable(windows_library), "native Windows library loading is unavailable"
-        native = cast(Callable[..., ctypes.CDLL], windows_library)("kernel32", use_last_error=True)
+        native = cast("Callable[..., ctypes.CDLL]", windows_library)(
+            "kernel32", use_last_error=True
+        )
         create_file = native.CreateFileW
         create_file.argtypes = [
             wintypes.LPCWSTR,

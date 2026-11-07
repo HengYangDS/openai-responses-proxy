@@ -41,7 +41,7 @@ def _object(raw: bytes, reason: str) -> JsonObject:
         raise ValueError(reason) from error
     if not isinstance(value, dict):
         raise ValueError(reason)
-    return cast(JsonObject, value)
+    return cast("JsonObject", value)
 
 
 def _catalogs(payload: JsonObject) -> list[list[object]]:

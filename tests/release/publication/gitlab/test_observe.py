@@ -75,7 +75,7 @@ class GitLabObservationContracts:
         commit = "a" * 40
         pipeline, jobs, release, assets = self._gitlab_fixture(commit)
         result = self._normalize_gitlab(commit, (pipeline, jobs, release, assets))
-        ci = cast(dict[str, object], result["ci"])
+        ci = cast("dict[str, object]", result["ci"])
         assert ci["status"] == "success"
         jobs[-1]["allow_failure"] = True
         with pytest.raises(gitlab.GitLabProofError):

@@ -126,7 +126,7 @@ def _evaluate_forge(
     if not isinstance(evidence.get("repository"), str) or not evidence["repository"]:
         return None, [f"{provider}.invalid_evidence"]
     if any(
-        not isinstance(evidence.get(field), str) or not _OID.fullmatch(cast(str, evidence[field]))
+        not isinstance(evidence.get(field), str) or not _OID.fullmatch(cast("str", evidence[field]))
         for field in ("tag_object_oid", "commit_oid", "tree_oid")
     ):
         return None, [f"{provider}.invalid_evidence"]
@@ -145,11 +145,11 @@ def _evaluate_forge(
     release = evidence.get("release")
     if not isinstance(ci, Mapping) or not isinstance(release, Mapping):
         return None, [f"{provider}.invalid_evidence"]
-    typed_ci = cast(Mapping[str, object], ci)
-    typed_release = cast(Mapping[str, object], release)
+    typed_ci = cast("Mapping[str, object]", ci)
+    typed_release = cast("Mapping[str, object]", release)
     if set(typed_ci) != _CI_FIELDS or set(typed_release) != _RELEASE_FIELDS:
         return None, [f"{provider}.invalid_evidence"]
-    commit = cast(str, evidence["commit_oid"])
+    commit = cast("str", evidence["commit_oid"])
     if typed_ci.get("revision_oid") != commit:
         reasons.append(f"{provider}.ci_revision_mismatch")
     if typed_ci.get("status") != "success":
@@ -196,7 +196,7 @@ def _validated_assets(provider: str, tag: str, assets: object) -> Mapping[str, o
     del provider
     if not isinstance(assets, Mapping):
         return None
-    typed_assets = cast(Mapping[str, object], assets)
+    typed_assets = cast("Mapping[str, object]", assets)
     expected_assets = product_assets.release_asset_names(
         identity.version_from_tag(tag),
         product_assets.RELEASE_PLATFORMS,
