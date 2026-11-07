@@ -28,6 +28,8 @@ from tests.relay.fixtures import running_proxy
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+    from openai_responses_proxy.relay.upstream import UpstreamResponse
+
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()
 
@@ -396,7 +398,9 @@ class TestInputRecovery(InputTransportFixture):
             real_urlopen = upstream_exchange.urlopen_direct
             calls = 0
 
-            def fail_second(outbound: urllib.request.Request, timeout: float, *, deadline: float):
+            def fail_second(
+                outbound: urllib.request.Request, timeout: float, *, deadline: float
+            ) -> UpstreamResponse:
                 nonlocal calls
                 calls += 1
                 if calls == 2:

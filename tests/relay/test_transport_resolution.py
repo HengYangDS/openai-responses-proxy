@@ -18,6 +18,8 @@ from tests.relay.fixtures import MemoryHandler
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+    from openai_responses_proxy.relay.upstream import _AddressInfo
+
 
 class TestBoundedResolution(InputTransportFixture):
     def test_a_stalled_lookup_ends_the_exchange_at_its_deadline(
@@ -26,8 +28,7 @@ class TestBoundedResolution(InputTransportFixture):
         released = threading.Event()
         hosts: list[str] = []
 
-        def stalled(host, *args, **kwargs) -> Never:
-            del args, kwargs
+        def stalled(host: str, *_args: object, **_kwargs: object) -> Never:
             hosts.append(host)
             released.wait(timeout=10)
             raise socket.gaierror(socket.EAI_AGAIN, "fixture lookup released")
@@ -55,8 +56,7 @@ class TestBoundedResolution(InputTransportFixture):
         released = threading.Event()
         calls: list[str] = []
 
-        def slow(host, port, *args, **kwargs):
-            del args, kwargs
+        def slow(host: str, port: int, *_args: object, **_kwargs: object) -> list[_AddressInfo]:
             calls.append(host)
             released.wait(timeout=10)
             return [

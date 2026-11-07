@@ -30,6 +30,8 @@ from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
 
 if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
+
     from pytest_mock import MockerFixture
 
 PROVIDERS = provider_registry.load()
@@ -95,7 +97,9 @@ class TestCatalogDeadline(InputTransportFixture):
             responses, "_SETTINGS", config.load({"OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "0.5"})
         )
 
-        def open_headers(_request: object, timeout, *, deadline=None) -> Never:
+        def open_headers(
+            _request: object, timeout: float, *, deadline: float | None = None
+        ) -> Never:
             del timeout, deadline
             now[0] += 0.6
             raise OSError("private expired transport error")
@@ -147,7 +151,7 @@ class TestCatalogDeadline(InputTransportFixture):
         release = threading.Event()
         finished = threading.Event()
 
-        def slow_framing(handler) -> None:
+        def slow_framing(handler: BaseHTTPRequestHandler) -> None:
             try:
                 prefix = f"HTTP/1.1 {status} Reply\r\n".encode()
                 prefix += (
@@ -213,7 +217,9 @@ class TestCatalogDeadline(InputTransportFixture):
         upstream = TimedResponse(now, [b"private-body"] * 3, "application/json")
         upstream.status = status
 
-        def open_headers(_request: object, timeout, *, deadline=None):
+        def open_headers(
+            _request: object, timeout: float, *, deadline: float | None = None
+        ) -> TimedResponse:
             del timeout, deadline
             now[0] += 0.4
             if status >= 400:
@@ -247,7 +253,9 @@ class TestCatalogDeadline(InputTransportFixture):
         )
         upstream = TimedResponse(now, [], "application/json")
 
-        def open_headers(_request: object, timeout, *, deadline=None):
+        def open_headers(
+            _request: object, timeout: float, *, deadline: float | None = None
+        ) -> TimedResponse:
             del timeout, deadline
             now[0] += 0.6
             if status >= 400:
@@ -281,7 +289,7 @@ class TestCatalogDeadline(InputTransportFixture):
         original_write = handler.wfile.write
         budgets = []
 
-        def write(payload):
+        def write(payload: bytes) -> int:
             budget = handler.connection.gettimeout()
             budgets.append(budget)
             if budget is not None and budget < 0.2 - 1e-9:
