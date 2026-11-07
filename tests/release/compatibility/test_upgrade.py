@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import threading
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
@@ -343,7 +344,11 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
                         detail = error.read().decode("utf-8", errors="replace")
                     traffic_failures.append(f"HTTP {error.code}: {detail}")
                     return
-                except Exception as error:  # pragma: no cover - asserted by parent
+                except (
+                    OSError,
+                    http.client.HTTPException,
+                    AssertionError,
+                ) as error:  # pragma: no cover
                     traffic_failures.append(f"{error.__class__.__name__}: {error}")
                     return
 

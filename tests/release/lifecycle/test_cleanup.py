@@ -65,7 +65,7 @@ def _stop_controller(
     for owned in child_processes.values():
         try:
             assert process.terminate_owned_process(owned)
-        except Exception as error:
+        except (errors.InstallError, AssertionError) as error:
             failures.append(error)
     if failures:
         raise errors.InstallError(

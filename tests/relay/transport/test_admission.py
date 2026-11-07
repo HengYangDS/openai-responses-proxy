@@ -194,7 +194,7 @@ class TestProxyTransport(LoopbackTransportFixture):
                 try:
                     with request(port, body) as response:
                         worker_result["body"] = response.read()
-                except BaseException as exc:  # asserted below; never hide a worker failure
+                except (OSError, http.client.HTTPException) as exc:  # asserted below
                     worker_result["error"] = exc
 
             worker = threading.Thread(target=request_in_flight)

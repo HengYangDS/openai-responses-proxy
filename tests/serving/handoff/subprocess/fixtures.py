@@ -61,7 +61,7 @@ class SubprocessFixture:
             service = native_service.adapter()
             service.uninstall(ctx)
             assert service.status(ctx) == "absent"
-        except Exception as error:
+        except (OSError, errors.InstallError, AssertionError) as error:
             failure = error
         finally:
             for pid in process.pids_naming_executable(proxy_script):
