@@ -218,11 +218,12 @@ def prune(
     keep = {selection.active, selection.predecessor} - {None}
     discarded: dict[str, dict[str, str]] = {}
     for relative, expected in files.items():
-        parts = relative.split("/", 2)
-        if len(parts) != 3 or parts[0] != GENERATIONS_DIRNAME or parts[1] in keep:
+        root_name, _, rest = relative.partition("/")
+        generation_name, separator, member = rest.partition("/")
+        if not separator or root_name != GENERATIONS_DIRNAME or generation_name in keep:
             raise errors.InstallError("payload generation disposal inventory is invalid")
-        _require_name(parts[1])
-        discarded.setdefault(parts[1], {})[parts[2]] = expected
+        _require_name(generation_name)
+        discarded.setdefault(generation_name, {})[member] = expected
     for entry in generations.iterdir():
         if entry.is_symlink() or not entry.is_dir():
             raise errors.InstallError("payload generation store is invalid")

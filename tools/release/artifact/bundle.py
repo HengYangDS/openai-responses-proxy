@@ -14,6 +14,8 @@ from tools.release.artifact import format as assets
 
 ROOT = Path(__file__).resolve().parents[3]
 INSTALLER_PROVENANCE = frozenset({"direct_url.json", "uv_cache.json"})
+# A wheel RECORD row names a file, its hash and its size.
+_RECORD_FIELDS = 3
 
 
 def normalize(packages: Path) -> None:
@@ -28,8 +30,8 @@ def normalize(packages: Path) -> None:
     provenance = {f"{relative_metadata}/{name}" for name in INSTALLER_PROVENANCE}
     with record.open(newline="", encoding="utf-8") as stream:
         rows = list(csv.reader(stream))
-    names = {row[0] for row in rows if len(row) == 3}
-    if any(len(row) != 3 for row in rows) or not provenance <= names:
+    names = {row[0] for row in rows if len(row) == _RECORD_FIELDS}
+    if any(len(row) != _RECORD_FIELDS for row in rows) or not provenance <= names:
         raise RuntimeError("installed product distribution inventory is malformed")
     for name in provenance:
         path = packages.joinpath(*Path(name).parts)

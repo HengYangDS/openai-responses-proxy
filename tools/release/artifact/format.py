@@ -209,13 +209,12 @@ def parse_checksums(content: bytes) -> dict[str, str]:
     except UnicodeDecodeError as error:
         raise AssetError("release checksum manifest is not ASCII") from error
     for line in lines:
-        parts = line.split("  ", 1)
-        if len(parts) != 2 or not is_sha256(parts[0]) or not parts[1]:
+        checksum, separator, name = line.partition("  ")
+        if not separator or not is_sha256(checksum) or not name:
             raise AssetError("release checksum manifest is malformed")
-        name = parts[1]
         if PurePosixPath(name).name != name or PureWindowsPath(name).name != name or name in parsed:
             raise AssetError("release checksum asset name is invalid or duplicated")
-        parsed[name] = parts[0]
+        parsed[name] = checksum
     if not parsed:
         raise AssetError("release checksum manifest is empty")
     return parsed

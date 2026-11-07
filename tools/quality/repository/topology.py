@@ -51,7 +51,7 @@ def _package_edges(package: Path, package_name: str) -> dict[str, set[str]]:
     prefix = f"{package_name}."
     for path in sorted(package.rglob("*.py")) if package.is_dir() else ():
         relative = path.relative_to(package)
-        if len(relative.parts) < 2:
+        if len(relative.parts) == 1:
             continue
         owner = relative.parts[0]
         targets = edges.setdefault(owner, set())

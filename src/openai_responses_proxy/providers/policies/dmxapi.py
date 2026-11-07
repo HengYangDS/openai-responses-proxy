@@ -10,11 +10,12 @@ FAILURE_COOLDOWN_SECONDS = 30
 FAILURE_CACHE_CAPACITY = 1024
 EXHAUSTED_MESSAGE = "DMX upstream returned empty responses after bounded retries"
 EXHAUSTED_CODE = "dmx_empty_response_exhausted"
+EMPTY_RESPONSE_STATUS = 477
 
 
 def is_retryable_failure(status: int, payload: bytes) -> bool:
     """Return whether an upstream response is the exact DMX empty-response error."""
-    if status != 477:
+    if status != EMPTY_RESPONSE_STATUS:
         return False
     try:
         document: object = json.loads(payload)

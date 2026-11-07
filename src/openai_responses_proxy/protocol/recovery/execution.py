@@ -9,6 +9,7 @@ tool call/output relationships.
 from __future__ import annotations
 
 import json
+from http import HTTPStatus
 
 from openai_responses_proxy.protocol import response
 from openai_responses_proxy.protocol.recovery import input as input_recovery
@@ -51,7 +52,7 @@ def retry_disposition(code: int, err_body: bytes) -> str:
     """Classify an upstream failure for bounded request-local recovery."""
     if code in (500, 502, 503, 504, 524):
         return "full"
-    if code != 400:
+    if code != HTTPStatus.BAD_REQUEST:
         return ""
     try:
         document = json.loads(err_body)

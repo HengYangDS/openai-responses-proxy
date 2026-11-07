@@ -148,7 +148,7 @@ def committed_payload(executable: Path) -> LoadedPayloadIdentity | None:
     try:
         root, windows = _runtime_root(executable)
         manifest = _read_manifest(root / inventory.MANIFEST_FILENAME)
-        if manifest.get("schema_version") != 2:
+        if manifest.get("schema_version") != inventory.MANIFEST_SCHEMA_VERSION:
             raise ValueError("installed manifest schema mismatch")
         files = _digest_mapping(manifest, "files")
         serving = _digest_mapping(manifest, "serving_files")

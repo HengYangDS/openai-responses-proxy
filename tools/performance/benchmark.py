@@ -16,6 +16,7 @@ from collections.abc import Buffer
 from collections.abc import Generator
 from collections.abc import Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -307,7 +308,7 @@ def _first_health(child: subprocess.Popen[bytes], port: int) -> bytes:
             connection.request("GET", "/healthz", headers={"Connection": "close"})
             response = connection.getresponse()
             body = response.read()
-            if response.status == 200 and time.monotonic() < deadline:
+            if response.status == HTTPStatus.OK and time.monotonic() < deadline:
                 return body
         except (OSError, http.client.HTTPException):
             pass

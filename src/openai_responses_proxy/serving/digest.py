@@ -11,7 +11,8 @@ from typing import TypeGuard
 
 from openai_responses_proxy.json_value import is_json_object
 
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+SHA256_HEX_LENGTH = 64
+_SHA256 = re.compile(rf"^[0-9a-f]{{{SHA256_HEX_LENGTH}}}$")
 
 
 class PayloadDigestError(ValueError):

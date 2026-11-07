@@ -18,6 +18,8 @@ from cyclopts import App
 from cyclopts import Parameter
 
 ROOT = Path(__file__).resolve().parents[2]
+# A coverage floor is a percentage below complete coverage.
+_MAX_PERCENT = 100
 _POLICY_KEYS = {
     "minimum_percent",
     "comparison",
@@ -191,7 +193,11 @@ def load_policy(path: Path) -> dict[str, object]:
     if set(policy) != _POLICY_KEYS:
         raise ValueError("coverage policy fields do not match the canonical schema")
     floor = policy["minimum_percent"]
-    if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor < 100:
+    if (
+        isinstance(floor, bool)
+        or not isinstance(floor, (int, float))
+        or not 0 < floor < _MAX_PERCENT
+    ):
         raise ValueError("minimum_percent must be within (0, 100)")
     if policy["comparison"] != "strictly-above":
         raise ValueError("comparison must be strictly-above")

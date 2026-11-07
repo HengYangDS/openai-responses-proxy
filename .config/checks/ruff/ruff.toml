@@ -73,6 +73,7 @@ select = [
   "ANN201",
   "ANN204",
   "PLC0414",
+  "PLR2004",
   "PLW0108",
   "PLW1510",
   "PLW2901",
@@ -180,4 +181,6 @@ ignore = [
   "S101",
   # Tests arrange and observe the private state that product modules keep unexported.
   "SLF001",
+  # A test's comparison literal is the expected value that the test specifies.
+  "PLR2004",
 ]

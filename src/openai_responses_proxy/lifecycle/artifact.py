@@ -342,15 +342,15 @@ def _parse_checksums(content: bytes) -> dict[str, str]:
     except UnicodeDecodeError as exc:
         raise errors.InstallError("release checksum manifest is malformed") from exc
     for line in lines:
-        parts = line.split("  ", 1)
+        checksum, separator, name = line.partition("  ")
         if (
-            len(parts) != 2
-            or not digest.is_sha256(parts[0])
-            or Path(parts[1]).name != parts[1]
-            or parts[1] in parsed
+            not separator
+            or not digest.is_sha256(checksum)
+            or Path(name).name != name
+            or name in parsed
         ):
             raise errors.InstallError("release checksum manifest is malformed")
-        parsed[parts[1]] = parts[0]
+        parsed[name] = checksum
     return parsed
 
 
@@ -432,14 +432,15 @@ def _archive_blobs(archive: bytes, document: JsonObject) -> tuple[ArtifactFile, 
                 if relative == "LICENSE":
                     continue
                 target = relative
-                expected_mode = 0o755 if target == executable_name else 0o644
+                is_executable = target == executable_name
+                expected_mode = 0o755 if is_executable else 0o644
                 if member.mode != expected_mode:
                     raise errors.InstallError("release archive member mode is invalid")
                 digest_value = hashlib.sha256(content).hexdigest()
                 blobs.append(
                     ArtifactFile(
                         path=target,
-                        mode="100755" if expected_mode == 0o755 else "100644",
+                        mode="100755" if is_executable else "100644",
                         blob_oid=digest_value,
                         sha256=digest_value,
                         content=content,

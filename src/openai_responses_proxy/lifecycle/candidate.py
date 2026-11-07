@@ -32,7 +32,7 @@ def validate(
     """Reject an admitted candidate whose payload contract is inconsistent."""
     if not records.is_version(version):
         raise errors.InstallError("released payload version is invalid")
-    if not isinstance(receipt_sha256, str) or len(receipt_sha256) != 64:
+    if not isinstance(receipt_sha256, str) or len(receipt_sha256) != digest.SHA256_HEX_LENGTH:
         raise errors.InstallError("released payload receipt digest is invalid")
     if receipt.get("version") != version:
         raise errors.InstallError("released payload receipt version mismatch")

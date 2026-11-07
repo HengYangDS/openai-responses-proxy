@@ -16,6 +16,9 @@ from cyclopts import App
 from openai_responses_proxy.serving import identity
 from tools.performance import payload as performance_payload
 
+# A latency policy reports one percentile from the median through the 99th.
+_PERCENTILES = range(50, 100)
+
 
 class PerformanceError(RuntimeError):
     """Measured product overhead exceeds or omits its reviewed contract."""
@@ -115,7 +118,7 @@ def verify(*, policy: Path, latency: Path, memory: Path, payload: Mapping[str, s
         or minimum_memory_samples <= 0
         or not isinstance(percentile, int)
         or isinstance(percentile, bool)
-        or not 50 <= percentile <= 99
+        or percentile not in _PERCENTILES
         or not isinstance(packaged, list)
         or not all(isinstance(name, str) for name in packaged)
     ):

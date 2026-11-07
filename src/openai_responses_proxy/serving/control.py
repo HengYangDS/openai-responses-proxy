@@ -12,6 +12,7 @@ import threading
 from collections.abc import Callable
 from collections.abc import Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from typing import cast
@@ -139,7 +140,9 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
             status,
             {
                 "ok": False,
-                "error": "handoff_in_progress" if status == 409 else "handoff_prepare_failed",
+                "error": "handoff_in_progress"
+                if status == HTTPStatus.CONFLICT
+                else "handoff_prepare_failed",
             },
         )
         return

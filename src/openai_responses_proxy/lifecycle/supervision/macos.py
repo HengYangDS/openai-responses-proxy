@@ -169,9 +169,8 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
         not isinstance(payload, dict)
         or payload.get("Label") != ctx.service_id
         or not isinstance(arguments, list)
-        or len(arguments) != 2
+        or arguments[1:] != [serving_roles.WATCHDOG_MODE]
         or not all(isinstance(value, str) for value in arguments)
-        or arguments[1] != serving_roles.WATCHDOG_MODE
         or environment != {"HOME": ctx.user_home}
         or payload.get("LimitLoadToSessionType") not in _RELEASED_SESSION_TYPES
     ):
@@ -190,11 +189,8 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
         raise errors.InstallError("macOS launch-agent executable ownership is unproved")
     relative_path = resolved.relative_to(root)
     if relative_path != Path(inventory.EXECUTABLE):
-        if (
-            len(relative_path.parts) != 4
-            or relative_path.parts[0] != identity.PAYLOAD_GENERATIONS_DIRNAME
-            or Path(*relative_path.parts[2:]) != Path(inventory.EXECUTABLE)
-        ):
+        in_generations = relative_path.parts[:1] == (identity.PAYLOAD_GENERATIONS_DIRNAME,)
+        if not in_generations or Path(*relative_path.parts[2:]) != Path(inventory.EXECUTABLE):
             raise errors.InstallError("macOS launch-agent executable ownership is unproved")
         try:
             identity.require_payload_generation_name(relative_path.parts[1])

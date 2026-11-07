@@ -66,8 +66,8 @@ def remote_branches(root: Path, remote: str, expected: frozenset[str]) -> list[s
     return sorted(
         ref.removeprefix("refs/heads/")
         for line in refs
-        if len(parts := line.split("\t", 1)) == 2
-        for ref in [parts[1]]
+        for _oid, separator, ref in [line.partition("\t")]
+        if separator
         if ref.removeprefix("refs/heads/") not in expected
     )
 
@@ -104,8 +104,8 @@ def remote_branch_oids(root: Path, remote: str, branches: frozenset[str]) -> dic
     observed = {
         ref.removeprefix("refs/heads/"): oid
         for line in refs
-        if len(parts := line.split("\t", 1)) == 2
-        for oid, ref in [parts]
+        for oid, separator, ref in [line.partition("\t")]
+        if separator
     }
     if set(observed) != branches:
         raise RuntimeError(f"{remote} does not expose the declared persistent refs")

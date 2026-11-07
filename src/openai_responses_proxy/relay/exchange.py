@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from dataclasses import field
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import cast
 
@@ -213,7 +214,7 @@ def _classification(
     exact: bool,
     wire_failure: bool,
 ) -> str:
-    if status_code == 400:
+    if status_code == HTTPStatus.BAD_REQUEST:
         try:
             document = json.loads(payload)
         except (TypeError, ValueError, RecursionError):
@@ -266,7 +267,9 @@ def _recover_input_variant(exchange: Exchange) -> bool:
 
 
 def _recover_response_failed(exchange: Exchange, status_code: int, disposition: str) -> bool:
-    if not (exchange.is_responses and status_code == 400 and disposition == "full"):
+    if not (
+        exchange.is_responses and status_code == HTTPStatus.BAD_REQUEST and disposition == "full"
+    ):
         return False
     if exchange.response_failed_stages < RESPONSE_FAILED_MAX_STAGES:
         compact, metrics = execution_recovery.compact_request(
@@ -367,7 +370,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         error.close()
     portable = execution_recovery.retry_disposition(status_code, payload)
     policy = exchange.profile.wire_policy
-    rate_limited = exchange.is_responses and status_code == 429
+    rate_limited = exchange.is_responses and status_code == HTTPStatus.TOO_MANY_REQUESTS
     wire_failure = (
         not rate_limited
         and policy is not None
@@ -392,7 +395,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         return "retry"
     if _recover_response_failed(exchange, status_code, disposition):
         return "retry"
-    if exchange.is_responses and status_code == 400 and portable == "full":
+    if exchange.is_responses and status_code == HTTPStatus.BAD_REQUEST and portable == "full":
         _exhaust_response_failed(exchange)
         return "terminal"
     retry_ceiling = 1 if disposition == "once" else _MAX_ATTEMPTS - 1
@@ -408,7 +411,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         return "retry"
     if wire_failure:
         return "terminal" if wire_recovery.retry(exchange) else "accepted"
-    if status_code == 503:
+    if status_code == HTTPStatus.SERVICE_UNAVAILABLE:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(
             cooldown.unavailable_key(exchange.profile.name), cooldown_seconds=seconds

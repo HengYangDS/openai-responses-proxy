@@ -21,6 +21,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import TypedDict
 
+from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving.handoff.protocol import HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS
 from openai_responses_proxy.serving.handoff.protocol import HANDOFF_PROTOCOL_VERSION
@@ -470,7 +471,7 @@ def run_child(context: Context) -> int:
         if not isinstance(address, (tuple, list)) or len(address) <= 1:
             raise HandoffError("handoff server has no probeable listener address")
         health_port = address[1]
-        if not isinstance(health_port, int) or not 1 <= health_port <= 65535:
+        if not isinstance(health_port, int) or not 1 <= health_port <= runtime_config.MAX_TCP_PORT:
             raise HandoffError("handoff server has no valid listener port")
         probe_health(
             health_port,

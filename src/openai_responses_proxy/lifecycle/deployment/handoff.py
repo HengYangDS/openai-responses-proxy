@@ -16,6 +16,7 @@ import urllib.error
 import urllib.request
 import uuid
 from collections.abc import Callable
+from http import HTTPStatus
 from pathlib import Path
 from typing import TypeGuard
 
@@ -142,7 +143,7 @@ def post_ready(
             request,
             timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS,
         ) as response:
-            if response.status != 202:
+            if response.status != HTTPStatus.ACCEPTED:
                 raise errors.InstallError(f"handoff control returned HTTP {response.status}")
             raw = response.read(_MAX_BODY_BYTES + 1)
             if len(raw) > _MAX_BODY_BYTES:
@@ -206,7 +207,7 @@ def drain_responses(
             request,
             timeout_seconds=min(timeout_seconds, 5.0) + _TRANSPORT_MARGIN_SECONDS,
         ) as response:
-            if response.status != 200:
+            if response.status != HTTPStatus.OK:
                 raise errors.InstallError(f"drain control returned HTTP {response.status}")
             raw = response.read(_MAX_BODY_BYTES + 1)
             if len(raw) > _MAX_BODY_BYTES:
@@ -264,7 +265,7 @@ def resume_responses(
             request,
             timeout_seconds=_TRANSPORT_MARGIN_SECONDS,
         ) as response:
-            if response.status != 200:
+            if response.status != HTTPStatus.OK:
                 raise errors.InstallError(f"drain release returned HTTP {response.status}")
             raw = response.read(_MAX_BODY_BYTES + 1)
             if len(raw) > _MAX_BODY_BYTES:

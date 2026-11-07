@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 LINK_POLICY = ".config/checks/lychee/lychee.toml"
 PYTEST_CONFIG = ".config/checks/pytest/pytest.toml"
 DEPENDENCY_POLICY = ROOT / ".config/checks/deptry/policy.toml"
+# A staged index entry's metadata is its mode, object name and stage.
+_INDEX_ENTRY_FIELDS = 3
 
 
 def _tracked_current(suffixes: tuple[str, ...]) -> tuple[str, ...]:
@@ -57,7 +59,7 @@ def _tracked_current(suffixes: tuple[str, ...]) -> tuple[str, ...]:
         if (
             tag not in {"H", "S"}
             or not separator
-            or len(fields) != 3
+            or len(fields) != _INDEX_ENTRY_FIELDS
             or fields[0] not in {"100644", "100755"}
             or fields[2] != "0"
         ):

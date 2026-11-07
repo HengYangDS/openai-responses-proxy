@@ -77,7 +77,7 @@ class RuntimeContext:
 
 def validate_port(port: int) -> int:
     """Accept only a real TCP port before service rendering."""
-    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= config.MAX_TCP_PORT:
         raise errors.InstallError("port must be an integer in 1..65535")
     return port
 

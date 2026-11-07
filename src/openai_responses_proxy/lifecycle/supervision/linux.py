@@ -75,7 +75,7 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
         arguments = shlex.split(commands[0], posix=True)
     except ValueError:
         return None
-    if len(arguments) != 2 or arguments[1] != serving_roles.WATCHDOG_MODE:
+    if arguments[1:] != [serving_roles.WATCHDOG_MODE]:
         return None
     return arguments[0].replace("%%", "%")
 

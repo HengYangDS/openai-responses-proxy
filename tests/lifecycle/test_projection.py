@@ -29,7 +29,7 @@ def _write_payload_manifest(
     paths = sorted(inventory.required_runtime_files(windows=windows))
     digests = {relative: payload_digest.sha256_file(install / relative) for relative in paths}
     manifest: dict[str, object] = {
-        "schema_version": payload_projection.PAYLOAD_MANIFEST_SCHEMA_VERSION,
+        "schema_version": inventory.MANIFEST_SCHEMA_VERSION,
         "release": "0.0.0",
         "files": digests,
         "serving_files": dict(digests),

@@ -6,6 +6,7 @@ import json
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
+from http import HTTPStatus
 from pathlib import Path
 
 from openai_responses_proxy import errors
@@ -39,7 +40,7 @@ def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | Non
     )
     try:
         with loopback.open_request(request, timeout_seconds=2) as response:
-            if response.status != 200:
+            if response.status != HTTPStatus.OK:
                 return None
             payload: object = json.loads(response.read())
     except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError):

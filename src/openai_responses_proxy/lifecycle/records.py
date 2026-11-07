@@ -174,11 +174,11 @@ def removal_files(journal: ReadOnlyJsonObject) -> dict[str, str]:
     result = {}
     for name, expected in files.items():
         relative = owned_files.canonical_relative(name, "payload removal")
-        parts = relative.split("/")
-        if parts[0] == identity.PAYLOAD_GENERATIONS_DIRNAME:
-            if len(parts) < 3 or not identity.is_payload_generation_name(parts[1]):
+        head, _, rest = relative.partition("/")
+        if head == identity.PAYLOAD_GENERATIONS_DIRNAME:
+            generation_name, separator, member = rest.partition("/")
+            if not separator or not identity.is_payload_generation_name(generation_name):
                 raise errors.InstallError("payload removal generation is invalid")
-            member = "/".join(parts[2:])
         else:
             member = relative
         if (

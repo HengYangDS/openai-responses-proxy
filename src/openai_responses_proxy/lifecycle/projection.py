@@ -18,7 +18,6 @@ from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
 
-PAYLOAD_MANIFEST_SCHEMA_VERSION = 2
 _WINDOWS_DISPOSAL_ERRORS = frozenset({5, 32})
 _DISPOSAL_RETRY_SECONDS = 5.0
 
@@ -146,7 +145,7 @@ def manifest_for_digests(
     """Build the canonical current manifest from exact runtime digests."""
     serving_files = dict(file_digests)
     return {
-        "schema_version": PAYLOAD_MANIFEST_SCHEMA_VERSION,
+        "schema_version": inventory.MANIFEST_SCHEMA_VERSION,
         "release": version,
         "files": dict(file_digests),
         "serving_files": serving_files,
@@ -207,7 +206,7 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
         return False, "installed payload manifest is unavailable"
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema_version") != PAYLOAD_MANIFEST_SCHEMA_VERSION
+        or manifest.get("schema_version") != inventory.MANIFEST_SCHEMA_VERSION
     ):
         return False, "manifest schema is unsupported"
     release = manifest.get("release")
@@ -241,7 +240,11 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
     if sorted(serving_files) != sorted(expected_files):
         return False, "manifest serving file set mismatch"
     for relative, expected in files.items():
-        if not isinstance(relative, str) or not isinstance(expected, str) or len(expected) != 64:
+        if (
+            not isinstance(relative, str)
+            or not isinstance(expected, str)
+            or len(expected) != digest.SHA256_HEX_LENGTH
+        ):
             return False, f"invalid digest: {relative}"
         try:
             actual = digest.sha256_file(Path(ctx.payload_dir, *relative.split("/")))
@@ -259,7 +262,7 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
     if aggregate != actual_aggregate:
         return False, "serving payload aggregate mismatch"
     if receipt_digest is not None:
-        if not isinstance(receipt_digest, str) or len(receipt_digest) != 64:
+        if not isinstance(receipt_digest, str) or len(receipt_digest) != digest.SHA256_HEX_LENGTH:
             return False, "release receipt digest is invalid"
         try:
             actual_receipt = digest.sha256_file(

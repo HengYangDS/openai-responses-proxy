@@ -59,7 +59,12 @@ def retry_after_seconds(
     raw = headers.get("Retry-After", "").strip()
     if raw.isascii() and raw.isdecimal():
         significant = raw.lstrip("0")
-        seconds = RATE_LIMIT_MAX_SECONDS if len(significant) > 3 else int(significant or "0")
+        # A value with more digits than the cap exceeds it, so it is never parsed.
+        seconds = (
+            RATE_LIMIT_MAX_SECONDS
+            if len(significant) > len(str(RATE_LIMIT_MAX_SECONDS))
+            else int(significant or "0")
+        )
     else:
         try:
             target = parsedate_to_datetime(raw)

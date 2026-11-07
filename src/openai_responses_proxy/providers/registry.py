@@ -86,19 +86,14 @@ class Registry:
             return None
         if parsed.scheme or parsed.netloc or parsed.fragment:
             return None
-        parts = parsed.path.split("/")
-        if (
-            len(parts) != 4
-            or parts[0]
-            or parts[2] != "v1"
-            or parts[3] not in {"models", "responses"}
-        ):
-            return None
-        profile = self.profiles.get(parts[1])
+        match parsed.path.split("/"):
+            case ["", provider, "v1", ("models" | "responses") as resource]:
+                profile = self.profiles.get(provider)
+            case _:
+                return None
         if profile is None or urllib.parse.quote(parsed.path, safe="/-._~") != parsed.path:
             return None
         query = f"?{parsed.query}" if parsed.query else ""
-        resource = parts[3]
         return profile, resource, profile.base_url + "/" + resource + query
 
 

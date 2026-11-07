@@ -187,7 +187,7 @@ def pid_names_path(pid: int, expected_path: str) -> bool:
     argv = process_argv(pid)
     executable = os.path.basename(argv[0]).lower() if argv else ""
     executable = executable.removesuffix(".exe")
-    if len(argv) < 2 or re.fullmatch(r"python(?:w|3(?:\.\d+)?)?", executable) is None:
+    if not argv[1:] or re.fullmatch(r"python(?:w|3(?:\.\d+)?)?", executable) is None:
         return False
     expected = os.path.normcase(os.path.realpath(os.path.abspath(expected_path)))
     argument = os.path.normcase(os.path.realpath(os.path.abspath(argv[1])))

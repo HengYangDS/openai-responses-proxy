@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 
 from openai_responses_proxy.protocol import agent_delivery
@@ -20,6 +21,8 @@ from openai_responses_proxy.relay.upstream import header_value
 from openai_responses_proxy.runtime import config as runtime_config
 
 _SETTINGS = runtime_config.load()
+# A request body at least this large is logged as a large request.
+_LARGE_REQUEST_BYTES = 400_000
 
 
 def resolve_upstream(
@@ -189,7 +192,7 @@ def _relay_catalog(
             f"path={operational_log.safe_request_path(handler.path)}"
         )
         return
-    if response.status >= 400:
+    if response.status >= HTTPStatus.BAD_REQUEST:
         try:
             telemetry.record_failure(f"catalog_http_{response.status}")
             operational_log.log(
@@ -295,7 +298,7 @@ def relay(
         return
     body = prepared.body
     path = operational_log.safe_request_path(handler.path)
-    if len(body) >= 400_000:
+    if len(body) >= _LARGE_REQUEST_BYTES:
         operational_log.log(
             f"req={request_id} event=large_request provider={profile.name} "
             f"bytes={len(body)} path={path}"

@@ -10,11 +10,15 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping
 from enum import StrEnum
+from http import HTTPStatus
 from pathlib import Path
 
 from openai_responses_proxy import product_identity
 from tools.release import identity
 from tools.release.artifact import assembly
+
+# A provider error body is reported up to this many bytes.
+_ERROR_DETAIL_BYTES = 2048
 
 
 class GitLabPublishError(RuntimeError):
@@ -62,9 +66,9 @@ def _request(
     except urllib.error.HTTPError as error:
         try:
             detail = _error_detail(error)
-            if error.code == 404:
+            if error.code == HTTPStatus.NOT_FOUND:
                 raise _GitLabResourceMissingError(f"GitLab resource is missing{detail}") from error
-            if error.code == 409:
+            if error.code == HTTPStatus.CONFLICT:
                 raise FileExistsError(url) from error
             raise GitLabPublishError(
                 f"GitLab publication failed with HTTP {error.code}{detail}"
@@ -196,11 +200,11 @@ def _require_matching_release(
 def _error_detail(error: urllib.error.HTTPError) -> str:
     """Return one bounded, credential-free provider diagnostic."""
     try:
-        raw = error.read(2049)
+        raw = error.read(_ERROR_DETAIL_BYTES + 1)
     except OSError:
         return ""
-    if len(raw) > 2048:
-        raw = raw[:2048]
+    if len(raw) > _ERROR_DETAIL_BYTES:
+        raw = raw[:_ERROR_DETAIL_BYTES]
     text = raw.decode("utf-8", errors="replace").strip()
     if not text:
         return ""

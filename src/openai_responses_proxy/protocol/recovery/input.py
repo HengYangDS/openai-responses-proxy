@@ -15,6 +15,7 @@ from collections.abc import Set as AbstractSet
 from contextlib import suppress
 from dataclasses import dataclass
 from dataclasses import field
+from http import HTTPStatus
 from typing import Final
 from typing import cast
 
@@ -28,6 +29,9 @@ _ERROR_MESSAGE: Final = (
     "invalid request body: Invalid 'input': value did not match any expected variant"
 )
 _INVALID_JSON: Final = object()
+# A request shape keeps six nesting levels and 32 entries per level before it is truncated.
+_SHAPE_DEPTH_LIMIT: Final = 6
+_SHAPE_ENTRY_LIMIT: Final = 32
 _KNOWN_ITEM_TYPES: Final = item_policy.item_types()
 _KNOWN_CONTENT_TYPES: Final = frozenset(
     [
@@ -93,7 +97,7 @@ def is_exact_validation_error(status_code: int, error_body: bytes) -> bool:
         "param": "",
         "code": "validation_error",
     }
-    return status_code == 400 and bool(error == expected)
+    return status_code == HTTPStatus.BAD_REQUEST and bool(error == expected)
 
 
 def diagnose(raw: bytes) -> InputDiagnostic:
@@ -195,7 +199,7 @@ _DIAGNOSTIC_FLAGS: Final = (
 
 def _shape(value: object, depth: int = 0) -> object:
     """Return a capped categorical shape; cardinalities and unknown names are erased."""
-    if depth >= 6:
+    if depth >= _SHAPE_DEPTH_LIMIT:
         return "truncated", _value_kind(value)
     if isinstance(value, list):
         items = {_shape(item, depth + 1) for item in value}
@@ -225,7 +229,7 @@ def _shape(value: object, depth: int = 0) -> object:
 
 def _bounded(entries: AbstractSet[object]) -> tuple[tuple[object, ...], str]:
     ordered = tuple(sorted(entries, key=repr))
-    return ordered[:32], _presence(len(ordered) > 32)
+    return ordered[:_SHAPE_ENTRY_LIMIT], _presence(len(ordered) > _SHAPE_ENTRY_LIMIT)
 
 
 def _closed_label(value: object, known: frozenset[str]) -> str:
