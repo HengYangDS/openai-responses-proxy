@@ -166,6 +166,13 @@ ignore = [
   # so they can differ from the exact os.path.basename and os.path.dirname strings.
   "PTH119",
   "PTH120",
+  # Task 7.5 made C901 at 20 the function-complexity authority and rejected shallow
+  # extraction; these counters re-measure that property at lower, unjustified thresholds.
+  "PLR0911",
+  "PLR0912",
+  "PLR0915",
+  # PLR0917 owns positional-argument ambiguity; keyword-only parameters carry no ordering risk.
+  "PLR0913",
 ]
 
 [lint.per-file-ignores]
