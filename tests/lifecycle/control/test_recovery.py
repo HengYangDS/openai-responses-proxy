@@ -13,9 +13,13 @@ from openai_responses_proxy.lifecycle import generation
 from tests.lifecycle.fixtures import install_context
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
     from pathlib import Path
 
     from pytest_mock import MockerFixture
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 
 def test_recovery_rebinds_supervision_to_the_control_generation(
@@ -30,7 +34,13 @@ def test_recovery_rebinds_supervision_to_the_control_generation(
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
 
-    def recover_and_bind(_ctx: object, *, runtime, bind_terminal, discard_native):
+    def recover_and_bind(
+        _ctx: runtime_context.RuntimeContext,
+        *,
+        runtime: Mapping[str, object] | None,
+        bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+        discard_native: Callable[[runtime_context.RuntimeContext], None],
+    ) -> dict[str, object]:
         assert runtime == {"pid": 7}
         assert callable(discard_native)
         bind_terminal(control_generation)
@@ -58,10 +68,17 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
 
-    def recover_and_bind(_ctx: object, *, runtime, bind_terminal, discard_native) -> None:
+    def recover_and_bind(
+        _ctx: runtime_context.RuntimeContext,
+        *,
+        runtime: Mapping[str, object] | None,
+        bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+        discard_native: Callable[[runtime_context.RuntimeContext], None],
+    ) -> dict[str, object]:
         assert runtime == {"pid": 7}
         assert callable(discard_native)
         bind_terminal(control_generation)
+        raise AssertionError("an unproved supervisor must stop recovery before it finishes")
 
     recover.side_effect = recover_and_bind
 
@@ -107,7 +124,13 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
     mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
-    def recover_and_discard(_ctx: object, *, runtime, bind_terminal, discard_native):
+    def recover_and_discard(
+        _ctx: runtime_context.RuntimeContext,
+        *,
+        runtime: Mapping[str, object] | None,
+        bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+        discard_native: Callable[[runtime_context.RuntimeContext], None],
+    ) -> dict[str, object]:
         assert runtime is None
         assert callable(bind_terminal)
         discard_native(candidate)
@@ -142,7 +165,13 @@ def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
     mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
-    def recover_and_discard(_ctx: object, *, runtime, bind_terminal, discard_native):
+    def recover_and_discard(
+        _ctx: runtime_context.RuntimeContext,
+        *,
+        runtime: Mapping[str, object] | None,
+        bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+        discard_native: Callable[[runtime_context.RuntimeContext], None],
+    ) -> dict[str, object]:
         assert runtime is None
         assert callable(bind_terminal)
         discard_native(candidate)

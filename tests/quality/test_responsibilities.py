@@ -21,39 +21,49 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def policy_document():
+def declarations() -> dict[str, dict[str, object]]:
+    """Return the first role, scope and concern, which a test edits in place in the document."""
+    return {
+        "roles": {
+            "id": "source",
+            "description": "Source",
+            "owner": "product",
+            "consumer": "installed runtime",
+            "source_of_truth": "tracked source",
+            "change_condition": "the product contract changes",
+            "dependency_direction": "interfaces toward implementation",
+            "retirement_condition": "no runtime or release consumer remains",
+            "prefixes": ["src/"],
+        },
+        "scopes": {"id": "all", "roles": ["source"]},
+        "concerns": {
+            "id": "syntax",
+            "owner": "native",
+            "scope": "all",
+            "session": "quick",
+            "configuration": ["policy.toml"],
+            **dict.fromkeys(responsibilities.RATIONALE_FIELDS, "reviewed"),
+        },
+    }
+
+
+@pytest.fixture
+def policy_document(declarations: dict[str, dict[str, object]]) -> dict[str, object]:
     return {
         "schema_version": 1,
         "owner": "quality",
         "purpose": "admission",
-        "roles": [
-            {
-                "id": "source",
-                "description": "Source",
-                "owner": "product",
-                "consumer": "installed runtime",
-                "source_of_truth": "tracked source",
-                "change_condition": "the product contract changes",
-                "dependency_direction": "interfaces toward implementation",
-                "retirement_condition": "no runtime or release consumer remains",
-                "prefixes": ["src/"],
-            }
-        ],
-        "scopes": [{"id": "all", "roles": ["source"]}],
-        "concerns": [
-            {
-                "id": "syntax",
-                "owner": "native",
-                "scope": "all",
-                "session": "quick",
-                "configuration": ["policy.toml"],
-                **dict.fromkeys(responsibilities.RATIONALE_FIELDS, "reviewed"),
-            }
-        ],
+        **{section: [declaration] for section, declaration in declarations.items()},
     }
 
 
-def audit_document(document, tmp_path: Path, mocker: MockerFixture, *, paths=("src/a.py",)):
+def audit_document(
+    document: dict[str, object],
+    tmp_path: Path,
+    mocker: MockerFixture,
+    *,
+    paths: tuple[str, ...] = ("src/a.py",),
+) -> responsibilities.AuditReport:
     policy = tmp_path / "policy.toml"
     policy.write_text("")
     mocker.patch.object(responsibilities.tomllib, "loads", return_value=document)
@@ -75,8 +85,8 @@ def audit_document(document, tmp_path: Path, mocker: MockerFixture, *, paths=("s
 )
 def test_empty_and_malformed_inventory_cannot_pass(
     field: Literal["schema_version", "roles", "scopes", "concerns"],
-    value,
-    policy_document,
+    value: object,
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
@@ -87,7 +97,7 @@ def test_empty_and_malformed_inventory_cannot_pass(
 
 
 def test_empty_tracked_inventory_does_not_prove_coverage(
-    policy_document, tmp_path: Path, mocker: MockerFixture
+    policy_document: dict[str, object], tmp_path: Path, mocker: MockerFixture
 ) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=())
     assert not report["ok"]
@@ -98,7 +108,7 @@ def test_empty_tracked_inventory_does_not_prove_coverage(
 def test_map_identity_requires_meaningful_text(
     field: Literal["owner", "purpose"],
     value: str | None,
-    policy_document,
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
@@ -126,11 +136,13 @@ def test_each_role_declares_its_complete_lifecycle(
         "dependency_direction",
         "retirement_condition",
     ],
-    policy_document,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    policy_document["roles"][0].pop(field, None)
+    declarations["roles"].pop(field, None)
 
     report = audit_document(policy_document, tmp_path, mocker)
 
@@ -142,17 +154,20 @@ def test_each_role_declares_its_complete_lifecycle(
 def test_every_declaration_has_one_unique_identity(
     collection: Literal["roles", "scopes", "concerns"],
     change: Literal["non-table", "empty-id", "duplicate"],
-    policy_document,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
     entries = policy_document[collection]
+    assert isinstance(entries, list)
     if change == "non-table":
         entries.append(1)
     elif change == "empty-id":
-        entries[0]["id"] = ""
+        declarations[collection]["id"] = ""
     else:
-        entries.append(dict(entries[0]))
+        entries.append(dict(declarations[collection]))
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
@@ -161,20 +176,27 @@ def test_every_declaration_has_one_unique_identity(
 )
 def test_role_selectors_are_explicit_and_valid(
     field: Literal["description", "prefixes", "files"],
-    value,
-    policy_document,
+    value: object,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    policy_document["roles"][0][field] = value
+    declarations["roles"][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
 @pytest.mark.parametrize("roles", [[], ["source", "source"], ["absent"], [""]])
 def test_scopes_reference_nonempty_unique_roles(
-    roles, policy_document, tmp_path: Path, mocker: MockerFixture
+    roles: object,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
-    policy_document["scopes"][0]["roles"] = roles
+    declarations["scopes"]["roles"] = roles
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
@@ -184,16 +206,20 @@ def test_scopes_reference_nonempty_unique_roles(
 )
 def test_concerns_have_live_owners_and_configuration(
     field: Literal["owner", "scope", "configuration"],
-    value,
-    policy_document,
+    value: object,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
     tmp_path: Path,
     mocker: MockerFixture,
 ) -> None:
-    policy_document["concerns"][0][field] = value
+    declarations["concerns"][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
-def test_unowned_carrier_is_visible(policy_document, tmp_path: Path, mocker: MockerFixture) -> None:
+def test_unowned_carrier_is_visible(
+    policy_document: dict[str, object], tmp_path: Path, mocker: MockerFixture
+) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=("unknown.bin",))
     assert report["errors"] == ["responsibility_map_unowned_carrier:unknown.bin"]
 
@@ -237,7 +263,7 @@ def test_gate_cli_returns_json_and_preserves_failed_exit(
     ],
 )
 def test_formatter_inputs_have_complete_declared_roles(
-    scope: Literal["prettier-formatted", "toml-formatted"], suffixes
+    scope: Literal["prettier-formatted", "toml-formatted"], suffixes: tuple[str, ...]
 ) -> None:
     report = responsibilities.audit()
     assert report["ok"], report["errors"]

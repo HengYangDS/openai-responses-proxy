@@ -12,6 +12,9 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import native_service
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from collections.abc import Sequence
+
     from pytest_mock import MockerFixture
 
     from openai_responses_proxy.lifecycle import runtime_spec
@@ -53,10 +56,16 @@ def test_native_service_selection_is_total_for_supported_hosts(
 def test_native_service_selection_reports_incomplete_product(*, mocker: MockerFixture) -> None:
     real_import = __import__
 
-    def missing_adapters(name, *args, **kwargs):
+    def missing_adapters(
+        name: str,
+        module_globals: Mapping[str, object] | None = None,
+        module_locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> ModuleType:
         if name.endswith("lifecycle.supervision"):
             raise ImportError("missing bundled adapter")
-        return real_import(name, *args, **kwargs)
+        return real_import(name, module_globals, module_locals, fromlist, level)
 
     mocker.patch("builtins.__import__", side_effect=missing_adapters)
     with pytest.raises(errors.ProductAssemblyError, match="installation is incomplete"):
@@ -79,12 +88,22 @@ def test_retired_generation_stops_each_owned_service_role(
     runtime = native_service._NativeRuntime(_NativeModuleFixture("fixture.native"))
     live = {41}
 
-    def inventory_for(executable, *, roles):
-        assert executable == ctx.executable
+    def inventory_for(
+        expected_path: str, *, roles: set[str] | frozenset[str] | None = None
+    ) -> list[int]:
+        assert expected_path == ctx.executable
+        assert roles is not None
         return sorted(live) if role in roles else []
 
-    def stop(pid, executable, *, roles, timeout_seconds) -> bool:
-        assert executable == ctx.executable
+    def stop(
+        pid: int,
+        expected_path: str,
+        *,
+        roles: set[str] | frozenset[str] | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> bool:
+        assert expected_path == ctx.executable
+        assert roles is not None
         assert role in roles
         assert timeout_seconds == 2.5
         live.remove(pid)

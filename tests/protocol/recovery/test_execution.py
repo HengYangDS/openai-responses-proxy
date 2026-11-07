@@ -10,28 +10,29 @@ from openai_responses_proxy.protocol.replay import projection
 from openai_responses_proxy.runtime import config as runtime_config
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable
+    from collections.abc import Iterable
 
     import pytest
 
 COMPACTION_BUDGET = runtime_config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
 
 
-def _body(input_items, **extra):
+def _body(input_items: list[object], **extra: object) -> bytes:
     return json.dumps({"input": input_items, **extra}, separators=(",", ":")).encode()
 
 
-def _message(role, content):
+def _message(role: str, content: object) -> dict[str, object]:
     return {"type": "message", "role": role, "content": content}
 
 
-def _call(kind, call_id, payload):
+def _call(kind: str, call_id: str, payload: object) -> dict[str, object]:
     key = "arguments" if kind == "function_call" else "input"
     name = "wait" if kind == "function_call" else "exec"
     return {"type": kind, "call_id": call_id, "name": name, key: payload}
 
 
-def _output(kind, call_id, payload):
+def _output(kind: str, call_id: str, payload: object) -> dict[str, object]:
     return {"type": kind, "call_id": call_id, "output": payload}
 
 
@@ -97,12 +98,19 @@ class ResponseFailedContracts:
         assert json.loads(recovered)["input"] == current
         assert execution_recovery.recover_dialogue(raw, 100) == (None, None)
 
-    def assert_rejected(self, function, fixtures, subtests: pytest.Subtests) -> None:
+    def assert_rejected(
+        self,
+        function: Callable[[bytes, int], execution_recovery.Recovery],
+        fixtures: Iterable[tuple[bytes, int]],
+        subtests: pytest.Subtests,
+    ) -> None:
         for raw, budget in fixtures:
             with subtests.test(raw=raw, budget=budget):
                 assert function(raw, budget) == (None, None)
 
-    def assert_compacted(self, compact: bytes | None, detail: Mapping[str, object] | None):
+    def assert_compacted(
+        self, compact: bytes | None, detail: execution_recovery.RecoveryMetrics | None
+    ) -> tuple[bytes, execution_recovery.RecoveryMetrics]:
         """Narrow a successful compaction result for contract assertions."""
         assert compact is not None
         assert detail is not None
