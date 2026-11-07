@@ -41,12 +41,13 @@ from tools.release import verification
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_EXECUTABLE_START_TIMEOUT_SECONDS = 60
 
 
-def expected_metadata(**overrides) -> dict[str, object]:
+def expected_metadata(**overrides: object) -> dict[str, object]:
     """Return a complete protocol identity with optional field overrides."""
     identity: dict[str, object] = {
         "transaction_id": "txn-1",
@@ -59,7 +60,7 @@ def expected_metadata(**overrides) -> dict[str, object]:
     return identity
 
 
-def child_message(kind: str, child, expected: dict[str, object]) -> dict[str, object]:
+def child_message(kind: str, child: MockType, expected: dict[str, object]) -> dict[str, object]:
     """Return the exact parent-side READY, SERVING, or FINALIZED message."""
     message = {
         "type": kind,
@@ -77,9 +78,15 @@ def child_message(kind: str, child, expected: dict[str, object]) -> dict[str, ob
     return message
 
 
-def matching_health(child_or_pid, expected: dict[str, object], **overrides) -> dict[str, object]:
+def matching_health(
+    child_or_pid: object, expected: dict[str, object], **overrides: object
+) -> dict[str, object]:
     """Return a complete child health identity with optional field overrides."""
-    pid = child_or_pid if isinstance(child_or_pid, int) else child_or_pid.runtime_pid
+    pid = (
+        child_or_pid
+        if isinstance(child_or_pid, int)
+        else getattr(child_or_pid, "runtime_pid", None)
+    )
     health = {
         "pid": pid,
         "handoff_protocol_version": handoff_module.HANDOFF_PROTOCOL_VERSION,
@@ -100,18 +107,18 @@ def matching_health(child_or_pid, expected: dict[str, object], **overrides) -> d
     return health
 
 
-def fake_child(*, pid: int = 54321, mocker: MockerFixture):
+def fake_child(*, pid: int = 54321, mocker: MockerFixture) -> MockType:
     """Return a controllable parent-side child process fixture."""
-    child = mocker.Mock()
+    child = cast("MockType", mocker.Mock())
     child.process = mocker.Mock(pid=pid)
     child.runtime_pid = pid
     child.terminate_bounded.return_value = True
     return child
 
 
-def fake_server(*, port: int = 43123, mocker: MockerFixture):
+def fake_server(*, port: int = 43123, mocker: MockerFixture) -> MockType:
     """Return a parent-side listener fixture with a probeable address."""
-    server = mocker.Mock()
+    server = cast("MockType", mocker.Mock())
     server.server_address = ("127.0.0.1", port)
     server.shutdown = mocker.Mock()
     return server
@@ -120,7 +127,7 @@ def fake_server(*, port: int = 43123, mocker: MockerFixture):
 class Response:
     """Minimal context-managed JSON response fixture."""
 
-    def __init__(self, payload, *, status: int = 202) -> None:
+    def __init__(self, payload: dict[str, object] | bytes, *, status: int = 202) -> None:
         """Initialize a context-managed JSON response fixture."""
         self.status = status
         self.payload = json.dumps(payload).encode() if isinstance(payload, dict) else payload
@@ -133,11 +140,11 @@ class Response:
         """Propagate exceptions raised by the managed caller."""
         return False
 
-    def read(self, _limit: object):
+    def read(self, _limit: object) -> bytes:
         return self.payload
 
 
-def ready_ack(expected: dict[str, object], **overrides) -> dict[str, object]:
+def ready_ack(expected: dict[str, object], **overrides: object) -> dict[str, object]:
     """Return a protocol-v2 READY acknowledgement."""
     payload: dict[str, object] = {
         "ok": True,
@@ -150,7 +157,7 @@ def ready_ack(expected: dict[str, object], **overrides) -> dict[str, object]:
     return payload
 
 
-def idle_runtime(**overrides) -> dict[str, object]:
+def idle_runtime(**overrides: object) -> dict[str, object]:
     """Return a protocol-v2 runtime ready to initiate a handoff."""
     runtime: dict[str, object] = {
         "pid": 999,
@@ -178,7 +185,7 @@ def child_pid_matching_health(
     *,
     exclude_pid: int | None,
     states: frozenset[str] = frozenset(("serving", "finalized")),
-):
+) -> int | None:
     """Return the exact serving or finalized successor observed through health."""
     try:
         _, health = http_json(port, "/healthz", timeout=1)
@@ -230,10 +237,10 @@ def child_pid_observer(
     return observed, matches
 
 
-def fake_handler(body: dict[str, object], *, mocker: MockerFixture):
+def fake_handler(body: dict[str, object], *, mocker: MockerFixture) -> MockType:
     """Return a native loopback control-handler fixture containing one JSON body."""
     payload = json.dumps(body).encode()
-    handler = mocker.Mock()
+    handler = cast("MockType", mocker.Mock())
     handler.client_address = ("127.0.0.1", 51234)
     handler.headers = {"Content-Length": str(len(payload)), "Host": "127.0.0.1:8792"}
     handler.connection.gettimeout.return_value = None
@@ -271,7 +278,14 @@ def proxy_is_up(port: int) -> bool:
         return False
 
 
-def http_json(port: int, path: str, *, method: str = "GET", body=None, timeout: float = 3.0):
+def http_json(
+    port: int,
+    path: str,
+    *,
+    method: str = "GET",
+    body: object = None,
+    timeout: float = 3.0,
+) -> tuple[int, dict[str, object]]:
     """Issue an unproxied loopback request and decode its JSON response."""
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(
@@ -282,7 +296,11 @@ def http_json(port: int, path: str, *, method: str = "GET", body=None, timeout: 
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=timeout) as response:
-        return response.status, json.loads(response.read())
+        status = response.status
+        document: object = json.loads(response.read())
+    if not isinstance(status, int) or not isinstance(document, dict):
+        raise TypeError("loopback response is not a JSON object")
+    return status, {str(key): value for key, value in document.items()}
 
 
 def terminate_process(process: subprocess.Popen[bytes], timeout: float = 5) -> None:

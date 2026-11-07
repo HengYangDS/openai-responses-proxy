@@ -226,10 +226,10 @@ class TestParentHandoffStateMachine(HandoffFixture):
                 server = fake_server(mocker=mocker)
                 child = fake_child(mocker=mocker)
                 child.recv_message.side_effect = spawn_result
-                options = (
-                    {"side_effect": spawn_result} if name == "spawn" else {"return_value": child}
-                )
-                mocker.patch.object(self.p, "spawn_child", **options)
+                if name == "spawn":
+                    mocker.patch.object(self.p, "spawn_child", side_effect=spawn_result)
+                else:
+                    mocker.patch.object(self.p, "spawn_child", return_value=child)
                 with pytest.raises(self.p.HandoffError):
                     self.p.prepare(server, expected, self.context, timeout_seconds=1)
                 server.shutdown.assert_not_called()

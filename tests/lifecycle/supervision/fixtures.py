@@ -7,12 +7,20 @@ import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import psutil
 
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import install_context
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from collections.abc import Iterable
+    from collections.abc import Sequence
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 
 def capture_generation(pid: int, expected_path: str) -> process.OwnedProcess | None:
@@ -28,13 +36,20 @@ def capture_generation(pid: int, expected_path: str) -> process.OwnedProcess | N
     )
 
 
-def completed(cmd=(), returncode=0, stdout="", stderr=""):
+def completed(
+    cmd: Sequence[str] = (),
+    returncode: int = 0,
+    stdout: str | bytes = "",
+    stderr: str | bytes = "",
+) -> subprocess.CompletedProcess[str | bytes]:
     """Build a deterministic completed-process result."""
     return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
 
 
 @contextmanager
-def temporary_context(attribute, *, windows=False):
+def temporary_context(
+    attribute: str, *, windows: bool = False
+) -> Generator[runtime_context.RuntimeContext]:
     """Yield a service context whose host-owned paths share one temporary root."""
     with tempfile.TemporaryDirectory() as directory:
         context = install_context(Path(directory), windows=windows)
@@ -44,7 +59,7 @@ def temporary_context(attribute, *, windows=False):
         yield context
 
 
-def set_file(path, text=None):
+def set_file(path: str | Path, text: str | None = None) -> Path:
     """Create or remove an LF text fixture, as native adapters write it, and return its path."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,7 +70,7 @@ def set_file(path, text=None):
     return path
 
 
-def assert_fragments(text, include=(), exclude=()) -> None:
+def assert_fragments(text: str, include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
     """Assert required and forbidden fragments."""
     for fragment in include:
         assert fragment in text
