@@ -13,6 +13,7 @@ import sys
 import tarfile
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -31,6 +32,9 @@ from tools.release import verification
 from tools.release.artifact import bundle as release_assembly
 from tools.release.artifact import format as product_assets
 from tools.release.artifact import signing
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMAND_TIMEOUT_SECONDS = 180
@@ -80,7 +84,7 @@ def _macos_service_projection() -> tuple[
 
 
 @pytest.fixture(scope="module")
-def preserve_native_host_projection():
+def preserve_native_host_projection() -> Generator[None]:
     """Prove one native test module leaves the host projection unchanged."""
     if sys.platform != "darwin" or "OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE" not in os.environ:
         yield

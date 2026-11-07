@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from collections.abc import Mapping
 
+    from openai_responses_proxy.lifecycle.transaction import execution
     from openai_responses_proxy.serving import identity as listener_identity
 
 
@@ -84,7 +85,9 @@ def _retained_carrier_snapshot(root: Path, external_target: Path) -> tuple[objec
     return ("root-directory", tuple(entries), target)
 
 
-def _project_as_legacy_flat_install(ctx, installed) -> None:
+def _project_as_legacy_flat_install(
+    ctx: runtime_context.RuntimeContext, installed: execution.PayloadTransaction
+) -> None:
     """Recreate a manifest-owned flat payload for explicit removal checks."""
     generation_root = Path(installed.context.payload_dir)
     install_root = Path(ctx.install_dir)

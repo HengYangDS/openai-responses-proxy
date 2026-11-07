@@ -10,15 +10,18 @@ from openai_responses_proxy.lifecycle.supervision import process
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 
 def admit_handoff_generations(
     mocker: MockerFixture,
-    ctx,
+    ctx: runtime_context.RuntimeContext,
     *,
     predecessor_pid: int = 999,
     successor_pid: int = 1000,
-):
+) -> tuple[process.OwnedProcess, process.OwnedProcess, MockType]:
     """Admit exact predecessor and successor generations for controller tests."""
     predecessor = process.OwnedProcess(predecessor_pid, ctx.executable, 0.5)
     successor = process.OwnedProcess(successor_pid, ctx.executable, 1.0)
@@ -26,7 +29,7 @@ def admit_handoff_generations(
 
     predecessor_checks = iter((True,))
 
-    def generation_is_alive(generation):
+    def generation_is_alive(generation: process.OwnedProcess) -> bool:
         if generation.pid == successor_pid:
             return True
         return next(predecessor_checks, False)

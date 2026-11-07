@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +12,9 @@ from openai_responses_proxy.providers.policies import dmxapi as policy
 from openai_responses_proxy.relay import cooldown
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import request
+
+if TYPE_CHECKING:
+    from email.message import Message
 
 EMPTY_RESPONSE = (
     b'{"error":{"message":"official provider returned an empty response",'
@@ -69,7 +73,7 @@ class EmptyResponseFixture(InputTransportFixture):
     _request = staticmethod(request)
 
     @staticmethod
-    def _remember_failure(key, *, now=None) -> None:
+    def _remember_failure(key: str, *, now: float | None = None) -> None:
         cooldown.remember_failure(
             key,
             capacity=policy.FAILURE_CACHE_CAPACITY,
@@ -78,10 +82,12 @@ class EmptyResponseFixture(InputTransportFixture):
         )
 
     @staticmethod
-    def _cooldown_remaining(key, *, now=None):
+    def _cooldown_remaining(key: str, *, now: float | None = None) -> float:
         return cooldown.remaining(key, now=now)
 
-    def _read_http_error(self, port, request_body):
+    def _read_http_error(
+        self, port: int, request_body: bytes
+    ) -> tuple[int, Message[str, str], bytes]:
         with pytest.raises(urllib.error.HTTPError) as raised:
             self._request(port, request_body)
         error = raised.value

@@ -8,6 +8,7 @@ from pathlib import Path
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
+from typing import cast
 
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -22,6 +23,7 @@ from openai_responses_proxy.serving import inventory
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -183,16 +185,18 @@ def retained_rollback(ctx: runtime_context.RuntimeContext) -> rollback.RetainedR
     return retained
 
 
-def running_supervisor(ctx, *, mocker: MockerFixture):
+def running_supervisor(ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture) -> MockType:
     """Project a running supervisor whose current declaration binds lifecycle control."""
-    native = mocker.patch.object(control, "adapter").return_value
+    native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = "running"
     native.configured_executable.return_value = generation.control_context(ctx).executable
     native.projection_is_current.return_value = True
     return native
 
 
-def healthy_status_dependencies(ctx, *, mocker: MockerFixture) -> None:
+def healthy_status_dependencies(
+    ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture
+) -> None:
     """Project verified listener and supervisor evidence for one installed generation."""
     runtime = identity.committed_payload(Path(generation.selected_context(ctx).executable))
     assert runtime is not None

@@ -22,14 +22,19 @@ from tests.serving.handoff.fixtures import idle_runtime
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
+    from openai_responses_proxy.lifecycle import context as runtime_context
+    from openai_responses_proxy.lifecycle import runtime_spec
     from openai_responses_proxy.lifecycle.transaction import execution as transaction
 
 
 class FakeTransaction:
     """Behavioral double for the payload transaction protocol."""
 
-    def __init__(self, ctx, *, events: list[object] | None = None) -> None:
+    def __init__(
+        self, ctx: runtime_context.RuntimeContext, *, events: list[object] | None = None
+    ) -> None:
         """Initialize an observable payload-transaction double."""
         transaction_id = "1" * 32
         self.expected = {
@@ -89,30 +94,32 @@ class FakeServiceAdapter:
         self.configured = configured
         self.running_contexts: set[str] = set()
 
-    def install(self, ctx) -> None:
+    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self.install_mock(ctx)
         self.configured = "canonical"
         self.running_contexts.add(ctx.executable)
 
-    def uninstall(self, ctx) -> None:
+    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self.uninstall_mock(ctx)
         self.configured = None
         self.running_contexts.discard(ctx.executable)
 
-    def runtime_pids(self, ctx) -> list[int]:
+    def runtime_pids(self, ctx: runtime_spec.NativeServiceContext) -> list[int]:
         return [222] if ctx.executable in self.running_contexts else []
 
-    def terminate_runtime(self, ctx, *, timeout_seconds: float) -> int:
+    def terminate_runtime(
+        self, ctx: runtime_spec.NativeServiceContext, *, timeout_seconds: float
+    ) -> int:
         del timeout_seconds
         running = self.runtime_pids(ctx)
         self.running_contexts.discard(ctx.executable)
         return len(running)
 
-    def configured_executable(self, ctx) -> str | None:
+    def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str | None:
         configured = ctx.executable if self.configured == "canonical" else self.configured
         return configured if isinstance(configured, str) else None
 
-    def status(self, ctx) -> str:
+    def status(self, ctx: runtime_spec.NativeServiceContext) -> str:
         return "running" if ctx.executable in self.running_contexts else "absent"
 
 
@@ -125,19 +132,25 @@ class OrderedServiceAdapter(FakeServiceAdapter):
         self.events = events
 
     @override
-    def install(self, ctx) -> None:
+    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self.events.append("service-install")
         super().install(ctx)
 
     @override
-    def uninstall(self, ctx) -> None:
+    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
         self.events.append("service-uninstall")
         super().uninstall(ctx)
 
 
 def _unsupervised_installation(
     root: Path, *, service: str, serving: bool = False, mocker: MockerFixture
-):
+) -> tuple[
+    runtime_context.RuntimeContext,
+    runtime_context.RuntimeContext,
+    MockType,
+    identity.LoadedPayloadIdentity,
+    dict[str, object],
+]:
     """Install one verified payload whose native supervision is absent or stopped."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
@@ -147,7 +160,7 @@ def _unsupervised_installation(
     committed = identity.committed_payload(Path(ctx.executable))
     assert committed is not None
     bound = {"control": service == "installed"}
-    native = mocker.Mock()
+    native = cast("MockType", mocker.Mock())
     native.status.return_value = service
     native.configured_executable.side_effect = lambda _ctx: (
         control_ctx.executable if bound["control"] else None

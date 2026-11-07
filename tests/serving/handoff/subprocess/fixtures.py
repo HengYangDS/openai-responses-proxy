@@ -94,7 +94,7 @@ class SubprocessFixture:
                     raise
                 time.sleep(0.05)
 
-    def _post_responses(self, port, *, timeout=15):
+    def _post_responses(self, port: int, *, timeout: float = 15) -> bytes:
         request = urllib.request.Request(
             f"http://127.0.0.1:{port}/dmxapi/v1/responses",
             data=b'{"stream": false, "input": []}',
@@ -103,4 +103,7 @@ class SubprocessFixture:
         )
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(request, timeout=timeout) as response:
-            return response.read()
+            content: object = response.read()
+        if not isinstance(content, bytes):
+            raise TypeError("loopback response body is not bytes")
+        return content

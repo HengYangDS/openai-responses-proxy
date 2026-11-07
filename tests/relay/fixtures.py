@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import http.client
 import io
 import json
 import socket
@@ -18,6 +19,7 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import Literal
 from typing import cast
 from typing import override
@@ -30,6 +32,9 @@ from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay import upstream as upstream_transport
 from openai_responses_proxy.serving import entrypoint as proxy
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 ScriptedResponse = tuple[int, bytes] | Mapping[str, object]
 
@@ -185,7 +190,7 @@ def running_proxy(
     captures: list[dict[str, object]] | None = None,
     extra_provider: str | None = None,
     agent_message_delivery: Literal["native", "plaintext"] = "native",
-):
+) -> Generator[tuple[int, list[bytes]]]:
     """Yield a scripted loopback proxy and always release both servers."""
     with tempfile.TemporaryDirectory() as log_dir:
         port, received, cleanup = serve_proxy(
@@ -208,7 +213,7 @@ def request(
     path: str = "/dmxapi/v1/responses",
     method: str = "POST",
     headers: dict[str, str] | None = None,
-):
+) -> http.client.HTTPResponse:
     """Send one loopback request without host proxies."""
     request_headers = {"Content-Type": "application/json"}
     if headers is not None:
@@ -219,7 +224,10 @@ def request(
         method=method,
         headers=request_headers,
     )
-    return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(outbound)
+    response = urllib.request.build_opener(urllib.request.ProxyHandler({})).open(outbound)
+    if not isinstance(response, http.client.HTTPResponse):
+        raise TypeError("loopback request did not return an HTTP response")
+    return response
 
 
 def raw_exchange(proxy_port: int, payload: bytes, *, timeout: float = 5.0) -> bytes:
@@ -354,7 +362,9 @@ class DirectResponse:
 class TimedResponse(io.BytesIO):
     """Model an upstream socket whose reads consume its armed idle timeout."""
 
-    def __init__(self, clock, chunks: list[bytes | BaseException], content_type: str) -> None:
+    def __init__(
+        self, clock: list[float], chunks: list[bytes | BaseException], content_type: str
+    ) -> None:
         """Arm the idle timeout and queue the chunks that later reads return."""
         super().__init__()
         self.clock = clock
@@ -425,7 +435,9 @@ class InputTransportFixture:
 class LoopbackTransportFixture(InputTransportFixture):
     """Run real loopback exchanges with the shared relay-state lifecycle."""
 
-    def exchange(self, scripted, body):
+    def exchange(
+        self, scripted: Sequence[ScriptedResponse], body: bytes
+    ) -> tuple[list[bytes], bytes]:
         """Run one loopback exchange and return received requests and payload."""
         with (
             running_proxy(scripted) as (port, received),

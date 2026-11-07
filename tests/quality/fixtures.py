@@ -64,12 +64,14 @@ def repository(
         yield root
 
 
-def quality_inventory(root: Path):
+def quality_inventory(root: Path) -> repository_audit.RepositoryInventory:
     """Compile the fixture's configured Python inventory."""
     return repository_audit._repository_inventory(root, ("src",), ("tests",))
 
 
-def audit_source(source_text: str, relative: str = "source.py"):
+def audit_source(
+    source_text: str, relative: str = "source.py"
+) -> tuple[list[str], list[repository_audit.SourceMetrics]]:
     """Audit one isolated Python owner and return its observed structure."""
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
