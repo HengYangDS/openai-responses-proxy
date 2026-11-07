@@ -281,6 +281,47 @@ def private_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
     )
 
 
+def _uninstall_test_service(
+    service: native_service.NativeServiceAdapter, ctx: runtime_context.RuntimeContext
+) -> None:
+    """Remove the isolated test's native service registration and prove it absent."""
+    service.uninstall(ctx)
+    if service.status(ctx) != "absent":
+        raise errors.InstallError("test native service remains after uninstall")
+
+
+def _stop_test_processes(
+    wrapper: Path | None, process_contexts: tuple[runtime_context.RuntimeContext, ...]
+) -> errors.InstallError | None:
+    """Stop every owned test process and return the first unproved exit, if any."""
+    failure: errors.InstallError | None = None
+    if wrapper is not None:
+        for pid in process.pids_naming_path(str(wrapper)):
+            try:
+                exited = process.terminate_pid(pid, expected_path=str(wrapper))
+            except errors.InstallError as error:
+                failure = failure or error
+            else:
+                if not exited:
+                    failure = failure or errors.InstallError("test wrapper exit is unproved")
+    for owned_ctx in process_contexts:
+        for pid in process.pids_naming_executable(
+            owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
+        ):
+            try:
+                exited = process.terminate_executable(
+                    pid, owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
+                )
+            except errors.InstallError as error:
+                failure = failure or error
+            else:
+                if not exited:
+                    failure = failure or errors.InstallError(
+                        "test runtime process exit is unproved"
+                    )
+    return failure
+
+
 def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = None) -> None:
     """Stop only processes and launch configuration owned by an isolated test."""
     service = native_service.adapter()
@@ -297,33 +338,13 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
         if not configured_path.is_relative_to(install_root):
             raise errors.InstallError("native service executable is outside the owned installation")
         process_contexts = (*process_contexts, replace(ctx, executable=configured))
-    failure: Exception | None = None
     try:
-        service.uninstall(ctx)
-        if service.status(ctx) != "absent":
-            raise errors.InstallError("test native service remains after uninstall")
-    except Exception as error:
-        failure = error
-    finally:
-        if wrapper is not None:
-            for pid in process.pids_naming_path(str(wrapper)):
-                try:
-                    if not process.terminate_pid(pid, expected_path=str(wrapper)):
-                        raise errors.InstallError("test wrapper exit is unproved")
-                except errors.InstallError as error:
-                    failure = failure or error
-        for owned_ctx in process_contexts:
-            for pid in process.pids_naming_executable(
-                owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
-            ):
-                try:
-                    if not process.terminate_executable(
-                        pid, owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
-                    ):
-                        raise errors.InstallError("test runtime process exit is unproved")
-                except errors.InstallError as error:
-                    failure = failure or error
-    if failure is not None:
+        _uninstall_test_service(service, ctx)
+    except BaseException:
+        # A failed uninstall still stops every owned process before it propagates.
+        _stop_test_processes(wrapper, process_contexts)
+        raise
+    if (failure := _stop_test_processes(wrapper, process_contexts)) is not None:
         raise failure
     if service.status(ctx) != "absent":
         raise errors.InstallError("test native service reappeared after cleanup")

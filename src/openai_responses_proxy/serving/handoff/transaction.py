@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from http.server import ThreadingHTTPServer
     from pathlib import Path
+    from typing import IO
 
     from openai_responses_proxy.serving import identity
 
@@ -433,6 +434,34 @@ def _valid_prepare(message: object, context: Context) -> bool:
     )
 
 
+def _read_prepare(input_stream: IO[bytes], context: Context) -> JsonObject:
+    """Read the parent's PREPARE and require the identity this child was started for."""
+    prepare_message = _read_control_message(input_stream)
+    if not _valid_prepare(prepare_message, context):
+        raise HandoffError("handoff PREPARE identity mismatch")
+    return prepare_message
+
+
+def _expect_command(input_stream: IO[bytes], expected: str, label: str) -> None:
+    """Read the parent's next command and require the expected phase."""
+    command = _read_control_message(input_stream)
+    if command == {"type": "abort"} and expected == "finalize":
+        raise HandoffError("handoff parent aborted before FINALIZE")
+    if command != {"type": expected}:
+        raise HandoffError(f"handoff child did not receive {label}")
+
+
+def _listener_port(server: ThreadingHTTPServer) -> int:
+    """Return the serving listener's TCP port, or raise when it is not probeable."""
+    address: object = getattr(server, "server_address", None)
+    if not isinstance(address, (tuple, list)) or len(address) <= 1:
+        raise HandoffError("handoff server has no probeable listener address")
+    health_port = address[1]
+    if not isinstance(health_port, int) or not 1 <= health_port <= runtime_config.MAX_TCP_PORT:
+        raise HandoffError("handoff server has no valid listener port")
+    return health_port
+
+
 def run_child(context: Context) -> int:
     """Hold the inherited listener dormant until the parent crosses COMMIT."""
     input_stream = sys.stdin.buffer
@@ -441,9 +470,7 @@ def run_child(context: Context) -> int:
     serving_thread = None
     try:
         _write_control_message(output_stream, {"type": "started", "pid": os.getpid()})
-        prepare_message = _read_control_message(input_stream)
-        if not _valid_prepare(prepare_message, context):
-            raise HandoffError("handoff PREPARE identity mismatch")
+        prepare_message = _read_prepare(input_stream, context)
         _transition("preparing")
         with _HANDOFF_LOCK:
             _HANDOFF_SESSION.update(
@@ -460,9 +487,7 @@ def run_child(context: Context) -> int:
             output_stream,
             _control_message("ready", child_expected, include_identity=True),
         )
-        command = _read_control_message(input_stream)
-        if command != {"type": "commit"}:
-            raise HandoffError("handoff child did not receive COMMIT")
+        _expect_command(input_stream, "commit", "COMMIT")
         _transition("committing")
         _transition("serving")
         serving_thread = threading.Thread(
@@ -471,14 +496,8 @@ def run_child(context: Context) -> int:
             name="responses-proxy-handoff-serving",
         )
         serving_thread.start()
-        address: object = getattr(server, "server_address", None)
-        if not isinstance(address, (tuple, list)) or len(address) <= 1:
-            raise HandoffError("handoff server has no probeable listener address")
-        health_port = address[1]
-        if not isinstance(health_port, int) or not 1 <= health_port <= runtime_config.MAX_TCP_PORT:
-            raise HandoffError("handoff server has no valid listener port")
         probe_health(
-            health_port,
+            _listener_port(server),
             timeout_seconds=HANDOFF_READY_TIMEOUT_SECONDS,
             expected=_expected_serving_health(child_expected),
         )
@@ -486,11 +505,7 @@ def run_child(context: Context) -> int:
             output_stream,
             _control_message("serving", child_expected),
         )
-        command = _read_control_message(input_stream)
-        if command == {"type": "abort"}:
-            raise HandoffError("handoff parent aborted before FINALIZE")
-        if command != {"type": "finalize"}:
-            raise HandoffError("handoff child did not receive FINALIZE")
+        _expect_command(input_stream, "finalize", "FINALIZE")
         _transition("finalizing")
         _transition("finalized")
         _write_control_message(output_stream, _control_message("finalized", child_expected))

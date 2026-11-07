@@ -146,11 +146,7 @@ class PayloadTransaction:
         mutated = False
         try:
             if self._reuse_generation:
-                candidate = identity.committed_payload(Path(self._candidate_ctx.executable))
-                if candidate != self._retained_identity:
-                    raise errors.InstallError(
-                        "retained rollback predecessor changed before materialization"
-                    )
+                self._require_unchanged_retained_payload()
             control_ctx = generation.control_context(self._ctx)
             command_snapshot = command.snapshot(
                 Path(self._ctx.command), Path(control_ctx.executable)
@@ -185,9 +181,7 @@ class PayloadTransaction:
                 self._receipt_sha256,
             )
             runtime_spec.write(self._candidate_ctx)
-            ok, detail = projection.verify_payload_manifest(self._candidate_ctx)
-            if not ok:
-                raise errors.InstallError(f"committed payload integrity check failed: {detail}")
+            self._require_committed_payload_integrity()
             payload_candidate.prewarm(self._candidate_ctx)
             self._state = "materialized"
             self._write_journal()
@@ -304,6 +298,20 @@ class PayloadTransaction:
             files=records.removal_files(journal),
             snapshot_sha256=str(journal["snapshot_sha256"]),
         )
+
+    def _require_unchanged_retained_payload(self) -> None:
+        """Refuse a retained predecessor whose committed payload changed since admission."""
+        candidate = identity.committed_payload(Path(self._candidate_ctx.executable))
+        if candidate != self._retained_identity:
+            raise errors.InstallError(
+                "retained rollback predecessor changed before materialization"
+            )
+
+    def _require_committed_payload_integrity(self) -> None:
+        """Refuse a materialized candidate whose payload manifest does not verify."""
+        ok, detail = projection.verify_payload_manifest(self._candidate_ctx)
+        if not ok:
+            raise errors.InstallError(f"committed payload integrity check failed: {detail}")
 
     def _owned_journal(self, *, for_rollback: bool = False) -> Mapping[str, object]:
         journal = records.read_journal(self._ctx)

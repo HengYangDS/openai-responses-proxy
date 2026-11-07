@@ -272,13 +272,7 @@ def spawn_child(
     try:
         runtime_pid = child.await_runtime(startup_timeout_seconds)
         if windows:
-            share: object = getattr(listener, "share", None)
-            if not callable(share):
-                raise HandoffError("Windows listener sharing is unavailable")
-            try:
-                shared = cast("Callable[[int], bytes]", share)(runtime_pid)
-            except Exception as exc:
-                raise HandoffError("Windows listener sharing failed") from exc
+            shared = _share_listener(listener, runtime_pid)
             message["listener_share_b64"] = base64.b64encode(shared).decode("ascii")
         else:
             message["listener_fd"] = listener_fd
@@ -290,19 +284,30 @@ def spawn_child(
     return child
 
 
+def _share_listener(listener: socket.socket, runtime_pid: int) -> bytes:
+    """Duplicate the listening socket for one Windows child process."""
+    share: object = getattr(listener, "share", None)
+    if not callable(share):
+        raise HandoffError("Windows listener sharing is unavailable")
+    try:
+        return cast("Callable[[int], bytes]", share)(runtime_pid)
+    except OSError as exc:
+        raise HandoffError("Windows listener sharing failed") from exc
+
+
 def listener_from_prepare(message: ReadOnlyJsonObject) -> socket.socket:
     """Reconstruct the already-listening socket from a validated PREPARE."""
     if "listener_share_b64" in message:
         encoded = message.get("listener_share_b64")
         if not isinstance(encoded, str) or len(encoded) > HANDOFF_CONTROL_MAX_BYTES:
             raise HandoffError("invalid Windows listener share")
+        fromshare: object = getattr(socket, "fromshare", None)
+        if not callable(fromshare):
+            raise HandoffError("Windows listener reconstruction is unavailable")
         try:
             shared = base64.b64decode(encoded.encode("ascii"), validate=True)
-            fromshare: object = getattr(socket, "fromshare", None)
-            if not callable(fromshare):
-                raise HandoffError("Windows listener reconstruction is unavailable")
             return cast("Callable[[bytes], socket.socket]", fromshare)(shared)
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             raise HandoffError("Windows listener reconstruction failed") from exc
     listener_fd = message.get("listener_fd")
     if not isinstance(listener_fd, int) or listener_fd < 0:

@@ -260,15 +260,12 @@ def _upgrade(
             ) from upgrade_error
         if admission_may_be_closed:
             try:
-                if not handoff.resume_responses(
+                _resume_predecessor_admission(
                     ctx,
                     source_listener=source_listener,
                     source_runtime=current,
                     runtime_reader=runtime_reader,
-                ):
-                    raise errors.InstallError(
-                        "predecessor listener no longer owns Responses admission"
-                    )
+                )
             except BaseException as restore_error:
                 unknown = UnknownDeploymentOutcome(
                     "native supervisor rollback could not restore predecessor admission; "
@@ -296,6 +293,41 @@ def bind_control_supervisor(
         raise errors.InstallError("native supervisor did not bind the lifecycle control executable")
 
 
+def _resume_predecessor_admission(
+    ctx: runtime_context.RuntimeContext,
+    *,
+    source_listener: process.OwnedProcess,
+    source_runtime: dict[str, object],
+    runtime_reader: handoff.RuntimeReader,
+) -> None:
+    """Reopen the predecessor's admission, or raise when it no longer owns the listener."""
+    if not handoff.resume_responses(
+        ctx,
+        source_listener=source_listener,
+        source_runtime=source_runtime,
+        runtime_reader=runtime_reader,
+    ):
+        raise errors.InstallError("predecessor listener no longer owns Responses admission")
+
+
+def _remove_candidate_supervision(
+    candidate: runtime_context.RuntimeContext, *, adapter: ServiceAdapter
+) -> None:
+    """Uninstall only the candidate's own supervisor and prove its supervision absent."""
+    configured = adapter.configured_executable(candidate)
+    if configured is None:
+        if adapter.status(candidate) != "absent":
+            raise errors.InstallError("candidate native supervisor identity is unproved")
+    else:
+        if runtime_spec.normalized_path(configured) != runtime_spec.normalized_path(
+            candidate.executable
+        ):
+            raise errors.InstallError("candidate native supervisor identity is unproved")
+        adapter.uninstall(candidate)
+    if adapter.status(candidate) != "absent":
+        raise errors.InstallError("candidate native supervision is not absent")
+
+
 def discard_runtime(
     candidate: runtime_context.RuntimeContext,
     *,
@@ -304,18 +336,7 @@ def discard_runtime(
 ) -> None:
     """Remove candidate supervision and processes before payload rollback."""
     try:
-        configured = adapter.configured_executable(candidate)
-        if configured is None:
-            if adapter.status(candidate) != "absent":
-                raise errors.InstallError("candidate native supervisor identity is unproved")
-        else:
-            if runtime_spec.normalized_path(configured) != runtime_spec.normalized_path(
-                candidate.executable
-            ):
-                raise errors.InstallError("candidate native supervisor identity is unproved")
-            adapter.uninstall(candidate)
-        if adapter.status(candidate) != "absent":
-            raise errors.InstallError("candidate native supervision is not absent")
+        _remove_candidate_supervision(candidate, adapter=adapter)
         adapter.terminate_runtime(candidate, timeout_seconds=timeout_seconds)
     except BaseException as cleanup_error:
         raise UnknownDeploymentOutcome(
@@ -358,6 +379,14 @@ def _replace_native_generation(
         ) from startup_error
 
 
+def _successor_runtime(result: Mapping[str, object]) -> dict[str, object]:
+    """Return the successor runtime that a completed handoff reports."""
+    runtime = result.get("runtime")
+    if not isinstance(runtime, dict) or not all(isinstance(key, str) for key in runtime):
+        raise errors.InstallError("handoff did not return successor runtime proof")
+    return {key: value for key, value in runtime.items() if isinstance(key, str)}
+
+
 def request_handoff(
     ctx: runtime_context.RuntimeContext,
     expected: Mapping[str, object],
@@ -379,10 +408,7 @@ def request_handoff(
             source_listener=source_listener,
             source_runtime=current,
         )
-        runtime = result.get("runtime")
-        if not isinstance(runtime, dict) or not all(isinstance(key, str) for key in runtime):
-            raise errors.InstallError("handoff did not return successor runtime proof")
-        return {key: value for key, value in runtime.items() if isinstance(key, str)}
+        return _successor_runtime(result)
     except BaseException as error:
         try:
             resolution, runtime = handoff.resolve_after_controller_failure(
