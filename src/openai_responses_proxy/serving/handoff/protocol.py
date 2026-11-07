@@ -215,9 +215,10 @@ class HandoffChild:
         try:
             action()
             self.process.wait(timeout=max(0.01, float(timeout)))
-            return True
         except (OSError, subprocess.TimeoutExpired):
             return self.process.poll() is not None
+        else:
+            return True
 
     def terminate_bounded(self, timeout: float) -> bool:
         """Request graceful child termination and prove exit within the bound."""

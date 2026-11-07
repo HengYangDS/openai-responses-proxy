@@ -334,7 +334,6 @@ def commit(server: ThreadingHTTPServer, prepared: PreparedHandoff, context: Cont
         _expect_child_phase(child, child_expected, "finalized", timeout_seconds)
         _transition("finalized")
         _set_outcome("finalized")
-        return "finalized"
     except Exception as exc:
         context.log(f"event=handoff_commit_failed phase={phase} exception={exc.__class__.__name__}")
         try:
@@ -346,6 +345,8 @@ def commit(server: ThreadingHTTPServer, prepared: PreparedHandoff, context: Cont
         if not accept_stopped:
             _ignore_failure(server.shutdown)
         return outcome
+    else:
+        return "finalized"
 
 
 def _serve_until_stopped(
@@ -491,7 +492,6 @@ def run_child(context: Context) -> int:
         _transition("finalized")
         _write_control_message(output_stream, _control_message("finalized", child_expected))
         serve_with_resume(server, context, initial_serving_thread=serving_thread)
-        return 0
     except Exception:
         if server is not None:
             if serving_thread is not None:
@@ -499,6 +499,8 @@ def run_child(context: Context) -> int:
                 serving_thread.join(timeout=2)
             _ignore_failure(server.server_close)
         return 1
+    else:
+        return 0
 
 
 reset_session_to_idle()

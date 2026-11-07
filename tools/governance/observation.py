@@ -60,6 +60,7 @@ def read(root: Path, *command: str) -> dict[str, object]:
         data = _object(report.get("data"))
         if report.get("command") != " ".join(command) or data.get("root") != str(root):
             raise ObservationError("native governance report subject differs")
-        return data
     except (OSError, ValueError, subprocess.TimeoutExpired) as error:
         raise ObservationError("native governance observation unavailable") from error
+    else:
+        return data

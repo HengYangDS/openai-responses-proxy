@@ -250,9 +250,10 @@ def _observe_supervision(
         ) == runtime_spec.normalized_path(control_ctx.executable)
         if bound and not native.projection_is_current(control_ctx):
             return "outdated", True
-        return service, bound
     except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
         return "unknown", False
+    else:
+        return service, bound
 
 
 def _stopped_supervisor_is_bound(active: runtime_context.RuntimeContext) -> bool:

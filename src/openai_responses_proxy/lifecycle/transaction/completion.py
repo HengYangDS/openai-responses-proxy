@@ -78,7 +78,6 @@ def _select_retention(
                 raise errors.InstallError("predecessor payload generation is unavailable")
             selection = generation.Selection(active, previous)
         generation.select(ctx, active=selection.active, predecessor=selection.predecessor)
-        return selection
     except errors.InstallError:
         records.write_journal(
             ctx,
@@ -103,6 +102,8 @@ def _select_retention(
             snapshot_sha256=str(journal["snapshot_sha256"]),
         )
         raise
+    else:
+        return selection
 
 
 def prior_selection(journal: Mapping[str, object]) -> generation.Selection | None:

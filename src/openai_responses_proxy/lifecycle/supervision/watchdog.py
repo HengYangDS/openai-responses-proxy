@@ -93,10 +93,11 @@ def spawn_proxy(executable: str) -> subprocess.Popen[bytes] | None:
                 start_new_session=True,
             )
         _log(f"event=listener_spawned pid={proc.pid}")
-        return proc
     except OSError as exc:
         _log(f"event=listener_spawn_failed exception={exc.__class__.__name__}")
         return None
+    else:
+        return proc
 
 
 def run(max_iterations: int | None = None) -> None:

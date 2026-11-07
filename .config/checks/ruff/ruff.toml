@@ -83,6 +83,7 @@ select = [
   "S611",
   "S612",
   "S701",
+  "TRY300",
 ]
 
 [lint.per-file-ignores]
