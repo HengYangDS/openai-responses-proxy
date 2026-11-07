@@ -325,7 +325,8 @@ def relay(
             telemetry.record_counter("stream_projection_failures")
             telemetry.record_failure("stream_projection_failed")
         elif outcome_unknown:
-            # The exchange owner reports the outcome-unknown failure once, for streams and JSON alike.
+            # The exchange owner reports the outcome-unknown failure once, for streams and JSON
+            # alike.
             pass
         elif pre_content_exhausted:
             telemetry.record_counter("streams_pre_content_exhausted")

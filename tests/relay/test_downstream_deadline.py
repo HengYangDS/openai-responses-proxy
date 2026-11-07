@@ -26,7 +26,8 @@ class TestDownstreamWriteDeadline(LoopbackTransportFixture):
         ):
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                # A tiny receive window makes the proxy's writes block once the client stops reading.
+                # A tiny receive window makes the proxy's writes block once the client stops
+                # reading.
                 client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
                 client.settimeout(5)
                 client.connect(("127.0.0.1", port))

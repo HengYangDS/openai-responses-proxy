@@ -1,4 +1,7 @@
-"""Recovery from a provider wire-policy failure: one retry, then a cooldown and an exhausted reply."""
+"""Recovery from a provider wire-policy failure.
+
+One retry, then a cooldown and an exhausted reply.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ def reject(exchange: Exchange, fingerprint: str, attempts: int, event: str, deta
 
 
 def retry(exchange: Exchange) -> bool:
-    """Retry a wire-policy failure once; return whether the exchange ended with the exhausted reply."""
+    """Retry a wire-policy failure once; return whether the exhausted reply ended the exchange."""
     policy = exchange.profile.wire_policy
     if policy is None:
         return False

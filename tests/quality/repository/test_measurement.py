@@ -35,8 +35,10 @@ class TestStructuralMeasurement:
             ("value = 1  # inline comment\n# comment-only line\n", 1, 0),
             ('"""Module documentation."""; value = "retained"\n', 1, 0),
             (
-                'def owner():\n    """Summary.\n\n    Detail.\n    """\n\n'
-                "    value = 1  # inline comment\n    # comment-only line\n    return value\n",
+                (
+                    'def owner():\n    """Summary.\n\n    Detail.\n    """\n\n'
+                    "    value = 1  # inline comment\n    # comment-only line\n    return value\n"
+                ),
                 3,
                 3,
             ),
@@ -45,8 +47,10 @@ class TestStructuralMeasurement:
             ("@(\n    decorate\n)\ndef owner():\n    return 1\n", 5, 5),
             ("@(\n    first\n    @ second\n)\ndef owner():\n    return 1\n", 6, 6),
             (
-                "class Owner:\n    @(\n        decorate\n    )\n"
-                "    async def method():\n        return 1\n",
+                (
+                    "class Owner:\n    @(\n        decorate\n    )\n"
+                    "    async def method():\n        return 1\n"
+                ),
                 6,
                 5,
             ),
@@ -73,23 +77,29 @@ class TestStructuralMeasurement:
         ("source", "depth"),
         [
             (
-                "def owner(value):\n"
-                "    if value == 1:\n        return 1\n"
-                "    elif value == 2:\n        return 2\n"
-                "    elif value == 3:\n        return 3\n",
+                (
+                    "def owner(value):\n"
+                    "    if value == 1:\n        return 1\n"
+                    "    elif value == 2:\n        return 2\n"
+                    "    elif value == 3:\n        return 3\n"
+                ),
                 1,
             ),
             (
-                "def owner(value):\n"
-                "    if value == 1:\n        return 1\n"
-                "    else:\n        if value == 2:\n            return 2\n",
+                (
+                    "def owner(value):\n"
+                    "    if value == 1:\n        return 1\n"
+                    "    else:\n        if value == 2:\n            return 2\n"
+                ),
                 2,
             ),
             (
-                "def owner(value):\n"
-                "    if value:\n"
-                "        def nested():\n"
-                "            if value == 1:\n                return 1\n",
+                (
+                    "def owner(value):\n"
+                    "    if value:\n"
+                    "        def nested():\n"
+                    "            if value == 1:\n                return 1\n"
+                ),
                 1,
             ),
         ],

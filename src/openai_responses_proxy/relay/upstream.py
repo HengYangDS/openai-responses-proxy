@@ -148,7 +148,7 @@ def _connect(
     *,
     deadline: float,
 ) -> socket.socket:
-    """Resolve natively within the deadline, then spend one budget across address attempts and TLS."""
+    """Resolve natively by the deadline, then spend one budget across address attempts and TLS."""
     _remaining(deadline)
     addresses = resolve(*address, deadline)
     _remaining(deadline)
@@ -233,8 +233,9 @@ class _DeadlineReader(io.RawIOBase):
 def _bind_response(connection: _DeadlineConnection, deadline: float) -> None:
     """Select the native response-class extension without changing HTTP parsing.
 
-    The response hands its connection back when http.client closes the body after its last byte; a response closed
-    earlier, one whose upstream announced a close, or one that ended before its declared length closes it instead.
+    The response hands its connection back when http.client closes the body after its last byte; a
+    response closed earlier, one whose upstream announced a close, or one that ended before its
+    declared length closes it instead.
     """
 
     class Response(http.client.HTTPResponse):
@@ -312,12 +313,13 @@ _SEND_RESETS = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
 class _PooledRequest(http.client.HTTPConnection):
     """The connection object that urllib's do_open creates for one request.
 
-    do_open still builds every header and turns send errors and statuses into its own exceptions. This object drops
-    the ``Connection: close`` header that do_open forces and sends on a pooled connection when one is usable. A send
-    that fails on a reused connection is repeated once on a new connection, because the upstream may have closed the
-    idle connection before reading anything; a failure on a new connection is not. A failure after the complete
-    request was sent is an ``UpstreamOutcomeUnknownError``: the upstream may have accepted the request, so no caller
-    may send it again.
+    do_open still builds every header and turns send errors and statuses into its own exceptions.
+    This object drops the ``Connection: close`` header that do_open forces and sends on a pooled
+    connection when one is usable. A send that fails on a reused connection is repeated once on a
+    new connection, because the upstream may have closed the idle connection before reading
+    anything; a failure on a new connection is not. A failure after the complete request was sent is
+    an ``UpstreamOutcomeUnknownError``: the upstream may have accepted the request, so no caller may
+    send it again.
     """
 
     _scheme = "http"

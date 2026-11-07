@@ -285,8 +285,10 @@ def _recover_response_failed(exchange: Exchange, status_code: int, disposition: 
             exchange.log(
                 "response_failed_compact_recovery",
                 f"stage={exchange.response_failed_stages}/{RESPONSE_FAILED_MAX_STAGES} "
-                f"bytes={previous_bytes}->{metrics['compact_bytes']} budget={metrics['budget_bytes']} "
-                f"removed_inputs={metrics['removed_inputs']} retained_inputs={metrics['retained_inputs']} "
+                f"bytes={previous_bytes}->{metrics['compact_bytes']} "
+                f"budget={metrics['budget_bytes']} "
+                f"removed_inputs={metrics['removed_inputs']} "
+                f"retained_inputs={metrics['retained_inputs']} "
                 f"cache_key_removed={metrics['prompt_cache_key_removed']} "
                 f"budget_met={metrics.get('budget_met', True)} ",
             )

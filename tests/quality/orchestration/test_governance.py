@@ -371,9 +371,11 @@ def test_editor_indentation_matches_original_formatter(suffix: str, source: str)
                 "node",
                 "--input-type=module",
                 "--eval",
-                'import prettier from "prettier"; '
-                "console.log(JSON.stringify(await prettier.resolveConfig("
-                "process.argv[1], {editorconfig:true})))",
+                (
+                    'import prettier from "prettier"; '
+                    "console.log(JSON.stringify(await prettier.resolveConfig("
+                    "process.argv[1], {editorconfig:true})))"
+                ),
                 str(document),
             ),
             cwd=ROOT,

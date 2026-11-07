@@ -399,7 +399,9 @@ def write_installed_payload(
         Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"]),
         port=port,
         release=release,
-        providers=f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n',
+        providers=(
+            f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n'
+        ),
         receipt=b'{"fixture":"handoff-subprocess"}\n',
     )
     # Exercise the same installed-candidate admission as the product. A copied

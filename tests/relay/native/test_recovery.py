@@ -126,7 +126,10 @@ def test_frozen_input_recovery_preserves_required_current_turn(required) -> None
         upstream.start()
         error = {
             "error": {
-                "message": "invalid request body: Invalid 'input': value did not match any expected variant",
+                "message": (
+                    "invalid request body: Invalid 'input': "
+                    "value did not match any expected variant"
+                ),
                 "type": "invalid_request_error",
                 "param": "",
                 "code": "validation_error",
@@ -282,7 +285,10 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     started = threading.Event()
 
     def first(handler):
-        failed = b'data: {"type":"response.failed","response":{"output":[],"error":{"code":"server_error"}}}\n\n'
+        failed = (
+            b'data: {"type":"response.failed","response":{"output":[],'
+            b'"error":{"code":"server_error"}}}\n\n'
+        )
         handler.send_response(200)
         handler.send_header("Content-Type", "text/event-stream")
         handler.send_header("Content-Length", str(len(failed)))
@@ -356,7 +362,10 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     "stream", [False, True], ids=["closed-before-headers", "ended-before-content"]
 )
 def test_frozen_listener_never_resends_a_request_the_upstream_received(stream: bool) -> None:
-    """A lost response returns one outcome-unknown failure instead of a second request (BLOCK bde945c5)."""
+    """A lost response returns one outcome-unknown failure instead of a second request.
+
+    This is the regression of BLOCK bde945c5.
+    """
 
     def lose_response(handler):
         if stream:

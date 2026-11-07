@@ -90,7 +90,10 @@ class TestSseRecovery(InputTransportFixture):
         assert raw in handler.output()
 
     def test_failed_response_with_output_is_not_replayed(self, *, mocker) -> None:
-        raw = b'data: {"type":"response.failed","response":{"output":[{"type":"function_call"}],"error":{"code":"server_error"}}}\n\n'
+        raw = (
+            b'data: {"type":"response.failed","response":{"output":[{"type":"function_call"}],'
+            b'"error":{"code":"server_error"}}}\n\n'
+        )
         handler = MemoryHandler()
         reopen = mocker.Mock(return_value=DirectResponse())
         mocker.patch.object(sse.time, "sleep", return_value=None)
@@ -111,7 +114,9 @@ class TestSseRecovery(InputTransportFixture):
                     "response": {
                         "error": {
                             "code": "server_error",
-                            "message": f"private-prompt-secret request ID {request_id} in your email",
+                            "message": (
+                                f"private-prompt-secret request ID {request_id} in your email"
+                            ),
                         }
                     },
                 }

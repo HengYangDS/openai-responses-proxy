@@ -178,7 +178,8 @@ class TestExchangeDeadline(InputTransportFixture):
                 prefix += (
                     b"X-Progress: "
                     if phase == "headers"
-                    else b"Transfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\n4\r\nkeep\r\n2;progress="
+                    else b"Transfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\n"
+                    b"4\r\nkeep\r\n2;progress="
                 )
                 handler.connection.sendall(prefix)
                 for _ in range(16):

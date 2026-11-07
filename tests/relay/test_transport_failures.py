@@ -268,7 +268,10 @@ class TestTransportFailures(InputTransportFixture):
             upstream_socket.settimeout(1)
             peer.settimeout(1)
             peer.sendall(
-                f"HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\nContent-Length: {len(payload)}\r\n\r\n".encode()
+                (
+                    f"HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\n"
+                    f"Content-Length: {len(payload)}\r\n\r\n"
+                ).encode()
                 + payload
             )
             with http.client.HTTPResponse(upstream_socket) as upstream:

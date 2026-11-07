@@ -12,7 +12,9 @@ from openai_responses_proxy.protocol.replay.projection import sanitize_responses
 
 EXACT_ERROR = {
     "error": {
-        "message": "invalid request body: Invalid 'input': value did not match any expected variant",
+        "message": (
+            "invalid request body: Invalid 'input': value did not match any expected variant"
+        ),
         "type": "invalid_request_error",
         "param": "",
         "code": "validation_error",

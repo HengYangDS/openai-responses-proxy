@@ -148,11 +148,7 @@ class TestVerificationContracts:
         assert "python -m pip install" not in gitlab
 
     @pytest.mark.parametrize(
-        ("required_version", "expected_returncode"),
-        [
-            (_required_uv_version(), 0),
-            ("9.9.9", 2),
-        ],
+        ("required_version", "expected_returncode"), [(_required_uv_version(), 0), ("9.9.9", 2)]
     )
     def test_gitlab_uv_contract_uses_native_version_admission_without_mutation(
         self, tmp_path: Path, required_version: str, expected_returncode: int
@@ -383,18 +379,19 @@ class TestVerificationContracts:
             ("noxfile.py", "def answer():\n    return 42\n", {"D100", "D103", "ANN201"}),
             (
                 "src/openai_responses_proxy/probe.py",
-                '"""Native annotation probe."""\n'
-                "def answer() -> int:\n"
-                '    """Return the answer."""\n    return 42\n',
+                (
+                    '"""Native annotation probe."""\ndef answer() -> int:\n'
+                    '    """Return the answer."""\n    return 42\n'
+                ),
                 set(),
             ),
             (
                 "tools/probe.py",
-                '"""Native annotation probe."""\n'
-                "class Input:\n"
-                '    """One public input."""\n'
-                "    def __init__(self, value: int):\n"
-                '        """Bind the selected value."""\n        self.value = value\n',
+                (
+                    '"""Native annotation probe."""\nclass Input:\n    """One public input."""\n'
+                    "    def __init__(self, value: int):\n"
+                    '        """Bind the selected value."""\n        self.value = value\n'
+                ),
                 {"ANN204"},
             ),
             ("tests/probe.py", "def answer():\n    return 42\n", {"D100"}),
@@ -405,19 +402,21 @@ class TestVerificationContracts:
             ),
             (
                 "tools/probe.py",
-                '"""Public tool contract."""\n'
-                "def read(path: str, mode: str) -> str:\n"
-                '    """Read a selected record.\n\n'
-                '    Args:\n        path: Record path.\n    """\n    return path + mode\n',
+                (
+                    '"""Public tool contract."""\ndef read(path: str, mode: str) -> str:\n'
+                    '    """Read a selected record.\n\n'
+                    '    Args:\n        path: Record path.\n    """\n    return path + mode\n'
+                ),
                 {"D417"},
             ),
             (
                 "src/openai_responses_proxy/probe.py",
-                '"""Public product contract."""\n'
-                "def read(path: str, mode: str) -> str:\n"
-                '    """Read a selected record.\n\n'
-                "    Args:\n        path: Record path.\n        mode: Read mode.\n"
-                '    """\n    return path + mode\n',
+                (
+                    '"""Public product contract."""\ndef read(path: str, mode: str) -> str:\n'
+                    '    """Read a selected record.\n\n'
+                    "    Args:\n        path: Record path.\n        mode: Read mode.\n"
+                    '    """\n    return path + mode\n'
+                ),
                 set(),
             ),
         ],

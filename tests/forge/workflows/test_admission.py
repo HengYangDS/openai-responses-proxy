@@ -236,10 +236,12 @@ def test_commit_event_inputs_reach_each_governance_context() -> None:
         "${{ github.event.pull_request.head.sha || github.sha }}"
     )
     assert environment["OPENAI_RESPONSES_PROXY_COMMIT_BASE"] == (
-        "${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha || github.event.before }}"
+        "${{ github.ref_type == 'tag' && github.sha || github.event.pull_request.base.sha "
+        "|| github.event.before }}"
     )
     assert environment["OPENAI_RESPONSES_PROXY_COMMIT_TARGET"] == (
-        "${{ github.event_name == 'pull_request' && format('refs/heads/{0}', github.base_ref) || github.ref }}"
+        "${{ github.event_name == 'pull_request' && format('refs/heads/{0}', github.base_ref) "
+        "|| github.ref }}"
     )
     assert environment["OPENAI_RESPONSES_PROXY_COMMIT_PEER"] == "github"
     branch = _mapping(jobs["branch-proof"])

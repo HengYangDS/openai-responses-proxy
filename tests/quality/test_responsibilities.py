@@ -217,7 +217,8 @@ class TestResponsibilityMap:
     def test_responsibility_map_rejects_missing_concern_rationale(self, tmp_path: Path) -> None:
         source = (ROOT / ".config/checks/responsibilities/policy.toml").read_text(encoding="utf-8")
         malformed = source.replace(
-            'risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."\n',
+            'risk_model = "Python correctness, import, modernization, security, performance, '
+            'and maintainability defects escape review."\n',
             "",
             1,
         )

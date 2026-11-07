@@ -464,7 +464,8 @@ def _assert_installed_product(session: nox.Session, work: Path) -> None:
         "assert manifest.is_file() and manifest.is_relative_to(root.parent); "
         "files = tuple(p for p in root.parent.rglob('*') if '__pycache__' not in p.parts); "
         "assert not any(p.is_symlink() for p in files); "
-        "observed = {p.relative_to(root.parent).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() "
+        "observed = {p.relative_to(root.parent).as_posix():"
+        "hashlib.sha256(p.read_bytes()).hexdigest() "
         "for p in files if p.is_file()}; "
         "assert observed == json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))"
     )

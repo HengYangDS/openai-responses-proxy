@@ -267,8 +267,10 @@ def test_published_release_bytes_run_the_full_native_journey_on_each_platform() 
     )
     commands = "\n".join(_string(step.get("run", "")) for step in steps)
     for token in (
-        'git diff --exit-code "${{ github.event.release.tag_name || inputs.release_tag }}^{commit}" HEAD -- '
-        "VERSION pyproject.toml uv.lock src/openai_responses_proxy",
+        (
+            'git diff --exit-code "${{ github.event.release.tag_name || inputs.release_tag }}'
+            '^{commit}" HEAD -- VERSION pyproject.toml uv.lock src/openai_responses_proxy'
+        ),
         'gh release download "${{ github.event.release.tag_name || inputs.release_tag }}"',
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET",
         'nox -s published_release_compatibility -- --basetemp="${{ runner.temp }}/proxy-test"',

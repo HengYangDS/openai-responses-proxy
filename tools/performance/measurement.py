@@ -17,7 +17,10 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / ".config/checks/performance/policy.toml"
-PROVIDERS = 'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\npolicy = "dmxapi"\n'
+PROVIDERS = (
+    'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\n'
+    'policy = "dmxapi"\n'
+)
 
 
 def measure(
@@ -28,7 +31,10 @@ def measure(
     base_environment: Mapping[str, str],
     verification: ModuleType,
 ) -> None:
-    """Measure one private installed generation of the native candidate, verify the evidence, then retire it."""
+    """Measure one private installed generation of the native candidate.
+
+    Verify the evidence, then retire the generation.
+    """
     output.mkdir(parents=True, exist_ok=True)
     benchmark_log = output / "benchmark.log"
     home, state = output / "payload", output / "state"

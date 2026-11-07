@@ -322,14 +322,18 @@ class TestInputRecovery(InputTransportFixture):
         terminal_errors = {
             "classified-477": (
                 477,
-                b'{"error":{"message":"official provider returned an empty response",'
-                b'"type":"dmx_api_error","code":"empty_response"}}',
+                (
+                    b'{"error":{"message":"official provider returned an empty response",'
+                    b'"type":"dmx_api_error","code":"empty_response"}}'
+                ),
                 "wire_policy_failure",
             ),
             "response-failed": (
                 400,
-                b'{"error":{"message":"OpenAI responses stream failed: response_failed",'
-                b'"type":"new_api_error","code":"response_failed"}}',
+                (
+                    b'{"error":{"message":"OpenAI responses stream failed: response_failed",'
+                    b'"type":"new_api_error","code":"response_failed"}}'
+                ),
                 "response_failed",
             ),
             "ordinary-retry": (

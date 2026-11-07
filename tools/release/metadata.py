@@ -22,7 +22,8 @@ from tools.release import identity
 
 ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG_HEADING = re.compile(
-    r"^## \[(?P<version>Unreleased|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))\](?: - (?P<date>\d{4}-\d{2}-\d{2}))?$"
+    r"^## \[(?P<version>Unreleased|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))\]"
+    r"(?: - (?P<date>\d{4}-\d{2}-\d{2}))?$"
 )
 CHANGELOG_CATEGORIES = frozenset({"Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"})
 KEEP_A_CHANGELOG_URL = "https://keepachangelog.com/en/1.1.0/"

@@ -166,8 +166,10 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             "activate",
             (
                 "preserve",
-                "fresh installation failed: service failed; "
-                "candidate runtime cleanup is unconfirmed; cleanup failure: cleanup failed; "
-                "transaction preserved for recovery",
+                (
+                    "fresh installation failed: service failed; "
+                    "candidate runtime cleanup is unconfirmed; cleanup failure: cleanup failed; "
+                    "transaction preserved for recovery"
+                ),
             ),
         ]

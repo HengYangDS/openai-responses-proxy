@@ -115,7 +115,9 @@ def publish(
         release = {
             "tag_name": tag,
             "name": product_identity.release_title(tag),
-            "description": "Provider-native source release. See CHANGELOG.md for user-relevant changes.",
+            "description": (
+                "Provider-native source release. See CHANGELOG.md for user-relevant changes."
+            ),
             "assets": {"links": links},
         }
         endpoint = f"{api_base.rstrip('/')}/projects/{project_id}/releases"

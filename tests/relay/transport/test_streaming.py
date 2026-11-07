@@ -22,7 +22,10 @@ class TestProxyTransport(LoopbackTransportFixture):
         failed = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',
-                b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n',
+                (
+                    b'data: {"type":"response.failed",'
+                    b'"response":{"error":{"code":"server_error"}}}\n\n'
+                ),
                 b"data: [DONE]\n\n",
             ],
         }
@@ -49,7 +52,10 @@ class TestProxyTransport(LoopbackTransportFixture):
         failed = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',
-                b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n',
+                (
+                    b'data: {"type":"response.failed",'
+                    b'"response":{"error":{"code":"server_error"}}}\n\n'
+                ),
                 b"data: [DONE]\n\n",
             ],
         }

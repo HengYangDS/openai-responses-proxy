@@ -1,9 +1,10 @@
 """Keep-alive reuse of upstream connections behind urllib's own request pipeline.
 
-urllib's ``AbstractHTTPHandler.do_open`` builds each request's headers, wraps send errors and leaves non-2xx
-statuses to ``HTTPError`` as before. It also forces ``Connection: close``, so every exchange used to pay for a new
-TCP connection and TLS handshake. A connection returns to this pool only after its response was read to the end
-without an announced close, and an idle one is reused only while it is fresh and its peer has not closed it.
+urllib's ``AbstractHTTPHandler.do_open`` builds each request's headers, wraps send errors and leaves
+non-2xx statuses to ``HTTPError`` as before. It also forces ``Connection: close``, so every exchange
+used to pay for a new TCP connection and TLS handshake. A connection returns to this pool only after
+its response was read to the end without an announced close, and an idle one is reused only while it
+is fresh and its peer has not closed it.
 """
 
 from __future__ import annotations
@@ -80,7 +81,8 @@ class Pool[C: Reusable]:
 def _idle_and_open(connection: Reusable) -> bool:
     """Report whether an idle connection has nothing to read.
 
-    A readable idle HTTP/1.1 connection means that the peer closed it or sent bytes no request asked for.
+    A readable idle HTTP/1.1 connection means that the peer closed it or sent bytes no request asked
+    for.
     """
     sock = connection.sock
     if sock is None or (isinstance(sock, ssl.SSLSocket) and sock.pending()):

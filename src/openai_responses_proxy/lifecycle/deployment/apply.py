@@ -168,7 +168,8 @@ def _fresh_install(
                     payload.preserve_for_recovery(str(unknown))
                 except BaseException as recovery_error:
                     raise UnknownDeploymentOutcome(
-                        f"{detail}; recovery record failed: {errors.failure_summary(recovery_error)}"
+                        f"{detail}; recovery record failed: "
+                        f"{errors.failure_summary(recovery_error)}"
                     ) from recovery_error
                 raise unknown from cleanup_error
         try:

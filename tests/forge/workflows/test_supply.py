@@ -68,7 +68,7 @@ def test_github_actions_consume_one_immutable_toolchain_catalog() -> None:
 
 @pytest.mark.repository_toolchain
 def test_both_peers_install_the_mise_release_of_the_gitlab_image() -> None:
-    """Install on GitHub the Mise release that GitLab's image carries, so no release arrives unannounced."""
+    """GitHub installs the Mise release that GitLab's image carries, so none arrives unannounced."""
     source = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")["source-and-governance"])
     image = _string(_mapping(source["image"])["name"])
     release = re.fullmatch(r"ghcr.io/jdx/mise:(\d{4}\.\d+\.\d+)-debian@sha256:[0-9a-f]{64}", image)
@@ -266,8 +266,14 @@ def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
     prefix = f"uv --directory {root}"
     assert prepare[:5] == [
         f"{prefix} sync --locked --no-install-project --group dev",
-        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale",
-        f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts",
+        (
+            f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native "
+            "--root . --mise node vale"
+        ),
+        (
+            f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.npm "
+            "--seed ci --ignore-scripts"
+        ),
         f"{prefix} sync --locked --group dev --no-editable --no-build-isolation-package ethos",
         f"{prefix} run --locked --no-sync python -B -I -m ethos.cli --version",
     ]

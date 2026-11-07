@@ -135,7 +135,8 @@ def signed_asset(
             (ROOT / "src/openai_responses_proxy/providers/manifest.toml").read_bytes()
             if preserve_manifest
             else (
-                f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n'
+                f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\n'
+                'policy = "dmxapi"\n'
             ).encode()
         ),
         "LICENSE": (ROOT / "LICENSE").read_bytes(),

@@ -1,4 +1,7 @@
-"""Exchanges reuse one keep-alive connection per upstream address and never replay a sent request."""
+"""Exchanges reuse one keep-alive connection per upstream address.
+
+A request that was sent is never replayed.
+"""
 
 from __future__ import annotations
 

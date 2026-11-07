@@ -36,8 +36,11 @@ def _assert_github_required_tokens(text: str) -> None:
         "python-quality:",
         "astral-sh/setup-uv@",
         "uv run --locked --group quality nox -s quality",
-        "python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml "
-        "tests/quality/test_policy.py tests/quality/repository tests/quality/orchestration/test_governance.py tests/forge/workflows",
+        (
+            "python -m pytest -q --rootdir . -c .config/checks/pytest/pytest.toml "
+            "tests/quality/test_policy.py tests/quality/repository "
+            "tests/quality/orchestration/test_governance.py tests/forge/workflows"
+        ),
         "tests/release/publication",
         "native-assets:",
         "name: Native asset (${{ matrix.platform }})",
@@ -59,7 +62,10 @@ def _assert_github_required_tokens(text: str) -> None:
         "CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY",
         "OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST",
         'install -m 600 /dev/null "$RUNNER_TEMP/release-asset-signing-key"',
-        'printf \'%s\\n\' "$RELEASE_ASSET_SIGNING_KEY_TEXT" > "$RUNNER_TEMP/release-asset-signing-key"',
+        (
+            "printf '%s\\n' \"$RELEASE_ASSET_SIGNING_KEY_TEXT\" "
+            '> "$RUNNER_TEMP/release-asset-signing-key"'
+        ),
         "RELEASE_ASSET_SIGNING_KEY_PATH: ${{ runner.temp }}/release-asset-signing-key",
         "--sign",
         "name: release-assets",
@@ -152,7 +158,8 @@ def _assert_github_platform_contract(text: str) -> None:
     for patch_pin in ("3.12.", "3.13.", "3.14."):
         if patch_pin in text:
             raise AssertionError(
-                f"GitHub workflows must select supported Python lines, not patch releases: {patch_pin!r}"
+                "GitHub workflows must select supported Python lines, not patch releases: "
+                f"{patch_pin!r}"
             )
 
 

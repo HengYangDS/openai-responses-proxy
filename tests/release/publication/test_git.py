@@ -120,7 +120,8 @@ class GitPublicationContracts:
             )
         wrong = self.root / "wrong"
         wrong.write_text(
-            "nobody@example.test ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
+            "nobody@example.test ssh-ed25519 "
+            "AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
         )
         with pytest.raises(git.GitProofError):
             git.collect(provider="gitlab", remote=str(self.remote), tag="v1.2.3", anchor=wrong)

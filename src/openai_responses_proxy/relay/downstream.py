@@ -387,7 +387,10 @@ def deadline_exceeded(exchange: Exchange) -> None:
 
 
 def outcome_unknown(exchange: Exchange, attempts: int, reason: str, detail: str = "") -> None:
-    """Fail one uncommitted exchange whose upstream may have accepted its request, without resending it."""
+    """Fail one uncommitted exchange without resending its request.
+
+    The upstream may already have accepted that request.
+    """
     telemetry.record_counter("upstream_outcome_unknown")
     telemetry.record_failure("upstream_outcome_unknown")
     send_payload(

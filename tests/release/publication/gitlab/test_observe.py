@@ -64,7 +64,9 @@ class GitLabObservationContracts:
             "name": "OpenAI Responses Proxy v1.2.3",
             "commit": {"id": commit},
             "upcoming_release": False,
-            "description": "Provider-native source release. See CHANGELOG.md for user-relevant changes.",
+            "description": (
+                "Provider-native source release. See CHANGELOG.md for user-relevant changes."
+            ),
             "evidences": [{"sha": "f" * 40}],
         }
         return (pipeline, jobs, release, release_bundle(("linux-x86_64",)))
@@ -203,7 +205,9 @@ class GitLabObservationContracts:
         ):
             pipeline.update(source="push")
             release.update(
-                description="Provider-native source release. See CHANGELOG.md for user-relevant changes.",
+                description=(
+                    "Provider-native source release. See CHANGELOG.md for user-relevant changes."
+                ),
                 evidences=[{"sha": "f" * 40}],
             )
             mutation()

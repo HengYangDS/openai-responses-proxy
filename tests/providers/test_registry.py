@@ -100,8 +100,10 @@ class ProviderRegistryTests:
             ),
             ("version = 1\n", "provider manifest must define at least one provider"),
             (
-                "version = 1\ndefault = 'dmxapi'\n"
-                "[providers.dmxapi]\nbase_url = 'https://x.test'\n",
+                (
+                    "version = 1\ndefault = 'dmxapi'\n"
+                    "[providers.dmxapi]\nbase_url = 'https://x.test'\n"
+                ),
                 "provider manifest has no implicit default route",
             ),
             (
@@ -265,15 +267,20 @@ class ProviderRegistryTests:
         cases = (
             (
                 "later provider",
-                "version = 1\n"
-                "[providers.first]\nbase_url = 'https://first.example/v1'\npolicy = 'first'\n"
-                "[providers.second]\nbase_url = 'https://second.example/v1'\npolicy = 'missing'\n",
+                (
+                    "version = 1\n"
+                    "[providers.first]\nbase_url = 'https://first.example/v1'\npolicy = 'first'\n"
+                    "[providers.second]\nbase_url = 'https://second.example/v1'\n"
+                    "policy = 'missing'\n"
+                ),
                 "provider policy 'missing' is unavailable",
             ),
             (
                 "explicit default",
-                "version = 1\ndefault = 'first'\n"
-                "[providers.first]\nbase_url = 'https://first.example/v1'\npolicy = 'first'\n",
+                (
+                    "version = 1\ndefault = 'first'\n"
+                    "[providers.first]\nbase_url = 'https://first.example/v1'\npolicy = 'first'\n"
+                ),
                 "provider manifest has no implicit default route",
             ),
         )

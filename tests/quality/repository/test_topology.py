@@ -212,7 +212,7 @@ class TestArchitectureContracts:
     def test_architecture_gate_admits_only_declared_runtime_imports_in_the_product(
         self, tmp_path: Path
     ) -> None:
-        """Product code may import the standard library, itself and declared runtime dependencies."""
+        """Product code imports the standard library, itself and declared runtime dependencies."""
         (tmp_path / "pyproject.toml").write_text(
             '[project]\nname = "fixture"\ndependencies = ["Rich-Text==1.0", "psutil==7.2.2"]\n',
             encoding="utf-8",
@@ -234,7 +234,9 @@ class TestArchitectureContracts:
         )
         policy: dict[str, object] = {
             "owner": "quality",
-            "risk_model": "a repository-only or foreign import couples the product to its workspace",
+            "risk_model": (
+                "a repository-only or foreign import couples the product to its workspace"
+            ),
             "measurement": "parse product imports against declared runtime dependencies",
             "false_positive_cost": "a new runtime dependency is declared in project metadata",
             "remediation": "declare the dependency or move the coupling out of the product",
@@ -307,7 +309,9 @@ class TestArchitectureContracts:
         assert policy["package_root"] == "src/openai_responses_proxy"
         assert policy["product_concepts"] == {
             "cli-presentation": "src/openai_responses_proxy/cli/presentation.py",
-            "lifecycle-transactions": "src/openai_responses_proxy/lifecycle/transaction/execution.py",
+            "lifecycle-transactions": (
+                "src/openai_responses_proxy/lifecycle/transaction/execution.py"
+            ),
             "native-supervision": (
                 "src/openai_responses_proxy/lifecycle/supervision/native_service.py"
             ),

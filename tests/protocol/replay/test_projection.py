@@ -211,7 +211,10 @@ class RequestSanitizationContracts:
                 assert note == "rejected request_not_object"
 
     def test_request_sanitizer_fails_closed_when_mutation_cannot_be_serialized(self, *, mocker):
-        raw = b'{"input":[{"type":"reasoning","encrypted_content":"opaque"},{"type":"message","role":"user","content":"continue"}]}'
+        raw = (
+            b'{"input":[{"type":"reasoning","encrypted_content":"opaque"},'
+            b'{"type":"message","role":"user","content":"continue"}]}'
+        )
         serializer = mocker.Mock(side_effect=TypeError("unsupported"))
         mocker.patch.object(
             rewrite,

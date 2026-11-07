@@ -1,4 +1,7 @@
-"""Upstream redirects reach the client unfollowed, so its credential stays with the selected upstream."""
+"""Upstream redirects reach the client unfollowed.
+
+The client's credential therefore stays with the selected upstream.
+"""
 
 from __future__ import annotations
 

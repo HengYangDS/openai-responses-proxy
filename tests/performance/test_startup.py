@@ -36,7 +36,8 @@ from tools.release import verification
 # takes about six seconds.
 _LISTENER = r"""
 import http.server, json, os, socketserver, sys, time
-port, bind_delay, served, starting, trickle = int(sys.argv[2]), float(sys.argv[3]), json.loads(sys.argv[4]), int(sys.argv[5]), sys.argv[6]
+port, bind_delay = int(sys.argv[2]), float(sys.argv[3])
+served, starting, trickle = json.loads(sys.argv[4]), int(sys.argv[5]), sys.argv[6]
 if bind_delay < 0:
     sys.exit(3)
 time.sleep(bind_delay)
@@ -346,7 +347,10 @@ def _private_generation(root: Path, port: int) -> runtime_context.RuntimeContext
         source,
         port=port,
         release="9.9.9",
-        providers='version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\npolicy = "dmxapi"\n',
+        providers=(
+            'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\n'
+            'policy = "dmxapi"\n'
+        ),
         receipt=b'{"fixture":"startup"}\n',
     )
 

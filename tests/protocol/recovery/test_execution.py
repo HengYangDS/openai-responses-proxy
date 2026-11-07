@@ -121,7 +121,10 @@ class ResponseFailedContracts:
             (400, b"could not be verified", ""),
             (
                 400,
-                b'{"error":{"message":"Request blocked. (fixture)","type":"invalid_request_error","code":"invalid_prompt"}}',
+                (
+                    b'{"error":{"message":"Request blocked. (fixture)",'
+                    b'"type":"invalid_request_error","code":"invalid_prompt"}}'
+                ),
                 "full",
             ),
             (
@@ -131,7 +134,11 @@ class ResponseFailedContracts:
             ),
             (
                 400,
-                b'{"error":{"message":"Encrypted function output content could not be decrypted or decoded. (request id: fixture)","type":"invalid_request_error","param":"","code":"invalid_encrypted_content"}}',
+                (
+                    b'{"error":{"message":"Encrypted function output content could not be '
+                    b'decrypted or decoded. (request id: fixture)","type":"invalid_request_error",'
+                    b'"param":"","code":"invalid_encrypted_content"}}'
+                ),
                 "",
             ),
             (
@@ -151,7 +158,10 @@ class ResponseFailedContracts:
         assert json.loads(execution_recovery.exhausted_payload(4))["error"]["attempts"] == 4
 
     def test_recovery_is_not_triggered_by_incidental_error_prose(self) -> None:
-        prose_only = b'{"error":{"message":"response_failed and request blocked are documentation text","type":"invalid_request_error","code":"ordinary_error"}}'
+        prose_only = (
+            b'{"error":{"message":"response_failed and request blocked are documentation text",'
+            b'"type":"invalid_request_error","code":"ordinary_error"}}'
+        )
         assert execution_recovery.retry_disposition(400, prose_only) == ""
 
     def test_retry_disposition_refuses_parser_depth_exhaustion(self) -> None:

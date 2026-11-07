@@ -156,7 +156,8 @@ class ProviderPortableHistoryTests:
             "type": "message",
             "role": "assistant",
             "phase": "commentary",
-            "content": '{"type":"tool_delivery","name":"send_message_to_thread","namespace":"codex_app"}\n'
+            "content": '{"type":"tool_delivery","name":"send_message_to_thread",'
+            '"namespace":"codex_app"}\n'
             "<codex_delegation>delivered</codex_delegation>",
         }
 

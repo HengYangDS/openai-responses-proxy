@@ -1,4 +1,7 @@
-"""Rolling-handoff child contracts: launch arguments, the child, its listener and control framing."""
+"""Rolling-handoff child contracts.
+
+They cover launch arguments, the child, its listener and control framing.
+"""
 
 from __future__ import annotations
 
