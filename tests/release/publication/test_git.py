@@ -7,12 +7,16 @@ import subprocess
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
 
 from tools.git_environment import immutable_remote_proof_environment
 from tools.release.publication import git
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -126,7 +130,9 @@ class GitPublicationContracts:
         with pytest.raises(git.GitProofError):
             git.collect(provider="gitlab", remote=str(self.remote), tag="v1.2.3", anchor=wrong)
 
-    def test_rejects_invalid_inputs_and_unavailable_tools(self, subtests, *, mocker) -> None:
+    def test_rejects_invalid_inputs_and_unavailable_tools(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         for provider, tag, anchor in (
             ("other", "v1.2.3", self.anchor),
             ("gitlab", "latest", self.anchor),
@@ -156,7 +162,9 @@ class GitPublicationContracts:
                     anchor=self.anchor,
                 )
 
-    def test_environment_error_translation_and_ascii_boundary(self, *, mocker) -> None:
+    def test_environment_error_translation_and_ascii_boundary(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.dict(
             os.environ,
             {"GIT_DIR": "foreign", "GIT_TERMINAL_PROMPT": "9"},

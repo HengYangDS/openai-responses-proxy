@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from openai_responses_proxy import errors
@@ -12,9 +14,14 @@ from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import OrderedServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
-    def test_fresh_install_commits_and_finalizes_after_runtime_proof(self, *, mocker) -> None:
+    def test_fresh_install_commits_and_finalizes_after_runtime_proof(
+        self, *, mocker: MockerFixture
+    ) -> None:
         events: list[object] = []
         payload = FakeTransaction(self.ctx, events=events)
         service = OrderedServiceAdapter(events, mocker=mocker)
@@ -33,7 +40,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         ]
         service.install_mock.assert_called_once_with(payload.context)
 
-    def test_fresh_failure_rolls_back(self, *, mocker) -> None:
+    def test_fresh_failure_rolls_back(self, *, mocker: MockerFixture) -> None:
         payload = FakeTransaction(self.ctx)
         service = FakeServiceAdapter(failure=errors.InstallError("service failed"), mocker=mocker)
         mocker.patch.object(process, "listener_pids", return_value=[])
@@ -41,7 +48,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             self.deploy(payload, None, adapter=service, mocker=mocker)
         assert payload.events == ["commit", "activate", "rollback"]
 
-    def test_service_admission_rejection_rolls_back_without_native_cleanup(self, *, mocker) -> None:
+    def test_service_admission_rejection_rolls_back_without_native_cleanup(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         service = FakeServiceAdapter(
             failure=errors.NativeServiceUnavailableError("systemd user manager is unavailable"),
@@ -61,7 +70,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
     @pytest.mark.parametrize("stage", ["runtime-cleanup", "payload-rollback"])
     @pytest.mark.parametrize("public", [False, True])
     def test_fresh_failure_retains_initial_and_compensation_causes(
-        self, stage: str, *, public: bool, mocker
+        self, stage: str, *, public: bool, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         initial = (
@@ -105,7 +114,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             assert payload.events == ["commit", "activate"]
 
     def test_fresh_failure_does_not_claim_a_failed_recovery_record_was_preserved(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         service = FakeServiceAdapter(failure=errors.InstallError("startup failed"), mocker=mocker)
@@ -127,7 +136,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         assert "transaction preserved" not in message
         assert payload.events == ["commit", "activate"]
 
-    def test_service_admission_failure_retains_failed_payload_rollback(self, *, mocker) -> None:
+    def test_service_admission_failure_retains_failed_payload_rollback(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         service = FakeServiceAdapter(
             failure=errors.NativeServiceUnavailableError("user service is unavailable"),
@@ -152,7 +163,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.uninstall_mock.assert_not_called()
         terminate.assert_not_called()
 
-    def test_fresh_failure_preserves_unconfirmed_candidate_cleanup(self, *, mocker) -> None:
+    def test_fresh_failure_preserves_unconfirmed_candidate_cleanup(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         service = FakeServiceAdapter(failure=errors.InstallError("service failed"), mocker=mocker)
         service.uninstall_mock.side_effect = errors.InstallError("cleanup failed")

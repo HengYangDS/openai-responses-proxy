@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import astuple
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.supervision.fixtures import capture_generation
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class TestTermination:
@@ -24,7 +28,7 @@ class TestTermination:
         ],
     )
     def test_unproved_termination_preserves_safe_failure_phase(
-        self, phase, failure, reason, *, mocker
+        self, phase, failure, reason, *, mocker: MockerFixture
     ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
@@ -52,7 +56,9 @@ class TestTermination:
         if phase in {"capture", "generation", "status"}:
             candidate.terminate.assert_not_called()
 
-    def test_timeout_is_unproved_exit_not_a_claim_of_a_survivor(self, *, mocker) -> None:
+    def test_timeout_is_unproved_exit_not_a_claim_of_a_survivor(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.status.return_value = process.psutil.STATUS_RUNNING
@@ -69,7 +75,9 @@ class TestTermination:
         assert "still alive" not in str(raised.value)
         candidate.wait.assert_called_once_with(timeout=1.0)
 
-    def test_captured_native_identity_survives_later_argv_denial(self, *, mocker) -> None:
+    def test_captured_native_identity_survives_later_argv_denial(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.pid = 123
         candidate.create_time.return_value = 42.0
@@ -96,7 +104,9 @@ class TestTermination:
         candidate.terminate.assert_called_once_with()
         candidate.wait.assert_called_once_with(timeout=1.0)
 
-    def test_protocol_proven_pid_capture_does_not_depend_on_native_argv(self, *, mocker) -> None:
+    def test_protocol_proven_pid_capture_does_not_depend_on_native_argv(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.cmdline.side_effect = process.psutil.AccessDenied(123)
@@ -111,7 +121,9 @@ class TestTermination:
             42.0,
         )
 
-    def test_captured_native_identity_failure_edges_are_portable(self, *, mocker) -> None:
+    def test_captured_native_identity_failure_edges_are_portable(
+        self, *, mocker: MockerFixture
+    ) -> None:
         denied = mocker.Mock()
         denied.cmdline.return_value = ["/foreign/proxy", "--internal-handoff-child"]
         exited = mocker.Mock()
@@ -142,7 +154,7 @@ class TestTermination:
         mocker.patch.object(process.psutil, "process_iter", return_value=[empty, inaccessible])
         assert process._process_inventory() == []
 
-    def test_captured_native_identity_rejects_pid_reuse(self, *, mocker) -> None:
+    def test_captured_native_identity_rejects_pid_reuse(self, *, mocker: MockerFixture) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 43.0
         mocker.patch.object(process.psutil, "Process", return_value=candidate)
@@ -152,7 +164,9 @@ class TestTermination:
             process.terminate_owned_process(owned, timeout_seconds=1.0)
         candidate.terminate.assert_not_called()
 
-    def test_captured_native_identity_observation_is_fail_closed(self, subtests, *, mocker) -> None:
+    def test_captured_native_identity_observation_is_fail_closed(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         owned = process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0)
         for case, failure in (
             ("capture", process.psutil.AccessDenied(123)),
@@ -188,7 +202,9 @@ class TestTermination:
                 constructor.assert_called_once_with(123)
                 mocker.stopall()
 
-    def test_captured_native_identity_reports_the_same_running_generation(self, *, mocker) -> None:
+    def test_captured_native_identity_reports_the_same_running_generation(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.status.return_value = process.psutil.STATUS_RUNNING
@@ -199,7 +215,9 @@ class TestTermination:
             process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0)
         )
 
-    def test_captured_native_identity_treats_a_zombie_as_exited(self, *, mocker) -> None:
+    def test_captured_native_identity_treats_a_zombie_as_exited(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.status.return_value = process.psutil.STATUS_ZOMBIE
@@ -210,7 +228,9 @@ class TestTermination:
             process.OwnedProcess(123, "/installed/openai-responses-proxy", 42.0)
         )
 
-    def test_bounded_termination_accepts_an_adopted_zombie_tombstone(self, *, mocker) -> None:
+    def test_bounded_termination_accepts_an_adopted_zombie_tombstone(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.status.side_effect = [
@@ -226,7 +246,9 @@ class TestTermination:
         )
         candidate.terminate.assert_called_once_with()
 
-    def test_bounded_termination_accepts_an_already_zombie_generation(self, *, mocker) -> None:
+    def test_bounded_termination_accepts_an_already_zombie_generation(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
         candidate.status.return_value = process.psutil.STATUS_ZOMBIE
@@ -237,7 +259,9 @@ class TestTermination:
         )
         candidate.terminate.assert_not_called()
 
-    def test_bounded_termination_observes_disappearance_after_timeout(self, *, mocker) -> None:
+    def test_bounded_termination_observes_disappearance_after_timeout(
+        self, *, mocker: MockerFixture
+    ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.side_effect = [42.0, process.psutil.NoSuchProcess(123)]
         candidate.status.return_value = process.psutil.STATUS_RUNNING
@@ -250,7 +274,7 @@ class TestTermination:
         )
 
     def test_bounded_termination_fails_closed_when_timeout_state_is_unreadable(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0
@@ -267,7 +291,7 @@ class TestTermination:
                 timeout_seconds=1.0,
             )
 
-    def test_script_termination_rechecks_identity_and_waits(self, *, mocker) -> None:
+    def test_script_termination_rechecks_identity_and_waits(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(process, "pid_names_path", side_effect=[True, True])
         candidate = mocker.Mock()
         mocker.patch.object(process.psutil, "Process", return_value=candidate)
@@ -276,7 +300,9 @@ class TestTermination:
         candidate.terminate.assert_called_once_with()
         candidate.wait.assert_called_once_with(timeout=1.0)
 
-    def test_script_termination_fails_closed(self, subtests, *, mocker) -> None:
+    def test_script_termination_fails_closed(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         cases = (
             ("identity", [False], None),
             ("identity changed", [True, False], None),
@@ -300,7 +326,7 @@ class TestTermination:
                 assert constructor.call_count == constructor_calls
                 mocker.stopall()
 
-    def test_native_termination_rechecks_identity_and_waits(self, *, mocker) -> None:
+    def test_native_termination_rechecks_identity_and_waits(self, *, mocker: MockerFixture) -> None:
         roles = {"--internal-listener"}
         mocker.patch.object(
             process,
@@ -319,7 +345,9 @@ class TestTermination:
         candidate.terminate.assert_called_once_with()
         candidate.wait.assert_called_once_with(timeout=1.0)
 
-    def test_native_termination_accepts_already_exited_identity(self, *, mocker) -> None:
+    def test_native_termination_accepts_already_exited_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             process,
             "pid_names_executable",
@@ -331,7 +359,9 @@ class TestTermination:
 
         assert process.terminate_executable(123, "/installed/openai-responses-proxy")
 
-    def test_native_termination_fails_closed(self, subtests, *, mocker) -> None:
+    def test_native_termination_fails_closed(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         for case, identities, constructor_failure, wait_failure in (
             ("initial identity", [False], None, None),
             ("reused pid", [True, False], None, None),
@@ -369,7 +399,9 @@ class TestTermination:
                     constructor.assert_not_called()
                 mocker.stopall()
 
-    def test_script_termination_accepts_already_exited_identity(self, *, mocker) -> None:
+    def test_script_termination_accepts_already_exited_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(process, "pid_names_path", side_effect=[True, True])
         candidate = mocker.Mock()
         candidate.wait.side_effect = process.psutil.NoSuchProcess(123)

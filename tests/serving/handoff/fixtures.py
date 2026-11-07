@@ -20,6 +20,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Self
 from typing import cast
 from typing import override
@@ -37,6 +38,9 @@ from openai_responses_proxy.serving.handoff import transaction as handoff_module
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.supervision.fixtures import capture_generation
 from tools.release import verification
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_EXECUTABLE_START_TIMEOUT_SECONDS = 60
@@ -96,7 +100,7 @@ def matching_health(child_or_pid, expected: dict[str, object], **overrides) -> d
     return health
 
 
-def fake_child(*, pid: int = 54321, mocker):
+def fake_child(*, pid: int = 54321, mocker: MockerFixture):
     """Return a controllable parent-side child process fixture."""
     child = mocker.Mock()
     child.process = mocker.Mock(pid=pid)
@@ -105,7 +109,7 @@ def fake_child(*, pid: int = 54321, mocker):
     return child
 
 
-def fake_server(*, port: int = 43123, mocker):
+def fake_server(*, port: int = 43123, mocker: MockerFixture):
     """Return a parent-side listener fixture with a probeable address."""
     server = mocker.Mock()
     server.server_address = ("127.0.0.1", port)
@@ -226,7 +230,7 @@ def child_pid_observer(
     return observed, matches
 
 
-def fake_handler(body: dict[str, object], *, mocker):
+def fake_handler(body: dict[str, object], *, mocker: MockerFixture):
     """Return a native loopback control-handler fixture containing one JSON body."""
     payload = json.dumps(body).encode()
     handler = mocker.Mock()

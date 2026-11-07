@@ -6,6 +6,7 @@ import http.client
 import json
 import urllib.error
 import urllib.request
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -16,9 +17,14 @@ from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestProxyTransport(LoopbackTransportFixture):
-    def test_reconnects_a_pre_content_response_failed_stream(self, *, mocker) -> None:
+    def test_reconnects_a_pre_content_response_failed_stream(
+        self, *, mocker: MockerFixture
+    ) -> None:
         failed = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',
@@ -49,7 +55,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["streams_completed"] == 1
 
     def test_normalizes_exhausted_pre_content_sse_failures_to_retryable_503(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         failed = {
             "chunks": [

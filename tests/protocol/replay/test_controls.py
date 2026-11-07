@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestPortableRequestControls:
@@ -57,7 +61,7 @@ class TestPortableRequestControls:
             {"type": "message", "role": "user", "content": "run it"},
         ]
 
-    def test_rejects_malformed_current_turn_tool_catalog(self, subtests) -> None:
+    def test_rejects_malformed_current_turn_tool_catalog(self, subtests: pytest.Subtests) -> None:
         valid = {"type": "additional_tools", "role": "developer", "tools": [{"type": "namespace"}]}
         invalid = (
             ("non-list catalog", {**valid, "tools": "not a list"}, "invalid_additional_tools"),
@@ -128,7 +132,9 @@ class TestPortableRequestControls:
             {"type": "message", "role": "user", "content": "continue"},
         ]
 
-    def test_forces_stateless_responses_even_when_store_is_absent_or_true(self, subtests) -> None:
+    def test_forces_stateless_responses_even_when_store_is_absent_or_true(
+        self, subtests: pytest.Subtests
+    ) -> None:
         for supplied in (False, True, None):
             with subtests.test(store=supplied):
                 payload = {"input": "continue"}

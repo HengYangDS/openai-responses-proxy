@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from openai_responses_proxy import errors
@@ -9,9 +11,14 @@ from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from tests.lifecycle.fixtures import install_context
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_mock import MockerFixture
+
 
 def test_recovery_rebinds_supervision_to_the_control_generation(
-    *, mocker, tmp_path_factory: pytest.TempPathFactory
+    *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     control_generation = generation.context(ctx, "a" * 32)
@@ -39,7 +46,7 @@ def test_recovery_rebinds_supervision_to_the_control_generation(
 
 
 def test_recovery_rejects_an_unproved_terminal_supervisor(
-    *, mocker, tmp_path_factory: pytest.TempPathFactory
+    *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     control_generation = generation.context(ctx, "a" * 32)
@@ -62,7 +69,7 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
 
 
 def test_recovery_no_op_does_not_touch_native_supervision(
-    *, mocker, tmp_path_factory: pytest.TempPathFactory
+    *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     mocker.patch.object(control.records, "status", return_value=None)
@@ -82,7 +89,7 @@ def test_recovery_no_op_does_not_touch_native_supervision(
 
 @pytest.mark.parametrize("failure", [None, "wrong-supervisor", "registered", "process-exit"])
 def test_recovery_stops_only_its_candidate_before_native_disposal(
-    failure, tmp_path, mocker
+    failure, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = generation.context(ctx, "a" * 32)
@@ -121,7 +128,7 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
 
 @pytest.mark.parametrize("native_state", ["absent", "running", "installed", "unknown"])
 def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
-    native_state, tmp_path, mocker
+    native_state, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = generation.context(ctx, "a" * 32)

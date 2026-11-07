@@ -12,6 +12,8 @@ from tools.release.publication.github import publish
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 def _git(repository: Path, *arguments: str) -> str:
     completed = subprocess.run(
@@ -52,7 +54,7 @@ def _checkout_state(repository: Path) -> tuple[str, ...]:
     )
 
 
-def test_release_record_selection_is_exact_and_fail_closed(subtests) -> None:
+def test_release_record_selection_is_exact_and_fail_closed(subtests: pytest.Subtests) -> None:
     matching = {
         "id": 7,
         "tag_name": "v1.2.3",
@@ -103,7 +105,7 @@ def test_remote_annotated_tag_is_bound_to_local_objects() -> None:
 
 @pytest.mark.parametrize("state", ["created", "matched", "digest-drift", "byte-drift"])
 def test_publish_owns_download_validation_creation_and_byte_parity(
-    state, tmp_path: Path, mocker
+    state, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     source, downloaded = tmp_path / "source", tmp_path / "downloaded"
     source.mkdir()
@@ -161,7 +163,7 @@ def test_publish_owns_download_validation_creation_and_byte_parity(
     assert not hasattr(publish, "wait_for_verify")
 
 
-def test_local_tag_identity_reads_exact_objects(tmp_path: Path, mocker) -> None:
+def test_local_tag_identity_reads_exact_objects(tmp_path: Path, mocker: MockerFixture) -> None:
     output = mocker.patch.object(
         publish,
         "_output",
@@ -197,7 +199,9 @@ def test_release_checkout_mismatch_fails_without_repository_state_change(tmp_pat
     assert _checkout_state(repository) == before
 
 
-def test_release_validation_preserves_the_active_environment(tmp_path: Path, mocker) -> None:
+def test_release_validation_preserves_the_active_environment(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     """Do not resolve a virtual-environment interpreter into the host Python."""
     host_python = tmp_path / "host-python"
     host_python.write_text("", encoding="utf-8")
@@ -216,7 +220,9 @@ def test_release_validation_preserves_the_active_environment(tmp_path: Path, moc
 
 
 @pytest.mark.parametrize("pages", [None, [None], [[None]], [[{"tag_name": "v1.2.3"}], []]])
-def test_release_inventory_reads_all_pages_and_requires_records(pages, mocker) -> None:
+def test_release_inventory_reads_all_pages_and_requires_records(
+    pages, mocker: MockerFixture
+) -> None:
     mocker.patch.object(publish.hosted, "executable", return_value="gh")
     api = mocker.patch.object(publish.hosted, "api_json", return_value=pages)
     if pages == [[{"tag_name": "v1.2.3"}], []]:
@@ -229,7 +235,7 @@ def test_release_inventory_reads_all_pages_and_requires_records(pages, mocker) -
 
 
 @pytest.mark.parametrize("value", [None, {1: "invalid"}, {"sha": "a" * 40}])
-def test_identity_api_requires_string_keyed_objects(value, mocker) -> None:
+def test_identity_api_requires_string_keyed_objects(value, mocker: MockerFixture) -> None:
     mocker.patch.object(publish.hosted, "api_json", return_value=value)
     if value == {"sha": "a" * 40}:
         assert publish._api_mapping(("gh", "api")) == value
@@ -238,7 +244,7 @@ def test_identity_api_requires_string_keyed_objects(value, mocker) -> None:
             publish._api_mapping(("gh", "api"))
 
 
-def test_remote_identity_reads_both_exact_annotated_objects(mocker) -> None:
+def test_remote_identity_reads_both_exact_annotated_objects(mocker: MockerFixture) -> None:
     tag_oid, commit_oid = "b" * 40, "a" * 40
     mocker.patch.object(publish.hosted, "executable", return_value="gh")
     api = mocker.patch.object(
@@ -257,19 +263,25 @@ def test_remote_identity_reads_both_exact_annotated_objects(mocker) -> None:
 
 
 @pytest.mark.parametrize("failure", [OSError("missing"), ValueError("invalid")])
-def test_asset_validation_preserves_bounded_error(tmp_path, failure, mocker) -> None:
+def test_asset_validation_preserves_bounded_error(
+    tmp_path: Path, failure, mocker: MockerFixture
+) -> None:
     mocker.patch.object(publish.assembly, "verify", side_effect=failure)
     with pytest.raises(publish.GitHubPublishError, match="assets are invalid"):
         publish._verify_assets(tmp_path, "trust")
 
 
-def test_asset_validation_passes_external_trust_unchanged(tmp_path, mocker) -> None:
+def test_asset_validation_passes_external_trust_unchanged(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     verify = mocker.patch.object(publish.assembly, "verify", return_value={"asset": "digest"})
     assert publish._verify_assets(tmp_path, "external trust") == {"asset": "digest"}
     verify.assert_called_once_with(tmp_path, trust="external trust")
 
 
-def test_release_creation_and_download_have_explicit_asset_scope(tmp_path, mocker) -> None:
+def test_release_creation_and_download_have_explicit_asset_scope(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.object(publish.hosted, "executable", return_value="gh")
     run = mocker.patch.object(publish.subprocess, "run")
     with pytest.raises(publish.GitHubPublishError, match="asset set is empty"):
@@ -291,7 +303,7 @@ def test_release_creation_and_download_have_explicit_asset_scope(tmp_path, mocke
 
 
 @pytest.mark.parametrize("failure", [OSError("offline"), subprocess.CalledProcessError(1, ["git"])])
-def test_transport_failures_are_translated_once(failure, mocker) -> None:
+def test_transport_failures_are_translated_once(failure, mocker: MockerFixture) -> None:
     run = mocker.patch.object(publish.subprocess, "run", side_effect=failure)
     with pytest.raises(publish.GitHubPublishError, match="publication unavailable"):
         publish._run(("gh", "release"), "publication unavailable")
@@ -300,7 +312,9 @@ def test_transport_failures_are_translated_once(failure, mocker) -> None:
     assert run.call_count == 2
 
 
-def test_invalid_source_signature_never_runs_metadata(tmp_path, mocker) -> None:
+def test_invalid_source_signature_never_runs_metadata(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.object(
         publish.tag_signature,
         "verify",
@@ -312,13 +326,13 @@ def test_invalid_source_signature_never_runs_metadata(tmp_path, mocker) -> None:
     run.assert_not_called()
 
 
-def test_lightweight_tag_is_not_an_annotated_release(tmp_path, mocker) -> None:
+def test_lightweight_tag_is_not_an_annotated_release(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch.object(publish, "_output", return_value="commit")
     with pytest.raises(publish.GitHubPublishError, match="not annotated"):
         publish._local_tag_identity(tmp_path, "v1.2.3", "a" * 40)
 
 
-def test_invalid_publication_never_creates_a_workspace(tmp_path) -> None:
+def test_invalid_publication_never_creates_a_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     with pytest.raises(publish.GitHubPublishError, match="inputs are invalid"):
         publish.publish(

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving import server
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    import pytest
 
 PACKAGE = ROOT / "src/openai_responses_proxy"
 
@@ -129,7 +133,7 @@ def test_packages_are_declarations_not_reexport_facades() -> None:
         )
 
 
-def test_runtime_state_is_split_into_concrete_semantic_owners(subtests) -> None:
+def test_runtime_state_is_split_into_concrete_semantic_owners(subtests: pytest.Subtests) -> None:
     assert not (PACKAGE / "runtime" / "state.py").exists()
     owners = {
         "relay/admission.py": "admit_response",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,6 +20,9 @@ from tests.serving.handoff.fixtures import handoff_outcome_ready
 from tests.serving.handoff.fixtures import matching_health
 from tests.serving.handoff.fixtures import wait_until
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -33,7 +37,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
     def test_handoff_context_cannot_mutate_request_admission(self) -> None:
         assert not hasattr(self.context, "set_draining")
 
-    def committed(self, *after_ready, health=None, mocker, **kwargs):
+    def committed(self, *after_ready, health=None, mocker: MockerFixture, **kwargs):
         expected = kwargs.pop("expected", expected_metadata())
         child = kwargs.pop("child", fake_child(mocker=mocker))
         server = kwargs.pop("server", fake_server(mocker=mocker))
@@ -48,7 +52,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         return outcome, server, child, expected
 
     def test_prepare_binds_protocol_identity_to_runtime_pid_not_launcher_pid(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         expected = expected_metadata()
         child = fake_child(pid=4242, mocker=mocker)
@@ -72,7 +76,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert self.p._HANDOFF_SESSION["child_pid"] == child.runtime_pid
 
     def test_prepare_then_commit_finalizes_and_never_reopens_admission_itself(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         child = fake_child(mocker=mocker)
         expected = expected_metadata()
@@ -92,7 +96,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert handoff_outcome_ready().is_set()
 
     def test_parent_stops_accepting_before_child_serves_without_closing_admission(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)
@@ -123,7 +127,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert order.index("shutdown") < order.index("send:commit")
         assert child.recv_message.call_args_list[1].args == (5,)
 
-    def test_simultaneous_handoff_is_rejected(self, *, mocker) -> None:
+    def test_simultaneous_handoff_is_rejected(self, *, mocker: MockerFixture) -> None:
         server = fake_server(mocker=mocker)
         expected = expected_metadata()
         release_spawn = threading.Event()
@@ -159,7 +163,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert "already in progress" in str(errors[0]).lower()
 
     def test_prepare_rejects_incomplete_identity_and_recycles_finalized_session(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         server = fake_server(mocker=mocker)
         for expected in ({}, {**expected_metadata(), "release": ""}):
@@ -178,7 +182,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert prepared["expected"] == expected
         assert self.p._HANDOFF_SESSION["state"] == "ready"
 
-    def test_transition_and_disk_identity_helpers_fail_closed(self, *, mocker) -> None:
+    def test_transition_and_disk_identity_helpers_fail_closed(
+        self, *, mocker: MockerFixture
+    ) -> None:
         self.p._HANDOFF_SESSION["state"] = "idle"
         with pytest.raises(self.p.HandoffError, match="illegal handoff transition"):
             self.p._transition("serving")
@@ -208,7 +214,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert identity["handoff_transaction_id"] == "txn-identity"
 
     def test_prepare_failures_never_cross_admission_and_reset_when_child_exit_is_confirmed(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         expected = expected_metadata()
         for name, spawn_result in (
@@ -230,7 +236,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
                 assert self.p._HANDOFF_SESSION.get("state") == "idle"
                 assert child.terminate_bounded.call_count == int(name != "spawn")
 
-    def test_commit_failures_roll_back_after_the_accept_barrier(self, subtests, *, mocker) -> None:
+    def test_commit_failures_roll_back_after_the_accept_barrier(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         child = fake_child(mocker=mocker)
         cases = (
             ("commit pipe", (), BrokenPipeError("commit pipe failed")),
@@ -267,7 +275,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
                 assert handoff_outcome_ready().is_set()
 
     def test_finalize_failure_logs_only_the_failed_phase_and_exception_class(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         child = fake_child(mocker=mocker)
         expected = expected_metadata()
@@ -289,7 +297,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert "do-not-log" not in log.call_args.args[0]
 
     def test_identity_matrices_reject_ready_serving_and_finalized_mismatches(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         expected = expected_metadata()
         child = fake_child(mocker=mocker)
@@ -339,7 +347,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
                     assert outcome == "rolled_back"
                     child.terminate_bounded.assert_called_once()
 
-    def test_health_identity_allows_observability_fields(self, *, mocker) -> None:
+    def test_health_identity_allows_observability_fields(self, *, mocker: MockerFixture) -> None:
         expected = expected_metadata()
         child = fake_child(mocker=mocker)
         health = {
@@ -364,7 +372,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child.terminate_bounded.assert_not_called()
 
     def test_abort_falls_back_to_kill_when_terminate_does_not_exit_child_in_time(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)
@@ -378,7 +386,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child.terminate_bounded.assert_called_once()
         child.kill_bounded.assert_called_once()
 
-    def test_unconfirmed_abort_never_reports_a_resumable_rollback(self, *, mocker) -> None:
+    def test_unconfirmed_abort_never_reports_a_resumable_rollback(
+        self, *, mocker: MockerFixture
+    ) -> None:
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)
         expected = expected_metadata()
@@ -397,7 +407,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         server.shutdown.assert_called()
 
     def test_abort_swallows_control_and_shutdown_errors_but_requires_confirmed_exit(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         child = fake_child(mocker=mocker)
         child.send_message.side_effect = BrokenPipeError
@@ -415,7 +425,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
             self.p.abort(child)
 
     def test_unconfirmed_precommit_abort_stays_fail_closed_instead_of_returning_idle(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)
@@ -428,7 +438,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
             self.p.prepare(server, expected, self.context, timeout_seconds=1)
         assert self.p._HANDOFF_SESSION["state"] == "aborting"
 
-    def test_internal_fail_closed_branches_are_bounded(self, *, mocker) -> None:
+    def test_internal_fail_closed_branches_are_bounded(self, *, mocker: MockerFixture) -> None:
         expected = expected_metadata()
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Self
 
 import pytest
@@ -17,8 +18,11 @@ from openai_responses_proxy.serving import identity
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def _stopped_installation(root: Path, *, mocker):
+
+def _stopped_installation(root: Path, *, mocker: MockerFixture):
     """Install one verified payload whose owned supervisor and listener are stopped."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
@@ -37,7 +41,7 @@ def _stopped_installation(root: Path, *, mocker):
     return ctx, control_ctx, native
 
 
-def _serving_installation(root: Path, *, service: str, mocker):
+def _serving_installation(root: Path, *, service: str, mocker: MockerFixture):
     """Install one verified payload whose listener serves under the observed supervisor."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
@@ -56,7 +60,7 @@ def _serving_installation(root: Path, *, service: str, mocker):
 
 
 def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
-    subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
+    subtests: pytest.Subtests, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
@@ -145,7 +149,9 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
             control.reload(ctx)
 
 
-def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, mocker) -> None:
+def test_reload_reads_handoff_identity_from_selected_generation(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     stable = install_context(tmp_path)
     Path(stable.install_dir).mkdir(parents=True)
     ctx = generation.context(stable, "a" * 32)
@@ -183,7 +189,7 @@ def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, moc
 
 
 def test_status_and_reload_bound_unobservable_failures(
-    *, mocker, tmp_path_factory: pytest.TempPathFactory
+    *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
@@ -232,7 +238,7 @@ def test_status_and_reload_bound_unobservable_failures(
 
 
 def test_reload_requires_installation_and_resolved_transaction_state(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
 
@@ -253,7 +259,7 @@ def test_reload_requires_installation_and_resolved_transaction_state(
 
 
 def test_reload_refuses_incompatible_listener_without_mutation(
-    *, mocker, tmp_path_factory: pytest.TempPathFactory
+    *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
@@ -265,7 +271,7 @@ def test_reload_refuses_incompatible_listener_without_mutation(
 
 
 def test_reload_starts_a_stopped_installation_through_its_native_supervisor(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
     committed = identity.committed_payload(Path(ctx.executable))
@@ -296,7 +302,7 @@ def test_reload_starts_a_stopped_installation_through_its_native_supervisor(
     ],
 )
 def test_reload_refuses_a_runtime_less_installation_that_is_not_stopped(
-    tmp_path: Path, service: str, configured: str, listeners: list[int], *, mocker
+    tmp_path: Path, service: str, configured: str, listeners: list[int], *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
     native.status.return_value = service
@@ -315,7 +321,7 @@ def test_reload_refuses_a_runtime_less_installation_that_is_not_stopped(
 
 
 def test_reload_requires_the_started_supervisor_to_bind_the_control_executable(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
     native.configured_executable.side_effect = [control_ctx.executable, str(tmp_path / "foreign")]
@@ -329,7 +335,7 @@ def test_reload_requires_the_started_supervisor_to_bind_the_control_executable(
 
 
 def test_reload_keeps_native_supervision_when_a_started_listener_is_unproved(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
     mocker.patch.object(
@@ -348,7 +354,7 @@ def test_reload_keeps_native_supervision_when_a_started_listener_is_unproved(
 
 
 def test_reload_refuses_a_stopped_payload_that_changes_before_start(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, _control_ctx, native = _stopped_installation(tmp_path, mocker=mocker)
     mocker.patch.object(control, "status", return_value={"state": "stopped"})
@@ -362,7 +368,7 @@ def test_reload_refuses_a_stopped_payload_that_changes_before_start(
 
 @pytest.mark.parametrize("service", ["installed", "running"])
 def test_reload_rebinds_native_supervision_after_a_proven_handoff(
-    tmp_path: Path, service: str, *, mocker
+    tmp_path: Path, service: str, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _serving_installation(tmp_path, service=service, mocker=mocker)
     effects: list[str] = []
@@ -381,7 +387,7 @@ def test_reload_rebinds_native_supervision_after_a_proven_handoff(
 
 
 def test_reload_rebinds_native_supervision_after_a_recovered_handoff(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
     effects: list[str] = []
@@ -405,7 +411,7 @@ def test_reload_rebinds_native_supervision_after_a_recovered_handoff(
 
 @pytest.mark.parametrize("configured", ["missing", "foreign"])
 def test_reload_refuses_an_unbound_supervisor_before_the_handoff(
-    tmp_path: Path, configured: str, *, mocker
+    tmp_path: Path, configured: str, *, mocker: MockerFixture
 ) -> None:
     ctx, _control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
     native.configured_executable.return_value = (
@@ -422,7 +428,7 @@ def test_reload_refuses_an_unbound_supervisor_before_the_handoff(
 
 
 def test_reload_reports_a_supervisor_rebind_failure_after_the_handoff(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
     mocker.patch.object(control.handoff, "request", return_value={"old_pid": 7, "child_pid": 8})

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypedDict
 
 from tools.release.publication import verification as publication
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class VerifyArguments(TypedDict):
@@ -64,7 +68,9 @@ def forge_evidence(*, items: list[dict[str, object]] | None = None) -> dict[str,
     }
 
 
-def verified_evidence(evidence: Mapping[str, object], *, mocker) -> Mapping[str, object]:
+def verified_evidence(
+    evidence: Mapping[str, object], *, mocker: MockerFixture
+) -> Mapping[str, object]:
     """Run ``publication.verify`` with offline Forge adapters."""
     forges = evidence["forges"]
     assert isinstance(forges, Mapping)

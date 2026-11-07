@@ -12,6 +12,8 @@ from tools.release import tag_signature
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize("tag", ["latest", "1.2.3", "v1.2", "v1.2.3."])
 def test_verify_rejects_any_non_product_tag_name(tag: str, tmp_path: Path) -> None:
@@ -41,7 +43,7 @@ def test_verify_requires_one_external_regular_anchor(tmp_path: Path) -> None:
         tag_signature.verify(tmp_path, "v1.2.3", link)
 
 
-def test_verify_binds_the_exact_anchor_and_tag(tmp_path: Path, mocker) -> None:
+def test_verify_binds_the_exact_anchor_and_tag(tmp_path: Path, mocker: MockerFixture) -> None:
     """Verify one exact tag through the anchor and the strict Git arguments."""
     anchor = tmp_path / "allowed-signers"
     anchor.write_text("external trust\n", encoding="utf-8")
@@ -57,7 +59,9 @@ def test_verify_binds_the_exact_anchor_and_tag(tmp_path: Path, mocker) -> None:
     "failure",
     [OSError("missing"), subprocess.CalledProcessError(1, ["git"], stderr="denied")],
 )
-def test_verify_translates_one_bounded_failure(tmp_path: Path, failure, mocker) -> None:
+def test_verify_translates_one_bounded_failure(
+    tmp_path: Path, failure, mocker: MockerFixture
+) -> None:
     """Report one bounded refusal instead of leaking the transport error."""
     anchor = tmp_path / "allowed-signers"
     anchor.write_text("external trust\n", encoding="utf-8")
@@ -66,7 +70,9 @@ def test_verify_translates_one_bounded_failure(tmp_path: Path, failure, mocker) 
         tag_signature.verify(tmp_path, "v1.2.3", anchor)
 
 
-def test_command_reports_success_then_fails_closed(tmp_path: Path, mocker, capsys) -> None:
+def test_command_reports_success_then_fails_closed(
+    tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Keep one readable success line and exit nonzero on any refusal."""
     anchor = tmp_path / "allowed-signers"
     anchor.write_text("external trust\n", encoding="utf-8")

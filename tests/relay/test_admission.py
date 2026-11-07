@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from email.message import Message
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import telemetry
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -77,7 +81,7 @@ class AdmissionTests:
         for address, message in refused:
             assert not admission.is_local_controller(address, message), (address, message.items())
 
-    def test_drain_lease_expiry_is_observable(self, *, mocker) -> None:
+    def test_drain_lease_expiry_is_observable(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])
         admission.set_draining(enabled=True, lease_seconds=2)
         state = admission.snapshot()

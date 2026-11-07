@@ -5,11 +5,15 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import yaml
 
 from tools.ci import project
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 MODEL = """package ci
 import "strings"
@@ -192,7 +196,7 @@ def test_ci_projection_checks_then_restores_only_owned_files(
 
 @pytest.mark.parametrize("output_format", ["yaml", "text"])
 def test_ci_projection_renderer_binds_the_locked_repository(
-    mocker, monkeypatch: pytest.MonkeyPatch, output_format
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, output_format
 ) -> None:
     monkeypatch.setenv("MISE_CONFIG_FILE", "/foreign/config.toml")
     command = mocker.patch.object(
@@ -221,7 +225,9 @@ def test_ci_projection_renderer_binds_the_locked_repository(
 
 
 @pytest.mark.repository_toolchain
-def test_native_release_projections_share_one_cue_owner(tmp_path, monkeypatch) -> None:
+def test_native_release_projections_share_one_cue_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = project.ROOT
     for relative in (
         ".config/mise/config.toml",

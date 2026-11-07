@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import tempfile
 from contextlib import ExitStack
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle.supervision import process
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def admit_handoff_generations(
-    mocker,
+    mocker: MockerFixture,
     ctx,
     *,
     predecessor_pid: int = 999,

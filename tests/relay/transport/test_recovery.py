@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -18,6 +19,9 @@ from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestProxyTransport(LoopbackTransportFixture):
     @pytest.mark.parametrize(
@@ -30,7 +34,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         ids=("non-json", "parser-depth-exhaustion", "wire-parser-depth-exhaustion"),
     )
     def test_unclassified_error_passes_through_without_retry(
-        self, path, status, error_body, capsys
+        self, path, status, error_body, capsys: pytest.CaptureFixture[str]
     ) -> None:
         body = b'{"stream":false,"input":[{"type":"message","role":"user","content":"hello"}]}'
         success = b'{"id":"resp_next","status":"completed","output":[]}'
@@ -236,7 +240,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         classifications = cast("dict[str, int]", snapshot["upstream_classifications"])
         assert classifications["provider_bound_encrypted_content"] == 1
 
-    def test_response_failed_final_recovery_retains_the_current_tool_pair(self, *, mocker) -> None:
+    def test_response_failed_final_recovery_retains_the_current_tool_pair(
+        self, *, mocker: MockerFixture
+    ) -> None:
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
             b'response_failed - Response failed",'
@@ -318,7 +324,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert "event=response_failed_compact_recovery_accepted" not in logs
 
     def test_normalizes_exhausted_response_failed_recovery_to_retryable_503(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
@@ -373,7 +379,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert payload["error"]["code"] == "response_failed_recovery_exhausted"
 
     def test_retries_classified_empty_response_at_most_once_with_unchanged_body(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         empty_response = (
             b'{"error":{"message":"official provider returned an empty response",'
@@ -426,7 +432,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert "secret-replay" not in json.dumps(status)
 
     def test_normalizes_exhausted_classified_empty_response_to_retryable_503(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         empty_response = (
             b'{"error":{"message":"official provider returned an empty response",'

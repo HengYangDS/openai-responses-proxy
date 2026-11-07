@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.deployment import handoff
@@ -15,6 +16,9 @@ from tests.serving.handoff.fixtures import entrypoint_module
 from tests.serving.handoff.fixtures import handoff_module
 from tests.serving.handoff.fixtures import http_json
 from tests.serving.handoff.fixtures import runtime_state_module
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -143,7 +147,9 @@ class TestHandoffTransitionValidation:
         assert {transition for transition, valid in results.items() if valid} == allowed
 
 
-def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(tmp_path: Path, mocker) -> None:
+def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     """A mocked launch contract must not build or prewarm a real native payload."""
     payload = tmp_path / "generation"
     payload.mkdir()

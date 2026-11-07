@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import multiprocessing
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -27,9 +28,12 @@ from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_nonfresh_rollback_without_retained_snapshot_only_closes_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -47,7 +51,7 @@ def test_nonfresh_rollback_without_retained_snapshot_only_closes_transaction(
 @pytest.mark.parametrize("previous_release", [None, "1.2.2"])
 @pytest.mark.parametrize("phase", ["prepared", "materialized", "activated"])
 def test_rollback_retries_cleanup_before_becoming_terminal(
-    tmp_path: Path, previous_release: str | None, phase: str, *, mocker
+    tmp_path: Path, previous_release: str | None, phase: str, *, mocker: MockerFixture
 ) -> None:
     """A failed cleanup remains retryable and cannot consume a later journal."""
     ctx = install_context(tmp_path)
@@ -96,7 +100,7 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     outcome: str,
     interruption: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     """Recovery survives a removed snapshot without reapplying terminal effects."""
     ctx = install_context(tmp_path)
@@ -162,7 +166,9 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
     assert recover_transaction(ctx, runtime=None) == {"state": "not_required"}
 
 
-def test_purge_recovery_uses_its_inventory_in_a_fresh_process(tmp_path: Path, *, mocker) -> None:
+def test_purge_recovery_uses_its_inventory_in_a_fresh_process(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Disposal authority survives the controller and its selected executable."""
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
@@ -196,7 +202,7 @@ def test_purge_recovery_uses_its_inventory_in_a_fresh_process(tmp_path: Path, *,
 
 
 def test_purge_accepts_a_verified_flat_payload_without_installed_state(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A preserved complete manifest proves removal without a selected generation."""
     ctx = install_context(tmp_path)
@@ -210,7 +216,9 @@ def test_purge_accepts_a_verified_flat_payload_without_installed_state(
     assert records.status(ctx) is None
 
 
-def test_pending_transaction_retains_exclusive_removal_authority(tmp_path: Path, *, mocker) -> None:
+def test_pending_transaction_retains_exclusive_removal_authority(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Purge cannot replace a live transaction's journal or installed selection."""
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
@@ -227,7 +235,7 @@ def test_pending_transaction_retains_exclusive_removal_authority(tmp_path: Path,
     ["empty", "generation", "unknown", "digest", "state", "transaction_root"],
 )
 def test_removal_authority_is_validated_before_disposal(
-    tmp_path: Path, corruption: str, *, mocker
+    tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     """Only a canonical terminal inventory grants deletion of recorded bytes."""
     ctx = install_context(tmp_path)
@@ -265,7 +273,7 @@ def test_removal_authority_is_validated_before_disposal(
 
 @pytest.mark.parametrize("replacement", ["file", "symlink", "unknown", "empty_directory"])
 def test_purge_recovery_preserves_unowned_replacements(
-    tmp_path: Path, replacement: str, *, mocker
+    tmp_path: Path, replacement: str, *, mocker: MockerFixture
 ) -> None:
     """An interrupted purge never expands its original byte or directory ownership."""
     ctx = install_context(tmp_path)
@@ -306,7 +314,7 @@ def test_purge_recovery_preserves_unowned_replacements(
 
 @pytest.mark.parametrize("restart", [False, True])
 def test_snapshot_failure_cleanup_remains_retryable(
-    tmp_path: Path, *, restart: bool, mocker
+    tmp_path: Path, *, restart: bool, mocker: MockerFixture
 ) -> None:
     """An incomplete snapshot has no rollback authority and needs only disposal."""
     ctx = install_context(tmp_path)
@@ -340,7 +348,7 @@ def test_snapshot_failure_cleanup_remains_retryable(
 
 @pytest.mark.parametrize("operation", ["activate", "preserve"])
 def test_disposal_hold_cannot_reopen_a_terminal_transaction(
-    tmp_path: Path, operation: str, *, mocker
+    tmp_path: Path, operation: str, *, mocker: MockerFixture
 ) -> None:
     """A surviving controller cannot overwrite a durable terminal outcome."""
     ctx = install_context(tmp_path)
@@ -373,7 +381,7 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
 
 
 def test_recovery_cleans_a_finalized_transaction_without_rolling_back(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -403,7 +411,7 @@ def test_recovery_cleans_a_finalized_transaction_without_rolling_back(
 
 
 def test_finalize_reports_cleanup_failure_without_erasing_success_state(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -427,7 +435,9 @@ def test_finalize_reports_cleanup_failure_without_erasing_success_state(
     assert Path(records.journal_path(ctx)).is_file()
 
 
-def test_finalization_journal_omits_private_failure_details(tmp_path: Path, *, mocker) -> None:
+def test_finalization_journal_omits_private_failure_details(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
@@ -450,7 +460,7 @@ def test_finalization_journal_omits_private_failure_details(tmp_path: Path, *, m
 
 
 def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
-    tmp_path: Path, subtests, *, mocker
+    tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path / "integrity")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -481,14 +491,12 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
         "rollback",
         side_effect=errors.InstallError("restore failed at /Users/private/rollback"),
     )
-    with (
-        subtests.test("rollback"),
-        pytest.raises(
+    with subtests.test("rollback"):
+        with pytest.raises(
             errors.InstallError, match="payload commit failed and rollback failed"
-        ) as raised,
-    ):
-        transaction.commit_projection()
-    assert "/Users/private/rollback" not in str(raised.value)
+        ) as raised:
+            transaction.commit_projection()
+        assert "/Users/private/rollback" not in str(raised.value)
     mocker.stopall()
 
     ctx = install_context(tmp_path / "cleanup")

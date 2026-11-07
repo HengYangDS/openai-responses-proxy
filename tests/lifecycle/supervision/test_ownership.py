@@ -12,6 +12,8 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import native_service
 
 if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
     from openai_responses_proxy.lifecycle import runtime_spec
 
 
@@ -31,7 +33,9 @@ class _NativeModuleFixture(ModuleType):
         return "running"
 
 
-def test_native_service_selection_is_total_for_supported_hosts(subtests, *, mocker) -> None:
+def test_native_service_selection_is_total_for_supported_hosts(
+    subtests: pytest.Subtests, *, mocker: MockerFixture
+) -> None:
     for platform, expected in (
         ("darwin", "macos"),
         ("linux", "linux"),
@@ -46,7 +50,7 @@ def test_native_service_selection_is_total_for_supported_hosts(subtests, *, mock
         native_service.adapter()
 
 
-def test_native_service_selection_reports_incomplete_product(*, mocker) -> None:
+def test_native_service_selection_reports_incomplete_product(*, mocker: MockerFixture) -> None:
     real_import = __import__
 
     def missing_adapters(name, *args, **kwargs):
@@ -68,7 +72,9 @@ def test_native_service_selection_reports_incomplete_product(*, mocker) -> None:
         "--internal-prewarm",
     ],
 )
-def test_retired_generation_stops_each_owned_service_role(role: str, *, mocker) -> None:
+def test_retired_generation_stops_each_owned_service_role(
+    role: str, *, mocker: MockerFixture
+) -> None:
     ctx = mocker.Mock(executable="/installed/generations/retired/bin/proxy")
     runtime = native_service._NativeRuntime(_NativeModuleFixture("fixture.native"))
     live = {41}
@@ -90,7 +96,9 @@ def test_retired_generation_stops_each_owned_service_role(role: str, *, mocker) 
     assert live == set()
 
 
-def test_native_runtime_owns_exact_private_product_processes(subtests, *, mocker) -> None:
+def test_native_runtime_owns_exact_private_product_processes(
+    subtests: pytest.Subtests, *, mocker: MockerFixture
+) -> None:
     ctx = mocker.Mock(executable="/installed/openai-responses-proxy")
     implementation = _NativeModuleFixture("fixture.native")
     runtime = native_service._NativeRuntime(implementation)

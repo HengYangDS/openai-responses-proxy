@@ -12,6 +12,8 @@ from tests.lifecycle.fixtures import assert_private_log_mode
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 class BoundedLogTests:
     def test_append_redacts_bounds_rotates_and_mirrors(self, tmp_path: Path) -> None:
@@ -52,7 +54,7 @@ class BoundedLogTests:
         assert not backup.exists()
 
     def test_append_is_best_effort_for_file_and_mirror_failures(
-        self, tmp_path: Path, *, mocker
+        self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         path = tmp_path / "runtime.log"
         path.mkdir()

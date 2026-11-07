@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -21,9 +22,12 @@ from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_recovery_retains_finalization_authority_until_supervision_is_bound(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -50,7 +54,7 @@ def test_recovery_retains_finalization_authority_until_supervision_is_bound(
 
 
 def test_recovery_retains_rollback_authority_until_supervision_is_bound(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
@@ -89,7 +93,7 @@ def test_recovery_retains_rollback_authority_until_supervision_is_bound(
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["upgrade", "retained-rollback"])
 def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
-    tmp_path: Path, *, reverse: bool, mocker
+    tmp_path: Path, *, reverse: bool, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
@@ -132,7 +136,7 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
 @pytest.mark.parametrize("windows", [False, True], ids=["posix-link", "windows-launcher"])
 @pytest.mark.parametrize("phase", ["materialized", "activated"])
 def test_recovery_retries_command_restoration_after_selection_is_restored(
-    tmp_path: Path, *, reverse: bool, windows: bool, phase: str, mocker
+    tmp_path: Path, *, reverse: bool, windows: bool, phase: str, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path, windows=windows)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
@@ -185,7 +189,9 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
     assert Path(candidate.context.payload_dir).exists() is reverse
 
 
-def test_recovery_binds_only_the_terminal_generation_once(tmp_path: Path, *, mocker) -> None:
+def test_recovery_binds_only_the_terminal_generation_once(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -207,7 +213,7 @@ def test_recovery_binds_only_the_terminal_generation_once(tmp_path: Path, *, moc
 
 
 def test_recovery_keeps_superseded_generation_until_terminal_binding(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     first = install_payload(ctx, "1.2.1", mocker=mocker)
@@ -237,7 +243,7 @@ def test_recovery_keeps_superseded_generation_until_terminal_binding(
 
 
 def test_recovery_no_op_and_prepared_close_do_not_bind_supervision(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     bind_terminal = mocker.Mock()

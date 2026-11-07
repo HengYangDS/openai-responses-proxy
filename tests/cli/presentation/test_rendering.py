@@ -13,6 +13,8 @@ from tests.lifecycle.fixtures import install_context
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 def test_stopped_installation_names_reload_in_status_and_doctor() -> None:
     evidence = {
@@ -42,7 +44,7 @@ def test_stopped_installation_names_reload_in_status_and_doctor() -> None:
     assert rendered.endswith("Next\n  openai-responses-proxy reload")
 
 
-def test_status_human_output_is_aligned_and_not_serialized_json(*, mocker) -> None:
+def test_status_human_output_is_aligned_and_not_serialized_json(*, mocker: MockerFixture) -> None:
     evidence = {
         "state": "running",
         "detail": "healthy",
@@ -228,7 +230,7 @@ def test_status_human_output_exposes_the_classification_detail() -> None:
 
 
 def test_rollback_without_a_predecessor_has_matching_human_and_json_semantics(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     unavailable = {
         "state": "unavailable",
@@ -248,7 +250,7 @@ def test_rollback_without_a_predecessor_has_matching_human_and_json_semantics(
     assert json_stderr == human_stderr == ""
 
 
-def test_expected_lifecycle_failures_are_rendered_once(*, mocker) -> None:
+def test_expected_lifecycle_failures_are_rendered_once(*, mocker: MockerFixture) -> None:
     mocker.patch.object(
         application.runtime_context,
         "create",

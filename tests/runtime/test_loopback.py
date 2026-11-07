@@ -6,13 +6,17 @@ import ssl
 import threading
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from typing import TYPE_CHECKING
 from typing import override
 
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.runtime import loopback
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_loopback_transport_does_not_initialize_https(*, mocker) -> None:
+
+def test_loopback_transport_does_not_initialize_https(*, mocker: MockerFixture) -> None:
     """Keep local control-plane requests independent of TLS support."""
 
     class Handler(BaseHTTPRequestHandler):

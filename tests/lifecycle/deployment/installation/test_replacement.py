@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from openai_responses_proxy import errors
@@ -13,10 +15,13 @@ from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import OrderedServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     def test_finalized_legacy_runtime_uses_one_bounded_native_generation_replacement(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime(
@@ -64,7 +69,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
     @pytest.mark.parametrize("failure_phase", ["supervisor", "serving"])
     @pytest.mark.parametrize("failure_type", [errors.InstallError, KeyboardInterrupt])
     def test_native_replacement_preserves_unconfirmed_successor(
-        self, failure_phase: str, failure_type: type[BaseException], *, mocker
+        self, failure_phase: str, failure_type: type[BaseException], *, mocker: MockerFixture
     ) -> None:
         """Keep durable recovery authority after the predecessor has exited."""
         payload = FakeTransaction(self.ctx)
@@ -91,7 +96,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         resume.assert_not_called()
 
     def test_published_predecessor_without_selected_generation_handoff_uses_replacement(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """Do not ask an older listener to launch a payload outside its own root."""
         payload = FakeTransaction(self.ctx)
@@ -127,7 +132,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         request.assert_not_called()
 
     def test_native_replacement_binds_current_supervisor_before_waiting_for_successor(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """The old watchdog need not understand the current transaction schema."""
         events: list[object] = []
@@ -173,7 +178,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         ]
 
     def test_generation_replacement_requires_exact_source_identity_before_write(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime(
@@ -193,7 +198,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
 
     @pytest.mark.parametrize("phase_failure", [False, True])
     def test_generation_replacement_preserves_an_unconfirmed_source_exit(
-        self, phase_failure, *, mocker
+        self, phase_failure, *, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime(

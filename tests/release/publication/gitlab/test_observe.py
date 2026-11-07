@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
 
 from tests.release.artifact.fixtures import release_bundle
 from tools.release.publication.gitlab import observe as gitlab
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class GitLabObservationContracts:
@@ -81,7 +85,9 @@ class GitLabObservationContracts:
         with pytest.raises(gitlab.GitLabProofError):
             self._normalize_gitlab(commit, (pipeline, jobs, release, assets))
 
-    def test_gitlab_collection_and_malformed_boundaries_fail_closed(self, *, mocker) -> None:
+    def test_gitlab_collection_and_malformed_boundaries_fail_closed(
+        self, *, mocker: MockerFixture
+    ) -> None:
         commit, tag_object = ("a" * 40, "b" * 40)
         pipeline, jobs, release, asset_bytes = self._gitlab_fixture(commit)
         release["assets"] = {
@@ -169,7 +175,9 @@ class GitLabObservationContracts:
             with pytest.raises(gitlab.GitLabProofError):
                 self._normalize_gitlab(commit, (pipeline, jobs, release, assets))
 
-    def test_gitlab_cli_transport_and_pagination_translate_failures(self, *, mocker) -> None:
+    def test_gitlab_cli_transport_and_pagination_translate_failures(
+        self, *, mocker: MockerFixture
+    ) -> None:
         completed = mocker.Mock(stdout='[{"id":1}]\n{"id":2}\n')
         mocker.patch.object(gitlab.hosted, "executable", return_value="glab")
         mocker.patch.object(gitlab.subprocess, "run", return_value=completed)
@@ -195,7 +203,9 @@ class GitLabObservationContracts:
         with pytest.raises(gitlab.GitLabProofError):
             self._normalize_gitlab(commit, (pipeline, jobs, release, gitlab_assets))
 
-    def test_gitlab_provider_candidates_and_release_identity_fail_closed(self, subtests) -> None:
+    def test_gitlab_provider_candidates_and_release_identity_fail_closed(
+        self, subtests: pytest.Subtests
+    ) -> None:
         commit = "a" * 40
         pipeline, jobs, release, assets = self._gitlab_fixture(commit)
         for mutation in (

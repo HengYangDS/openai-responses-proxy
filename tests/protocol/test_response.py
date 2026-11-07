@@ -56,7 +56,9 @@ class LiveStreamContracts:
 
         assert response.sse_event_data(_event(value)) == value
 
-    def test_done_marker_and_events_without_data_carry_no_document(self, subtests) -> None:
+    def test_done_marker_and_events_without_data_carry_no_document(
+        self, subtests: pytest.Subtests
+    ) -> None:
         for event in (b"data: [DONE]\n\n", b"event: ping\n\n"):
             with subtests.test(event=event):
                 assert response.sse_event_data(event) is None
@@ -106,7 +108,7 @@ class LiveJsonContracts:
 
         assert response.validate_json_response(payload) == payload
 
-    def test_accepts_both_terminal_success_states(self, subtests) -> None:
+    def test_accepts_both_terminal_success_states(self, subtests: pytest.Subtests) -> None:
         for status in ("completed", "incomplete"):
             payload = _json({"status": status, "output": []})
             with subtests.test(status=status):
@@ -117,7 +119,7 @@ class LiveJsonContracts:
         with pytest.raises(ValueError, match=r"^invalid_responses_success_body$"):
             response.validate_json_response(_json({"status": status, "output": []}))
 
-    def test_rejects_unproved_success_documents(self, subtests) -> None:
+    def test_rejects_unproved_success_documents(self, subtests: pytest.Subtests) -> None:
         invalid = (
             b"",
             b"not-json",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -25,8 +26,13 @@ from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.fixtures import runtime_files
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_commit_prewarms_the_exact_candidate_executable(tmp_path: Path, *, mocker) -> None:
+
+def test_commit_prewarms_the_exact_candidate_executable(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     candidate = released_artifact()
     prewarm = mocker.patch.object(payload_transaction.payload_candidate, "prewarm")
@@ -40,7 +46,9 @@ def test_commit_prewarms_the_exact_candidate_executable(tmp_path: Path, *, mocke
     transaction.rollback()
 
 
-def test_upgrade_rollback_removes_candidate_only_runtime_members(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_rollback_removes_candidate_only_runtime_members(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     base = released_artifact("1.2.3")
@@ -88,7 +96,9 @@ def test_upgrade_rollback_removes_candidate_only_runtime_members(tmp_path: Path,
     assert not introduced.exists()
 
 
-def test_finalize_selects_no_predecessor_for_a_fresh_install(tmp_path: Path, *, mocker) -> None:
+def test_finalize_selects_no_predecessor_for_a_fresh_install(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
 
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -101,7 +111,9 @@ def test_finalize_selects_no_predecessor_for_a_fresh_install(tmp_path: Path, *, 
     )
 
 
-def test_finalize_retains_exactly_the_displaced_predecessor(tmp_path: Path, *, mocker) -> None:
+def test_finalize_retains_exactly_the_displaced_predecessor(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -119,7 +131,9 @@ def test_finalize_retains_exactly_the_displaced_predecessor(tmp_path: Path, *, m
     assert retained.root == payload_generation.path(ctx, selection.predecessor)
 
 
-def test_a_later_finalize_replaces_the_retained_predecessor(tmp_path: Path, *, mocker) -> None:
+def test_a_later_finalize_replaces_the_retained_predecessor(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     middle = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -144,7 +158,7 @@ def test_a_later_finalize_replaces_the_retained_predecessor(tmp_path: Path, *, m
 
 
 def test_retained_predecessor_reuses_an_exact_reverse_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(payload_transaction.payload_candidate, "prewarm")
@@ -179,7 +193,7 @@ def test_retained_predecessor_reuses_an_exact_reverse_transaction(
 
 
 def test_finalized_reverse_transition_keeps_newest_control_upgrade_floor(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Serving rollback cannot make an older release the install authority."""
     ctx = install_context(tmp_path)
@@ -207,7 +221,7 @@ def test_finalized_reverse_transition_keeps_newest_control_upgrade_floor(
 
 
 def test_reverse_transition_rechecks_predecessor_before_materialization(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """An admitted rollback still fails if the retained generation later changes."""
     ctx = install_context(tmp_path)
@@ -225,7 +239,7 @@ def test_reverse_transition_rechecks_predecessor_before_materialization(
 
 
 def test_fresh_commit_writes_manifest_receipt_and_pending_journal_then_finalize_state(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -248,7 +262,9 @@ def test_fresh_commit_writes_manifest_receipt_and_pending_journal_then_finalize_
     assert not Path(records.transaction_root(ctx)).exists()
 
 
-def test_upgrade_materializes_an_immutable_candidate_generation(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_materializes_an_immutable_candidate_generation(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     predecessor_bytes = b"predecessor-native-executable"
     successor_bytes = b"successor-native-executable"
@@ -275,7 +291,9 @@ def test_upgrade_materializes_an_immutable_candidate_generation(tmp_path: Path, 
     assert Path(ctx.executable) != Path(successor.context.executable)
 
 
-def test_generation_upgrade_does_not_copy_a_payload_snapshot(tmp_path: Path, *, mocker) -> None:
+def test_generation_upgrade_does_not_copy_a_payload_snapshot(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Selected generations remain the recovery authority during upgrade."""
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -289,7 +307,7 @@ def test_generation_upgrade_does_not_copy_a_payload_snapshot(tmp_path: Path, *, 
 
 
 def test_activation_selects_candidate_and_retains_only_the_predecessor(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     predecessor = begin_transaction(
@@ -318,7 +336,7 @@ def test_activation_selects_candidate_and_retains_only_the_predecessor(
 
 
 def test_fresh_transaction_projects_and_rolls_back_the_user_command(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -337,7 +355,9 @@ def test_fresh_transaction_projects_and_rolls_back_the_user_command(
     assert not runtime_config.exists()
 
 
-def test_upgrade_rollback_restores_the_prior_user_command_target(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_rollback_restores_the_prior_user_command_target(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     prior_target = Path(ctx.executable)
@@ -355,7 +375,7 @@ def test_upgrade_rollback_restores_the_prior_user_command_target(tmp_path: Path,
 @pytest.mark.parametrize("upgrading", [False, True])
 @pytest.mark.parametrize("failure", ["integrity", "runtime-spec", "interrupted-prewarm"])
 def test_failed_commit_rolls_back_before_propagating(
-    tmp_path: Path, *, upgrading: bool, failure: str, mocker
+    tmp_path: Path, *, upgrading: bool, failure: str, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     if upgrading:
@@ -393,7 +413,7 @@ def test_failed_commit_rolls_back_before_propagating(
 
 
 def test_upgrade_rollback_restores_payload_receipt_and_installed_state_exactly(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -422,7 +442,9 @@ def test_upgrade_rollback_restores_payload_receipt_and_installed_state_exactly(
     assert not Path(records.transaction_root(ctx)).exists()
 
 
-def test_upgrade_rollback_preserves_unknown_content(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_rollback_preserves_unknown_content(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     unknown = Path(ctx.install_dir, "proxy", "local.py")
@@ -439,7 +461,7 @@ def test_upgrade_rollback_preserves_unknown_content(tmp_path: Path, *, mocker) -
 
 
 def test_preserve_for_recovery_keeps_journal_and_rollback_visible(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

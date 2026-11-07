@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -24,7 +28,11 @@ from tests.cli.fixtures import invoke
     ],
 )
 def test_malformed_success_cannot_be_presented_as_completed(
-    command: str, result: dict[str, object], *, mocker, capsys
+    command: str,
+    result: dict[str, object],
+    *,
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     mocker.patch.object(application, "dispatch", return_value=result)
 
@@ -43,7 +51,13 @@ def test_malformed_success_cannot_be_presented_as_completed(
     [(0, 42), (41, 0), (-1, 42), (41, -1), (41, 41), (True, 42), (41, True)],
 )
 def test_reload_rejects_invalid_process_transition(
-    old_pid: object, new_pid: object, *, as_json: bool, recovered: bool, mocker, capsys
+    old_pid: object,
+    new_pid: object,
+    *,
+    as_json: bool,
+    recovered: bool,
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     result = {"state": "reloaded", "old_pid": old_pid, "new_pid": new_pid}
     if recovered:
@@ -64,7 +78,7 @@ def test_reload_rejects_invalid_process_transition(
 @pytest.mark.parametrize("as_json", [False, True])
 @pytest.mark.parametrize("recovered", [False, True])
 def test_reload_accepts_distinct_positive_processes(
-    *, as_json: bool, recovered: bool, mocker, capsys
+    *, as_json: bool, recovered: bool, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     result = {"state": "reloaded", "old_pid": 41, "new_pid": 42}
     if recovered:
@@ -83,7 +97,9 @@ def test_reload_accepts_distinct_positive_processes(
 
 
 @pytest.mark.parametrize("as_json", [False, True])
-def test_reload_reports_a_started_stopped_installation(*, as_json: bool, mocker, capsys) -> None:
+def test_reload_reports_a_started_stopped_installation(
+    *, as_json: bool, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     result = {"state": "started", "new_pid": 42}
     mocker.patch.object(application, "dispatch", return_value=result)
 
@@ -112,7 +128,11 @@ def test_reload_reports_a_started_stopped_installation(*, as_json: bool, mocker,
     ],
 )
 def test_reload_rejects_an_unproved_start(
-    result: dict[str, object], *, as_json: bool, mocker, capsys
+    result: dict[str, object],
+    *,
+    as_json: bool,
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     mocker.patch.object(application, "dispatch", return_value=result)
 
@@ -130,7 +150,12 @@ def test_reload_rejects_an_unproved_start(
 @pytest.mark.parametrize("command", ["uninstall", "recover"])
 @pytest.mark.parametrize("stopped", [-1, True, 0.5])
 def test_cleanup_rejects_invalid_process_count(
-    command: str, stopped: object, *, as_json: bool, mocker, capsys
+    command: str,
+    stopped: object,
+    *,
+    as_json: bool,
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     result = {"state": "purged", "stopped": stopped, "command_removed": True}
     if command == "recover":
@@ -151,7 +176,7 @@ def test_cleanup_rejects_invalid_process_count(
 @pytest.mark.parametrize("as_json", [False, True])
 @pytest.mark.parametrize("command", ["uninstall", "recover"])
 def test_cleanup_accepts_zero_processes_when_no_listener_remains(
-    command: str, *, as_json: bool, mocker, capsys
+    command: str, *, as_json: bool, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     result = {"state": "purged", "stopped": 0, "command_removed": True}
     if command == "recover":
@@ -177,7 +202,9 @@ def test_non_json_nested_evidence_is_rejected_before_projection(value: object) -
 
 
 @pytest.mark.parametrize("placement", ["result", "command", "payload_integrity"])
-def test_status_rejects_undeclared_public_evidence(placement: str, *, mocker, capsys) -> None:
+def test_status_rejects_undeclared_public_evidence(
+    placement: str, *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     marker = "private-evidence-marker"
     status: dict[str, object] = {
         "state": "running",
@@ -223,7 +250,11 @@ def test_status_rejects_undeclared_public_evidence(placement: str, *, mocker, ca
     ],
 )
 def test_other_commands_reject_undeclared_public_evidence(
-    command: str, result: dict[str, object], *, mocker, capsys
+    command: str,
+    result: dict[str, object],
+    *,
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     marker = "private-evidence-marker"
     mocker.patch.object(application, "dispatch", return_value={**result, "undeclared": marker})
@@ -235,7 +266,9 @@ def test_other_commands_reject_undeclared_public_evidence(
     assert json.loads(captured.err)["error"]["code"] == "internal_error"
 
 
-def test_doctor_rejects_undeclared_check_evidence(*, mocker, capsys) -> None:
+def test_doctor_rejects_undeclared_check_evidence(
+    *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     marker = "private-evidence-marker"
     report = {
         "state": "running",
@@ -270,7 +303,7 @@ def test_doctor_rejects_mistyped_check_status() -> None:
     [("command", 0), ("payload", 1), ("rollback", 1)],
 )
 def test_doctor_json_reports_categories_without_private_paths(
-    check: str, expected_exit: int, *, mocker
+    check: str, expected_exit: int, *, mocker: MockerFixture
 ) -> None:
     private = "/private/operator/recovery"
     status: dict[str, object] = {
@@ -304,7 +337,7 @@ def test_doctor_json_reports_categories_without_private_paths(
     [("degraded", "degraded"), ("invalid", "invalid"), ("unexpected", "invalid")],
 )
 def test_doctor_preserves_lifecycle_failure_when_component_checks_pass(
-    source_state: str, public_state: str, *, mocker
+    source_state: str, public_state: str, *, mocker: MockerFixture
 ) -> None:
     private = "/private/operator/installation"
     status: dict[str, object] = {
@@ -351,7 +384,7 @@ def test_doctor_preserves_lifecycle_failure_when_component_checks_pass(
     ],
 )
 def test_status_rejects_mistyped_nested_evidence(
-    override: dict[str, object], *, mocker, capsys
+    override: dict[str, object], *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     status: dict[str, object] = {
         "state": "running",

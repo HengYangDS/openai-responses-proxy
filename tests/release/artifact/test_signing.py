@@ -13,6 +13,8 @@ from tools.release.artifact import signing
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 def test_sign_and_verify_uses_one_external_trust_boundary(tmp_path: Path) -> None:
     key, assets = tmp_path / "signing", tmp_path / "assets"
@@ -28,7 +30,9 @@ def test_sign_and_verify_uses_one_external_trust_boundary(tmp_path: Path) -> Non
     assert not (assets / ".release-asset-trust").exists()
 
 
-def test_sign_and_verify_preserves_complete_provider_key_path(tmp_path: Path, mocker) -> None:
+def test_sign_and_verify_preserves_complete_provider_key_path(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     key, assets = tmp_path / "signing", tmp_path / "assets"
     assets.mkdir()
     (assets / "SHA256SUMS").write_text("abc\n", encoding="ascii")
@@ -59,7 +63,9 @@ def test_sign_and_verify_accepts_posix_file_variable_key_without_final_newline(
     assert (assets / "SHA256SUMS.sig").is_file()
 
 
-def test_sign_and_verify_does_not_rewrite_incomplete_windows_key(tmp_path: Path, mocker) -> None:
+def test_sign_and_verify_does_not_rewrite_incomplete_windows_key(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     key, assets = tmp_path / "signing", tmp_path / "assets"
     key.write_bytes(b"incomplete-private-key")
     assets.mkdir()
@@ -94,7 +100,7 @@ def test_sign_and_verify_rejects_missing_key_and_wrong_trust(tmp_path: Path) -> 
 
 
 def test_signing_failure_reports_the_openssh_reason_without_traceback(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     """Keep CI failure output concise while preserving the actionable cause."""
     key, assets = tmp_path / "signing", tmp_path / "assets"

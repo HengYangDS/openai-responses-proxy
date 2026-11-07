@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from email.message import Message
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Never
 
 import pytest
@@ -26,13 +27,16 @@ from tests.relay.fixtures import http_error
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()
 
 
 class TestRateLimitTransport(InputTransportFixture):
     def test_rate_limit_is_relayed_after_one_upstream_attempt_without_sleep(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         payload = b'{"error":{"message":"provider concurrency limit reached"}}'
         headers = Message()
@@ -76,7 +80,9 @@ class TestRateLimitTransport(InputTransportFixture):
 
         assert len(received) == 1
 
-    def test_rate_limit_bypasses_even_a_broad_provider_wire_retry_policy(self, *, mocker) -> None:
+    def test_rate_limit_bypasses_even_a_broad_provider_wire_retry_policy(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = b'{"error":{"message":"provider concurrency limit reached"}}'
         headers = Message()
         headers["Content-Type"] = "application/json"
@@ -109,7 +115,9 @@ class TestRateLimitTransport(InputTransportFixture):
         assert handler.statuses == [429]
         assert handler.output() == payload
 
-    def test_rate_limit_cooldown_is_provider_scoped_and_skips_upstream(self, *, mocker) -> None:
+    def test_rate_limit_cooldown_is_provider_scoped_and_skips_upstream(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = b'{"error":{"message":"provider concurrency limit reached"}}'
         first = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
         second = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
@@ -134,7 +142,9 @@ class TestRateLimitTransport(InputTransportFixture):
         assert other.statuses == [200]
         assert other.output() == b'{"id":"resp_other","status":"completed"}'
 
-    def test_rate_limit_cooldown_rejects_before_lifecycle_admission(self, *, mocker) -> None:
+    def test_rate_limit_cooldown_rejects_before_lifecycle_admission(
+        self, *, mocker: MockerFixture
+    ) -> None:
         cooldown.remember_failure(
             cooldown.provider_key("ucloud"),
             cooldown_seconds=5,
@@ -149,7 +159,9 @@ class TestRateLimitTransport(InputTransportFixture):
         assert handler.statuses == [429]
         assert b"provider_rate_limit_cooldown" in handler.output()
 
-    def test_direct_relay_handles_large_request_and_cooldown(self, *, mocker) -> None:
+    def test_direct_relay_handles_large_request_and_cooldown(
+        self, *, mocker: MockerFixture
+    ) -> None:
         body = json.dumps({"input": "x" * 400_000}).encode()
         handler = MemoryHandler(body)
         mocker.patch.object(
@@ -170,7 +182,7 @@ class TestRateLimitTransport(InputTransportFixture):
         assert handler.statuses == [503]
         assert b"dmx_empty_response_exhausted" in handler.output()
 
-    def test_direct_relay_exhausts_transport_retries(self, *, mocker) -> None:
+    def test_direct_relay_exhausts_transport_retries(self, *, mocker: MockerFixture) -> None:
         body = json.dumps({"input": []}).encode()
         handler = MemoryHandler(body)
         admission.reset_for_test()
@@ -189,7 +201,9 @@ class TestRateLimitTransport(InputTransportFixture):
         assert handler.statuses == [502]
         assert b"upstream_transport_error" in handler.output()
 
-    def test_direct_transport_terminal_branches_emit_bounded_results(self, *, mocker) -> None:
+    def test_direct_transport_terminal_branches_emit_bounded_results(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler()
         exchange = upstream_exchange.Exchange(
             handler=handler,

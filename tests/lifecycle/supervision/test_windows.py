@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,6 +14,9 @@ from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -22,7 +26,7 @@ SCHTASKS = r"C:\Windows\System32\schtasks.exe"
 class TestWindowsTaskSchedulerResolution:
     """Task Scheduler resolves from the kernel-reported system directory, never a search path."""
 
-    def test_schtasks_is_the_system_directory_executable(self, *, mocker) -> None:
+    def test_schtasks_is_the_system_directory_executable(self, *, mocker: MockerFixture) -> None:
         system = r"C:\Windows\System32"
         requested = []
 
@@ -42,14 +46,16 @@ class TestWindowsTaskSchedulerResolution:
         assert requested == [32768]
 
     @pytest.mark.parametrize("length", [0, 32768])
-    def test_unreported_system_directory_fails_closed(self, length: int, *, mocker) -> None:
+    def test_unreported_system_directory_fails_closed(
+        self, length: int, *, mocker: MockerFixture
+    ) -> None:
         kernel32 = mocker.Mock(GetSystemDirectoryW=mocker.Mock(return_value=length))
         mocker.patch.object(windows.ctypes, "WinDLL", return_value=kernel32, create=True)
 
         with pytest.raises(errors.InstallError, match="system directory is unavailable"):
             windows._schtasks()
 
-    def test_non_windows_hosts_have_no_system_directory(self, *, mocker) -> None:
+    def test_non_windows_hosts_have_no_system_directory(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(windows.ctypes, "WinDLL", None, create=True)
 
         with pytest.raises(errors.UnsupportedPlatformError, match="system libraries"):
@@ -58,12 +64,14 @@ class TestWindowsTaskSchedulerResolution:
 
 class TestWindowsLifecycle:
     @pytest.fixture(autouse=True)
-    def _system_schtasks(self, *, mocker) -> None:
+    def _system_schtasks(self, *, mocker: MockerFixture) -> None:
         """Resolve Task Scheduler as the kernel-reported system directory would."""
         mocker.patch.object(windows, "_schtasks", return_value=SCHTASKS)
 
     @pytest.mark.parametrize("code", [0x80070002, -2147024894, 0x80070003, -2147024893])
-    def test_exact_missing_task_hresult_proves_absence(self, code, *, mocker) -> None:
+    def test_exact_missing_task_hresult_proves_absence(
+        self, code, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         run = mocker.patch.object(
             windows.subprocess, "run", return_value=_completed(returncode=code)
@@ -80,7 +88,9 @@ class TestWindowsLifecycle:
         "code", [1, 0x80070005, -2147024891, 0x800706BA, 0x80070035, 0x80070057, 0x8007007B]
     )
     @pytest.mark.parametrize("operation", ["configured_executable", "status"])
-    def test_failed_task_query_cannot_prove_absence(self, code, operation, *, mocker) -> None:
+    def test_failed_task_query_cannot_prove_absence(
+        self, code, operation, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             windows.subprocess,
             "run",
@@ -93,7 +103,7 @@ class TestWindowsLifecycle:
     @pytest.mark.parametrize("operation", ["configured_executable", "status"])
     @pytest.mark.parametrize("malformed", ["xml", "action"])
     def test_successful_query_requires_an_owned_task_projection(
-        self, operation, malformed, *, mocker
+        self, operation, malformed, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
@@ -106,7 +116,9 @@ class TestWindowsLifecycle:
             getattr(windows, operation)(ctx)
 
     @pytest.mark.parametrize("live", [False, True])
-    def test_task_status_uses_owned_processes_not_localized_output(self, live, *, mocker) -> None:
+    def test_task_status_uses_owned_processes_not_localized_output(
+        self, live, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
         run = mocker.patch.object(windows.subprocess, "run", return_value=_completed(stdout=xml))
@@ -125,7 +137,9 @@ class TestWindowsLifecycle:
             windows.subprocess.TimeoutExpired("schtasks", 5.0),
         ],
     )
-    def test_task_query_failure_preserves_unknown_state(self, failure, *, mocker) -> None:
+    def test_task_query_failure_preserves_unknown_state(
+        self, failure, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(windows.subprocess, "run", side_effect=failure)
         with pytest.raises(errors.InstallError, match="task state is unproved"):
             windows.status(platform_context(windows=True))
@@ -140,7 +154,7 @@ class TestWindowsLifecycle:
         assert "python" not in decoded.lower()
         assert ".py" not in decoded
 
-    def test_task_xml_bytes_use_the_declared_utf16_encoding(self, *, mocker) -> None:
+    def test_task_xml_bytes_use_the_declared_utf16_encoding(self, *, mocker: MockerFixture) -> None:
         ctx = platform_context(windows=True)
         rendered = windows.render_task_xml(ctx)
 
@@ -163,7 +177,9 @@ class TestWindowsLifecycle:
 
         assert imported == [rendered]
 
-    def test_configured_executable_reads_only_the_registered_task(self, *, mocker) -> None:
+    def test_configured_executable_reads_only_the_registered_task(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         for completed, expected in (
             (_completed(returncode=0x80070002), None),
@@ -183,7 +199,9 @@ class TestWindowsLifecycle:
                 "/hresult",
             ]
 
-    def test_projection_compares_only_the_registered_task_action(self, *, mocker) -> None:
+    def test_projection_compares_only_the_registered_task_action(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         task = windows.render_task_xml(ctx).decode("utf-16")
         exported = task.replace(
@@ -202,7 +220,7 @@ class TestWindowsLifecycle:
             mocker.patch.object(windows.subprocess, "run", return_value=completed)
             assert windows.projection_is_current(ctx) is expected
 
-    def test_install_success_and_failure_messages(self, *, mocker) -> None:
+    def test_install_success_and_failure_messages(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("install_dir", windows=True) as ctx:
             task = windows.render_task_xml(ctx).decode("utf-16")
             invoked = mocker.patch.object(
@@ -247,7 +265,9 @@ class TestWindowsLifecycle:
                     windows.install(ctx)
                 assert "C:/Users/private/secret" not in str(raised.value)
 
-    def test_install_replaces_only_a_proved_predecessor_generation(self, *, mocker) -> None:
+    def test_install_replaces_only_a_proved_predecessor_generation(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         previous_executable = "C:/previous/openai-responses-proxy.exe"
         predecessor = windows.process.OwnedProcess(41, previous_executable, 1.0)
@@ -300,7 +320,7 @@ class TestWindowsLifecycle:
         ],
     )
     def test_install_requires_started_task_and_exact_successor(
-        self, *, started, configured, successor, message, mocker
+        self, *, started, configured, successor, message, mocker: MockerFixture
     ) -> None:
         ctx = platform_context(windows=True)
         configured = ctx.executable if configured == "expected" else configured
@@ -316,7 +336,9 @@ class TestWindowsLifecycle:
             windows.install(ctx)
         assert "C:/Users/private/secret" not in str(raised.value)
 
-    def test_watchdog_wait_is_bounded_and_requires_one_live_identity(self, *, mocker) -> None:
+    def test_watchdog_wait_is_bounded_and_requires_one_live_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         mocker.patch.object(windows, "_running_watchdog_pids", return_value=[])
         mocker.patch.object(windows.time, "monotonic", side_effect=[0.0, 1.0])
@@ -333,7 +355,9 @@ class TestWindowsLifecycle:
 
         assert windows._wait_for_watchdog(ctx) == candidate
 
-    def test_task_xml_serialization_preserves_special_characters(self, *, mocker) -> None:
+    def test_task_xml_serialization_preserves_special_characters(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         ctx.executable = f"{ctx.executable} & native"
         mocker.patch.object(windows, "_current_user", return_value="ACME\\A&B")
@@ -344,7 +368,7 @@ class TestWindowsLifecycle:
         assert root.findtext(".//task:Command", namespaces=namespace) == ctx.executable
         assert root.findtext(".//task:UserId", namespaces=namespace) == "ACME\\A&B"
 
-    def test_current_user(self, *, mocker) -> None:
+    def test_current_user(self, *, mocker: MockerFixture) -> None:
         for env, expected in (
             ({"USERNAME": "tester"}, "tester"),
             ({"USERNAME": "tester", "USERDOMAIN": "ACME"}, r"ACME\tester"),
@@ -352,7 +376,7 @@ class TestWindowsLifecycle:
             mocker.patch.dict(windows.os.environ, env, clear=True)
             assert windows._current_user() == expected
 
-    def test_pid_discovery_and_uninstall(self, *, mocker) -> None:
+    def test_pid_discovery_and_uninstall(self, *, mocker: MockerFixture) -> None:
         ctx = platform_context(windows=True)
         inventory = mocker.patch.object(
             windows.process,
@@ -383,7 +407,9 @@ class TestWindowsLifecycle:
             roles={serving_roles.WATCHDOG_MODE},
         )
 
-    def test_uninstall_requires_task_deletion_and_absence_proof(self, *, mocker) -> None:
+    def test_uninstall_requires_task_deletion_and_absence_proof(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         for deleted, message in (
             (
@@ -400,7 +426,9 @@ class TestWindowsLifecycle:
             assert "C:/Users/private/secret" not in str(raised.value)
             inventory.assert_not_called()
 
-    def test_uninstall_refuses_watchdog_residue_when_task_is_absent(self, *, mocker) -> None:
+    def test_uninstall_refuses_watchdog_residue_when_task_is_absent(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context(windows=True)
         mocker.patch.object(windows.subprocess, "run", return_value=_completed(returncode=1))
         mocker.patch.object(windows, "status", return_value="absent")

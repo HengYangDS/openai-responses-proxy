@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,10 +20,13 @@ from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import _recover_without_binding
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize("outcome", ["rolled_back", "finalized"])
 def test_terminal_recovery_finishes_partially_removed_generation(
-    tmp_path: Path, outcome: str, *, mocker
+    tmp_path: Path, outcome: str, *, mocker: MockerFixture
 ) -> None:
     """Disposal does not need the already removed generation's payload identity."""
     ctx = install_context(tmp_path)
@@ -58,7 +62,7 @@ def test_terminal_recovery_finishes_partially_removed_generation(
 @pytest.mark.parametrize("outcome", ["rolled_back", "finalized"])
 @pytest.mark.parametrize("residue", ["file", "empty_directory", "symlink"])
 def test_generation_disposal_preserves_unowned_content(
-    tmp_path: Path, outcome: str, residue: str, *, mocker
+    tmp_path: Path, outcome: str, residue: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     oldest = install_payload(ctx, "1.2.1", mocker=mocker)
@@ -99,7 +103,7 @@ def test_generation_disposal_preserves_unowned_content(
 
 @pytest.mark.parametrize("outcome", ["rolled_back", "finalized"])
 def test_generation_disposal_retry_preserves_replaced_owned_file(
-    tmp_path: Path, outcome: str, *, mocker
+    tmp_path: Path, outcome: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     oldest = install_payload(ctx, "1.2.1", mocker=mocker)
@@ -133,7 +137,7 @@ def test_generation_disposal_retry_preserves_replaced_owned_file(
 
 @pytest.mark.parametrize("interruption", ["runtime", "manifest"])
 def test_failed_materialization_disposes_only_predeclared_candidate_bytes(
-    tmp_path: Path, interruption: str, *, mocker
+    tmp_path: Path, interruption: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -161,7 +165,7 @@ def test_failed_materialization_disposes_only_predeclared_candidate_bytes(
 
 @pytest.mark.parametrize("corruption", ["missing", "closed", "other_generation"])
 def test_candidate_disposal_rejects_invalid_journal_authority(
-    tmp_path: Path, corruption: str, *, mocker
+    tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)

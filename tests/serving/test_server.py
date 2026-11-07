@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import socket
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,8 +12,11 @@ from openai_responses_proxy.relay import responses
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving import server
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_server_bindings_are_required_and_immutable(*, mocker) -> None:
+
+def test_server_bindings_are_required_and_immutable(*, mocker: MockerFixture) -> None:
     providers = mocker.sentinel.providers
     bindings = server.Bindings(
         control=control.Bindings(mocker.Mock(return_value={}), mocker.Mock()),
@@ -25,7 +29,9 @@ def test_server_bindings_are_required_and_immutable(*, mocker) -> None:
         setattr(bindings, attribute, "dmx/other")
 
 
-def test_server_routes_each_method_to_one_owner(subtests, *, mocker) -> None:
+def test_server_routes_each_method_to_one_owner(
+    subtests: pytest.Subtests, *, mocker: MockerFixture
+) -> None:
     handler = object.__new__(server.Handler)
     bindings = control.Bindings(mocker.Mock(return_value={}), mocker.Mock())
     providers = mocker.sentinel.providers
@@ -55,7 +61,7 @@ def test_server_routes_each_method_to_one_owner(subtests, *, mocker) -> None:
             owner.assert_called_once_with(handler, *arguments, **keywords)
 
 
-def test_server_hardening_and_handoff_listener_adoption(*, mocker) -> None:
+def test_server_hardening_and_handoff_listener_adoption(*, mocker: MockerFixture) -> None:
     connection = mocker.Mock()
     server._disable_nagle(connection)
     connection.setsockopt.assert_called_once_with(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -81,7 +87,7 @@ def test_server_hardening_and_handoff_listener_adoption(*, mocker) -> None:
     adopted.server_close()
 
 
-def test_server_tracks_handlers_and_classifies_disconnects(*, mocker) -> None:
+def test_server_tracks_handlers_and_classifies_disconnects(*, mocker: MockerFixture) -> None:
     proxy = object.__new__(server.ResilientProxyServer)
     process = mocker.patch("http.server.ThreadingHTTPServer.process_request_thread")
     begin = mocker.patch.object(server.admission, "begin_handler")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,9 +20,12 @@ from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_rollback_requires_idle_and_verified_retained_authority(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
     transaction_status = mocker.patch.object(records, "status", return_value={"state": "prepared"})
@@ -48,7 +52,9 @@ def test_rollback_requires_idle_and_verified_retained_authority(
         control.rollback(ctx, to_release="1.2.2")
 
 
-def test_rollback_converges_on_one_explicit_release(tmp_path: Path, *, mocker) -> None:
+def test_rollback_converges_on_one_explicit_release(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -80,7 +86,7 @@ def test_rollback_converges_on_one_explicit_release(tmp_path: Path, *, mocker) -
 
 
 def test_rollback_rejects_an_invalid_target_before_lifecycle_inspection(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction_status = mocker.patch.object(records, "status")
@@ -98,7 +104,7 @@ def test_rollback_rejects_an_invalid_target_before_lifecycle_inspection(
 
 
 def test_rollback_does_not_treat_stale_installed_state_as_the_active_target(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

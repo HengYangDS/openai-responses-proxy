@@ -6,12 +6,16 @@ import os
 from dataclasses import replace
 from pathlib import Path
 from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
 from tests.lifecycle.fixtures import install_context
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 def test_posix_command_path_uses_absolute_xdg_bin_home_or_user_local_bin(
@@ -74,7 +78,9 @@ def test_projection_replaces_only_absent_or_exact_owned_link(tmp_path: Path) -> 
     assert command_path.resolve() == foreign.resolve()
 
 
-def test_projection_preserves_an_already_owned_link(tmp_path: Path, *, mocker) -> None:
+def test_projection_preserves_an_already_owned_link(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """An unchanged control-plane projection does not churn link identity."""
     target = tmp_path / "payload" / command.COMMAND_NAME
     target.parent.mkdir(parents=True)
@@ -112,7 +118,9 @@ def test_restore_and_remove_preserve_a_path_that_changed_ownership(
     assert command_path.read_text(encoding="utf-8") == "foreign"
 
 
-def test_restore_rechecks_foreign_ownership_after_admission(tmp_path: Path, *, mocker) -> None:
+def test_restore_rechecks_foreign_ownership_after_admission(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     target = tmp_path / "payload" / command.COMMAND_NAME
     target.parent.mkdir()
     target.write_bytes(b"runtime")

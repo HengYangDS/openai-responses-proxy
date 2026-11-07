@@ -9,12 +9,16 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
 import pytest
 
 from tests.quality.fixtures import ROOT
 from tools.quality import branch_coverage
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -34,7 +38,7 @@ from tools.quality import branch_coverage
         ("unknown", "value"),
     ],
 )
-def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker) -> None:
+def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker: MockerFixture) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     policy = tomllib.loads(path.read_text())
     policy[field] = value
@@ -88,7 +92,7 @@ def test_malformed_package_counts_are_not_coverage_evidence() -> None:
 
 @pytest.mark.parametrize("source", [None, [1], ["tools"]])
 def test_cli_requires_native_source_inventory_and_returns_measured_success(
-    source, mocker, capsys
+    source, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     coverage = mocker.patch.object(branch_coverage, "Coverage").return_value

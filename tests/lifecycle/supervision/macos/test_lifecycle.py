@@ -5,6 +5,7 @@ from __future__ import annotations
 import plistlib
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -16,10 +17,13 @@ from tests.lifecycle.supervision.fixtures import set_file as _set_file
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
 from tests.lifecycle.supervision.macos.fixtures import service as _service
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestMacosLifecycle:
     @pytest.fixture(autouse=True)
-    def _isolate_launch_agents(self, tmp_path, *, mocker) -> None:
+    def _isolate_launch_agents(self, tmp_path: Path, *, mocker: MockerFixture) -> None:
         mocker.patch.object(macos.config, "home_dir", return_value=str(tmp_path))
         mocker.patch.object(
             macos.shutil,
@@ -31,7 +35,9 @@ class TestMacosLifecycle:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_domains", return_value=("user/501",))
 
-    def test_native_tools_resolve_from_the_host_default_path(self, *, mocker) -> None:
+    def test_native_tools_resolve_from_the_host_default_path(
+        self, *, mocker: MockerFixture
+    ) -> None:
         resolved = mocker.patch.object(
             macos.shutil,
             "which",
@@ -43,7 +49,9 @@ class TestMacosLifecycle:
         assert macos._native_tool("launchctl") == "/native/launchctl"
         resolved.assert_called_once_with("launchctl", path=macos.os.defpath)
 
-    def test_native_tool_resolution_fails_with_one_product_error(self, *, mocker) -> None:
+    def test_native_tool_resolution_fails_with_one_product_error(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos.shutil, "which", return_value=None)
 
         with pytest.raises(
@@ -51,7 +59,9 @@ class TestMacosLifecycle:
         ):
             macos._native_tool("launchctl")
 
-    def test_service_carrier_uses_the_context_user_home(self, tmp_path, *, mocker) -> None:
+    def test_service_carrier_uses_the_context_user_home(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
         owned_home = tmp_path / "owned-home"
         ambient_home = tmp_path / "ambient-home"
         context = SimpleNamespace(
@@ -72,7 +82,7 @@ class TestMacosLifecycle:
         payload = plistlib.loads(macos.render_plist(context).encode())
         assert payload["EnvironmentVariables"] == {"HOME": str(owned_home)}
 
-    def test_install_rejects_unproved_predecessor_removal(self, *, mocker) -> None:
+    def test_install_rejects_unproved_predecessor_removal(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(macos.os, "getuid", return_value=501)
             Path(macos._plist_path(ctx)).parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +117,7 @@ class TestMacosLifecycle:
         ],
     )
     def test_install_requires_exact_predecessor_identity(
-        self, *, configured, captured, message, mocker
+        self, *, configured, captured, message, mocker: MockerFixture
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(
@@ -134,7 +144,7 @@ class TestMacosLifecycle:
                     roles={macos.serving_roles.WATCHDOG_MODE},
                 )
 
-    def test_install_rejects_unchanged_watchdog_generation(self, *, mocker) -> None:
+    def test_install_rejects_unchanged_watchdog_generation(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(macos.os, "getuid", return_value=501)
             Path(macos._plist_path(ctx)).parent.mkdir(parents=True, exist_ok=True)
@@ -169,7 +179,9 @@ class TestMacosLifecycle:
             )
             wait_for_exit.assert_called_once_with(generation)
 
-    def test_install_requires_predecessor_exit_and_successor_identity(self, *, mocker) -> None:
+    def test_install_requires_predecessor_exit_and_successor_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             Path(macos._plist_path(ctx)).parent.mkdir(parents=True, exist_ok=True)
             Path(macos._plist_path(ctx)).write_text(macos.render_plist(ctx), encoding="utf-8")
@@ -220,7 +232,7 @@ class TestMacosLifecycle:
         ],
     )
     def test_install_rejects_unproved_kickstart_result(
-        self, *, kickstart_stdout, observed, message, mocker
+        self, *, kickstart_stdout, observed, message, mocker: MockerFixture
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(
@@ -241,7 +253,7 @@ class TestMacosLifecycle:
             with pytest.raises(errors.InstallError, match=message):
                 macos.install(ctx)
 
-    def test_install_proves_distinct_launchd_generation(self, *, mocker) -> None:
+    def test_install_proves_distinct_launchd_generation(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = macos._plist_path(ctx)
             mocker.patch.object(macos.os, "getuid", return_value=501)
@@ -301,7 +313,9 @@ class TestMacosLifecycle:
             wait_for_exit.assert_called_once_with(predecessor)
             owned_process_alive.assert_called_once_with(successor)
 
-    def test_install_does_not_replace_the_carrier_before_predecessor_exit(self, *, mocker) -> None:
+    def test_install_does_not_replace_the_carrier_before_predecessor_exit(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             plist.parent.mkdir(parents=True, exist_ok=True)
@@ -322,7 +336,7 @@ class TestMacosLifecycle:
 
             assert plist.read_text(encoding="utf-8") == prior
 
-    def test_install_rejects_bootstrap_failure(self, *, mocker) -> None:
+    def test_install_rejects_bootstrap_failure(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(macos.os, "getuid", return_value=501)
             mocker.patch.object(
@@ -372,7 +386,7 @@ class TestMacosLifecycle:
         stderr_log = runtime_config.path_join(ctx.log_dir, "watchdog.stderr.log")
         assert f"<string>{stderr_log}</string>" in rendered
 
-    def test_status_and_uninstall(self, *, mocker) -> None:
+    def test_status_and_uninstall(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             for exists, result, expected in (
@@ -397,7 +411,9 @@ class TestMacosLifecycle:
                 assert not plist.exists()
                 assert invoked.call_count == 2
 
-    def test_uninstall_keeps_plist_when_launchd_removal_is_unproven(self, *, mocker) -> None:
+    def test_uninstall_keeps_plist_when_launchd_removal_is_unproven(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             configured = f"{ctx.install_dir}/generations/{'a' * 32}/bin/openai-responses-proxy"
             configured_context = SimpleNamespace(
@@ -431,7 +447,9 @@ class TestMacosLifecycle:
                 roles={macos.serving_roles.WATCHDOG_MODE},
             )
 
-    def test_uninstall_boots_out_registered_service_when_plist_is_missing(self, *, mocker) -> None:
+    def test_uninstall_boots_out_registered_service_when_plist_is_missing(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             plist.unlink(missing_ok=True)
@@ -455,7 +473,9 @@ class TestMacosLifecycle:
                 ["launchctl", "print", f"user/501/{ctx.service_id}"],
             ]
 
-    def test_uninstall_keeps_plist_when_launchd_remains_registered(self, *, mocker) -> None:
+    def test_uninstall_keeps_plist_when_launchd_remains_registered(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = _set_file(macos._plist_path(ctx), macos.render_plist(ctx))
             mocker.patch.object(

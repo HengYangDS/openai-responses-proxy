@@ -7,6 +7,7 @@ import json
 import socket
 import threading
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -25,6 +26,9 @@ from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import request
 from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class TestSseFraming(InputTransportFixture):
@@ -60,7 +64,9 @@ class TestSseFraming(InputTransportFixture):
         assert result["events"] == 5
         assert result["wrote_downstream"] is True
 
-    def test_terminal_stream_finishes_while_chunked_upstream_remains_open(self, *, mocker) -> None:
+    def test_terminal_stream_finishes_while_chunked_upstream_remains_open(
+        self, *, mocker: MockerFixture
+    ) -> None:
         completed = b'data: {"type":"response.completed"}\n\n'
         release = threading.Event()
         mocker.patch.object(sse, "UPSTREAM_READ_TIMEOUT", 1.0)
@@ -96,7 +102,7 @@ class TestSseFraming(InputTransportFixture):
         "terminal", ["response.completed", "response.incomplete", "response.failed"]
     )
     def test_terminal_event_finishes_without_reading_or_forwarding_trailing_data(
-        self, terminal, *, mocker
+        self, terminal, *, mocker: MockerFixture
     ) -> None:
         event = b"data: " + json.dumps({"type": terminal}).encode() + b"\n\n"
         tail = b'data: {"type":"response.output_text.delta","delta":"after-terminal"}\n\n'
@@ -117,7 +123,7 @@ class TestSseFraming(InputTransportFixture):
 
     @pytest.mark.parametrize("failure", [BrokenPipeError, ConnectionResetError, RuntimeError])
     def test_downstream_failure_releases_owned_upstream_without_reconnect(
-        self, failure, *, mocker
+        self, failure, *, mocker: MockerFixture
     ) -> None:
         upstream = DirectResponse(b'data: {"type":"response.completed"}\n\n')
         close = mocker.spy(upstream, "close")
@@ -132,7 +138,7 @@ class TestSseFraming(InputTransportFixture):
         reopen.assert_not_called()
 
     def test_malformed_event_after_commit_closes_without_a_second_http_response(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
         upstream = DirectResponse(content, b'data: {"type":\n\n')
@@ -197,7 +203,7 @@ class TestSseFraming(InputTransportFixture):
         assert results == [(terminal, detail, True) for _, terminal, detail, _ in cases]
         assert b"secret" in final_output
 
-    def test_live_sse_preserves_ciphertext_after_commit(self, *, mocker) -> None:
+    def test_live_sse_preserves_ciphertext_after_commit(self, *, mocker: MockerFixture) -> None:
         plaintext = b'data: {"type":"response.output_text.delta","delta":"visible"}\n\n'
         encrypted = (
             b'data: {"type":"response.completed","response":{"output":['
@@ -227,7 +233,7 @@ class TestSseFraming(InputTransportFixture):
         assert counters["stream_projection_failures"] == 0
         serializer.assert_not_called()
 
-    def test_live_sse_preserves_ciphertext_before_commit(self, *, mocker) -> None:
+    def test_live_sse_preserves_ciphertext_before_commit(self, *, mocker: MockerFixture) -> None:
         body = request_body(stream=True)
         encrypted = (
             b'data: {"type":"response.completed","response":{"output":['
@@ -277,7 +283,7 @@ class TestSseFraming(InputTransportFixture):
 
     @pytest.mark.parametrize("failure", ["event", "plaintext", "unknown"])
     def test_committed_validation_failure_reports_owned_reason_without_replay(
-        self, failure: str, *, mocker
+        self, failure: str, *, mocker: MockerFixture
     ) -> None:
         content = b'data: {"type":"response.output_text.delta","delta":"visible"}\n\n'
         if failure == "plaintext":
@@ -329,7 +335,9 @@ class TestSseFraming(InputTransportFixture):
         counters = cast("dict[str, int]", self._status_snapshot()["counters"])
         assert counters["stream_projection_failures"] == 1
 
-    def test_public_sse_relay_rejects_an_unprojectable_stream(self, *, mocker) -> None:
+    def test_public_sse_relay_rejects_an_unprojectable_stream(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler()
         exchange = mocker.Mock(
             handler=handler,
@@ -353,7 +361,9 @@ class TestSseFraming(InputTransportFixture):
         assert b"stream_projection_failed" in handler.output()
         exchange.log.assert_called_once_with("sse_projection_failed")
 
-    def test_unexpected_terminal_validator_failure_is_bounded(self, *, mocker) -> None:
+    def test_unexpected_terminal_validator_failure_is_bounded(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler()
         exchange = mocker.Mock(handler=handler, deadline=float("inf"))
         mocker.patch.object(

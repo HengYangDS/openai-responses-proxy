@@ -32,10 +32,12 @@ from tests.lifecycle.transaction.fixtures import recovery_runtime
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize("previous_release", [None, "1.2.2"])
 def test_finalized_transaction_cannot_rollback_its_committed_payload(
-    tmp_path: Path, previous_release: str | None, *, mocker
+    tmp_path: Path, previous_release: str | None, *, mocker: MockerFixture
 ) -> None:
     """A consumed transaction cannot mutate its completed installation."""
     ctx = install_context(tmp_path)
@@ -59,7 +61,9 @@ def test_finalized_transaction_cannot_rollback_its_committed_payload(
     assert not records.transaction_root(ctx).exists()
 
 
-def test_consumed_transaction_preserves_the_next_transaction(tmp_path: Path, *, mocker) -> None:
+def test_consumed_transaction_preserves_the_next_transaction(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """An old upgrade capability cannot close a later writer's journal."""
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.1", mocker=mocker)
@@ -78,7 +82,7 @@ def test_consumed_transaction_preserves_the_next_transaction(tmp_path: Path, *, 
     "operation", ["materialize", "activate", "finalize", "rollback", "preserve"]
 )
 def test_recovered_transaction_cannot_mutate_the_next_transaction(
-    tmp_path: Path, operation: str, *, mocker
+    tmp_path: Path, operation: str, *, mocker: MockerFixture
 ) -> None:
     """Recovery consumes the journal authority of any surviving controller."""
     ctx = install_context(tmp_path)
@@ -118,7 +122,9 @@ def test_transaction_status_is_absent_without_a_journal(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("drift", ["installed", "selection", "root"])
-def test_reverse_transition_rejects_stale_authority(tmp_path: Path, drift: str, *, mocker) -> None:
+def test_reverse_transition_rejects_stale_authority(
+    tmp_path: Path, drift: str, *, mocker: MockerFixture
+) -> None:
     """Rollback admission rechecks installed state, selection, and predecessor root."""
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -146,7 +152,9 @@ def test_reverse_transition_rejects_stale_authority(tmp_path: Path, drift: str, 
         payload_transaction.begin_rollback_transaction(ctx, retained)
 
 
-def test_retained_predecessor_rejects_corruption_before_mutation(tmp_path: Path, *, mocker) -> None:
+def test_retained_predecessor_rejects_corruption_before_mutation(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -188,7 +196,7 @@ def test_installed_state_rejects_a_symlink_even_when_its_target_is_absent(tmp_pa
 
 
 def test_replay_and_downgrade_are_rejected_before_any_live_write(
-    tmp_path: Path, subtests, *, mocker
+    tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
@@ -204,7 +212,9 @@ def test_replay_and_downgrade_are_rejected_before_any_live_write(
         assert not Path(records.transaction_root(ctx)).exists()
 
 
-def test_empty_control_root_remains_a_fresh_install(tmp_path: Path, *, mocker) -> None:
+def test_empty_control_root_remains_a_fresh_install(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """An empty pre-created control directory does not invent a predecessor."""
     ctx = install_context(tmp_path)
     Path(ctx.install_dir).mkdir(parents=True)
@@ -221,7 +231,9 @@ def test_empty_control_root_remains_a_fresh_install(tmp_path: Path, *, mocker) -
     assert not Path(ctx.install_dir).exists()
 
 
-def test_upgrade_requires_a_selected_generation_before_any_write(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_requires_a_selected_generation_before_any_write(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Only a durable generation selector can authorize an installed predecessor."""
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, "1.2.2", mocker=mocker)
@@ -239,7 +251,7 @@ def test_upgrade_requires_a_selected_generation_before_any_write(tmp_path: Path,
 
 
 def test_nonempty_control_root_without_installed_authority_is_rejected(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Unowned residue cannot be interpreted as an install predecessor."""
     ctx = install_context(tmp_path)
@@ -255,7 +267,7 @@ def test_nonempty_control_root_without_installed_authority_is_rejected(
 
 
 def test_transaction_status_projects_only_the_read_only_recovery_contract(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -291,7 +303,7 @@ def test_transaction_status_projects_only_the_read_only_recovery_contract(
 
 
 def test_transaction_state_machine_rejects_invalid_order_and_duplicate_commit(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path / "transaction")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)

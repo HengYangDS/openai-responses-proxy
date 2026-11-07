@@ -69,7 +69,9 @@ class FormatContracts:
         with pytest.raises(assets.AssetError):
             assets.verify_platform_archive(first + b"drift", manifest)
 
-    def test_checksum_manifest_round_trips_and_rejects_drift(self, subtests) -> None:
+    def test_checksum_manifest_round_trips_and_rejects_drift(
+        self, subtests: pytest.Subtests
+    ) -> None:
         platform = "linux-x86_64"
         files = {"bin/openai-responses-proxy": assets.ArchiveFile(b"native", 0o755)}
         archive_name = assets.archive_name("1.2.3", platform)
@@ -114,7 +116,7 @@ class FormatContracts:
                 ("linux-x86_64",),
             )
 
-    def test_invalid_paths_and_manifests_fail_closed(self, subtests) -> None:
+    def test_invalid_paths_and_manifests_fail_closed(self, subtests: pytest.Subtests) -> None:
         with pytest.raises(assets.AssetError):
             assets.checksums({})
         for path in ("../escape", "..\\escape", "/absolute", "C:\\absolute"):

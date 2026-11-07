@@ -30,6 +30,8 @@ from tests.relay.fixtures import http_error
 if TYPE_CHECKING:
     import ssl
 
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()
 
@@ -43,7 +45,9 @@ class _HTTPSHandlerWithContext(Protocol):
 
 
 class TestTransportFailures(InputTransportFixture):
-    def test_upstream_tls_context_uses_the_packaged_trust_store(self, *, mocker) -> None:
+    def test_upstream_tls_context_uses_the_packaged_trust_store(
+        self, *, mocker: MockerFixture
+    ) -> None:
         context = object()
         mocker.patch.object(upstream_exchange.certifi, "where", return_value="/safe/cacert.pem")
         create = mocker.patch.object(
@@ -69,7 +73,7 @@ class TestTransportFailures(InputTransportFixture):
         assert context.cert_store_stats()["x509_ca"] > 0
 
     def test_direct_relay_covers_transport_exhaustion_without_a_local_queue(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         admission.reset_for_test()
         telemetry.reset_for_test()
@@ -80,7 +84,9 @@ class TestTransportFailures(InputTransportFixture):
         assert handler.statuses == [502]
         assert b"catalog_transport_error" in handler.output()
 
-    def test_direct_relay_covers_retry_and_fallback_transport_failure(self, *, mocker) -> None:
+    def test_direct_relay_covers_retry_and_fallback_transport_failure(
+        self, *, mocker: MockerFixture
+    ) -> None:
         transient = http_error(503, "failure", b"temporary")
         success = DirectResponse(b'{"id":"resp_ok","status":"completed"}')
         handler = MemoryHandler(json.dumps({"input": []}).encode())
@@ -108,7 +114,9 @@ class TestTransportFailures(InputTransportFixture):
         assert b"dmx_empty_response_exhausted" in handler.output()
 
     @pytest.mark.parametrize("provider", ["dmxapi", "ucloud", "aihubmix"])
-    def test_exhausted_503_cools_only_the_failed_provider(self, provider: str, *, mocker) -> None:
+    def test_exhausted_503_cools_only_the_failed_provider(
+        self, provider: str, *, mocker: MockerFixture
+    ) -> None:
         payload = b'{"error":{"type":"server_error","code":"overloaded"}}'
         failures = [http_error(503, "unavailable", payload) for _ in range(4)]
         other_success = DirectResponse(b'{"id":"resp_other","status":"completed"}')
@@ -144,7 +152,7 @@ class TestTransportFailures(InputTransportFixture):
         assert open_.call_count == 6
 
     def test_response_failed_recovery_stops_after_dialogue_and_transport_retries(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         exchange = mocker.Mock(
             is_responses=True,
@@ -177,7 +185,9 @@ class TestTransportFailures(InputTransportFixture):
         mocker.patch.object(upstream_exchange, "INPUT_VARIANT_DIALOGUE_SLOTS", 0)
         assert upstream_exchange.open_upstream(exchange) is None
 
-    def test_responses_relay_dispatches_non_responses_body_and_empty_note(self, *, mocker) -> None:
+    def test_responses_relay_dispatches_non_responses_body_and_empty_note(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(b"", path="/dmxapi/v1/models")
         response = DirectResponse(b'{"data":[]}')
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=response)
@@ -195,13 +205,17 @@ class TestTransportFailures(InputTransportFixture):
         responses.relay(handler, "POST", PROVIDERS)
         assert handler.statuses == [200]
 
-    def test_non_responses_admission_bypasses_responses_only_policy(self, *, mocker) -> None:
+    def test_non_responses_admission_bypasses_responses_only_policy(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         exchange = mocker.Mock(handler=handler, is_responses=False)
         assert responses._admit(exchange)
         assert not responses._cooldown_active(exchange)
 
-    def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(self, *, mocker) -> None:
+    def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(
+        self, *, mocker: MockerFixture
+    ) -> None:
         partial = http.client.IncompleteRead(b"partial")
         handler = MemoryHandler(path="/dmxapi/v1/models")
         mocker.patch.object(
@@ -227,7 +241,7 @@ class TestTransportFailures(InputTransportFixture):
         assert statuses == [[200], [200]]
 
     def test_non_stream_responses_preserve_ciphertext_for_current_turn_decryption(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         upstream = json.dumps(
             {
@@ -260,7 +274,9 @@ class TestTransportFailures(InputTransportFixture):
         assert b"agent-secret" in handler.output()
         assert b"visible" in handler.output()
 
-    def test_empty_responses_request_fails_before_upstream_io(self, *, mocker) -> None:
+    def test_empty_responses_request_fails_before_upstream_io(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(b"")
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
         responses.relay(handler, "POST", PROVIDERS)
@@ -275,7 +291,7 @@ class TestTransportFailures(InputTransportFixture):
         ids=["expired-before-read", "expired-on-completion"],
     )
     def test_body_deadline_rejects_expiry_and_restores_socket_timeout(
-        self, ticks: list[float], consumed: int, *, mocker
+        self, ticks: list[float], consumed: int, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(b"private")
         handler.connection.settimeout(0.25)
@@ -289,7 +305,7 @@ class TestTransportFailures(InputTransportFixture):
 
     @pytest.mark.parametrize("previous", [None, 0.25, 2.0])
     def test_body_read_clamps_and_restores_the_original_socket_timeout(
-        self, previous: float | None, *, mocker
+        self, previous: float | None, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(b"complete")
         handler.connection.settimeout(previous)
@@ -313,7 +329,7 @@ class TestTransportFailures(InputTransportFixture):
         ],
     )
     def test_failed_body_reads_reject_before_upstream_without_disclosure(
-        self, failure: OSError, status: int, reason: str, *, mocker
+        self, failure: OSError, status: int, reason: str, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(b"private body")
         handler.connection.settimeout(0.25)
@@ -331,7 +347,9 @@ class TestTransportFailures(InputTransportFixture):
         assert b"private" not in handler.output()
         opened.assert_not_called()
 
-    def test_unparseable_body_length_fails_without_reading_or_upstream_io(self, *, mocker) -> None:
+    def test_unparseable_body_length_fails_without_reading_or_upstream_io(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(b"private body")
         del handler.headers["Content-Length"]
         handler.headers["Content-Length"] = "9" * 5000
@@ -346,7 +364,7 @@ class TestTransportFailures(InputTransportFixture):
         opened.assert_not_called()
 
     def test_invalid_successful_responses_fail_before_downstream_commit(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         invalid = (
             DirectResponse(b""),
@@ -363,7 +381,9 @@ class TestTransportFailures(InputTransportFixture):
                 assert handler.statuses == [503]
                 assert b"invalid_responses_success_body" in handler.output()
 
-    def test_oversized_successful_response_fails_before_downstream_commit(self, *, mocker) -> None:
+    def test_oversized_successful_response_fails_before_downstream_commit(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(json.dumps({"input": []}).encode())
         upstream = DirectResponse(b'{"status":"completed","output":"', b"x" * 64, b'"}')
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=upstream)

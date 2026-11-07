@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,12 +12,17 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.serving import entrypoint
 from openai_responses_proxy.serving import identity
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestListenerEntrypoint:
     def teardown_method(self) -> None:
         entrypoint._PROCESS.bootstrap = None
 
-    def test_bootstrap_loads_routes_between_two_identical_identity_checks(self, *, mocker) -> None:
+    def test_bootstrap_loads_routes_between_two_identical_identity_checks(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             executable = root / "bin/openai-responses-proxy"
@@ -41,7 +47,7 @@ class TestListenerEntrypoint:
         load.assert_called_once_with(root / "providers.toml")
 
     def test_bootstrap_rejects_missing_and_changed_payload_identity(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         executable = Path("/installed/bin/openai-responses-proxy")
         loaded = identity.LoadedPayloadIdentity(
@@ -65,7 +71,7 @@ class TestListenerEntrypoint:
                 with pytest.raises(RuntimeError, match=message):
                     entrypoint.bootstrap(executable)
 
-    def _admit_run(self, mocker) -> None:
+    def _admit_run(self, mocker: MockerFixture) -> None:
         loaded = identity.LoadedPayloadIdentity(
             "2.0.8", "a" * 64, "b" * 64, "c" * 64, Path("/installed")
         )
@@ -81,7 +87,7 @@ class TestListenerEntrypoint:
         )
 
     def test_runtime_providers_fail_closed_until_bootstrap_and_then_return_frozen_routes(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         with pytest.raises(RuntimeError, match="has not verified"):
             entrypoint.runtime_providers()
@@ -94,7 +100,9 @@ class TestListenerEntrypoint:
         )
         assert entrypoint.runtime_providers() is providers
 
-    def test_handoff_context_launches_the_selected_generation(self, *, mocker) -> None:
+    def test_handoff_context_launches_the_selected_generation(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """A running predecessor resolves the candidate selected by the installer."""
         self._admit_run(mocker)
         entrypoint._PROCESS.bootstrap = entrypoint.bootstrap()
@@ -122,7 +130,7 @@ class TestListenerEntrypoint:
         ]
         committed.assert_called_once_with(selected)
 
-    def test_main_delegates_handoff_child(self, *, mocker) -> None:
+    def test_main_delegates_handoff_child(self, *, mocker: MockerFixture) -> None:
         self._admit_run(mocker)
         context = mocker.sentinel.handoff_context
         mocker.patch.object(entrypoint, "_handoff_context", return_value=context)
@@ -130,7 +138,9 @@ class TestListenerEntrypoint:
         assert entrypoint.run(handoff_child=True) == 7
         run_child.assert_called_once_with(context)
 
-    def test_main_closes_normal_server_after_keyboard_interrupt(self, *, mocker) -> None:
+    def test_main_closes_normal_server_after_keyboard_interrupt(
+        self, *, mocker: MockerFixture
+    ) -> None:
         self._admit_run(mocker)
         listener = mocker.Mock()
         context = mocker.sentinel.handoff_context
@@ -157,7 +167,9 @@ class TestListenerEntrypoint:
         listener.server_close.assert_called_once_with()
         assert entrypoint._PROCESS.server is listener
 
-    def test_invalid_runtime_configuration_exits_without_starting_a_server(self, *, mocker) -> None:
+    def test_invalid_runtime_configuration_exits_without_starting_a_server(
+        self, *, mocker: MockerFixture
+    ) -> None:
         self._admit_run(mocker)
         mocker.patch.object(
             entrypoint.runtime_config,
@@ -172,7 +184,9 @@ class TestListenerEntrypoint:
         create_server.assert_not_called()
         log.assert_called_once_with("event=configuration_error exception=ConfigurationError")
 
-    def test_invalid_payload_exits_without_reading_runtime_configuration(self, *, mocker) -> None:
+    def test_invalid_payload_exits_without_reading_runtime_configuration(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(entrypoint, "bootstrap", side_effect=RuntimeError("untrusted"))
         listener_port = mocker.patch.object(entrypoint.runtime_config, "listener_port")
         log = mocker.patch.object(entrypoint.operational_log, "log")
@@ -182,7 +196,9 @@ class TestListenerEntrypoint:
         listener_port.assert_not_called()
         log.assert_called_once_with("event=payload_identity_error exception=RuntimeError")
 
-    def test_created_server_owns_the_exact_provider_registry(self, *, mocker) -> None:
+    def test_created_server_owns_the_exact_provider_registry(
+        self, *, mocker: MockerFixture
+    ) -> None:
         providers = mocker.sentinel.providers
         listener = entrypoint.create_server(("127.0.0.1", 0), providers=providers)
         try:

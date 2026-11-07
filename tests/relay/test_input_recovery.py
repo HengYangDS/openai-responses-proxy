@@ -7,6 +7,7 @@ import re
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -23,6 +24,9 @@ from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import request
 from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()
@@ -318,7 +322,9 @@ class TestInputRecovery(InputTransportFixture):
         assert counters["input_variant_dialogue_recovery_attempts"] == 0
         assert classifications == {"http_400": 1}
 
-    def test_recovery_secondhttp_error_is_terminal_without_other_recovery(self, subtests) -> None:
+    def test_recovery_secondhttp_error_is_terminal_without_other_recovery(
+        self, subtests: pytest.Subtests
+    ) -> None:
         terminal_errors = {
             "classified-477": (
                 477,
@@ -381,7 +387,9 @@ class TestInputRecovery(InputTransportFixture):
                 )
                 assert classifications == expected_classifications
 
-    def test_recovery_transport_failure_is_terminal_without_normal_retry(self, *, mocker) -> None:
+    def test_recovery_transport_failure_is_terminal_without_normal_retry(
+        self, *, mocker: MockerFixture
+    ) -> None:
         body = request_body()
         transport_error = urllib.error.URLError("private-upstream-detail")
         with running_proxy([(400, EXACT_ERROR)]) as (port, received):

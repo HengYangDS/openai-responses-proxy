@@ -13,6 +13,7 @@ from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 
 import pytest
+from pytest_mock import MockerFixture
 
 from openai_responses_proxy.lifecycle import control as lifecycle_control
 from tests.quality.fixtures import ROOT
@@ -321,7 +322,7 @@ def test_release_runtime_uses_the_session_interpreter(
         nox_configuration._assert_release_runtime(session)
 
 
-def test_upgrade_drain_releases_held_requests(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_drain_releases_held_requests(tmp_path: Path, *, mocker: MockerFixture) -> None:
     """Release held requests once native replacement closes admission."""
     ctx = runtime_context_for(
         tmp_path / "home",
@@ -350,7 +351,9 @@ def test_upgrade_drain_releases_held_requests(tmp_path: Path, *, mocker) -> None
     )
 
 
-def test_upgrade_drain_waits_through_materialization(tmp_path: Path, *, mocker) -> None:
+def test_upgrade_drain_waits_through_materialization(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """A materialized candidate is not yet at the native drain boundary."""
     ctx = runtime_context_for(
         tmp_path / "home",
@@ -392,7 +395,9 @@ def test_upgrade_drain_waits_through_materialization(tmp_path: Path, *, mocker) 
     )
 
 
-def test_runtime_context_uses_the_native_command_projection(tmp_path: Path, *, mocker) -> None:
+def test_runtime_context_uses_the_native_command_projection(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Build release-test paths through the same owner as production."""
     mocker.patch("tests.release.fixtures.platform.system", return_value="Windows")
     home = tmp_path / "home"
@@ -409,7 +414,7 @@ def test_runtime_context_uses_the_native_command_projection(tmp_path: Path, *, m
 
 @pytest.mark.parametrize("invalid", [None, "python:3.14.7-bookworm@sha256:a"])
 def test_release_runtime_refuses_invalid_projection_before_build(
-    tmp_path, mocker, nox_configuration, invalid
+    tmp_path: Path, mocker: MockerFixture, nox_configuration, invalid
 ) -> None:
     release = tmp_path / ".config/mise/python-release"
     release.parent.mkdir(parents=True)
@@ -522,7 +527,7 @@ def test_native_candidate_requires_bundle_and_executable_paths(
 
 
 def test_native_freeze_requires_the_produced_executable(
-    tmp_path, mocker, nox_configuration
+    tmp_path: Path, mocker: MockerFixture, nox_configuration
 ) -> None:
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))

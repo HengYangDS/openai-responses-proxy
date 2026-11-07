@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import urllib.error
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,9 +18,14 @@ from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import idle_runtime
 from tests.serving.handoff.fixtures import matching_health
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestControllerHandoffWiring(HandoffFixture):
-    def test_native_replacement_drains_only_the_captured_predecessor(self, *, mocker) -> None:
+    def test_native_replacement_drains_only_the_captured_predecessor(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         source = process.OwnedProcess(999, ctx.executable, 0.5)
         runtime_reader = mocker.Mock(
@@ -67,7 +73,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert request.headers["X-openai-responses-proxy-drain-lease-seconds"] == "2"
         assert runtime_reader.call_count == 4
 
-    def test_failed_native_replacement_reopens_the_captured_predecessor(self, *, mocker) -> None:
+    def test_failed_native_replacement_reopens_the_captured_predecessor(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """A failed replacement must not leave the surviving listener drained."""
         ctx = install_context(Path(self.tempdir.name))
         source = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -108,7 +116,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         ],
     )
     def test_failed_native_replacement_rejects_invalid_resume_control(
-        self, response: object, message: str, *, mocker
+        self, response: object, message: str, *, mocker: MockerFixture
     ) -> None:
         """Rollback admission must be acknowledged by the captured predecessor."""
         ctx = install_context(Path(self.tempdir.name))
@@ -129,7 +137,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             )
 
     def test_failed_native_replacement_requires_the_same_runtime_after_resume(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """A changed generation after DELETE cannot prove restored admission."""
         ctx = install_context(Path(self.tempdir.name))
@@ -148,7 +156,9 @@ class TestControllerHandoffWiring(HandoffFixture):
             runtime_reader=mocker.Mock(side_effect=(idle_runtime(), None)),
         )
 
-    def test_failed_native_replacement_does_not_reopen_a_replaced_listener(self, *, mocker) -> None:
+    def test_failed_native_replacement_does_not_reopen_a_replaced_listener(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """A successor that already owns the port must not receive predecessor control."""
         ctx = install_context(Path(self.tempdir.name))
         source = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -178,7 +188,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         ],
     )
     def test_native_replacement_rejects_invalid_drain_control(
-        self, response: object, message: str, *, mocker
+        self, response: object, message: str, *, mocker: MockerFixture
     ) -> None:
         """Native replacement proceeds only after an exact drain acknowledgement."""
         ctx = install_context(Path(self.tempdir.name))
@@ -200,7 +210,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             )
 
     def test_native_replacement_rejects_unproved_or_changed_predecessor(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         """Drain remains bound to the captured process generation until completion."""
         ctx = install_context(Path(self.tempdir.name))
@@ -236,7 +246,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                 )
             assert runtime_reader.call_count == 2
 
-    def test_native_replacement_drain_timeout_is_bounded(self, *, mocker) -> None:
+    def test_native_replacement_drain_timeout_is_bounded(self, *, mocker: MockerFixture) -> None:
         """A predecessor that never reaches zero active Responses fails at the bound."""
         ctx = install_context(Path(self.tempdir.name))
         source = process.OwnedProcess(999, ctx.executable, 0.5)

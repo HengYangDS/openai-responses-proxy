@@ -8,6 +8,7 @@ import threading
 from collections.abc import Callable
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -19,6 +20,9 @@ from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import upstream as upstream_transport
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 COMPLETED = b'{"object":"response","status":"completed","output":[]}'
 
@@ -149,7 +153,9 @@ def _error(handler: MemoryHandler) -> dict[str, object]:
 
 
 class TestRequestIsSentAtMostOnce(InputTransportFixture):
-    def test_a_pooled_connection_lost_after_the_request_is_not_resent(self, *, mocker) -> None:
+    def test_a_pooled_connection_lost_after_the_request_is_not_resent(
+        self, *, mocker: MockerFixture
+    ) -> None:
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         with _upstream([_complete, _close_after_request]) as (upstream, call):
             warm = call(b'{"input":"warm"}')
@@ -161,7 +167,9 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
         sleep.assert_not_called()
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_a_new_connection_lost_after_the_request_is_not_resent(self, *, mocker) -> None:
+    def test_a_new_connection_lost_after_the_request_is_not_resent(
+        self, *, mocker: MockerFixture
+    ) -> None:
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         with _upstream([_close_after_request]) as (upstream, call):
             fault = call(b'{"input":"current"}')
@@ -170,7 +178,9 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
         assert upstream.requests == [1]
         sleep.assert_not_called()
 
-    def test_a_refused_connection_is_retried_because_nothing_was_sent(self, *, mocker) -> None:
+    def test_a_refused_connection_is_retried_because_nothing_was_sent(
+        self, *, mocker: MockerFixture
+    ) -> None:
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         with socket.create_server(("127.0.0.1", 0)) as probe:
             port = probe.getsockname()[1]
@@ -184,7 +194,7 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
         assert sleep.call_count == upstream_exchange._MAX_ATTEMPTS - 1
 
     def test_a_stream_that_ends_before_content_without_a_failure_is_not_reopened(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         sleep = mocker.patch.object(sse.time, "sleep")
         with _upstream([_created_then_eof]) as (upstream, call):
@@ -197,7 +207,9 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
         assert counters["streams_pre_content_reconnect_attempts"] == 0
         assert counters["upstream_outcome_unknown"] == 1
 
-    def test_a_reopened_stream_request_lost_after_sending_is_not_resent(self, *, mocker) -> None:
+    def test_a_reopened_stream_request_lost_after_sending_is_not_resent(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(sse.time, "sleep")
         with _upstream([_failed_before_content, _close_after_request]) as (upstream, call):
             fault = call(b'{"input":"current","stream":true}')
@@ -210,7 +222,7 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
 
     @pytest.mark.parametrize("attempt", [0, upstream_exchange._MAX_ATTEMPTS - 1])
     def test_an_outcome_unknown_failure_is_terminal_at_every_attempt(
-        self, attempt, *, mocker
+        self, attempt, *, mocker: MockerFixture
     ) -> None:
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         handler = MemoryHandler(b'{"input":"current"}')

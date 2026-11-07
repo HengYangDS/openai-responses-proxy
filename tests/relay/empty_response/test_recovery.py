@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.providers.policies import dmxapi as policy
@@ -17,10 +18,13 @@ from tests.relay.empty_response.fixtures import UNKNOWN_477
 from tests.relay.empty_response.fixtures import EmptyResponseFixture
 from tests.relay.fixtures import serve_proxy
 
+if TYPE_CHECKING:
+    import pytest
+
 
 class EmptyResponseTransportTests(EmptyResponseFixture):
     def test_fallback_failure_is_terminal_after_exactly_two_upstream_attempts(
-        self, subtests
+        self, subtests: pytest.Subtests
     ) -> None:
         body = self._body(
             {

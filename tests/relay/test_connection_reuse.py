@@ -28,6 +28,8 @@ from openai_responses_proxy.relay import upstream as upstream_transport
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from pytest_mock import MockerFixture
+
 OK = b'{"ok":true}'
 type Reply = tuple[int, bytes, dict[str, str]]
 
@@ -211,7 +213,7 @@ class TestConnectionReuse:
         assert _shape(upstream) == [2]
 
     def test_a_send_failure_on_a_reused_connection_retries_once_on_a_new_one(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         original = http.client.HTTPConnection.send
         failures: list[object] = []
@@ -229,7 +231,9 @@ class TestConnectionReuse:
         assert len(failures) == 1
         assert _shape(upstream) == [1, 1]
 
-    def test_a_send_failure_on_a_new_connection_is_not_retried(self, *, mocker) -> None:
+    def test_a_send_failure_on_a_new_connection_is_not_retried(
+        self, *, mocker: MockerFixture
+    ) -> None:
         attempts: list[object] = []
 
         def send(connection: http.client.HTTPConnection, data: bytes) -> None:
@@ -257,7 +261,7 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert sorted(_shape(upstream)) == [1, 2]
 
-    def test_an_expired_idle_connection_is_not_reused(self, *, mocker) -> None:
+    def test_an_expired_idle_connection_is_not_reused(self, *, mocker: MockerFixture) -> None:
         # A negative lifetime expires every idle connection whatever the clock's resolution:
         # before Python 3.13, time.monotonic() on Windows advances in 15.6 ms steps, so a short
         # sleep under a zero lifetime could leave the age at 0.0 and reuse the connection.
@@ -281,7 +285,9 @@ class TestConnectionReuse:
         assert elapsed < 1.5
         assert _shape(upstream) == [2]
 
-    def test_a_send_failure_with_an_unreplayable_body_is_not_retried(self, *, mocker) -> None:
+    def test_a_send_failure_with_an_unreplayable_body_is_not_retried(
+        self, *, mocker: MockerFixture
+    ) -> None:
         original = http.client.HTTPConnection.send
         failures: list[object] = []
 
@@ -304,7 +310,7 @@ class TestConnectionReuse:
 class TestConnectionPool:
     address = ("http", "127.0.0.1", 9)
 
-    def test_a_connection_beyond_the_idle_bound_is_closed(self, *, mocker) -> None:
+    def test_a_connection_beyond_the_idle_bound_is_closed(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(connections, "IDLE_PER_ADDRESS", 0)
         pool: connections.Pool[connections.Reusable] = connections.Pool()
         connection = connections.Reusable("127.0.0.1", 9)

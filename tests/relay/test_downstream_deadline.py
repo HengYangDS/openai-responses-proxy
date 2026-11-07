@@ -5,6 +5,7 @@ from __future__ import annotations
 import socket
 import threading
 import time
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import exchange as upstream_exchange
@@ -13,10 +14,13 @@ from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
 from tests.serving.handoff.fixtures import wait_until
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestDownstreamWriteDeadline(LoopbackTransportFixture):
     def test_a_stalled_reader_releases_admission_and_upstream_at_the_deadline(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.0)
         delta = b'data: {"type":"response.output_text.delta","delta":"' + b"x" * 65536 + b'"}\n\n'

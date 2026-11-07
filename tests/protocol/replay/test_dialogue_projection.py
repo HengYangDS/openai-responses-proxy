@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestPortableDialogueProjection:
@@ -77,7 +81,9 @@ class TestPortableDialogueProjection:
             "answerdeclined",
         ]
 
-    def test_fails_closed_for_unknown_or_malformed_replay_shapes(self, subtests) -> None:
+    def test_fails_closed_for_unknown_or_malformed_replay_shapes(
+        self, subtests: pytest.Subtests
+    ) -> None:
         cases = {
             "invalid json": b"{",
             "non object": b"[]",

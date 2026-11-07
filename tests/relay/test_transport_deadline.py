@@ -29,6 +29,8 @@ from tests.serving.handoff.fixtures import proxy_is_up
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.fixture(scope="module")
 def tls_material(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
@@ -74,7 +76,7 @@ class TestTransportDeadline(InputTransportFixture):
         ids=["deadline-only", "equal-limits", "deadline-shorter", "idle-shorter"],
     )
     def test_native_read_timeout_keeps_its_selected_budget_identity(
-        self, idle_timeout, deadline_bound, *, mocker
+        self, idle_timeout, deadline_bound, *, mocker: MockerFixture
     ) -> None:
         left, right = socket.socketpair()
         with left, right:
@@ -109,7 +111,7 @@ class TestTransportDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("interrupt", [False, True], ids=["last-os-error", "interrupt"])
     def test_connection_setup_failure_releases_its_source_bound_socket(
-        self, interrupt, *, mocker
+        self, interrupt, *, mocker: MockerFixture
     ) -> None:
         original_socket = socket.socket
         sockets = []
@@ -148,7 +150,7 @@ class TestTransportDeadline(InputTransportFixture):
             for sock in sockets:
                 sock.close()
 
-    def test_empty_dns_answer_opens_no_socket(self, *, mocker) -> None:
+    def test_empty_dns_answer_opens_no_socket(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(socket, "getaddrinfo", return_value=[])
         create = mocker.patch.object(socket, "socket")
 
@@ -159,7 +161,9 @@ class TestTransportDeadline(InputTransportFixture):
 
         create.assert_not_called()
 
-    def test_expired_dns_result_cannot_start_a_tcp_connection(self, *, mocker) -> None:
+    def test_expired_dns_result_cannot_start_a_tcp_connection(
+        self, *, mocker: MockerFixture
+    ) -> None:
         upstream = ScriptedUpstream()
         upstream.push(lambda handler: handler.connection.sendall(b"HTTP/1.1 200 OK\r\n\r\n"))
         original_resolve = socket.getaddrinfo
@@ -190,7 +194,9 @@ class TestTransportDeadline(InputTransportFixture):
             upstream.close()
             assert not upstream.thread.is_alive()
 
-    def test_address_fallback_uses_only_the_remaining_setup_budget(self, *, mocker) -> None:
+    def test_address_fallback_uses_only_the_remaining_setup_budget(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [time.monotonic()]
         sockets = []
         budgets = []
@@ -237,7 +243,7 @@ class TestTransportDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("handshake_delay", [0.0, 0.15], ids=["immediate", "scheduled"])
     def test_verified_tls_cannot_refund_time_spent_connecting(
-        self, tls_context, handshake_delay: float, *, mocker
+        self, tls_context, handshake_delay: float, *, mocker: MockerFixture
     ) -> None:
         upstream = ScriptedUpstream()
         server_context, client_context = tls_context
@@ -299,7 +305,7 @@ class TestTransportDeadline(InputTransportFixture):
             assert not upstream.thread.is_alive()
 
     def test_stalled_tls_handshake_closes_within_the_remaining_wall_clock_budget(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
@@ -350,7 +356,9 @@ class TestTransportDeadline(InputTransportFixture):
             assert not peer_thread.is_alive()
             assert listener.fileno() == -1
 
-    def test_request_body_cannot_refund_time_spent_sending_headers(self, *, mocker) -> None:
+    def test_request_body_cannot_refund_time_spent_sending_headers(
+        self, *, mocker: MockerFixture
+    ) -> None:
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
@@ -413,7 +421,7 @@ class TestTransportDeadline(InputTransportFixture):
     )
     @pytest.mark.parametrize("tls", [False, True], ids=["http", "https"])
     def test_progressing_http_framing_cannot_renew_the_deadline(
-        self, phase: str, *, tls: bool, tls_context, mocker
+        self, phase: str, *, tls: bool, tls_context, mocker: MockerFixture
     ) -> None:
         upstream = ScriptedUpstream()
         release = threading.Event()

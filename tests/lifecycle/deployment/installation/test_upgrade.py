@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,9 +16,14 @@ from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import OrderedServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
-    def test_current_upgrade_rebinds_control_after_successor_handoff(self, *, mocker) -> None:
+    def test_current_upgrade_rebinds_control_after_successor_handoff(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         runtime = self.successor()
@@ -51,7 +57,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.uninstall_mock.assert_not_called()
         service.install_mock.assert_called_once_with(payload.context)
 
-    def test_candidate_processes_exit_before_payload_rollback(self, *, mocker) -> None:
+    def test_candidate_processes_exit_before_payload_rollback(
+        self, *, mocker: MockerFixture
+    ) -> None:
         events: list[object] = []
         payload = FakeTransaction(self.ctx, events=events)
         current = self.current_runtime()
@@ -84,7 +92,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.install_mock.assert_not_called()
         service.terminate_runtime.assert_not_called()
 
-    def test_current_upgrade_accepts_an_equivalent_supervisor_path(self, *, mocker) -> None:
+    def test_current_upgrade_accepts_an_equivalent_supervisor_path(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         runtime = self.successor()
@@ -111,7 +121,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         }
         request.assert_called_once()
 
-    def test_current_upgrade_refuses_an_unproved_supervisor_rebind(self, *, mocker) -> None:
+    def test_current_upgrade_refuses_an_unproved_supervisor_rebind(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         service = FakeServiceAdapter(mocker=mocker)
@@ -142,7 +154,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.uninstall_mock.assert_not_called()
         request.assert_called_once()
 
-    def test_supervisor_install_failure_preserves_the_committed_successor(self, *, mocker) -> None:
+    def test_supervisor_install_failure_preserves_the_committed_successor(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         service = FakeServiceAdapter(mocker=mocker)
@@ -168,7 +182,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.install_mock.assert_called_once_with(payload.context)
         service.uninstall_mock.assert_not_called()
 
-    def test_upgrade_failure_rolls_back_or_preserves_unknown_outcome(self, *, mocker) -> None:
+    def test_upgrade_failure_rolls_back_or_preserves_unknown_outcome(
+        self, *, mocker: MockerFixture
+    ) -> None:
         current = self.current_runtime()
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
 
@@ -203,7 +219,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         resume.assert_not_called()
         preserved_service.install_mock.assert_not_called()
 
-    def test_upgrade_preserves_a_predecessor_that_cannot_reopen_admission(self, *, mocker) -> None:
+    def test_upgrade_preserves_a_predecessor_that_cannot_reopen_admission(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """A restored supervisor is not a successful rollback until admission reopens."""
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()

@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from contextlib import ExitStack
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,10 +15,13 @@ from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.supervision.fixtures import capture_generation
 from tests.release.lifecycle import test_cleanup
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 @pytest.mark.parametrize("failure", ["registration", "termination"])
 def test_controller_cleanup_stops_independent_children_after_failure(
-    tmp_path, monkeypatch, failure
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure
 ) -> None:
     """A failed observation must not strand a separate known child generation."""
     root = tmp_path / "owned"

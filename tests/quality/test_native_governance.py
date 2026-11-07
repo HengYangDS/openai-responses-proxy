@@ -5,13 +5,21 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tools.governance import observation
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_native_report_binds_the_exact_consumer_and_root(tmp_path, mocker) -> None:
+    from pytest_mock import MockerFixture
+
+
+def test_native_report_binds_the_exact_consumer_and_root(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     report = {"command": "status", "verdict": "pass", "data": {"root": str(tmp_path)}}
     run = mocker.patch.object(
         observation.subprocess,
@@ -26,7 +34,9 @@ def test_native_report_binds_the_exact_consumer_and_root(tmp_path, mocker) -> No
     assert run.call_args.kwargs["timeout"] == 30
 
 
-def test_native_report_checks_referenced_evidence_bytes(tmp_path, mocker) -> None:
+def test_native_report_checks_referenced_evidence_bytes(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     payload = json.dumps(
         {"command": "status", "verdict": "pass", "data": {"root": str(tmp_path)}}
     ).encode()
@@ -65,7 +75,9 @@ def test_native_report_checks_referenced_evidence_bytes(tmp_path, mocker) -> Non
         ),
     ],
 )
-def test_native_report_refuses_unproved_or_wrong_subjects(tmp_path, mocker, result) -> None:
+def test_native_report_refuses_unproved_or_wrong_subjects(
+    tmp_path: Path, mocker: MockerFixture, result
+) -> None:
     mocker.patch.object(observation.subprocess, "run", return_value=result)
     with pytest.raises(observation.ObservationError):
         observation.read(tmp_path, "status")
@@ -74,7 +86,9 @@ def test_native_report_refuses_unproved_or_wrong_subjects(tmp_path, mocker, resu
 @pytest.mark.parametrize(
     "failure", [FileNotFoundError("missing"), subprocess.TimeoutExpired([], 30)]
 )
-def test_native_report_has_no_replacement_or_retry(tmp_path, mocker, failure) -> None:
+def test_native_report_has_no_replacement_or_retry(
+    tmp_path: Path, mocker: MockerFixture, failure
+) -> None:
     run = mocker.patch.object(observation.subprocess, "run", side_effect=failure)
     with pytest.raises(observation.ObservationError):
         observation.read(tmp_path, "status")
@@ -83,7 +97,7 @@ def test_native_report_has_no_replacement_or_retry(tmp_path, mocker, failure) ->
 
 @pytest.mark.parametrize("exit_code", [0, 1])
 def test_native_report_preserves_a_block_without_claiming_acceptance(
-    tmp_path, mocker, exit_code
+    tmp_path: Path, mocker: MockerFixture, exit_code
 ) -> None:
     report = {
         "command": "status",
@@ -99,7 +113,9 @@ def test_native_report_preserves_a_block_without_claiming_acceptance(
 
 
 @pytest.mark.parametrize("path", ["report.json", "absent"])
-def test_native_report_refuses_unverifiable_evidence_paths(tmp_path, mocker, path) -> None:
+def test_native_report_refuses_unverifiable_evidence_paths(
+    tmp_path: Path, mocker: MockerFixture, path
+) -> None:
     content = b"{}"
     (tmp_path / "report.json").write_bytes(content)
     reference = path if path == "report.json" else str(tmp_path / f"{path}.json")
@@ -123,7 +139,7 @@ def test_native_report_refuses_unverifiable_evidence_paths(tmp_path, mocker, pat
         observation.read(tmp_path, "status")
 
 
-def test_native_report_must_be_one_json_object(tmp_path, mocker) -> None:
+def test_native_report_must_be_one_json_object(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch.object(
         observation.subprocess,
         "run",

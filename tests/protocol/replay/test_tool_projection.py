@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.protocol.replay import input as replay_input
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestPortableToolProjection:
@@ -66,7 +70,7 @@ class TestPortableToolProjection:
         assert projection.body is None
         assert projection.diagnostic() == "rejected incomplete_local_shell_pair"
 
-    def test_rejects_invalid_local_shell_call_fields(self, subtests) -> None:
+    def test_rejects_invalid_local_shell_call_fields(self, subtests: pytest.Subtests) -> None:
         cases = {
             "missing status": {
                 "type": "local_shell_call",
@@ -144,7 +148,7 @@ class TestPortableToolProjection:
                 assert projection.diagnostic() == "rejected invalid_local_shell_call"
 
     def test_marks_paired_empty_tool_outputs_without_admitting_empty_dialogue(
-        self, subtests
+        self, subtests: pytest.Subtests
     ) -> None:
         cases = (
             ("function_call", "arguments", "function_call_output"),

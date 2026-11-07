@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy import product_identity as identity
 from tools.quality import hard_coding as checker
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -130,7 +134,9 @@ class TestHardCodingResponsibility:
         ('schema_version=1\nallowed_kinds=["domain-constant"]\ncontrols=1', "hard_coding_controls"),
     ],
 )
-def test_empty_or_malformed_policy_cannot_establish_acceptance(source, error, tmp_path) -> None:
+def test_empty_or_malformed_policy_cannot_establish_acceptance(
+    source, error, tmp_path: Path
+) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text(source)
     report = checker.audit(tmp_path, policy)
@@ -148,7 +154,7 @@ def test_empty_or_malformed_policy_cannot_establish_acceptance(source, error, tm
         ('[[controls]]\nid="x"\nowner="missing"\nprojections=["missing"]', "owner_missing"),
     ],
 )
-def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_path) -> None:
+def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_path: Path) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text('schema_version=1\nallowed_kinds=["domain-constant"]\n' + control)
     report = checker.audit(tmp_path, policy)
@@ -157,7 +163,7 @@ def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_pat
 
 
 @pytest.fixture
-def projection_root(tmp_path):
+def projection_root(tmp_path: Path):
     (tmp_path / "owner.py").write_text('VALUE="x"\nALIAS=VALUE\nIGNORED=call()\nleft=right=1\n')
     (tmp_path / "target.toml").write_text('[project]\nname="x"\n[project.scripts]\nx="main"\n')
     return tmp_path
@@ -251,13 +257,15 @@ def test_projection_checks_follow_the_declared_owner(projection_root, checks, er
     ("owner", "source", "error"),
     [("owner.txt", "x", "unsupported"), ("owner.py", "if", "owner_invalid")],
 )
-def test_projection_owner_must_be_parseable_python(owner, source, error, tmp_path) -> None:
+def test_projection_owner_must_be_parseable_python(owner, source, error, tmp_path: Path) -> None:
     (tmp_path / owner).write_text(source)
     errors = checker._projection_errors(root=tmp_path, identifier="x", owner=owner, checks=[{}])
     assert error in errors[0]
 
 
-def test_audit_cli_preserves_failure_status_and_json(mocker, capsys) -> None:
+def test_audit_cli_preserves_failure_status_and_json(
+    mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     mocker.patch.object(checker, "audit", return_value={"ok": False, "errors": ["missing"]})
     with pytest.raises(SystemExit) as stopped:
         checker.main()

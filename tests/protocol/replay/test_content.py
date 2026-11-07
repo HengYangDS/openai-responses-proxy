@@ -143,7 +143,9 @@ class ProviderPortableRequestEdgeTests:
         ]
         assert "provider-bound" not in projected_raw.decode()
 
-    def test_preserves_agent_ciphertext_and_marks_opaque_tool_results(self, subtests) -> None:
+    def test_preserves_agent_ciphertext_and_marks_opaque_tool_results(
+        self, subtests: pytest.Subtests
+    ) -> None:
         raw = _body(
             {
                 "input": [

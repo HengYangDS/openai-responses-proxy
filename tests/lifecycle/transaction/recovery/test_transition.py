@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -20,8 +21,13 @@ from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_recovery_finalization_selects_the_displaced_predecessor(tmp_path: Path, *, mocker) -> None:
+
+def test_recovery_finalization_selects_the_displaced_predecessor(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -41,7 +47,7 @@ def test_recovery_finalization_selects_the_displaced_predecessor(tmp_path: Path,
 
 
 def test_interrupted_reverse_transition_recovers_the_original_successor(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Recovery reverses an activated rollback without inventing another payload copy."""
     ctx = install_context(tmp_path)
@@ -70,7 +76,7 @@ def test_interrupted_reverse_transition_recovers_the_original_successor(
 
 
 def test_unselected_reverse_recovery_does_not_require_an_unused_command_snapshot(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -114,7 +120,7 @@ def test_unselected_reverse_recovery_does_not_require_an_unused_command_snapshot
 
 
 def test_activated_generation_recovery_restores_the_exact_prior_selection(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Forward recovery reverses to the prior active and predecessor generations."""
     ctx = install_context(tmp_path)
@@ -143,7 +149,7 @@ def test_activated_generation_recovery_restores_the_exact_prior_selection(
 
 
 def test_recovery_finishes_activation_when_selection_precedes_command_projection(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Recover the durable selected generation when command projection is interrupted."""
     ctx = install_context(tmp_path)
@@ -178,7 +184,7 @@ def test_recovery_finishes_activation_when_selection_precedes_command_projection
 
 
 def test_recovery_rolls_back_when_selection_precedes_the_candidate_runtime(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A selected candidate is reversible while the predecessor still serves."""
     ctx = install_context(tmp_path)
@@ -207,7 +213,7 @@ def test_recovery_rolls_back_when_selection_precedes_the_candidate_runtime(
 
 
 def test_recovery_finishes_activation_when_command_precedes_phase_journal(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Recognize durable selector and command state even if the phase journal lags."""
     ctx = install_context(tmp_path)
@@ -245,7 +251,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
 
 
 def test_recovery_finishes_activation_when_selector_precedes_command_and_phase(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Reconcile a selector-only activation after process interruption."""
     ctx = install_context(tmp_path)
@@ -278,7 +284,7 @@ def test_recovery_finishes_activation_when_selector_precedes_command_and_phase(
 
 
 def test_recovery_rollback_restores_previous_projection_and_removes_hold(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -303,7 +309,9 @@ def test_recovery_rollback_restores_previous_projection_and_removes_hold(
     assert not Path(records.transaction_root(ctx)).exists()
 
 
-def test_recovery_rolls_back_an_interrupted_committed_upgrade(tmp_path: Path, *, mocker) -> None:
+def test_recovery_rolls_back_an_interrupted_committed_upgrade(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     previous = Path(ctx.executable).read_bytes()
@@ -327,7 +335,7 @@ def test_recovery_rolls_back_an_interrupted_committed_upgrade(tmp_path: Path, *,
 
 
 def test_recovery_finalizes_a_verified_successor_after_controller_loss(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

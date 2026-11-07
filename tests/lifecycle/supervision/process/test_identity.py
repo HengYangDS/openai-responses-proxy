@@ -8,15 +8,21 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.fixtures import platform_context
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestProcessIdentity:
-    def test_bounded_capture_waits_for_the_exact_native_role(self, *, mocker) -> None:
+    def test_bounded_capture_waits_for_the_exact_native_role(
+        self, *, mocker: MockerFixture
+    ) -> None:
         expected = process.OwnedProcess(73, "/installed/openai-responses-proxy", 42.0)
         capture = mocker.patch.object(
             process,
@@ -37,7 +43,7 @@ class TestProcessIdentity:
         assert capture.call_count == 3
 
     def test_psutil_process_inventory_and_listener_discovery_are_host_command_free(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         first = mocker.Mock(pid=7)
         first.cmdline.return_value = ["python", "/installed/proxy.py"]
@@ -59,7 +65,7 @@ class TestProcessIdentity:
         assert process.listener_pids(8791) == [7]
         assert process_iter.call_args_list[1].args == (["pid", "net_connections"],)
 
-    def test_process_discovery_fails_closed(self, *, mocker) -> None:
+    def test_process_discovery_fails_closed(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(
             process.psutil,
             "process_iter",
@@ -73,7 +79,9 @@ class TestProcessIdentity:
         )
         assert process.process_argv(123) == []
 
-    def test_process_inventory_and_path_discovery_fail_closed(self, *, mocker) -> None:
+    def test_process_inventory_and_path_discovery_fail_closed(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             process.psutil,
             "process_iter",
@@ -100,7 +108,9 @@ class TestProcessIdentity:
         )
         assert process.pids_naming_path("/installed/watchdog.py") == [8]
 
-    def test_argv_denial_reported_as_system_error_is_unreadable(self, *, mocker) -> None:
+    def test_argv_denial_reported_as_system_error_is_unreadable(
+        self, *, mocker: MockerFixture
+    ) -> None:
         readable = mocker.Mock(pid=7)
         readable.cmdline.return_value = ["python", "/installed/proxy.py"]
         denied = mocker.Mock(pid=8)
@@ -125,7 +135,9 @@ class TestProcessIdentity:
         with pytest.raises(SystemError, match="unrelated interpreter failure"):
             process.process_argv(9)
 
-    def test_native_and_foreign_script_identity_are_distinct(self, subtests, *, mocker) -> None:
+    def test_native_and_foreign_script_identity_are_distinct(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context()
         executable = os.path.abspath(ctx.executable)
         listener = "--internal-listener"
@@ -152,7 +164,9 @@ class TestProcessIdentity:
         )
         assert process.verified_proxy_listener_pids(ctx) == [8]
 
-    def test_native_identity_survives_a_retired_launcher_argv(self, *, mocker) -> None:
+    def test_native_identity_survives_a_retired_launcher_argv(
+        self, *, mocker: MockerFixture
+    ) -> None:
         expected = os.path.abspath("/installed/openai-responses-proxy")
         candidate = mocker.Mock()
         candidate.exe.return_value = expected
@@ -169,7 +183,7 @@ class TestProcessIdentity:
         )
 
     def test_identity_helpers_cover_empty_roles_and_python_suffixes(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         executable = os.path.abspath("/installed/openai-responses-proxy")
         for argv, roles, expected in (

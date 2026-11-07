@@ -12,6 +12,8 @@ from openai_responses_proxy.runtime import config as runtime_config
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    import pytest
+
 COMPACTION_BUDGET = runtime_config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
 
 
@@ -95,7 +97,7 @@ class ResponseFailedContracts:
         assert json.loads(recovered)["input"] == current
         assert execution_recovery.recover_dialogue(raw, 100) == (None, None)
 
-    def assert_rejected(self, function, fixtures, subtests) -> None:
+    def assert_rejected(self, function, fixtures, subtests: pytest.Subtests) -> None:
         for raw, budget in fixtures:
             with subtests.test(raw=raw, budget=budget):
                 assert function(raw, budget) == (None, None)
@@ -106,7 +108,9 @@ class ResponseFailedContracts:
         assert detail is not None
         return (compact, detail)
 
-    def test_retry_disposition_classifies_gateway_and_terminal_failures(self, subtests) -> None:
+    def test_retry_disposition_classifies_gateway_and_terminal_failures(
+        self, subtests: pytest.Subtests
+    ) -> None:
         cases = (
             (429, b"rate limited", ""),
             (524, b"gateway timeout", "full"),
@@ -325,7 +329,7 @@ class ResponseFailedContracts:
         assert detail["retained_messages"] == 1
 
     def test_response_failed_rejects_invalid_compaction_and_recovery_boundaries(
-        self, subtests
+        self, subtests: pytest.Subtests
     ) -> None:
         common = ((b"not-json", 1024), (b"[]", 1024), (b'{"input":[]}', 1024))
         self.assert_rejected(

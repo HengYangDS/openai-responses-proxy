@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from collections.abc import Mapping
 
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -42,7 +44,9 @@ def _manifest(root: Path, text: str) -> Path:
 
 
 @contextmanager
-def _policy_package(root: Path, name: str, modules: Mapping[str, str], *, mocker) -> Generator[str]:
+def _policy_package(
+    root: Path, name: str, modules: Mapping[str, str], *, mocker: MockerFixture
+) -> Generator[str]:
     package = root / name
     policies = package / "policies"
     policies.mkdir(parents=True)
@@ -66,7 +70,7 @@ def _policy_package(root: Path, name: str, modules: Mapping[str, str], *, mocker
 
 
 class ProviderRegistryTests:
-    def test_accepts_only_absolute_http_upstream_urls(self, subtests) -> None:
+    def test_accepts_only_absolute_http_upstream_urls(self, subtests: pytest.Subtests) -> None:
         assert registry._base_url("test", "https://example.test/") == "https://example.test"
         assert (
             registry._base_url("test", "https://example.test:8443/v1")
@@ -94,7 +98,9 @@ class ProviderRegistryTests:
             ):
                 registry._base_url("test", value)
 
-    def test_manifest_loader_rejects_each_closed_schema_boundary(self, subtests) -> None:
+    def test_manifest_loader_rejects_each_closed_schema_boundary(
+        self, subtests: pytest.Subtests
+    ) -> None:
         documents = (
             ("not toml = [", "cannot load provider manifest"),
             (
@@ -201,7 +207,7 @@ class ProviderRegistryTests:
         assert not hasattr(policy, "recover_dialogue")
 
     def test_policy_loader_rejects_path_missing_and_incomplete_extensions(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -232,7 +238,7 @@ class ProviderRegistryTests:
                             )
                         )
 
-    def test_policy_module_identity_is_package_scoped(self, *, mocker) -> None:
+    def test_policy_module_identity_is_package_scoped(self, *, mocker: MockerFixture) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             with _policy_package(
@@ -265,7 +271,7 @@ class ProviderRegistryTests:
         )
 
     def test_failed_manifest_load_leaves_no_policy_module_residue(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         cases = (
             (
@@ -301,7 +307,9 @@ class ProviderRegistryTests:
                         registry.load(_manifest(root, document))
                     assert module_name not in sys.modules
 
-    def test_loaded_policy_module_must_live_inside_its_declared_package(self, *, mocker) -> None:
+    def test_loaded_policy_module_must_live_inside_its_declared_package(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             outside = root / "outside.py"
@@ -329,7 +337,7 @@ class ProviderRegistryTests:
                     )
 
     def test_frozen_policy_module_uses_import_identity_without_a_filesystem_path(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         fake = ModuleType("openai_responses_proxy.providers.policies.frozen")
         fake.__file__ = None
@@ -357,7 +365,9 @@ class ProviderRegistryTests:
     def test_public_loader_does_not_expose_an_arbitrary_policy_package(self) -> None:
         assert tuple(inspect.signature(registry.load).parameters) == ("path",)
 
-    def test_policy_import_failure_is_a_clean_manifest_error(self, *, mocker) -> None:
+    def test_policy_import_failure_is_a_clean_manifest_error(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             with _policy_package(
@@ -376,13 +386,17 @@ class ProviderRegistryTests:
                     )
                 assert f"{prefix}.broken" not in sys.modules
 
-    def test_registry_rejects_ambiguous_or_malformed_request_targets(self, subtests) -> None:
+    def test_registry_rejects_ambiguous_or_malformed_request_targets(
+        self, subtests: pytest.Subtests
+    ) -> None:
         routes = registry.Registry({"gateway": registry.Profile("gateway", "https://x.test")})
         for path in ("http://[invalid", "https://x.test/v1/responses", "/v2/responses"):
             with subtests.test(path=path):
                 assert routes.resolve(path) is None
 
-    def test_registry_resolves_only_declared_provider_routes(self, subtests) -> None:
+    def test_registry_resolves_only_declared_provider_routes(
+        self, subtests: pytest.Subtests
+    ) -> None:
         routes = registry.Registry(
             {
                 "alpha": registry.Profile("alpha", "https://alpha.example/v1"),

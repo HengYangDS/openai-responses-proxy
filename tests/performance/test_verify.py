@@ -23,6 +23,8 @@ from tools.release import verification
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from pytest_mock import MockerFixture
+
 _PAYLOAD = {
     "payload_release": "9.9.9",
     "payload_serving_payload_sha256": "a" * 64,
@@ -224,7 +226,9 @@ class TestPerformanceEvidence:
             )
 
     @pytest.mark.parametrize("values", [[0.1, float("nan")], [0.1, float("inf")], [-0.1, 0.1]])
-    def test_rejects_non_finite_or_negative_measurements(self, values, tmp_path, mocker) -> None:
+    def test_rejects_non_finite_or_negative_measurements(
+        self, values, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         benchmark = mocker.Mock()
         benchmark.get_unit.return_value = "second"
         benchmark.get_name.return_value = "metric"
@@ -238,7 +242,9 @@ class TestPerformanceEvidence:
             )
 
     @pytest.mark.parametrize(("unit", "minimum"), [("byte", 2), ("second", 3)])
-    def test_rejects_wrong_unit_and_short_distributions(self, unit, minimum, tmp_path) -> None:
+    def test_rejects_wrong_unit_and_short_distributions(
+        self, unit, minimum, tmp_path: Path
+    ) -> None:
         with pytest.raises(PerformanceError, match=r"unit mismatch|too few samples"):
             _measurements(
                 _suite(tmp_path / "sample.json", "metric", 0.1),
@@ -255,7 +261,7 @@ class TestPerformanceEvidence:
             "[execution]\nminimum_latency_samples=true\nminimum_memory_samples=2\npercentile=95\n",
         ],
     )
-    def test_rejects_incomplete_or_boolean_execution_policy(self, document, tmp_path) -> None:
+    def test_rejects_incomplete_or_boolean_execution_policy(self, document, tmp_path: Path) -> None:
         policy = tmp_path / "policy.toml"
         policy.write_text(document)
         with pytest.raises(PerformanceError, match="policy"):
@@ -266,7 +272,9 @@ class TestPerformanceEvidence:
                 payload=_PAYLOAD,
             )
 
-    def test_cli_reports_failures_without_traceback(self, tmp_path, capsys) -> None:
+    def test_cli_reports_failures_without_traceback(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with pytest.raises(SystemExit) as stopped:
             main(
                 (
@@ -285,7 +293,9 @@ class TestPerformanceEvidence:
         assert captured.out == ""
         assert "not a committed payload" in captured.err
 
-    def test_cli_requires_runs_to_name_the_installed_payload(self, tmp_path, capsys) -> None:
+    def test_cli_requires_runs_to_name_the_installed_payload(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         # The command reads the identity from the installed payload itself, so
         # evidence that names any other payload fails against it.
         executable = _installed_payload(tmp_path)
@@ -320,7 +330,7 @@ class TestPerformanceEvidence:
     @pytest.mark.parametrize(
         "field", ["minimum_latency_samples", "minimum_memory_samples", "percentile"]
     )
-    def test_execution_counts_require_integers_not_booleans(self, field, tmp_path) -> None:
+    def test_execution_counts_require_integers_not_booleans(self, field, tmp_path: Path) -> None:
         policy = _policy(tmp_path / "policy.toml")
         original = f"{field} = "
         lines = policy.read_text().splitlines()

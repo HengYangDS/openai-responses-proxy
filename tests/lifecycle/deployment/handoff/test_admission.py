@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,10 +19,13 @@ from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
 from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import idle_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestControllerHandoffWiring(HandoffFixture):
     def test_capture_source_listener_requires_one_live_exact_product_generation(
-        self, subtests, mocker
+        self, subtests: pytest.Subtests, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         runtime = idle_runtime()
@@ -55,7 +59,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                     handoff.capture_source_listener(ctx, runtime)
 
     def test_capture_source_listener_does_not_depend_on_platform_tcp_attribution(
-        self, mocker
+        self, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         runtime = idle_runtime()
@@ -72,7 +76,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         stale_identity_read.assert_not_called()
 
     def test_runtime_supports_handoff_requires_a_complete_available_identity(
-        self, subtests
+        self, subtests: pytest.Subtests
     ) -> None:
         incomplete = idle_runtime()
         incomplete.pop("serving_payload_sha256")
@@ -110,7 +114,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                 assert strategy.runtime_supports_handoff(runtime) is supported
 
     def test_deployment_strategy_requires_complete_identity_and_explicit_repeatability(
-        self, subtests
+        self, subtests: pytest.Subtests
     ) -> None:
         finalized = idle_runtime(
             handoff_state="finalized",
@@ -157,7 +161,9 @@ class TestControllerHandoffWiring(HandoffFixture):
             with subtests.test(runtime=runtime):
                 assert strategy.deployment_strategy(runtime) == expected
 
-    def test_expected_metadata_reads_and_validates_each_release_identity(self, *, mocker) -> None:
+    def test_expected_metadata_reads_and_validates_each_release_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         root = Path(self.tempdir.name)
         manifest_path = root / inventory.MANIFEST_FILENAME
 
@@ -211,7 +217,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert metadata["release"] == "1.0.25"
         assert metadata["manifest_sha256"] == handoff.digest.sha256_file(manifest_path)
 
-    def test_digest_helpers_reject_noncanonical_values_and_hash_large_files(self, subtests) -> None:
+    def test_digest_helpers_reject_noncanonical_values_and_hash_large_files(
+        self, subtests: pytest.Subtests
+    ) -> None:
         for value in (None, "a" * 63, "g" * 64, "A" * 64):
             with subtests.test(value=value):
                 assert not handoff.digest.is_sha256(value)

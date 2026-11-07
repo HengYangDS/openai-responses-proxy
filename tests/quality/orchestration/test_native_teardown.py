@@ -10,6 +10,7 @@ import time
 from dataclasses import asdict
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from nox.command import CommandFailed
@@ -21,9 +22,12 @@ from tests.quality.fixtures import ROOT
 from tests.release.fixtures import runtime_context_for
 from tools.release import verification
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_surviving_executor_reclaims_an_externally_killed_pytest_child(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     """Killing pytest skips its fixture cleanup, not the surviving native owner."""
     ready = tmp_path / "ready"
@@ -100,7 +104,7 @@ def test_surviving_executor_reclaims_an_externally_killed_pytest_child(
 
 @pytest.mark.parametrize("root_argument", ["joined", "separate"])
 def test_native_acceptance_preserves_an_explicit_fresh_test_root(
-    tmp_path: Path, mocker, root_argument: str
+    tmp_path: Path, mocker: MockerFixture, root_argument: str
 ) -> None:
     """The selected short native path stays selected and its residue is reclaimed."""
     root = tmp_path / "selected"
@@ -121,7 +125,7 @@ def test_native_acceptance_preserves_an_explicit_fresh_test_root(
 
 
 def test_native_acceptance_refuses_existing_scratch_before_child_launch(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     """An explicit path cannot become disposal authority for pre-existing user bytes."""
     root = tmp_path / "existing"
@@ -143,7 +147,9 @@ def test_native_acceptance_refuses_existing_scratch_before_child_launch(
     assert list((tmp_path / "work").iterdir()) == []
 
 
-def test_teardown_rejects_foreign_contexts_before_any_native_effect(tmp_path: Path, mocker) -> None:
+def test_teardown_rejects_foreign_contexts_before_any_native_effect(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     """Preflight every recorded context rather than cleaning a valid prefix first."""
     root = tmp_path / "owned"
     root.mkdir()
@@ -164,7 +170,7 @@ def test_teardown_rejects_foreign_contexts_before_any_native_effect(tmp_path: Pa
 
 
 def test_teardown_preserves_conflicting_contexts_for_one_installation(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     root = tmp_path / "owned"
     root.mkdir()
@@ -183,7 +189,7 @@ def test_teardown_preserves_conflicting_contexts_for_one_installation(
 
 @pytest.mark.parametrize("invalid", [b'{"install_dir":', b"{}\n", b"\n"])
 def test_teardown_preserves_malformed_custody_before_native_effects(
-    tmp_path: Path, mocker, invalid: bytes
+    tmp_path: Path, mocker: MockerFixture, invalid: bytes
 ) -> None:
     root = tmp_path / "owned"
     root.mkdir()
@@ -203,7 +209,7 @@ def test_teardown_preserves_malformed_custody_before_native_effects(
 
 @pytest.mark.parametrize("invalid", [False, "30", None, float("nan")])
 def test_teardown_validates_context_types_before_native_effects(
-    tmp_path: Path, mocker, invalid: object
+    tmp_path: Path, mocker: MockerFixture, invalid: object
 ) -> None:
     root = tmp_path / "owned"
     root.mkdir()
@@ -224,7 +230,7 @@ def test_teardown_validates_context_types_before_native_effects(
 
 
 def test_surviving_executor_preserves_recovery_custody_after_cleanup_failure(
-    tmp_path: Path, mocker, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = mocker.Mock()
     failure = errors.InstallError("native service observation is unavailable")
@@ -263,7 +269,7 @@ def test_surviving_executor_preserves_recovery_custody_after_cleanup_failure(
 
 
 def test_native_cleanup_separates_registration_and_process_ownership(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Teardown removes the stable service after its generation leaves the selector."""
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
@@ -283,7 +289,7 @@ def test_native_cleanup_separates_registration_and_process_ownership(
 
 
 def test_native_cleanup_continues_independent_processes_after_unproved_exit(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Retain the safe failure while still stopping the second owned generation."""
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
@@ -308,7 +314,7 @@ def test_native_cleanup_continues_independent_processes_after_unproved_exit(
 
 
 def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A process in any runtime role that survives termination keeps teardown failing."""
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
@@ -332,7 +338,7 @@ def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
 
 
 def test_native_cleanup_refuses_a_service_executable_outside_the_installation(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A registered executable outside the private installation stops teardown untouched."""
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
@@ -363,7 +369,7 @@ def test_native_cleanup_proves_every_registration_and_process_is_gone(
     inventories: list[list[int]],
     message: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     """Each residue that cleanup observes afterwards fails teardown with its own diagnosis."""
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
@@ -382,7 +388,7 @@ def test_native_cleanup_proves_every_registration_and_process_is_gone(
 
 @pytest.mark.parametrize("arguments", [("--basetemp",), ("--basetemp=/a", "--basetemp=/b")])
 def test_native_acceptance_refuses_ambiguous_roots_before_launch(
-    tmp_path: Path, mocker, arguments: tuple[str, ...]
+    tmp_path: Path, mocker: MockerFixture, arguments: tuple[str, ...]
 ) -> None:
     session = mocker.Mock()
     with pytest.raises(errors.InstallError):
@@ -393,7 +399,9 @@ def test_native_acceptance_refuses_ambiguous_roots_before_launch(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_native_acceptance_refuses_missing_parent_before_launch(tmp_path: Path, mocker) -> None:
+def test_native_acceptance_refuses_missing_parent_before_launch(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     session = mocker.Mock()
     with pytest.raises(errors.InstallError, match="parent is unavailable"):
         verification.accept(
@@ -441,7 +449,9 @@ def test_native_home_refuses_unproved_custody_before_allocation(
     assert contexts.read_bytes() == b""
 
 
-def test_native_teardown_recovers_pending_transaction_before_purge(tmp_path: Path, mocker) -> None:
+def test_native_teardown_recovers_pending_transaction_before_purge(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     root = tmp_path / "owned"
     root.mkdir()
     ctx = runtime_context_for(root / "home", root / "payload", root / "state", 43210)
@@ -467,7 +477,7 @@ def test_native_teardown_recovers_pending_transaction_before_purge(tmp_path: Pat
 
 @pytest.mark.parametrize("wrapper_exit", [True, False, "denied"])
 def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
-    tmp_path: Path, mocker, *, wrapper_exit: bool | str
+    tmp_path: Path, mocker: MockerFixture, *, wrapper_exit: bool | str
 ) -> None:
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
     wrapper = tmp_path / "wrapper"
@@ -495,7 +505,7 @@ def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
 
 @pytest.mark.parametrize("boundary", ["status", "recover"])
 def test_teardown_stops_exact_runtime_after_transaction_recovery_failure(
-    tmp_path: Path, mocker, boundary: str
+    tmp_path: Path, mocker: MockerFixture, boundary: str
 ) -> None:
     """A recovery refusal preserves files without abandoning independent runtime stops."""
     root = tmp_path / "owned"

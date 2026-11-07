@@ -8,6 +8,7 @@ import socket
 import threading
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
@@ -16,6 +17,10 @@ from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import fake_handler
 from tests.serving.handoff.fixtures import handoff_module
 from tests.serving.handoff.fixtures import runtime_state_module
+
+if TYPE_CHECKING:
+    import pytest
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -27,7 +32,9 @@ class TestHandoffControlHandler:
             handoff_context=entrypoint_module._handoff_context,
         )
 
-    def test_handler_transfers_ownership_before_acknowledging_ready(self, *, mocker) -> None:
+    def test_handler_transfers_ownership_before_acknowledging_ready(
+        self, *, mocker: MockerFixture
+    ) -> None:
         order = []
         handler = fake_handler(expected_metadata(), mocker=mocker)
         handler.wfile.write.side_effect = lambda chunk: order.append(("write", chunk))
@@ -52,7 +59,9 @@ class TestHandoffControlHandler:
         )
         assert thread_cls.call_args.kwargs["target"] == handoff_module.commit
 
-    def test_handler_keeps_commit_after_ready_response_disconnect(self, *, mocker) -> None:
+    def test_handler_keeps_commit_after_ready_response_disconnect(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = fake_handler(expected_metadata(), mocker=mocker)
         handler.wfile.write.side_effect = BrokenPipeError("controller disconnected")
         expected = expected_metadata()
@@ -66,7 +75,7 @@ class TestHandoffControlHandler:
         thread_cls.return_value.start.assert_called_once_with()
         assert thread_cls.call_args.kwargs["target"] == handoff_module.commit
 
-    def test_handler_rejects_non_loopback_clients(self, *, mocker) -> None:
+    def test_handler_rejects_non_loopback_clients(self, *, mocker: MockerFixture) -> None:
         handler = fake_handler(expected_metadata(), mocker=mocker)
         handler.client_address = ("example.invalid", 51234)
         prepare = mocker.patch.object(handoff_module, "prepare")
@@ -74,7 +83,9 @@ class TestHandoffControlHandler:
         prepare.assert_not_called()
         assert handler.send_error.call_args.args[0] == 403
 
-    def test_handler_returns_409_when_a_handoff_is_already_in_progress(self, *, mocker) -> None:
+    def test_handler_returns_409_when_a_handoff_is_already_in_progress(
+        self, *, mocker: MockerFixture
+    ) -> None:
         fake_self = fake_handler(expected_metadata(), mocker=mocker)
         mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)
         mocker.patch.object(
@@ -85,7 +96,9 @@ class TestHandoffControlHandler:
         control.prepare_handoff(fake_self, self.bindings)
         fake_self.send_response.assert_called_once_with(409)
 
-    def test_drain_control_enforces_loopback_and_projects_the_lease(self, *, mocker) -> None:
+    def test_drain_control_enforces_loopback_and_projects_the_lease(
+        self, *, mocker: MockerFixture
+    ) -> None:
         remote = fake_handler({}, mocker=mocker)
         remote.client_address = ("example.invalid", 51234)
         set_draining = mocker.patch.object(runtime_state_module, "set_draining")
@@ -115,7 +128,9 @@ class TestHandoffControlHandler:
         control.set_drain(reopened, enabled=False)
         set_draining.assert_called_once_with(enabled=False, lease_seconds=None)
 
-    def test_status_control_serializes_the_bound_runtime_snapshot(self, *, mocker) -> None:
+    def test_status_control_serializes_the_bound_runtime_snapshot(
+        self, *, mocker: MockerFixture
+    ) -> None:
         fake_self = fake_handler({}, mocker=mocker)
         bindings = control.Bindings(
             runtime_status=lambda: {"ok": True, "pid": 42},
@@ -129,7 +144,7 @@ class TestHandoffControlHandler:
         }
 
     def test_handler_rejects_invalid_control_envelopes_before_prepare(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         cases = (
             ({"Content-Length": "not-an-int"}, b"{}", 400),
@@ -161,7 +176,7 @@ class TestHandoffControlHandler:
         unknown.send_error.assert_called_once_with(400, "handoff request contains unknown fields")
 
     def test_handler_refuses_an_envelope_that_stalls_past_its_receive_bound(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(handoff_protocol_module, "HANDOFF_CONTROL_RECEIVE_TIMEOUT_SECONDS", 0.2)
         prepare = mocker.patch.object(handoff_module, "prepare")
@@ -185,7 +200,7 @@ class TestHandoffControlHandler:
         assert elapsed < 1
 
     def test_handler_rejects_disk_mismatch_and_projects_non_conflict_prepare_failure(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mismatch = fake_handler(expected_metadata(), mocker=mocker)
         mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=False)

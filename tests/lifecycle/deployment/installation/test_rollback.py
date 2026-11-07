@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,10 +18,13 @@ from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 from tests.lifecycle.deployment.installation.fixtures import retained_identity
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     def test_explicit_rollback_reuses_upgrade_and_projects_precise_releases(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
@@ -62,7 +66,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
 
     def test_explicit_rollback_refuses_before_any_change_when_no_runtime_answers(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
@@ -86,7 +90,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.install_mock.assert_not_called()
         service.uninstall_mock.assert_not_called()
 
-    def test_explicit_rollback_uses_current_runtime_handoff_capability(self, *, mocker) -> None:
+    def test_explicit_rollback_uses_current_runtime_handoff_capability(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """Rollback keeps admission open when the current listener supports handoff."""
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
@@ -129,7 +135,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.install_mock.assert_called_once_with(control)
 
     def test_explicit_rollback_replaces_a_runtime_without_handoff_capability(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """A reverse transition keeps the newest control supervisor authoritative."""
         retained = payload_rollback.RetainedRollback(
@@ -172,7 +178,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         request.assert_not_called()
         service.install_mock.assert_called_once_with(control)
 
-    def test_explicit_rollback_requires_an_upgrade_result(self, *, mocker) -> None:
+    def test_explicit_rollback_requires_an_upgrade_result(self, *, mocker: MockerFixture) -> None:
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
             predecessor=retained_identity("1.2.2"),

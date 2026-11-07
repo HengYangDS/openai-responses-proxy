@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 import pytest
+from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git
@@ -21,7 +22,9 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize("failure", [OSError("missing"), subprocess.CompletedProcess([], 1)])
-def test_governance_failure_stops_before_subsequent_commands(failure, mocker, capsys) -> None:
+def test_governance_failure_stops_before_subsequent_commands(
+    failure, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     mocker.patch.object(governance, "_commands", return_value=(("first",), ("second",)))
     run = mocker.patch.object(governance.subprocess, "run")
     if isinstance(failure, OSError):
@@ -113,7 +116,7 @@ def test_dependency_and_dead_code_policy_has_one_precise_owner() -> None:
     assert "--baseline" not in quality_commands
 
 
-def test_governance_composition_owns_each_repository_check_once(mocker) -> None:
+def test_governance_composition_owns_each_repository_check_once(mocker: MockerFixture) -> None:
     inputs = (".config/ci/graph/proof.cue", ".config/ci/peers/gitlab/pipeline.cue")
     mocker.patch.object(governance, "model_inputs", return_value=inputs)
     completed = mocker.Mock(returncode=0)
@@ -279,7 +282,9 @@ def test_native_formatter_isolates_editorconfig_and_preserves_check_inputs(
 
 
 @pytest.mark.repository_toolchain
-def test_native_fix_requires_index_owned_inputs_and_is_idempotent(monkeypatch) -> None:
+def test_native_fix_requires_index_owned_inputs_and_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scratch = ROOT / ".nox"
     scratch.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="formatter-owned-", dir=scratch) as directory:

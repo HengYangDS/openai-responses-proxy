@@ -14,9 +14,11 @@ from tools.release.publication.gitlab import publish as gitlab
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 def test_github_command_dispatches_verified_inputs_without_secret_arguments(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     adapter = mocker.patch.object(github, "publish", return_value="created")
     mocker.patch.dict(
@@ -70,7 +72,7 @@ def test_github_command_dispatches_verified_inputs_without_secret_arguments(
     ],
 )
 def test_gitlab_command_reads_only_the_declared_credential(
-    tmp_path: Path, mocker, kind: gitlab.CredentialKind, variable: str, token: str
+    tmp_path: Path, mocker: MockerFixture, kind: gitlab.CredentialKind, variable: str, token: str
 ) -> None:
     adapter = mocker.patch.object(gitlab, "publish", return_value="matched")
     mocker.patch.dict(
@@ -111,7 +113,9 @@ def test_gitlab_command_reads_only_the_declared_credential(
     )
 
 
-def test_command_fails_closed_without_provider_credentials(tmp_path: Path, mocker) -> None:
+def test_command_fails_closed_without_provider_credentials(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.dict(commands.os.environ, {}, clear=True)
 
     with pytest.raises(SystemExit) as failure:
@@ -134,7 +138,9 @@ def test_command_fails_closed_without_provider_credentials(tmp_path: Path, mocke
     assert failure.value.code == 1
 
 
-def test_publication_commands_share_one_semantic_entrypoint(capsys) -> None:
+def test_publication_commands_share_one_semantic_entrypoint(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     commands.main(("--help",))
     help_text = capsys.readouterr().out
     assert f"python -m {commands.__package__}" in help_text
@@ -142,7 +148,9 @@ def test_publication_commands_share_one_semantic_entrypoint(capsys) -> None:
         assert operation in help_text
 
 
-def test_dual_command_projects_the_same_bundle_to_both_peers(tmp_path: Path, mocker) -> None:
+def test_dual_command_projects_the_same_bundle_to_both_peers(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     github_dispatch = mocker.patch.object(commands, "_github")
     gitlab_dispatch = mocker.patch.object(commands, "_gitlab")
     assets = tmp_path / "assets"
@@ -177,7 +185,9 @@ def test_dual_command_projects_the_same_bundle_to_both_peers(tmp_path: Path, moc
     )
 
 
-def test_dual_command_attempts_both_peers_before_reporting_failure(tmp_path: Path, mocker) -> None:
+def test_dual_command_attempts_both_peers_before_reporting_failure(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.object(
         commands,
         "_github",
@@ -201,7 +211,7 @@ def test_dual_command_attempts_both_peers_before_reporting_failure(tmp_path: Pat
 
 
 def test_github_predecessor_cli_projects_the_exact_tag_to_github_environment(
-    *, mocker, capsys, tmp_path
+    *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     """Project the exact tag without depending on the runner's command shell."""
     resolve = mocker.patch.object(github_observer, "published_predecessor", return_value="v3.1.0")
@@ -228,7 +238,7 @@ def test_github_predecessor_cli_projects_the_exact_tag_to_github_environment(
 
 
 def test_github_predecessor_cli_accepts_the_release_tag_as_identity(
-    *, mocker, capsys, tmp_path
+    *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     """Derive the candidate version without runner-shell command substitution."""
     resolve = mocker.patch.object(github_observer, "published_predecessor", return_value="v3.1.0")
@@ -255,7 +265,7 @@ def test_github_predecessor_cli_accepts_the_release_tag_as_identity(
 
 
 def test_github_predecessor_cli_reads_the_candidate_source_identity(
-    *, mocker, capsys, tmp_path
+    *, mocker: MockerFixture, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     resolve = mocker.patch.object(github_observer, "published_predecessor", return_value="v5.0.5")
     source = tmp_path / "candidate source"
@@ -285,7 +295,7 @@ def test_github_predecessor_cli_reads_the_candidate_source_identity(
 
 @pytest.mark.parametrize("version", [None, "latest"])
 def test_github_predecessor_cli_refuses_unproved_source_before_remote_lookup(
-    tmp_path, mocker, version
+    tmp_path: Path, mocker: MockerFixture, version
 ) -> None:
     resolve = mocker.patch.object(github_observer, "published_predecessor")
     source = tmp_path / "source"

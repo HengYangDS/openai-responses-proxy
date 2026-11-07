@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -16,6 +17,9 @@ from tests.release.publication.fixtures import verified_evidence
 from tools.release.artifact import format as product_assets
 from tools.release.publication import evaluator
 from tools.release.publication import verification as publication
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 def _forge(
@@ -184,7 +188,9 @@ class PublicationProofContracts:
         assert "gitlab.ci_revision_mismatch" in reasons
         assert "gitlab.release_draft" in reasons
 
-    def test_invalid_shapes_and_all_semantic_mismatches_fail_closed(self, subtests) -> None:
+    def test_invalid_shapes_and_all_semantic_mismatches_fail_closed(
+        self, subtests: pytest.Subtests
+    ) -> None:
         invalid = {
             "tag": "latest",
             "repository": "",
@@ -236,14 +242,18 @@ class PublicationEvidenceContracts:
     def test_publication_owner_imports_semantic_collaborators(self) -> None:
         assert publication.evaluator is evaluator
 
-    def test_evidence_projection_has_no_installation_capability(self, *, mocker) -> None:
+    def test_evidence_projection_has_no_installation_capability(
+        self, *, mocker: MockerFixture
+    ) -> None:
         assert not hasattr(artifact, "ForgePublication")
         assert not hasattr(artifact, "PublicationProof")
         assert not hasattr(publication, "PublishedRelease")
         assert not hasattr(publication, "consume")
         assert verified_evidence(forge_evidence(), mocker=mocker)["verified"]
 
-    def test_publication_verifier_fails_closed_on_invalid_inputs(self, *, mocker) -> None:
+    def test_publication_verifier_fails_closed_on_invalid_inputs(
+        self, *, mocker: MockerFixture
+    ) -> None:
         arguments = VERIFY_ARGUMENTS
         mocker.patch.object(
             publication.git,
@@ -259,7 +269,9 @@ class PublicationEvidenceContracts:
             publication.verify(**invalid_tag)
         assert failure.value.reasons == ("release_tag_invalid",)
 
-    def test_publication_verifier_composes_validated_adapter_evidence(self, *, mocker) -> None:
+    def test_publication_verifier_composes_validated_adapter_evidence(
+        self, *, mocker: MockerFixture
+    ) -> None:
         commit = "b" * 40
         git_evidence = {
             "tag_object_oid": "a" * 40,
@@ -312,7 +324,7 @@ class PublicationEvidenceContracts:
             assert set(ci) == {"id", "revision_oid", "status"}
 
     def test_publication_verifier_rejects_unverified_and_malformed_results(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         identity = {
             "tag_object_oid": "a" * 40,
@@ -344,7 +356,7 @@ class PublicationEvidenceContracts:
             ):
                 publication.verify(**arguments)
 
-    def test_publication_evidence_is_deeply_frozen(self, *, mocker) -> None:
+    def test_publication_evidence_is_deeply_frozen(self, *, mocker: MockerFixture) -> None:
         evidence = verified_evidence(forge_evidence(items=[{"value": 1}]), mocker=mocker)
         forges = evidence["forges"]
         assert isinstance(forges, Mapping)

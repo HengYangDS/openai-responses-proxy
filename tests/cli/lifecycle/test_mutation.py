@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,8 +16,13 @@ from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_install_delegates_exact_asset_trust_anchor_and_port(tmp_path: Path, *, mocker) -> None:
+
+def test_install_delegates_exact_asset_trust_anchor_and_port(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     create = mocker.patch.object(
         application.runtime_context,
@@ -53,7 +59,7 @@ def test_install_delegates_exact_asset_trust_anchor_and_port(tmp_path: Path, *, 
 
 @pytest.mark.parametrize("json_output", [False, True])
 def test_unexpected_install_failure_has_a_bounded_public_result(
-    tmp_path: Path, *, json_output: bool, mocker
+    tmp_path: Path, *, json_output: bool, mocker: MockerFixture
 ) -> None:
     mocker.patch.object(
         application.runtime_context, "create", return_value=install_context(tmp_path)
@@ -80,7 +86,7 @@ def test_unexpected_install_failure_has_a_bounded_public_result(
 
 
 def test_unexpected_presentation_failure_has_a_bounded_public_result(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     mocker.patch.object(
         application.runtime_context, "create", return_value=install_context(tmp_path)
@@ -104,7 +110,7 @@ def test_unexpected_presentation_failure_has_a_bounded_public_result(
 
 
 def test_reload_delegates_transactionally_with_an_explicit_timeout(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     result = {"state": "reloaded", "old_pid": 321, "new_pid": 654}
     ctx = install_context(tmp_path)
@@ -117,7 +123,9 @@ def test_reload_delegates_transactionally_with_an_explicit_timeout(
     reload.assert_called_once_with(ctx, timeout_seconds=12.5)
 
 
-def test_install_delegates_with_an_explicit_timeout(tmp_path: Path, *, mocker) -> None:
+def test_install_delegates_with_an_explicit_timeout(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     asset = tmp_path / "release.tar.gz"
     trust = tmp_path / "release.pub"
     ctx = install_context(tmp_path)
@@ -145,7 +153,9 @@ def test_install_delegates_with_an_explicit_timeout(tmp_path: Path, *, mocker) -
     install.assert_called_once_with(ctx, asset, trust_anchor=trust, timeout_seconds=45.0)
 
 
-def test_install_of_the_active_artifact_reports_no_change(tmp_path: Path, *, mocker) -> None:
+def test_install_of_the_active_artifact_reports_no_change(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     unchanged = {"state": "unchanged", "release": "3.1.16"}
@@ -163,7 +173,7 @@ def test_install_of_the_active_artifact_reports_no_change(tmp_path: Path, *, moc
 
 
 def test_recover_restores_only_the_runtime_bound_retained_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     runtime = {"pid": 321, "release": "2.0.10", "accepting": True}
     ctx = install_context(tmp_path)
@@ -190,7 +200,7 @@ def test_recover_restores_only_the_runtime_bound_retained_transaction(
 
 
 def test_rollback_is_discoverable_and_delegates_to_the_installed_lifecycle(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     result = {
         "state": "rolled_back",
@@ -223,7 +233,9 @@ def test_rollback_is_discoverable_and_delegates_to_the_installed_lifecycle(
     )
 
 
-def test_rollback_requires_an_explicit_target_before_lifecycle_dispatch(*, mocker) -> None:
+def test_rollback_requires_an_explicit_target_before_lifecycle_dispatch(
+    *, mocker: MockerFixture
+) -> None:
     rollback = mocker.patch.object(application.control, "rollback")
 
     code, stdout, stderr = invoke("rollback", "--json")
@@ -236,7 +248,7 @@ def test_rollback_requires_an_explicit_target_before_lifecycle_dispatch(*, mocke
 
 
 def test_rollback_to_the_current_release_reports_an_unchanged_terminal_state(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     unchanged = {"state": "unchanged", "release": "3.0.6"}
     ctx = install_context(tmp_path)
@@ -258,7 +270,7 @@ def test_recover_projects_one_precise_invalid_state_contract(
     tmp_path: Path,
     *,
     json_output: bool,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     transaction_root = Path(records.transaction_root(ctx))
@@ -291,7 +303,7 @@ def test_recover_projects_one_precise_invalid_state_contract(
 
 
 def test_uninstall_removes_only_the_owned_service_unless_purge_is_requested(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
@@ -324,7 +336,9 @@ def test_uninstall_removes_only_the_owned_service_unless_purge_is_requested(
     uninstall.assert_called_once_with(ctx, purge=True)
 
 
-def test_pristine_recover_and_uninstall_are_explicit_no_ops(tmp_path: Path, *, mocker) -> None:
+def test_pristine_recover_and_uninstall_are_explicit_no_ops(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     context = mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "read_runtime", return_value=None)
@@ -359,7 +373,7 @@ def test_pristine_recover_and_uninstall_are_explicit_no_ops(tmp_path: Path, *, m
 @pytest.mark.parametrize("windows", [False, True], ids=["unix", "windows"])
 @pytest.mark.parametrize("interruption", ["payload", "journal"])
 def test_public_recovery_reconstructs_context_after_interrupted_purge(
-    tmp_path: Path, interruption: str, *, windows: bool, mocker
+    tmp_path: Path, interruption: str, *, windows: bool, mocker: MockerFixture
 ) -> None:
     """The public lifecycle reconstructs removal from declared roots, not old objects."""
     ctx = install_context(tmp_path, windows=windows)
@@ -410,7 +424,7 @@ def test_public_recovery_reconstructs_context_after_interrupted_purge(
     assert stderr == ""
 
 
-def test_install_dispatches_to_its_single_owner(tmp_path: Path, *, mocker) -> None:
+def test_install_dispatches_to_its_single_owner(tmp_path: Path, *, mocker: MockerFixture) -> None:
     asset = Path("release.tar.gz")
     anchor = Path("allowed-signers")
     ctx = install_context(tmp_path)

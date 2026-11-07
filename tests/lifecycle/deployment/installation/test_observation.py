@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import urllib.error
+from typing import TYPE_CHECKING
 from typing import Self
 
 import pytest
@@ -14,10 +15,13 @@ from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     def test_request_handoff_resolves_finalized_rolled_back_and_unknown(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         current = self.current_runtime()
         expected = FakeTransaction(self.ctx).expected
@@ -83,7 +87,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         [OSError("runtime record is unreadable"), errors.InstallError("runtime record is invalid")],
     )
     def test_request_handoff_preserves_an_unobservable_controller_failure_as_unknown(
-        self, unobservable: Exception, *, mocker
+        self, unobservable: Exception, *, mocker: MockerFixture
     ) -> None:
         current = self.current_runtime()
         original = errors.InstallError("handoff failed")
@@ -104,7 +108,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             )
         assert raised.value.__cause__ is original
 
-    def test_request_handoff_leases_the_predecessor_its_exchange_deadline(self, *, mocker) -> None:
+    def test_request_handoff_leases_the_predecessor_its_exchange_deadline(
+        self, *, mocker: MockerFixture
+    ) -> None:
         current = self.current_runtime()
         expected = FakeTransaction(self.ctx).expected
         self.ctx.upstream_timeout = 900.0
@@ -121,7 +127,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
         assert request.call_args.kwargs["lease_seconds"] == 900.0
 
-    def test_wait_for_serving_runtime_requires_exact_identity(self, *, mocker) -> None:
+    def test_wait_for_serving_runtime_requires_exact_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         expected = FakeTransaction(self.ctx).expected
         match = self.successor()
         snapshots = [None, {**match, "pid": True}, {**match, "release": "wrong"}, match]
@@ -148,7 +156,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             )
 
     def test_wait_for_serving_runtime_accepts_exact_process_when_tcp_inventory_lags(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """Loopback identity and exact process ownership outlive stale TCP inventory."""
         expected = FakeTransaction(self.ctx).expected
@@ -167,7 +175,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             == match
         )
 
-    def test_read_runtime_accepts_only_http_200_json_objects(self, *, mocker) -> None:
+    def test_read_runtime_accepts_only_http_200_json_objects(
+        self, *, mocker: MockerFixture
+    ) -> None:
         class Response:
             def __init__(self, status: int, payload: bytes) -> None:
                 self.status, self.payload = status, payload

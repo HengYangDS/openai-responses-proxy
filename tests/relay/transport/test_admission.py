@@ -7,6 +7,7 @@ import json
 import threading
 import urllib.error
 import urllib.request
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -19,6 +20,9 @@ from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class TestProxyTransport(LoopbackTransportFixture):
@@ -155,7 +159,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["responses_rejected_while_draining"] == 1
         assert not status["draining"]
 
-    def test_drain_lease_expires_without_a_controller_rollback_request(self, *, mocker) -> None:
+    def test_drain_lease_expires_without_a_controller_rollback_request(
+        self, *, mocker: MockerFixture
+    ) -> None:
         admission.reset_for_test()
         telemetry.reset_for_test()
         cooldown.reset_for_test()

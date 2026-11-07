@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -24,9 +25,12 @@ from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_interrupted_reverse_transition_rejects_the_wrong_runtime(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Reverse recovery cannot select a successor not proven by the live runtime."""
     ctx = install_context(tmp_path)
@@ -48,7 +52,7 @@ def test_interrupted_reverse_transition_rejects_the_wrong_runtime(
 
 
 def test_reverse_recovery_preserves_selection_outside_its_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A reverse recovery owns only its exact before and after selection."""
     ctx = install_context(tmp_path)
@@ -77,7 +81,7 @@ def test_reverse_recovery_preserves_selection_outside_its_transaction(
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["upgrade", "retained-rollback"])
 def test_controller_rollback_preserves_selection_outside_its_transaction(
-    tmp_path: Path, *, reverse: bool, mocker
+    tmp_path: Path, *, reverse: bool, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -116,7 +120,7 @@ def test_unselected_reverse_recovery_preserves_ambiguous_state(
     drift: str,
     message: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -207,7 +211,7 @@ def test_recovery_classifies_invalid_carriers_without_mutation(
     carrier: str,
     expected: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     root = Path(records.transaction_root(ctx))
@@ -286,7 +290,7 @@ def test_recovery_classifies_invalid_carriers_without_mutation(
 
 @pytest.mark.parametrize("corruption", ["identity", "release", "receipt"])
 def test_recovery_rejects_candidate_identity_drift(
-    tmp_path: Path, corruption: str, *, mocker
+    tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     """Recovery binds the candidate generation to the durable transaction journal."""
     ctx = install_context(tmp_path)
@@ -309,7 +313,9 @@ def test_recovery_rejects_candidate_identity_drift(
         recover_transaction(ctx, runtime=None)
 
 
-def test_materialized_recovery_rejects_selection_drift(tmp_path: Path, *, mocker) -> None:
+def test_materialized_recovery_rejects_selection_drift(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """An unselected candidate may be discarded only from its exact prior selection."""
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -326,7 +332,7 @@ def test_materialized_recovery_rejects_selection_drift(tmp_path: Path, *, mocker
 
 
 def test_recovery_refuses_a_prepared_transaction_with_unowned_content(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

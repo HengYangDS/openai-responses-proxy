@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import urllib.error
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,6 +19,9 @@ from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 FAILED = b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
 COMPLETED = b'data: {"type":"response.completed"}\n\n'
@@ -41,7 +45,9 @@ def _exchange(handler: MemoryHandler) -> upstream_exchange.Exchange:
 
 
 class TestStreamDeadline(InputTransportFixture):
-    def test_typed_deadline_stops_pre_content_recovery_before_clock_expiry(self, *, mocker) -> None:
+    def test_typed_deadline_stops_pre_content_recovery_before_clock_expiry(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(sse.time, "monotonic", return_value=100.0)
         mocker.patch.object(sse.time, "sleep")
         reopen = mocker.patch.object(
@@ -58,7 +64,9 @@ class TestStreamDeadline(InputTransportFixture):
         assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
         reopen.assert_not_called()
 
-    def test_typed_reconnect_deadline_is_not_a_generic_stream_failure(self, *, mocker) -> None:
+    def test_typed_reconnect_deadline_is_not_a_generic_stream_failure(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(sse, "UPSTREAM_TIMEOUT", 1.1)
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.1)
@@ -85,7 +93,7 @@ class TestStreamDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("committed", [False, True])
     def test_typed_deadline_cannot_finish_a_buffered_terminal_event(
-        self, *, committed: bool, mocker
+        self, *, committed: bool, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(sse.time, "monotonic", return_value=100.0)
         content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
@@ -110,7 +118,9 @@ class TestStreamDeadline(InputTransportFixture):
         else:
             assert handler.output() == b""
 
-    def test_real_loopback_reconnect_headers_stop_at_the_stream_deadline(self, *, mocker) -> None:
+    def test_real_loopback_reconnect_headers_stop_at_the_stream_deadline(
+        self, *, mocker: MockerFixture
+    ) -> None:
         released = threading.Event()
         second_started = threading.Event()
         release = threading.Timer(5, released.set)
@@ -151,7 +161,7 @@ class TestStreamDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("header_delay", [0.05, 0.5])
     def test_reconnect_header_acquisition_uses_the_remaining_stream_budget(
-        self, header_delay: float, *, mocker
+        self, header_delay: float, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         timeouts: list[float] = []
@@ -192,7 +202,9 @@ class TestStreamDeadline(InputTransportFixture):
             assert b"upstream_deadline_exceeded" in handler.output()
             successor_close.assert_not_called()
 
-    def test_expiry_during_backoff_never_starts_another_upstream_attempt(self, *, mocker) -> None:
+    def test_expiry_during_backoff_never_starts_another_upstream_attempt(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         upstream = DirectResponse(FAILED)
         close = mocker.spy(upstream, "close")
@@ -212,7 +224,7 @@ class TestStreamDeadline(InputTransportFixture):
         reopen.assert_not_called()
         close.assert_called_once_with()
 
-    def test_expired_header_deadline_refuses_network_io(self, *, mocker) -> None:
+    def test_expired_header_deadline_refuses_network_io(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(upstream_exchange.time, "monotonic", return_value=100.0)
         open_ = mocker.patch.object(upstream_exchange, "urlopen_direct")
 

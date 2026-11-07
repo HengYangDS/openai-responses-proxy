@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from xml.dom import minidom
 
 from openai_responses_proxy.lifecycle.supervision import linux
@@ -9,6 +10,9 @@ from openai_responses_proxy.lifecycle.supervision import macos
 from openai_responses_proxy.lifecycle.supervision import windows
 from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import assert_fragments as _assert_fragments
+
+if TYPE_CHECKING:
+    import pytest
 
 POSIX_CONTEXT = platform_context()
 WINDOWS_CONTEXT = platform_context(windows=True)
@@ -61,7 +65,9 @@ class TestServiceDefinitions:
         _assert_fragments(xml, WINDOWS_TASK_CONTAINS)
         _assert_fragments(xml.lower(), exclude=("cmd.exe", "comspec", "run-watchdog.cmd"))
 
-    def test_service_definitions_never_persist_python_or_source_paths(self, subtests) -> None:
+    def test_service_definitions_never_persist_python_or_source_paths(
+        self, subtests: pytest.Subtests
+    ) -> None:
         ctx = platform_context(port=8801)
         definitions = (
             macos.render_plist(ctx),
@@ -73,7 +79,9 @@ class TestServiceDefinitions:
                 assert "python" not in definition.lower()
                 assert ".py" not in definition
 
-    def test_service_definitions_contain_no_product_configuration(self, subtests) -> None:
+    def test_service_definitions_contain_no_product_configuration(
+        self, subtests: pytest.Subtests
+    ) -> None:
         definitions = (
             macos.render_plist(POSIX_CONTEXT),
             linux.render_unit(POSIX_CONTEXT),

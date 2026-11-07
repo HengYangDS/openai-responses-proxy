@@ -7,6 +7,7 @@ import os
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Never
 
 import pytest
@@ -24,10 +25,13 @@ from tests.serving.handoff.subprocess import fixtures as subprocess_fixtures
 from tests.serving.handoff.subprocess.fixtures import SubprocessFixture
 from tools.release import verification
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestHandoffCleanup(SubprocessFixture):
     def test_detached_fixture_stays_beneath_the_surviving_executor_root(
-        self, *, tmp_path, monkeypatch, mocker
+        self, *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
     ) -> None:
         root = tmp_path / "owned"
         root.mkdir()
@@ -54,7 +58,7 @@ class TestHandoffCleanup(SubprocessFixture):
 
     @pytest.mark.parametrize("partial_payload", [False, True])
     def test_failed_fixture_initialization_removes_its_temporary_payload(
-        self, *, mocker, tmp_path, partial_payload
+        self, *, mocker: MockerFixture, tmp_path: Path, partial_payload
     ) -> None:
         roots = []
         failure = RuntimeError("payload initialization failed")
@@ -80,7 +84,9 @@ class TestHandoffCleanup(SubprocessFixture):
         assert roots[0].parent == tmp_path
         assert not roots[0].exists()
 
-    def test_fixture_cleanup_terminates_before_removing_temporary_payload(self, *, mocker) -> None:
+    def test_fixture_cleanup_terminates_before_removing_temporary_payload(
+        self, *, mocker: MockerFixture
+    ) -> None:
         events = []
         temporary = tempfile.TemporaryDirectory()
         cleanup = temporary.cleanup
@@ -128,7 +134,9 @@ class TestHandoffCleanup(SubprocessFixture):
             "cleanup",
         ]
 
-    def test_fixture_cleanup_retries_a_transient_native_payload_lock(self, *, mocker) -> None:
+    def test_fixture_cleanup_retries_a_transient_native_payload_lock(
+        self, *, mocker: MockerFixture
+    ) -> None:
         temporary = mocker.Mock()
         temporary.cleanup.side_effect = [PermissionError("mapped module"), None]
         ctx = runtime_context.RuntimeContext(
@@ -147,7 +155,7 @@ class TestHandoffCleanup(SubprocessFixture):
         assert temporary.cleanup.call_count == 2
 
     def test_fixture_cleanup_uses_the_observed_successor_when_inventory_misses_it(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         temporary = mocker.Mock()
         owned = process.OwnedProcess(123, "/opt/owned/proxy.py", 42.0)
@@ -170,7 +178,9 @@ class TestHandoffCleanup(SubprocessFixture):
         alive.assert_called_once_with(owned)
         temporary.cleanup.assert_called_once_with()
 
-    def test_owned_child_cleanup_is_bound_to_its_temporary_proxy_path(self, *, mocker) -> None:
+    def test_owned_child_cleanup_is_bound_to_its_temporary_proxy_path(
+        self, *, mocker: MockerFixture
+    ) -> None:
         proxy_script = "/opt/owned/.codex/responses-proxy/proxy.py"
         owns_pid = mocker.patch.object(process, "pid_names_executable", return_value=True)
         terminate = mocker.patch.object(process, "terminate_executable", return_value=True)
@@ -179,7 +189,9 @@ class TestHandoffCleanup(SubprocessFixture):
         owns_pid.assert_called_once()
         terminate.assert_called_once()
 
-    def test_owned_child_cleanup_reports_an_unconfirmed_exit(self, *, mocker) -> None:
+    def test_owned_child_cleanup_reports_an_unconfirmed_exit(
+        self, *, mocker: MockerFixture
+    ) -> None:
         proxy_script = "/opt/owned/.codex/responses-proxy/proxy.py"
         mocker.patch.object(process, "pid_names_executable", return_value=True)
         mocker.patch.object(
@@ -191,7 +203,7 @@ class TestHandoffCleanup(SubprocessFixture):
 
 
 def test_installed_payload_retains_complete_custody_before_native_prewarm(
-    tmp_path: Path, monkeypatch, mocker
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """The surviving executor sees the exact generation before a child can exist."""
     root = tmp_path / "owned"

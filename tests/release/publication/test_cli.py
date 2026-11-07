@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,12 +15,17 @@ from tests.release.publication.fixtures import VERIFY_ARGUMENTS
 from tools.release.publication import __main__ as publication_cli
 from tools.release.publication import verification as publication
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class PublicationProofCliContracts:
     """Render deeply frozen evidence without adding release authority."""
 
     @pytest.mark.parametrize("as_json", [True, False])
-    def test_cli_serializes_frozen_publication_evidence(self, capsys, as_json, *, mocker) -> None:
+    def test_cli_serializes_frozen_publication_evidence(
+        self, capsys: pytest.CaptureFixture[str], as_json, *, mocker: MockerFixture
+    ) -> None:
         frozen = MappingProxyType(
             {
                 "verified": True,
@@ -50,7 +56,9 @@ class PublicationProofCliContracts:
         else:
             assert output == "publication proof: VERIFIED\n"
 
-    def test_cli_reports_stable_semantic_failure_reason(self, capsys, *, mocker) -> None:
+    def test_cli_reports_stable_semantic_failure_reason(
+        self, capsys: pytest.CaptureFixture[str], *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             publication,
             "verify",

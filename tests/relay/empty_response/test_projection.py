@@ -166,7 +166,9 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
             item["type"] for item in forwarded["input"]
         }
 
-    def test_rejected_projection_returns_400_without_an_upstream_fallback(self, subtests) -> None:
+    def test_rejected_projection_returns_400_without_an_upstream_fallback(
+        self, subtests: pytest.Subtests
+    ) -> None:
         cases = (
             (
                 [

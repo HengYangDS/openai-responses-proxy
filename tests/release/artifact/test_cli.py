@@ -1,7 +1,9 @@
 """Contracts for the single native artifact command tree."""
 
+from __future__ import annotations
+
 import os
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,12 +12,17 @@ from tools.release.artifact import __main__ as commands
 from tools.release.artifact import assembly
 from tools.release.artifact import format as assets
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_mock import MockerFixture
+
 
 class ArtifactCommandContracts:
     """Keep artifact verbs explicit and bound to their semantic owners."""
 
     def test_verify_requires_a_valid_signature_not_just_a_signature_file(
-        self, tmp_path: Path, monkeypatch, capsys
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
         output = tmp_path / "release"
         assembly.assemble(native_inputs(tmp_path), output)
@@ -28,7 +35,9 @@ class ArtifactCommandContracts:
         assert result.value.code == 1
         assert "verified release assets:" not in capsys.readouterr().out
 
-    def test_assemble_writes_one_complete_artifact_inventory(self, tmp_path: Path, capsys) -> None:
+    def test_assemble_writes_one_complete_artifact_inventory(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         inputs = native_inputs(tmp_path)
         output = tmp_path / "release"
         arguments = tuple(argument for path in inputs for argument in ("--input", str(path)))
@@ -40,7 +49,7 @@ class ArtifactCommandContracts:
         assert capsys.readouterr().out.strip() == f"assembled release assets: {len(unsigned)} files"
 
     def test_asset_command_reads_the_signing_key_from_an_explicit_path(
-        self, tmp_path: Path, mocker
+        self, tmp_path: Path, mocker: MockerFixture
     ) -> None:
         key = tmp_path / "signing"
         key.write_text("private key fixture", encoding="utf-8")

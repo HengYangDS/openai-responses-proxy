@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from typing import TYPE_CHECKING
 from typing import Never
 
 import pytest
@@ -18,9 +19,14 @@ from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import TimedResponse
 from tests.relay.fixtures import http_error
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestExchangeDeadline(InputTransportFixture):
-    def test_expired_stream_cannot_complete_an_unterminated_buffered_event(self, *, mocker) -> None:
+    def test_expired_stream_cannot_complete_an_unterminated_buffered_event(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -50,7 +56,7 @@ class TestExchangeDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("committed", [False, True])
     def test_late_stream_completion_cannot_commit_or_complete_an_expired_exchange(
-        self, *, committed: bool, mocker
+        self, *, committed: bool, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
@@ -86,7 +92,9 @@ class TestExchangeDeadline(InputTransportFixture):
         assert upstream.closed
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_success_headers_arriving_after_expiry_release_the_socket(self, *, mocker) -> None:
+    def test_success_headers_arriving_after_expiry_release_the_socket(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.5)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -106,7 +114,9 @@ class TestExchangeDeadline(InputTransportFixture):
         assert upstream.closed
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_overslept_recovery_never_starts_another_request(self, *, mocker) -> None:
+    def test_overslept_recovery_never_starts_another_request(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -130,7 +140,9 @@ class TestExchangeDeadline(InputTransportFixture):
         assert handler.statuses == [504]
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_expired_body_budget_refuses_even_buffered_bytes(self, *, mocker) -> None:
+    def test_expired_body_budget_refuses_even_buffered_bytes(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         response = TimedResponse(now, [b"never read"], "application/json")
@@ -141,7 +153,7 @@ class TestExchangeDeadline(InputTransportFixture):
         assert next(response.chunks) == b"never read"
 
     def test_http_error_arriving_at_expiry_is_closed_without_reading_or_retry(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
@@ -174,7 +186,7 @@ class TestExchangeDeadline(InputTransportFixture):
         ],
     )
     def test_unreadable_error_body_is_a_bounded_local_failure(
-        self, chunks, reason, *, mocker
+        self, chunks, reason, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(upstream_exchange.downstream, "MAX_RESPONSES_JSON_BYTES", 64)
         upstream = TimedResponse([0.0], chunks, "application/json")
@@ -197,7 +209,7 @@ class TestExchangeDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("failure", ["transport", "http"])
     def test_retry_delay_cannot_start_an_attempt_outside_the_total_budget(
-        self, failure: str, *, mocker
+        self, failure: str, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         attempts = []
@@ -230,7 +242,7 @@ class TestExchangeDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("status", [200, 400])
     def test_header_time_is_not_refunded_to_json_or_error_body_reads(
-        self, status: int, *, mocker
+        self, status: int, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
@@ -267,7 +279,7 @@ class TestExchangeDeadline(InputTransportFixture):
         assert self._status_snapshot()["active_responses"] == 0
 
     def test_committed_stream_uses_the_original_exchange_deadline_without_replay(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)

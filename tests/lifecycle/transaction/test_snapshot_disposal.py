@@ -19,11 +19,13 @@ from tests.lifecycle.transaction.fixtures import _recover_without_binding
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize("outcome", ["rolled_back", "finalized"])
 @pytest.mark.parametrize("replacement", ["bytes", "symlink"])
 def test_transaction_disposal_retry_preserves_replaced_snapshot(
-    tmp_path: Path, outcome: str, replacement: str, *, mocker
+    tmp_path: Path, outcome: str, replacement: str, *, mocker: MockerFixture
 ) -> None:
     """A terminal retry never derives deletion authority from replacement bytes."""
     ctx = install_context(tmp_path)
@@ -84,7 +86,7 @@ def test_transaction_disposal_refuses_a_substituted_root(tmp_path: Path) -> None
 
 @pytest.mark.parametrize("corruption", ["missing", "empty", "wrong_type", "non_digest"])
 def test_snapshot_disposal_rejects_invalid_journal_authority(
-    tmp_path: Path, corruption: str, *, mocker
+    tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     """Materialized transactions require one well-formed original snapshot digest."""
     ctx = install_context(tmp_path)
@@ -111,7 +113,7 @@ def test_snapshot_disposal_rejects_invalid_journal_authority(
 @pytest.mark.parametrize("location", ["root", "rollback"])
 @pytest.mark.parametrize("residue", ["file", "empty_directory", "symlink"])
 def test_transaction_disposal_preserves_unowned_content(
-    tmp_path: Path, outcome: str, location: str, residue: str, *, mocker
+    tmp_path: Path, outcome: str, location: str, residue: str, *, mocker: MockerFixture
 ) -> None:
     """Terminal disposal preserves unknown content and its recovery journal."""
     ctx = install_context(tmp_path)

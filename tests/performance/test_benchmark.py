@@ -14,6 +14,8 @@ from tools.performance import benchmark
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.fixture(autouse=True)
 def isolated_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,7 +44,7 @@ def test_first_event_latency_stops_before_the_stream_completes() -> None:
     assert benchmark._UpstreamHandler.terminals_without_first_event == before
 
 
-def test_workload_failure_still_closes_owned_listeners(mocker) -> None:
+def test_workload_failure_still_closes_owned_listeners(mocker: MockerFixture) -> None:
     environment = benchmark._Environment()
     mocker.patch.object(benchmark, "_Environment", return_value=environment)
     with pytest.raises(RuntimeError, match="injected"), benchmark._environment():
@@ -52,7 +54,7 @@ def test_workload_failure_still_closes_owned_listeners(mocker) -> None:
 
 
 @pytest.mark.parametrize("method", ["exchange", "health"])
-def test_workload_rejects_non_bytes_response(method: str, mocker) -> None:
+def test_workload_rejects_non_bytes_response(method: str, mocker: MockerFixture) -> None:
     with benchmark._environment() as environment:
         response = mocker.MagicMock()
         response.__enter__.return_value.read.return_value = "not bytes"
@@ -62,7 +64,9 @@ def test_workload_rejects_non_bytes_response(method: str, mocker) -> None:
 
 
 @pytest.mark.parametrize("mode", ["latency", "memory"])
-def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) -> None:
+def test_pyperf_registrations_execute_the_declared_workloads(
+    mode: str, mocker: MockerFixture
+) -> None:
     recorded = {}
 
     def execute(name, function, *arguments) -> None:

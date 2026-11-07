@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,8 +20,11 @@ from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def install_successor(ctx, *, mocker):
+
+def install_successor(ctx, *, mocker: MockerFixture):
     """Install two immutable generations and retain the first as predecessor."""
     first = install_payload(ctx, "1.2.2", mocker=mocker)
     second = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -31,7 +35,9 @@ def install_successor(ctx, *, mocker):
     return first, second
 
 
-def test_selector_is_the_only_retained_rollback_authority(tmp_path: Path, *, mocker) -> None:
+def test_selector_is_the_only_retained_rollback_authority(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     first, second = install_successor(ctx, mocker=mocker)
 
@@ -48,7 +54,7 @@ def test_selector_is_the_only_retained_rollback_authority(tmp_path: Path, *, moc
     assert retained.successor.release == "1.2.3"
 
 
-def test_clean_absence_has_no_retained_rollback(tmp_path: Path, *, mocker) -> None:
+def test_clean_absence_has_no_retained_rollback(tmp_path: Path, *, mocker: MockerFixture) -> None:
     """A fresh selected generation exposes no rollback operation or residue."""
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
@@ -57,7 +63,7 @@ def test_clean_absence_has_no_retained_rollback(tmp_path: Path, *, mocker) -> No
 
 
 def test_retained_predecessor_corruption_is_rejected_from_selected_generation(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     first, _second = install_successor(ctx, mocker=mocker)
@@ -72,7 +78,7 @@ def test_retained_predecessor_corruption_is_rejected_from_selected_generation(
 
 
 def test_retained_successor_corruption_is_rejected_from_selected_generation(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """The active generation identity remains part of rollback admission."""
     ctx = install_context(tmp_path)
@@ -84,7 +90,9 @@ def test_retained_successor_corruption_is_rejected_from_selected_generation(
         rollback.load_retained_or_none(ctx)
 
 
-def test_retained_installed_binding_drift_is_rejected(tmp_path: Path, *, mocker) -> None:
+def test_retained_installed_binding_drift_is_rejected(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Rollback admission binds the selector to the exact installed successor record."""
     ctx = install_context(tmp_path)
     _first, _second = install_successor(ctx, mocker=mocker)
@@ -103,7 +111,7 @@ def test_retained_installed_binding_drift_is_rejected(tmp_path: Path, *, mocker)
 
 @pytest.mark.parametrize("residue_kind", ["directory", "file", "symlink"])
 def test_unselected_generation_residue_invalidates_retained_authority(
-    tmp_path: Path, residue_kind: str, *, mocker
+    tmp_path: Path, residue_kind: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     _first, _second = install_successor(ctx, mocker=mocker)
@@ -121,7 +129,9 @@ def test_unselected_generation_residue_invalidates_retained_authority(
         rollback.load_retained_or_none(ctx)
 
 
-def test_linked_generation_store_invalidates_retained_authority(tmp_path: Path, *, mocker) -> None:
+def test_linked_generation_store_invalidates_retained_authority(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Retained authority never follows a generation store replaced by a symbolic link."""
     ctx = install_context(tmp_path)
     install_successor(ctx, mocker=mocker)
@@ -135,7 +145,7 @@ def test_linked_generation_store_invalidates_retained_authority(tmp_path: Path, 
 
 
 def test_orphan_generation_store_is_not_reported_as_clean_absence(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact("1.2.2"), mocker=mocker)
@@ -147,7 +157,7 @@ def test_orphan_generation_store_is_not_reported_as_clean_absence(
 
 
 def test_rollback_transaction_reuses_the_selected_predecessor_generation(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     _first, _second = install_successor(ctx, mocker=mocker)
@@ -175,7 +185,9 @@ def test_rollback_transaction_reuses_the_selected_predecessor_generation(
     assert {path.name for path in generation.root(ctx).iterdir()} == generations_before
 
 
-def test_control_context_remains_on_the_newest_selected_release(tmp_path: Path, *, mocker) -> None:
+def test_control_context_remains_on_the_newest_selected_release(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Serving rollback never downgrades the installed lifecycle command plane."""
     ctx = install_context(tmp_path)
     first, second = install_successor(ctx, mocker=mocker)
@@ -240,7 +252,9 @@ def test_selector_rejects_invalid_carriers_and_values(tmp_path: Path) -> None:
         generation.read(ctx)
 
 
-def test_generation_selection_requires_valid_distinct_payloads(tmp_path: Path, *, mocker) -> None:
+def test_generation_selection_requires_valid_distinct_payloads(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Selection accepts only complete identities and distinct predecessor authority."""
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, mocker=mocker)
@@ -257,7 +271,9 @@ def test_generation_selection_requires_valid_distinct_payloads(tmp_path: Path, *
         generation.select(ctx, active=invalid, predecessor=None)
 
 
-def test_generation_removal_and_pruning_fail_closed(tmp_path: Path, *, mocker) -> None:
+def test_generation_removal_and_pruning_fail_closed(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Cleanup preserves selected payloads and rejects ambiguous filesystem objects."""
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, mocker=mocker)
@@ -299,7 +315,7 @@ def test_generation_removal_and_pruning_fail_closed(tmp_path: Path, *, mocker) -
 
 @pytest.mark.parametrize("obstruction", ["selected_inventory", "unowned_directory", "symlink"])
 def test_generation_pruning_requires_exact_unselected_inventory(
-    tmp_path: Path, obstruction: str, *, mocker
+    tmp_path: Path, obstruction: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, mocker=mocker)
@@ -326,7 +342,9 @@ def test_generation_pruning_requires_exact_unselected_inventory(
         assert residue.exists()
 
 
-def test_generation_cleanup_reports_exact_filesystem_failures(tmp_path: Path, *, mocker) -> None:
+def test_generation_cleanup_reports_exact_filesystem_failures(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """Owned selector and generation cleanup never hide filesystem failures."""
     ctx = install_context(tmp_path)
     selector = generation.selector_path(ctx)
@@ -373,7 +391,7 @@ def test_generation_cleanup_reports_exact_filesystem_failures(tmp_path: Path, *,
 
 @pytest.mark.parametrize("native_code", [None, 5, 32, True, "private"])
 def test_generation_removal_reports_native_code_without_private_paths(
-    tmp_path: Path, *, native_code: int | str | bool | None, mocker
+    tmp_path: Path, *, native_code: int | str | bool | None, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     target = generation.path(ctx, "e" * 32)

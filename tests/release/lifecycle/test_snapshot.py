@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -24,6 +25,9 @@ from tests.release.fixtures import signed_asset
 from tests.release.fixtures import signing_inputs
 from tests.serving.handoff.fixtures import free_port
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
@@ -40,7 +44,7 @@ class TestSignedNativeLifecycle:
         ],
     )
     def test_native_recovery_preserves_transaction_disposal_authority(
-        self, tmp_path: Path, phase: str, replacement: str, *, mocker
+        self, tmp_path: Path, phase: str, replacement: str, *, mocker: MockerFixture
     ) -> None:
         """Reject unowned recovery inputs until the operator restores exact state."""
         executable = Path(os.environ["OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE"]).resolve(

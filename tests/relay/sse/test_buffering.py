@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +12,9 @@ from openai_responses_proxy.relay import sse
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 LIMIT = 4096
 CONTENT = b'data: {"type":"response.output_text.delta","delta":"visible"}\n\n'
@@ -32,7 +36,7 @@ class TestSseBuffering(InputTransportFixture):
         ],
     )
     def test_pending_bytes_fail_without_replay_or_successful_termination(
-        self, shape, *, committed, mocker
+        self, shape, *, committed, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(sse, "SSE_BUFFER_MAX_BYTES", LIMIT, create=True)
         oversized = b'data: {"type":"response.output_text.delta","delta":"' + b"x" * LIMIT
@@ -82,7 +86,9 @@ class TestSseBuffering(InputTransportFixture):
         close.assert_called_once_with()
         reopen.assert_not_called()
 
-    def test_individually_bounded_events_do_not_cap_the_total_stream(self, *, mocker) -> None:
+    def test_individually_bounded_events_do_not_cap_the_total_stream(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(sse, "SSE_BUFFER_MAX_BYTES", LIMIT, create=True)
         prefix = b'data: {"type":"response.output_text.delta","delta":"'
         ending = b'"}\r\n\r\n'
@@ -100,7 +106,7 @@ class TestSseBuffering(InputTransportFixture):
         assert handler.output().count(event) == 3
         assert handler.output().endswith(b"0\r\n\r\n")
 
-    def test_precommit_limit_returns_one_bounded_http_error(self, *, mocker) -> None:
+    def test_precommit_limit_returns_one_bounded_http_error(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(sse, "SSE_BUFFER_MAX_BYTES", LIMIT, create=True)
         handler = MemoryHandler()
         exchange = mocker.Mock(

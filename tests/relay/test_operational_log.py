@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 import urllib.error
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +15,9 @@ from openai_responses_proxy.runtime import bounded_log
 from tests.lifecycle.fixtures import assert_private_log_mode
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import MemoryHandler
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -35,7 +39,7 @@ class RuntimeLoggingTests:
         ],
     )
     def test_stream_events_correlate_outcomes_without_payloads(
-        self, raw, event, detail, tmp_path, *, mocker
+        self, raw, event, detail, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         log_path = tmp_path / "proxy.log"
         mocker.patch.object(operational_log, "LOG_PATH", str(log_path))
@@ -62,7 +66,9 @@ class RuntimeLoggingTests:
         assert "private-transport-secret" not in text
         assert "private-query-secret" not in text
 
-    def test_labels_and_paths_never_expose_caller_controlled_values(self, *, mocker) -> None:
+    def test_labels_and_paths_never_expose_caller_controlled_values(
+        self, *, mocker: MockerFixture
+    ) -> None:
         assert (
             operational_log.safe_request_path("/v1/private path?secret=value") == "/v1/private_path"
         )
@@ -97,7 +103,9 @@ class RuntimeLoggingTests:
         )
         assert operational_log.safe_exception_context(None) == "exception=UnknownError"
 
-    def test_logging_redacts_and_bounds_retention_without_becoming_fatal(self, *, mocker) -> None:
+    def test_logging_redacts_and_bounds_retention_without_becoming_fatal(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "proxy.log"
             mocker.patch.object(operational_log, "LOG_PATH", str(path))

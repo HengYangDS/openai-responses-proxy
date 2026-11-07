@@ -21,6 +21,8 @@ from tests.lifecycle.fixtures import released_artifact
 from tests.serving.handoff.fixtures import idle_runtime
 
 if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
     from openai_responses_proxy.lifecycle.transaction import execution as transaction
 
 
@@ -79,7 +81,7 @@ class FakeServiceAdapter:
         *,
         failure: BaseException | None = None,
         configured: str | None = "canonical",
-        mocker,
+        mocker: MockerFixture,
     ) -> None:
         """Initialize the adapter with an optional installation failure."""
         self.install_mock = mocker.Mock(side_effect=failure)
@@ -117,7 +119,7 @@ class FakeServiceAdapter:
 class OrderedServiceAdapter(FakeServiceAdapter):
     """Record the service rebind in the same event stream as the transaction."""
 
-    def __init__(self, events: list[object], *, mocker) -> None:
+    def __init__(self, events: list[object], *, mocker: MockerFixture) -> None:
         """Share one event list between the adapter and its transaction."""
         super().__init__(mocker=mocker)
         self.events = events
@@ -133,7 +135,9 @@ class OrderedServiceAdapter(FakeServiceAdapter):
         super().uninstall(ctx)
 
 
-def _unsupervised_installation(root: Path, *, service: str, serving: bool = False, mocker):
+def _unsupervised_installation(
+    root: Path, *, service: str, serving: bool = False, mocker: MockerFixture
+):
     """Install one verified payload whose native supervision is absent or stopped."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
@@ -171,7 +175,7 @@ class ReleasedDeploymentFixture:
     """Admit one isolated installation and observe native deployment transitions."""
 
     @pytest.fixture(autouse=True)
-    def _admit_current_listener(self, tmp_path: Path, mocker) -> None:
+    def _admit_current_listener(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Own the isolated install root and exact predecessor identity."""
         self.ctx = install_context(tmp_path)
         mocker.patch.object(
@@ -216,7 +220,7 @@ class ReleasedDeploymentFixture:
         *,
         adapter: FakeServiceAdapter | None = None,
         timeout_seconds: float = 30,
-        mocker,
+        mocker: MockerFixture,
     ) -> dict[str, object]:
         mocker.patch.object(
             generation,

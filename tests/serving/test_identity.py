@@ -6,6 +6,7 @@ import hashlib
 import json
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,11 +19,16 @@ from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestServiceIdentity:
     """Bind live service identity to one verified installed projection."""
 
-    def test_runtime_payload_match_uses_one_canonical_field_mapping(self, subtests) -> None:
+    def test_runtime_payload_match_uses_one_canonical_field_mapping(
+        self, subtests: pytest.Subtests
+    ) -> None:
         expected = {
             "release": "1.2.3",
             "serving_payload_sha256": "a" * 64,
@@ -44,7 +50,11 @@ class TestServiceIdentity:
                 )
 
     def test_committed_identity_rejects_runtime_and_manifest_drift(
-        self, subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self,
+        subtests: pytest.Subtests,
+        *,
+        mocker: MockerFixture,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, "1.2.3", mocker=mocker)
@@ -87,7 +97,7 @@ class TestServiceIdentity:
         )
 
     def test_loaded_identity_is_immutable_after_disk_drift(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)
@@ -104,7 +114,7 @@ class TestServiceIdentity:
         assert loaded.release_receipt_sha256 == manifest["release_receipt_sha256"]
 
     def test_selected_payload_executable_follows_one_verified_selector(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         transaction = install_payload(ctx, mocker=mocker)
@@ -129,7 +139,7 @@ class TestServiceIdentity:
         ],
     )
     def test_selected_payload_executable_rejects_unproved_authority(
-        self, mutation: str, message: str, tmp_path: Path, *, mocker
+        self, mutation: str, message: str, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         """Selector resolution fails closed at every authority boundary."""
         ctx = install_context(tmp_path)
@@ -190,7 +200,7 @@ class TestServiceIdentity:
             identity.selected_payload_executable(executable)
 
     def test_loaded_identity_rejects_a_manifest_for_the_other_platform(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)
@@ -212,7 +222,7 @@ class TestServiceIdentity:
         assert identity.freeze_loaded_payload(Path(ctx.executable)) is None
 
 
-def test_loaded_identity_accepts_only_exact_native_projection(subtests) -> None:
+def test_loaded_identity_accepts_only_exact_native_projection(subtests: pytest.Subtests) -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         executable = root / inventory.EXECUTABLE

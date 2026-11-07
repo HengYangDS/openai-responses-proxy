@@ -16,6 +16,8 @@ from tools.quality import responsibilities
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 @pytest.fixture
 def policy_document():
@@ -50,7 +52,7 @@ def policy_document():
     }
 
 
-def audit_document(document, tmp_path, mocker, *, paths=("src/a.py",)):
+def audit_document(document, tmp_path: Path, mocker: MockerFixture, *, paths=("src/a.py",)):
     policy = tmp_path / "policy.toml"
     policy.write_text("")
     mocker.patch.object(responsibilities.tomllib, "loads", return_value=document)
@@ -71,7 +73,7 @@ def audit_document(document, tmp_path, mocker, *, paths=("src/a.py",)):
     ],
 )
 def test_empty_and_malformed_inventory_cannot_pass(
-    field, value, policy_document, tmp_path, mocker
+    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     policy_document[field] = value
     report = audit_document(policy_document, tmp_path, mocker)
@@ -79,7 +81,9 @@ def test_empty_and_malformed_inventory_cannot_pass(
     assert report["errors"]
 
 
-def test_empty_tracked_inventory_does_not_prove_coverage(policy_document, tmp_path, mocker) -> None:
+def test_empty_tracked_inventory_does_not_prove_coverage(
+    policy_document, tmp_path: Path, mocker: MockerFixture
+) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=())
     assert not report["ok"]
     assert "responsibility_map_tracked_inventory_empty" in report["errors"]
@@ -87,7 +91,7 @@ def test_empty_tracked_inventory_does_not_prove_coverage(policy_document, tmp_pa
 
 @pytest.mark.parametrize(("field", "value"), [("owner", ""), ("purpose", None)])
 def test_map_identity_requires_meaningful_text(
-    field, value, policy_document, tmp_path, mocker
+    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     policy_document[field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
@@ -105,7 +109,7 @@ def test_map_identity_requires_meaningful_text(
     ],
 )
 def test_each_role_declares_its_complete_lifecycle(
-    field, policy_document, tmp_path, mocker
+    field, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     policy_document["roles"][0].pop(field, None)
 
@@ -117,7 +121,7 @@ def test_each_role_declares_its_complete_lifecycle(
 @pytest.mark.parametrize("collection", ["roles", "scopes", "concerns"])
 @pytest.mark.parametrize("change", ["non-table", "empty-id", "duplicate"])
 def test_every_declaration_has_one_unique_identity(
-    collection, change, policy_document, tmp_path, mocker
+    collection, change, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     entries = policy_document[collection]
     if change == "non-table":
@@ -133,14 +137,16 @@ def test_every_declaration_has_one_unique_identity(
     ("field", "value"), [("description", ""), ("prefixes", []), ("prefixes", [""]), ("files", [3])]
 )
 def test_role_selectors_are_explicit_and_valid(
-    field, value, policy_document, tmp_path, mocker
+    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     policy_document["roles"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
 @pytest.mark.parametrize("roles", [[], ["source", "source"], ["absent"], [""]])
-def test_scopes_reference_nonempty_unique_roles(roles, policy_document, tmp_path, mocker) -> None:
+def test_scopes_reference_nonempty_unique_roles(
+    roles, policy_document, tmp_path: Path, mocker: MockerFixture
+) -> None:
     policy_document["scopes"][0]["roles"] = roles
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
@@ -150,18 +156,20 @@ def test_scopes_reference_nonempty_unique_roles(roles, policy_document, tmp_path
     [("owner", ""), ("scope", "absent"), ("configuration", []), ("configuration", ["missing"])],
 )
 def test_concerns_have_live_owners_and_configuration(
-    field, value, policy_document, tmp_path, mocker
+    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     policy_document["concerns"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
-def test_unowned_carrier_is_visible(policy_document, tmp_path, mocker) -> None:
+def test_unowned_carrier_is_visible(policy_document, tmp_path: Path, mocker: MockerFixture) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=("unknown.bin",))
     assert report["errors"] == ["responsibility_map_unowned_carrier:unknown.bin"]
 
 
-def test_tracked_code_intelligence_paths_are_not_silently_removed(tmp_path, mocker) -> None:
+def test_tracked_code_intelligence_paths_are_not_silently_removed(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.object(
         responsibilities.subprocess,
         "run",
@@ -175,7 +183,9 @@ def test_tracked_code_intelligence_paths_are_not_silently_removed(tmp_path, mock
     )
 
 
-def test_gate_cli_returns_json_and_preserves_failed_exit(mocker, capsys) -> None:
+def test_gate_cli_returns_json_and_preserves_failed_exit(
+    mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     report = {"ok": True, "errors": []}
     mocker.patch.object(responsibilities, "audit", return_value=report)
     responsibilities.main()

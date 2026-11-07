@@ -9,6 +9,7 @@ import socketserver
 import threading
 import time
 import urllib.error
+from typing import TYPE_CHECKING
 from typing import Never
 from typing import override
 
@@ -27,12 +28,17 @@ from tests.relay.fixtures import http_error
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 PROVIDERS = provider_registry.load()
 
 
 class TestCatalogDeadline(InputTransportFixture):
     @pytest.mark.parametrize("deadline", [100.0, 99.0], ids=["at-expiry", "after-expiry"])
-    def test_expired_catalog_budget_never_starts_upstream_lookup(self, deadline, *, mocker) -> None:
+    def test_expired_catalog_budget_never_starts_upstream_lookup(
+        self, deadline, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(time, "monotonic", return_value=100.0)
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
 
@@ -44,7 +50,7 @@ class TestCatalogDeadline(InputTransportFixture):
         opened.assert_not_called()
 
     def test_catalog_stalled_native_writer_cannot_hold_upstream_past_the_deadline(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False
@@ -79,7 +85,9 @@ class TestCatalogDeadline(InputTransportFixture):
                 closed.assert_called_once_with()
         assert connection.fileno() == peer.fileno() == -1
 
-    def test_catalog_late_header_transport_failure_has_a_deadline_verdict(self, *, mocker) -> None:
+    def test_catalog_late_header_transport_failure_has_a_deadline_verdict(
+        self, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(time, "monotonic", side_effect=lambda: now[0])
         mocker.patch.object(
@@ -101,7 +109,9 @@ class TestCatalogDeadline(InputTransportFixture):
         assert b"private" not in handler.output()
         opened.assert_called_once()
 
-    def test_catalog_local_failure_writer_has_a_finite_recovery_budget(self, *, mocker) -> None:
+    def test_catalog_local_failure_writer_has_a_finite_recovery_budget(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(time, "monotonic", return_value=100.0)
         mocker.patch.object(
             responses, "_SETTINGS", config.load({"OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "0.04"})
@@ -130,7 +140,7 @@ class TestCatalogDeadline(InputTransportFixture):
     @pytest.mark.parametrize("phase", ["headers", "body"])
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_native_framing_cannot_renew_its_deadline(
-        self, phase, status, *, mocker
+        self, phase, status, *, mocker: MockerFixture
     ) -> None:
         upstream = ScriptedUpstream()
         release = threading.Event()
@@ -192,7 +202,7 @@ class TestCatalogDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_body_cannot_refund_time_spent_acquiring_headers(
-        self, status, *, mocker
+        self, status, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -226,7 +236,9 @@ class TestCatalogDeadline(InputTransportFixture):
         assert self._status_snapshot()["active_responses"] == 0
 
     @pytest.mark.parametrize("status", [200, 403])
-    def test_catalog_headers_arriving_after_expiry_cannot_commit(self, status, *, mocker) -> None:
+    def test_catalog_headers_arriving_after_expiry_cannot_commit(
+        self, status, *, mocker: MockerFixture
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         mocker.patch.object(
@@ -254,7 +266,7 @@ class TestCatalogDeadline(InputTransportFixture):
         opened.assert_called_once()
 
     def test_catalog_writes_spend_the_remaining_deadline_and_restore_the_socket(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -302,7 +314,7 @@ class TestCatalogTransport(InputTransportFixture):
     )
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_failure_closes_the_real_upstream_response(
-        self, stage: str, failure: Exception, status: int, *, mocker
+        self, stage: str, failure: Exception, status: int, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         upstream_socket, peer = socket.socketpair()
@@ -352,7 +364,7 @@ class TestCatalogTransport(InputTransportFixture):
     @pytest.mark.parametrize("status", [200, 403])
     @pytest.mark.parametrize("overflow", [False, True], ids=["exact-limit", "over-limit"])
     def test_catalog_byte_limit_preserves_only_admitted_bytes(
-        self, status, *, overflow, mocker
+        self, status, *, overflow, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False
@@ -413,7 +425,13 @@ class TestCatalogTransport(InputTransportFixture):
         ids=["empty", "complete", "truncated"],
     )
     def test_catalog_terminates_only_a_complete_upstream_body(
-        self, body: bytes, length: int, expected: bytes, *, disconnected: bool, mocker
+        self,
+        body: bytes,
+        length: int,
+        expected: bytes,
+        *,
+        disconnected: bool,
+        mocker: MockerFixture,
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False
@@ -444,7 +462,9 @@ class TestCatalogTransport(InputTransportFixture):
         assert counters.get("responses_completed", 0) == 0
         assert classifications == {}
 
-    def test_catalog_log_failure_still_releases_the_owned_response(self, *, mocker) -> None:
+    def test_catalog_log_failure_still_releases_the_owned_response(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         upstream = http_error(403, "denied", b"private-body")
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=upstream)

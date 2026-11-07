@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
+
+if TYPE_CHECKING:
+    import pytest
 
 REJECTION_CASES = {
     "empty input": ({"input": ""}, "rejected empty_input"),
@@ -372,7 +377,9 @@ REJECTION_CASES = {
 class ProviderPortableRejectionTests:
     """Provider-portable grammar rejection contracts."""
 
-    def test_fails_closed_at_each_portable_grammar_boundary(self, subtests) -> None:
+    def test_fails_closed_at_each_portable_grammar_boundary(
+        self, subtests: pytest.Subtests
+    ) -> None:
         for name, (payload, expected_note) in REJECTION_CASES.items():
             with subtests.test(name=name):
                 _projection = rewrite.sanitize_responses_body(_body(payload))

@@ -10,6 +10,7 @@ import socket
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,6 +20,9 @@ from openai_responses_proxy.runtime.process_environment import native_process_en
 from openai_responses_proxy.serving import roles as serving_roles
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -77,7 +81,9 @@ class ProductInterfaceContracts:
             assert "Traceback" not in stderr
             assert "Warning" not in stderr
 
-    def test_every_public_command_names_one_next_action_in_json_and_text(self, *, mocker) -> None:
+    def test_every_public_command_names_one_next_action_in_json_and_text(
+        self, *, mocker: MockerFixture
+    ) -> None:
         """Each success carries one next action that both renderers project identically."""
         results = {
             "install": {"state": "unchanged", "release": "2.0.48"},
@@ -197,7 +203,9 @@ class ProductInterfaceContracts:
         assert "--no-purge" not in uninstall_help
         assert "[default: False]" not in uninstall_help
 
-    def test_missing_install_inputs_are_clean_usage_errors(self, tmp_path: Path, *, mocker) -> None:
+    def test_missing_install_inputs_are_clean_usage_errors(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
         # A private installation context: the operator's live installation, and a lifecycle writer
         # holding its lock, must not decide these input errors.
         mocker.patch.object(
@@ -267,14 +275,14 @@ class ProductInterfaceContracts:
             assert "Traceback" not in stderr
             assert "Warning" not in stderr
 
-    def test_module_boundary_delegates_exit_status(self, *, mocker) -> None:
+    def test_module_boundary_delegates_exit_status(self, *, mocker: MockerFixture) -> None:
         main = mocker.patch.object(application, "main", return_value=7)
         with pytest.raises(SystemExit, match="7"):
             runpy.run_module("openai_responses_proxy.cli.__main__", run_name="__main__")
         main.assert_called_once_with()
 
     def test_version_flag_uses_installed_distribution_metadata_without_a_checkout_file(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         expected = importlib.metadata.version("openai-responses-proxy")
         mocker.patch.object(application, "_source_version", return_value=None)
@@ -283,7 +291,9 @@ class ProductInterfaceContracts:
         assert stdout.strip() == expected
         assert stderr == ""
 
-    def test_expected_errors_are_concise_and_machine_readable(self, *, mocker) -> None:
+    def test_expected_errors_are_concise_and_machine_readable(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             application,
             "dispatch",
@@ -310,7 +320,7 @@ class ProductInterfaceContracts:
         assert "Traceback" not in stderr
 
     def test_human_error_has_problem_and_next_action_without_internal_leakage(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(
             application,
@@ -329,7 +339,9 @@ class ProductInterfaceContracts:
         assert "python -m" not in stderr
         assert "Traceback" not in stderr
 
-    def test_internal_assembly_failures_are_bounded_without_traceback(self, *, mocker) -> None:
+    def test_internal_assembly_failures_are_bounded_without_traceback(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             application,
             "dispatch",
@@ -356,7 +368,7 @@ class ProductInterfaceContracts:
 
     @pytest.mark.parametrize("relative_roots", [False, True])
     def test_built_executable_reports_a_pristine_native_installation(
-        self, tmp_path: Path, *, relative_roots: bool, monkeypatch
+        self, tmp_path: Path, *, relative_roots: bool, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Require a real absent-installation report, not an accepted error exit."""
         executable = os.environ.get("OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE")
@@ -481,7 +493,9 @@ class ProductInterfaceContracts:
                     assert "Traceback" not in result.stderr
                     assert "Warning" not in result.stderr
 
-    def test_human_output_is_safe_for_the_default_windows_console_codec(self, *, mocker) -> None:
+    def test_human_output_is_safe_for_the_default_windows_console_codec(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(
             application,
             "dispatch",

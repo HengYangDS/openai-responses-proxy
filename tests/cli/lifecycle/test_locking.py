@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from filelock import FileLock
@@ -14,6 +15,9 @@ from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime import config
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -26,7 +30,7 @@ def test_lifecycle_lock_leaves_a_fresh_default_installation_root_absent(
     system: str,
     monkeypatch: pytest.MonkeyPatch,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     """Take the writer lock outside the default installation root on every platform."""
     home = tmp_path / "home"
@@ -65,7 +69,7 @@ def test_mutating_commands_reject_a_second_lifecycle_writer(
     tmp_path: Path,
     command: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
@@ -100,7 +104,7 @@ def test_mutating_commands_reject_a_second_lifecycle_writer(
 def test_no_op_recovery_on_a_fresh_host_creates_only_the_lifecycle_lock(
     tmp_path: Path,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     """A no-op lifecycle result may leave only the writer lock in the state root."""
     ctx = install_context(tmp_path)
@@ -118,7 +122,7 @@ def test_no_op_recovery_on_a_fresh_host_creates_only_the_lifecycle_lock(
 def test_lifecycle_lock_is_released_after_success_and_failure(
     tmp_path: Path,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
@@ -142,7 +146,7 @@ def test_lifecycle_lock_is_released_after_success_and_failure(
 def test_unavailable_lifecycle_lock_is_a_bounded_public_error(
     tmp_path: Path,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
@@ -171,7 +175,7 @@ def test_read_only_commands_remain_available_during_lifecycle_mutation(
     tmp_path: Path,
     command: str,
     *,
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     evidence = {"state": "not_installed", "detail": "absent"}

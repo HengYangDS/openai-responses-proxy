@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -11,6 +12,9 @@ import pytest
 from openai_responses_proxy.protocol.recovery import input as recovery
 from openai_responses_proxy.protocol.replay import projection as rewrite
 from tests.protocol.replay.fixtures import body as _body
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 def _request_body(input_items: object, **extra: object) -> bytes:
@@ -203,7 +207,9 @@ class RequestSanitizationContracts:
         assert recovery.diagnose(raw).first_incompatible_reason == reason
         assert "private-current-prompt" not in projection.diagnostic()
 
-    def test_fail_closed_on_json_values_that_are_not_response_objects(self, subtests) -> None:
+    def test_fail_closed_on_json_values_that_are_not_response_objects(
+        self, subtests: pytest.Subtests
+    ) -> None:
         for raw in (b"[]", b"null", b'"text"'):
             with subtests.test(raw=raw):
                 _projection = rewrite.sanitize_responses_body(raw)
@@ -213,7 +219,7 @@ class RequestSanitizationContracts:
                 assert note == "rejected request_not_object"
 
     def test_request_sanitizer_fails_closed_when_mutation_cannot_be_serialized(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         raw = (
             b'{"input":[{"type":"reasoning","encrypted_content":"opaque"},'

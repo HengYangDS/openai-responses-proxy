@@ -6,8 +6,12 @@ from datetime import UTC
 from datetime import datetime
 from email.message import Message
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.relay import cooldown
+
+if TYPE_CHECKING:
+    import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -25,7 +29,9 @@ class CooldownTests:
         assert cooldown.failure_count_for_test() == 3
         assert not cooldown.has_failure_for_test("key-0")
 
-    def test_retry_after_supports_delta_date_and_bounded_fallback(self, subtests) -> None:
+    def test_retry_after_supports_delta_date_and_bounded_fallback(
+        self, subtests: pytest.Subtests
+    ) -> None:
         delta = Message()
         delta["Retry-After"] = "7"
         assert cooldown.retry_after_seconds(delta, now=datetime.now(UTC)) == 7

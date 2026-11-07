@@ -21,6 +21,8 @@ from tools.release.publication.gitlab import publish
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 class _PublicationArguments(TypedDict):
     api_base: str
@@ -44,7 +46,7 @@ def _assets(root: Path, version: str) -> None:
 @pytest.mark.parametrize("corrupt_on_create", [False, True], ids=["existing", "persisted"])
 def test_publication_creates_and_accepts_only_exact_existing_release(
     tmp_path: Path,
-    mocker,
+    mocker: MockerFixture,
     *,
     create_conflict: bool,
     link_field: str,
@@ -133,7 +135,7 @@ def test_publication_creates_and_accepts_only_exact_existing_release(
 
 
 def test_publication_reuses_exact_partial_package_and_uploads_only_missing_assets(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     assets, key = tmp_path / "assets", tmp_path / "signing"
     assets.mkdir()
@@ -190,7 +192,9 @@ def test_publication_reuses_exact_partial_package_and_uploads_only_missing_asset
     assert uploads == [name for name in names if name != present]
 
 
-def test_publication_rejects_different_existing_package_bytes(tmp_path: Path, mocker) -> None:
+def test_publication_rejects_different_existing_package_bytes(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     assets, key = tmp_path / "assets", tmp_path / "signing"
     assets.mkdir()
     _assets(assets, "1.2.3")
@@ -230,7 +234,7 @@ def test_publication_rejects_different_existing_package_bytes(tmp_path: Path, mo
         )
 
 
-def test_gitlab_http_failure_preserves_bounded_provider_detail(mocker) -> None:
+def test_gitlab_http_failure_preserves_bounded_provider_detail(mocker: MockerFixture) -> None:
     error = urllib.error.HTTPError(
         "https://gitlab.example/api/v4/projects/101/releases",
         422,
@@ -304,7 +308,9 @@ def test_credential_kind_selects_one_exact_gitlab_header(
         (500, publish.GitLabPublishError),
     ],
 )
-def test_http_failure_preserves_status_and_closes_response(status, error_type, mocker) -> None:
+def test_http_failure_preserves_status_and_closes_response(
+    status, error_type, mocker: MockerFixture
+) -> None:
     stream = io.BytesIO(b"provider unavailable")
     error = urllib.error.HTTPError(
         "https://gitlab.example/api", status, "failed", Message(), stream
@@ -316,7 +322,9 @@ def test_http_failure_preserves_status_and_closes_response(status, error_type, m
 
 
 @pytest.mark.parametrize("content", [b"payload", "not-bytes"])
-def test_request_admits_binary_payload_and_sets_json_content_type(content, mocker) -> None:
+def test_request_admits_binary_payload_and_sets_json_content_type(
+    content, mocker: MockerFixture
+) -> None:
     response = mocker.MagicMock()
     response.__enter__.return_value.read.return_value = content
     open_url = mocker.patch.object(publish.urllib.request, "urlopen", return_value=response)
@@ -339,7 +347,7 @@ def test_request_admits_binary_payload_and_sets_json_content_type(content, mocke
             )
 
 
-def test_transport_failure_does_not_become_resource_absence(mocker) -> None:
+def test_transport_failure_does_not_become_resource_absence(mocker: MockerFixture) -> None:
     mocker.patch.object(publish.urllib.request, "urlopen", side_effect=OSError("offline"))
     with pytest.raises(publish.GitLabPublishError, match="transport failed"):
         publish._request(
@@ -362,7 +370,7 @@ def test_provider_diagnostic_is_bounded_for_each_payload_shape(content) -> None:
         error.close()
 
 
-def test_unreadable_error_body_has_no_secondary_failure(mocker) -> None:
+def test_unreadable_error_body_has_no_secondary_failure(mocker: MockerFixture) -> None:
     error = mocker.Mock()
     error.read.side_effect = OSError("closed")
     assert publish._error_detail(error) == ""

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -18,6 +19,9 @@ from openai_responses_proxy.lifecycle.transaction import execution as payload_tr
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -143,7 +147,10 @@ def released_artifact(
 
 
 def begin_transaction(
-    ctx: runtime_context.RuntimeContext, candidate: artifact.VerifiedArtifact, *, mocker
+    ctx: runtime_context.RuntimeContext,
+    candidate: artifact.VerifiedArtifact,
+    *,
+    mocker: MockerFixture,
 ) -> payload_transaction.PayloadTransaction:
     """Begin a transaction through the artifact claim authority boundary."""
     blobs = candidate.peek_blobs()
@@ -155,7 +162,7 @@ def begin_transaction(
 
 
 def install_payload(
-    ctx: runtime_context.RuntimeContext, version: str = "1.2.3", *, mocker
+    ctx: runtime_context.RuntimeContext, version: str = "1.2.3", *, mocker: MockerFixture
 ) -> payload_transaction.PayloadTransaction:
     """Install and finalize one released payload projection."""
     candidate = released_artifact(
@@ -176,7 +183,7 @@ def retained_rollback(ctx: runtime_context.RuntimeContext) -> rollback.RetainedR
     return retained
 
 
-def running_supervisor(ctx, *, mocker):
+def running_supervisor(ctx, *, mocker: MockerFixture):
     """Project a running supervisor whose current declaration binds lifecycle control."""
     native = mocker.patch.object(control, "adapter").return_value
     native.status.return_value = "running"
@@ -185,7 +192,7 @@ def running_supervisor(ctx, *, mocker):
     return native
 
 
-def healthy_status_dependencies(ctx, *, mocker) -> None:
+def healthy_status_dependencies(ctx, *, mocker: MockerFixture) -> None:
     """Project verified listener and supervisor evidence for one installed generation."""
     runtime = identity.committed_payload(Path(generation.selected_context(ctx).executable))
     assert runtime is not None

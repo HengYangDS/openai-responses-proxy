@@ -8,12 +8,16 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.lifecycle import records
 from tools.release import identity
 from tools.release import metadata
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 METADATA_MODULE = "tools.release.metadata"
@@ -61,7 +65,7 @@ def test_release_identity_has_one_strict_semver_and_tag_contract() -> None:
             identity.version_from_tag(invalid)
 
 
-def test_product_release_history_is_provider_neutral(*, mocker) -> None:
+def test_product_release_history_is_provider_neutral(*, mocker: MockerFixture) -> None:
     """Validate the one local release history without a Forge semantic input."""
     releases = [
         ("1.0.3", "2026-07-03"),
@@ -86,7 +90,9 @@ def test_prepare_release_rejects_only_future_dates() -> None:
         metadata.check_pending_release_date("1.2.3", [("1.2.3", "2026-07-28")], today=current)
 
 
-def test_python_metadata_accepts_the_declared_supported_matrix(tmp_path, mocker) -> None:
+def test_python_metadata_accepts_the_declared_supported_matrix(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     source = re.sub(
         r'^requires-python = ".*"$', 'requires-python = ">=3.12,<3.15"', source, flags=re.MULTILINE
@@ -240,7 +246,7 @@ def test_changelog_accepts_unreleased_only_and_canonical_categories(tmp_path: Pa
     assert metadata.changelog_releases(released) == [("1.0.0", "2026-07-01")]
 
 
-def test_exact_release_tag_contract(*, mocker) -> None:
+def test_exact_release_tag_contract(*, mocker: MockerFixture) -> None:
     """Reject lightweight, misnamed, nested, and wrong-target release tags."""
     cases = (
         (
@@ -443,7 +449,9 @@ def test_current_release_metadata_chronology(
         "valid-tagged",
     ],
 )
-def test_cli_release_transition_admission(defect, mocker, capsys) -> None:
+def test_cli_release_transition_admission(
+    defect, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
     mocker.patch.object(metadata, "read_version", return_value="1.2.3")
     mocker.patch.object(metadata, "check_python_metadata")
     releases = [("1.2.3", "2026-01-01"), ("1.2.2", "2025-12-31")]
@@ -479,13 +487,13 @@ def test_pending_release_requires_an_actual_date(releases) -> None:
         metadata.check_pending_release_date("1.2.3", releases)
 
 
-def test_duplicate_changelog_versions_cannot_claim_one_release(mocker) -> None:
+def test_duplicate_changelog_versions_cannot_claim_one_release(mocker: MockerFixture) -> None:
     mocker.patch.object(metadata, "known_release_versions", return_value=[])
     with pytest.raises(ValueError, match="must not duplicate"):
         metadata.check_changelog_provenance([("1.2.3", "2026-01-01")] * 2)
 
 
-def test_missing_tag_is_a_release_identity_error(mocker) -> None:
+def test_missing_tag_is_a_release_identity_error(mocker: MockerFixture) -> None:
     mocker.patch.object(metadata, "_git", side_effect=subprocess.CalledProcessError(1, ["git"]))
     with pytest.raises(ValueError, match="does not exist"):
         metadata.check_release_tag("v1.2.3", "1.2.3")

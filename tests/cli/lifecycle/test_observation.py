@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import projection
@@ -11,8 +12,12 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.cli.fixtures import invoke
 
+if TYPE_CHECKING:
+    import pytest
+    from pytest_mock import MockerFixture
 
-def test_status_uses_the_read_only_lifecycle_owner(*, mocker) -> None:
+
+def test_status_uses_the_read_only_lifecycle_owner(*, mocker: MockerFixture) -> None:
     evidence = {
         "state": "running",
         "detail": "healthy",
@@ -38,7 +43,7 @@ def test_status_uses_the_read_only_lifecycle_owner(*, mocker) -> None:
     status.assert_called_once_with("context")
 
 
-def test_status_returns_bounded_current_runtime_evidence(*, mocker) -> None:
+def test_status_returns_bounded_current_runtime_evidence(*, mocker: MockerFixture) -> None:
     evidence = {
         "state": "running",
         "detail": "healthy",
@@ -64,7 +69,9 @@ def test_status_returns_bounded_current_runtime_evidence(*, mocker) -> None:
     assert stderr == ""
 
 
-def test_status_binds_listener_identity_to_the_installed_executable(*, mocker) -> None:
+def test_status_binds_listener_identity_to_the_installed_executable(
+    *, mocker: MockerFixture
+) -> None:
     fixture_root = Path.cwd().anchor or "/"
     context = mocker.Mock(
         port=8792,
@@ -109,7 +116,7 @@ def test_status_binds_listener_identity_to_the_installed_executable(*, mocker) -
 
 
 def test_doctor_classifies_an_unavailable_listener_without_false_success(
-    *, mocker, subtests
+    *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     stopped = {
         "state": "stopped",
@@ -256,7 +263,9 @@ def test_doctor_uses_one_state_level_next_action() -> None:
     }
 
 
-def test_doctor_requires_integrity_service_and_exact_listener_identity(subtests) -> None:
+def test_doctor_requires_integrity_service_and_exact_listener_identity(
+    subtests: pytest.Subtests,
+) -> None:
     healthy = {
         "state": "running",
         "detail": "healthy",
@@ -345,7 +354,9 @@ def test_doctor_reuses_status_listener_proof_when_process_inventory_lags() -> No
     }
 
 
-def test_doctor_names_install_only_where_installing_the_artifact_restores(subtests) -> None:
+def test_doctor_names_install_only_where_installing_the_artifact_restores(
+    subtests: pytest.Subtests,
+) -> None:
     """Name `install --help` only for a verified payload missing supervision or its command."""
     serving = {
         "state": "degraded",

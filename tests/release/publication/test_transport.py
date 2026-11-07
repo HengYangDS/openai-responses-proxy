@@ -1,14 +1,20 @@
 """Hosted Forge subprocess transport contracts."""
 
+from __future__ import annotations
+
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tools.release.publication import hosted
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_hosted_transport_resolves_tools_and_translates_failures(*, mocker) -> None:
+
+def test_hosted_transport_resolves_tools_and_translates_failures(*, mocker: MockerFixture) -> None:
     mocker.patch.object(hosted.shutil, "which", return_value=None)
     with pytest.raises(RuntimeError):
         hosted.executable("gh", RuntimeError)

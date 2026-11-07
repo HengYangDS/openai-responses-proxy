@@ -46,7 +46,7 @@ class TestOwnedInventory:
 
     @pytest.mark.parametrize("consumer", ["responsibilities", "text", "names", "governance"])
     def test_quality_consumers_require_their_own_repository_root(
-        self, consumer: str, *, monkeypatch
+        self, consumer: str, *, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         with repository(("nested/README.md",)) as parent:
             root = parent / "nested"
@@ -64,7 +64,7 @@ class TestOwnedInventory:
     @pytest.mark.parametrize("state", ["untracked", "missing", "symlink"])
     @pytest.mark.parametrize("write", [False, True])
     def test_formatter_refuses_unowned_inputs_before_any_write(
-        self, suffix: str, state: str, *, write: bool, monkeypatch
+        self, suffix: str, state: str, *, write: bool, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         current = f"current{suffix}"
         selected = f"selected{suffix}"
@@ -90,7 +90,7 @@ class TestOwnedInventory:
             assert target.exists() == (state != "missing")
 
     def test_formatter_uses_staged_rename_and_preserves_archived_records(
-        self, *, monkeypatch
+        self, *, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         archived = "openspec/changes/archive/fixture/design.md"
         with repository(("original.md", archived)) as root:
@@ -100,7 +100,7 @@ class TestOwnedInventory:
             assert governance._tracked_current((".md",)) == ("renamed.md",)
 
     def test_formatter_rejects_untracked_filename_that_looks_like_index_metadata(
-        self, *, monkeypatch
+        self, *, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         with repository(("README.md",)) as root:
             monkeypatch.setattr(governance, "ROOT", root)

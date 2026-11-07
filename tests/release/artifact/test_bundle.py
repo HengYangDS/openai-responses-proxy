@@ -8,6 +8,7 @@ import os
 import runpy
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,13 +16,16 @@ from tools.release.artifact import __main__ as commands
 from tools.release.artifact import bundle as asset_command
 from tools.release.artifact import format as assets
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.parametrize(
     "defect", ["missing-distribution", "missing-record", "malformed-record", "missing-provenance"]
 )
-def test_normalization_requires_complete_installed_metadata(tmp_path, defect) -> None:
+def test_normalization_requires_complete_installed_metadata(tmp_path: Path, defect) -> None:
     if defect != "missing-distribution":
         _installed_distribution(tmp_path, "isolated")
         metadata = next(tmp_path.glob("*.dist-info"))
@@ -35,14 +39,14 @@ def test_normalization_requires_complete_installed_metadata(tmp_path, defect) ->
         asset_command.normalize(tmp_path)
 
 
-def test_bundle_rejects_directory_symlink_cycles(tmp_path) -> None:
+def test_bundle_rejects_directory_symlink_cycles(tmp_path: Path) -> None:
     (tmp_path / "cycle").symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(SystemExit, match="symlink cycle"):
         asset_command.bundle_files(tmp_path)
 
 
 @pytest.mark.parametrize("defect", ["occupied-output", "file-input", "missing-executable"])
-def test_pack_rejects_invalid_roots_before_writing(tmp_path, defect) -> None:
+def test_pack_rejects_invalid_roots_before_writing(tmp_path: Path, defect) -> None:
     bundle = tmp_path / "bundle"
     output = tmp_path / "output"
     if defect == "file-input":
@@ -157,7 +161,9 @@ class BundleContracts:
             path.name in {"direct_url.json", "uv_cache.json"} for path in first.rglob("*")
         )
 
-    def test_asset_command_packages_only_native_runtime_inputs(self, *, mocker) -> None:
+    def test_asset_command_packages_only_native_runtime_inputs(
+        self, *, mocker: MockerFixture
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             bundle = root / "openai-responses-proxy"
@@ -208,7 +214,9 @@ class BundleContracts:
             )
 
     @pytest.mark.skipif(os.name == "nt", reason="models POSIX bundle symlink semantics")
-    def test_asset_command_materializes_safe_bundle_symlinks(self, tmp_path: Path, mocker) -> None:
+    def test_asset_command_materializes_safe_bundle_symlinks(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         bundle = tmp_path / "openai-responses-proxy"
         framework = bundle / "_internal" / "Python.framework" / "Versions" / "3.14"
         framework.mkdir(parents=True)
@@ -238,7 +246,9 @@ class BundleContracts:
             hashlib.sha256(b"framework-resources").hexdigest()
         )
 
-    def test_bundle_files_uses_platform_canonical_path_identity(self, mocker) -> None:
+    def test_bundle_files_uses_platform_canonical_path_identity(
+        self, mocker: MockerFixture
+    ) -> None:
         bundle = Path("C:/Product/Proxy")
         member = Path("c:/product/proxy/_internal/runtime.dat")
         commonpath = os.path.commonpath
@@ -255,7 +265,7 @@ class BundleContracts:
         assert asset_command._is_within(bundle, member)
 
     def test_asset_command_rejects_bundle_symlinks_outside_the_bundle(
-        self, tmp_path: Path, mocker
+        self, tmp_path: Path, mocker: MockerFixture
     ) -> None:
         bundle = tmp_path / "openai-responses-proxy"
         bundle.mkdir()
@@ -278,7 +288,7 @@ class BundleContracts:
     [None, "archive", "version", "platform", "renamed-version", "renamed-platform", "output"],
 )
 def test_materialization_uses_only_complete_current_platform_assets(
-    tmp_path, mocker, defect
+    tmp_path: Path, mocker: MockerFixture, defect
 ) -> None:
     source = tmp_path / "assets"
     source.mkdir()
@@ -339,7 +349,7 @@ def test_materialization_uses_only_complete_current_platform_assets(
 
 
 @pytest.mark.parametrize("defect", ["missing", "empty", "directory", "symlink"])
-def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path, defect) -> None:
+def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path: Path, defect) -> None:
     source = tmp_path / "assets"
     output = tmp_path / "runtime"
     if defect != "missing":

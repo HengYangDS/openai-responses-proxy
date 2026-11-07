@@ -16,6 +16,9 @@ from tests.serving.handoff.fixtures import matching_health
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    import pytest
+    from pytest_mock import MockerFixture
+
 
 class TestControllerHandoffWiring(HandoffFixture):
     def test_resumed_runtime_requires_the_exact_old_identity_and_admission(self) -> None:
@@ -37,7 +40,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert handoff._old_runtime_resumed(old, old)
 
     def test_failure_resolver_classifies_finalized_rolled_back_and_unknown_states(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
@@ -97,7 +100,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         ) == ("finalized", finalized)
 
     def test_failure_resolver_ignores_non_mapping_and_non_integer_runtime_pids(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()

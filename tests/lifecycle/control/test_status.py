@@ -6,6 +6,7 @@ import json
 import tempfile
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -26,9 +27,12 @@ from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.fixtures import running_supervisor
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     Path(ctx.install_dir).mkdir(parents=True)
@@ -61,7 +65,7 @@ def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
 
 
 def test_status_reports_an_invalid_installed_state_without_losing_read_only_evidence(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_root = Path(ctx.install_dir)
@@ -89,7 +93,7 @@ def test_status_reports_an_invalid_installed_state_without_losing_read_only_evid
 
 
 def test_status_distinguishes_absence_from_command_and_transaction_degradation(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
     service = mocker.patch.object(control, "adapter").return_value
@@ -147,7 +151,7 @@ def test_status_distinguishes_absence_from_command_and_transaction_degradation(
 
 
 def test_status_classifies_a_verified_installation_whose_supervisor_is_stopped(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
@@ -209,7 +213,7 @@ def test_status_classifies_a_verified_installation_whose_supervisor_is_stopped(
 
 
 def test_status_reports_retained_rollback_availability_and_corruption(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -240,7 +244,7 @@ def test_status_reports_retained_rollback_availability_and_corruption(
 
 
 def test_status_defers_retained_authority_to_an_active_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
@@ -263,7 +267,7 @@ def test_status_defers_retained_authority_to_an_active_transaction(
 
 @pytest.mark.parametrize("outcome", ["closed", "rolled_back", "finalized"])
 def test_status_routes_terminal_cleanup_to_recovery(
-    tmp_path: Path, outcome: str, *, mocker
+    tmp_path: Path, outcome: str, *, mocker: MockerFixture
 ) -> None:
     """A valid disposal hold is recoverable rather than installation damage."""
     ctx = install_context(tmp_path)
@@ -290,7 +294,9 @@ def test_status_routes_terminal_cleanup_to_recovery(
     pending.rollback()
 
 
-def test_control_status_includes_secret_free_runtime_when_listener_is_available(*, mocker) -> None:
+def test_control_status_includes_secret_free_runtime_when_listener_is_available(
+    *, mocker: MockerFixture
+) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         ctx = install_context(root)
@@ -323,7 +329,7 @@ def test_control_status_includes_secret_free_runtime_when_listener_is_available(
 
 
 def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A loopback runtime proof is authoritative after portable handoff."""
     ctx = install_context(tmp_path)
@@ -365,7 +371,9 @@ def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
     )
 
 
-def test_status_rejects_a_listener_serving_a_different_payload(tmp_path: Path, *, mocker) -> None:
+def test_status_rejects_a_listener_serving_a_different_payload(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
@@ -395,7 +403,7 @@ def test_status_rejects_a_listener_serving_a_different_payload(tmp_path: Path, *
 
 
 def test_status_rejects_a_non_accepting_or_draining_runtime(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -427,7 +435,9 @@ def test_status_rejects_a_non_accepting_or_draining_runtime(
             assert evidence["runtime"] is None
 
 
-def test_status_rejects_runtime_from_an_unowned_listener(tmp_path: Path, *, mocker) -> None:
+def test_status_rejects_runtime_from_an_unowned_listener(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
@@ -450,7 +460,9 @@ def test_status_rejects_runtime_from_an_unowned_listener(tmp_path: Path, *, mock
     assert evidence["runtime"] is None
 
 
-def test_control_status_json_reports_recovery_without_private_transaction_data(*, mocker) -> None:
+def test_control_status_json_reports_recovery_without_private_transaction_data(
+    *, mocker: MockerFixture
+) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         ctx = install_context(root)
@@ -499,7 +511,7 @@ def test_control_status_json_reports_recovery_without_private_transaction_data(*
 
 
 def test_status_requires_a_current_supervisor_projection_bound_to_control(
-    tmp_path: Path, *, mocker, subtests
+    tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)

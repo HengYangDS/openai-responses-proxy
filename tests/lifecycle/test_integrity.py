@@ -7,6 +7,7 @@ import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -26,6 +27,9 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -33,7 +37,11 @@ class TestPayloadValidation:
     """Payload admission, manifest, and rollback validation contracts."""
 
     def test_begin_rejects_existing_transaction_and_invalid_candidate_boundaries(
-        self, subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self,
+        subtests: pytest.Subtests,
+        *,
+        mocker: MockerFixture,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         transaction_root = Path(records.transaction_root(ctx))
@@ -98,7 +106,7 @@ class TestPayloadValidation:
                 payload_candidate.validate(candidate_blobs, version, digest, candidate_receipt)
 
     def test_digest_and_unowned_collision_boundaries_fail_closed(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         valid = {
             relative: hashlib.sha256(relative.encode()).hexdigest() for relative in runtime_files()
@@ -139,7 +147,7 @@ class TestPayloadValidation:
         payload_candidate.validate(expanded, "1.2.3", "0" * 64, receipt)
 
     def test_bundle_prewarm_materializes_runs_and_rejects_failures(
-        self, tmp_path: Path, subtests, *, mocker
+        self, tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         completed = mocker.patch.object(
             subprocess,
@@ -189,7 +197,7 @@ class TestPayloadValidation:
                     assert "fixture native failure" not in str(raised.value)
 
     def test_transaction_filesystem_failures_remain_fail_closed(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
@@ -210,7 +218,11 @@ class TestPayloadValidation:
         assert records.status(ctx) is None
 
     def test_manifest_verifier_reports_each_metadata_boundary(
-        self, subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self,
+        subtests: pytest.Subtests,
+        *,
+        mocker: MockerFixture,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         def installed() -> tuple[runtime_context.RuntimeContext, Path, dict[str, object]]:
             ctx = install_context(tmp_path_factory.mktemp("case"))
@@ -339,7 +351,7 @@ class TestPayloadValidation:
             records.require_command({"command": "relative/command"})
 
     def test_owned_file_boundaries_reject_invalid_types_and_path_races(
-        self, tmp_path: Path, *, mocker
+        self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         """Exercise each fail-closed filesystem type boundary without private host paths."""
         with pytest.raises(errors.InstallError, match="non-empty string"):

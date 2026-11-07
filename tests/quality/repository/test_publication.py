@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.quality.fixtures import ROOT
 from tools.release import metadata
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -86,7 +90,7 @@ from tools.release import metadata
     ],
 )
 def test_governance_reader_detects_contradicted_public_contract(
-    carrier, before, after, diagnostic, mocker
+    carrier, before, after, diagnostic, mocker: MockerFixture
 ) -> None:
     original = Path.read_text
 
@@ -101,7 +105,9 @@ def test_governance_reader_detects_contradicted_public_contract(
         metadata.check_governance_contract()
 
 
-def test_governance_requires_real_repository_carriers(tmp_path, mocker) -> None:
+def test_governance_requires_real_repository_carriers(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     mocker.patch.object(metadata, "ROOT", tmp_path)
     with pytest.raises(ValueError, match="missing governance documents"):
         metadata.check_governance_contract()

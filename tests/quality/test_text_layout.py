@@ -1,11 +1,18 @@
 """Tracked text admission through the actual Git and byte-reading boundaries."""
 
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.quality.fixtures import repository
 from tools.quality import text_layout
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -29,7 +36,9 @@ def test_exact_tracked_text_is_checked(content: bytes, errors: tuple[str, ...]) 
         assert text_layout.audit(root) == errors
 
 
-def test_missing_and_linked_files_do_not_read_foreign_content(tmp_path: Path, mocker) -> None:
+def test_missing_and_linked_files_do_not_read_foreign_content(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     target = tmp_path / "target.bin"
     target.write_bytes(b"\xff")
     (tmp_path / "link.md").symlink_to(target)
@@ -37,7 +46,9 @@ def test_missing_and_linked_files_do_not_read_foreign_content(tmp_path: Path, mo
     assert text_layout.audit(tmp_path) == ()
 
 
-def test_cli_preserves_the_selected_policy_and_failed_exit(tmp_path: Path, mocker) -> None:
+def test_cli_preserves_the_selected_policy_and_failed_exit(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     audit = mocker.patch.object(text_layout, "audit", return_value=())
     policy = tmp_path / "policy.toml"
     text_layout.main(("--policy", str(policy)))

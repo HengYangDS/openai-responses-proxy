@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -23,6 +24,9 @@ from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 def test_recovery_is_idempotent_when_no_transaction_exists(tmp_path: Path) -> None:
     ctx = install_context(tmp_path)
@@ -31,7 +35,7 @@ def test_recovery_is_idempotent_when_no_transaction_exists(tmp_path: Path) -> No
 
 
 def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -56,7 +60,7 @@ def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
 
 
 def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -77,7 +81,7 @@ def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
 
 @pytest.mark.parametrize("drift", ["selector", "snapshot", "command"])
 def test_fresh_recovery_admits_projection_before_native_disposal(
-    tmp_path: Path, drift: str, *, mocker
+    tmp_path: Path, drift: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -121,7 +125,9 @@ def test_fresh_recovery_admits_projection_before_native_disposal(
     assert Path(ctx.command).read_bytes() == command_before
 
 
-def test_fresh_recovery_rejects_an_unrelated_live_runtime(tmp_path: Path, *, mocker) -> None:
+def test_fresh_recovery_rejects_an_unrelated_live_runtime(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """A fresh interrupted projection cannot erase an unrelated accepting runtime."""
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -137,7 +143,9 @@ def test_fresh_recovery_rejects_an_unrelated_live_runtime(tmp_path: Path, *, moc
         recover_transaction(ctx, runtime=unrelated)
 
 
-def test_recovery_closes_an_unmutated_prepared_transaction(tmp_path: Path, *, mocker) -> None:
+def test_recovery_closes_an_unmutated_prepared_transaction(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     before = Path(ctx.executable).read_bytes()
@@ -155,7 +163,7 @@ def test_recovery_closes_an_unmutated_prepared_transaction(tmp_path: Path, *, mo
 
 
 def test_fresh_recovery_rolls_back_a_selected_candidate_without_a_runtime(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A first-install selector alone does not prove an installed runtime."""
     ctx = install_context(tmp_path)
@@ -178,7 +186,9 @@ def test_fresh_recovery_rolls_back_a_selected_candidate_without_a_runtime(
     assert not Path(ctx.command).exists()
 
 
-def test_recovery_finalizes_an_activated_fresh_candidate(tmp_path: Path, *, mocker) -> None:
+def test_recovery_finalizes_an_activated_fresh_candidate(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     """An activated first install can finish after its runtime proves the candidate."""
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -199,7 +209,7 @@ def test_recovery_finalizes_an_activated_fresh_candidate(tmp_path: Path, *, mock
 
 
 def test_recovery_removes_an_interrupted_fresh_projection_without_a_runtime(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)

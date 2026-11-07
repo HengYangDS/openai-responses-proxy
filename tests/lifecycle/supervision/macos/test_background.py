@@ -5,6 +5,7 @@ from __future__ import annotations
 import plistlib
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +15,9 @@ from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import set_file as _set_file
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
 from tests.lifecycle.supervision.macos.fixtures import service as _service
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class TestMacosBackgroundContract:
@@ -25,7 +29,7 @@ class TestMacosBackgroundContract:
         ],
     )
     def test_unavailable_user_domain_preserves_installation(
-        self, *, returncode, stdout, message, mocker
+        self, *, returncode, stdout, message, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
@@ -47,7 +51,7 @@ class TestMacosBackgroundContract:
         ["other/bin/openai-responses-proxy", "generations/invalid/bin/openai-responses-proxy"],
     )
     def test_carrier_requires_the_canonical_install_generation(
-        self, *, executable_suffix, mocker
+        self, *, executable_suffix, mocker: MockerFixture
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             foreign_context = SimpleNamespace(
@@ -65,7 +69,7 @@ class TestMacosBackgroundContract:
             assert carrier.read_text() == content
             invoked.assert_not_called()
 
-    def test_carrier_changed_during_bootout_is_preserved(self, *, mocker) -> None:
+    def test_carrier_changed_during_bootout_is_preserved(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(macos, "_domains", return_value=("user/501",))
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         with _temporary_context("log_dir") as ctx:
@@ -87,7 +91,9 @@ class TestMacosBackgroundContract:
                 call.args[0][1] not in {"bootstrap", "kickstart"} for call in invoked.call_args_list
             )
 
-    def test_carrier_admits_gui_login_and_background_sessions(self, *, mocker) -> None:
+    def test_carrier_admits_gui_login_and_background_sessions(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
@@ -138,7 +144,9 @@ class TestMacosBackgroundContract:
                 macos.configured_executable(ctx)
             assert carrier.read_text(encoding="utf-8") == content
 
-    def test_install_registers_in_the_gui_login_domain_restored_by_launchd(self, *, mocker) -> None:
+    def test_install_registers_in_the_gui_login_domain_restored_by_launchd(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
         with _temporary_context("log_dir") as ctx:
@@ -171,7 +179,7 @@ class TestMacosBackgroundContract:
             ]
 
     def test_install_moves_a_background_only_watchdog_into_the_gui_login_domain(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
@@ -215,7 +223,9 @@ class TestMacosBackgroundContract:
             sessions = plistlib.loads(carrier.read_bytes())["LimitLoadToSessionType"]
             assert sessions == ["Aqua", "Background"]
 
-    def test_status_observes_a_registered_watchdog_without_its_carrier(self, *, mocker) -> None:
+    def test_status_observes_a_registered_watchdog_without_its_carrier(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         mocker.patch.object(
@@ -231,7 +241,9 @@ class TestMacosBackgroundContract:
             assert not Path(macos._plist_path(ctx)).exists()
             assert macos.status(ctx) == "running"
 
-    def test_pristine_status_preserves_an_absent_home(self, tmp_path, *, mocker) -> None:
+    def test_pristine_status_preserves_an_absent_home(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
         home = tmp_path / "home"
         mocker.patch.object(macos, "_domains", return_value=("user/501",))
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
@@ -250,7 +262,7 @@ class TestMacosBackgroundContract:
             )
         assert not home.exists()
 
-    def test_install_preserves_a_foreign_launch_agent(self, *, mocker) -> None:
+    def test_install_preserves_a_foreign_launch_agent(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
             payload["Label"] = "foreign.watchdog"
@@ -267,7 +279,9 @@ class TestMacosBackgroundContract:
             invoked.assert_not_called()
 
     @pytest.mark.parametrize("gui", [False, True])
-    def test_domain_observation_accepts_a_user_session_without_gui(self, *, gui, mocker) -> None:
+    def test_domain_observation_accepts_a_user_session_without_gui(
+        self, *, gui, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         associated = "\tgui asid = 100021\n" if gui else ""
@@ -285,7 +299,9 @@ class TestMacosBackgroundContract:
             text=True,
         )
 
-    def test_competing_service_registrations_are_not_removed(self, *, mocker) -> None:
+    def test_competing_service_registrations_are_not_removed(
+        self, *, mocker: MockerFixture
+    ) -> None:
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
         mocker.patch.object(macos, "_service", return_value=macos._Service(registered=True, pid=73))
         invoked = mocker.patch.object(macos.subprocess, "run")
@@ -298,7 +314,7 @@ class TestMacosBackgroundContract:
 
     @pytest.mark.parametrize("operation", [macos.install, macos.uninstall])
     def test_carrier_symlink_preserves_its_foreign_target(
-        self, tmp_path, *, operation, mocker
+        self, tmp_path: Path, *, operation, mocker: MockerFixture
     ) -> None:
         foreign = tmp_path / "foreign.plist"
         content = b"foreign launch agent"
@@ -315,7 +331,7 @@ class TestMacosBackgroundContract:
         invoked.assert_not_called()
 
     def test_install_replaces_the_owned_legacy_gui_watchdog_in_its_login_domain(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)

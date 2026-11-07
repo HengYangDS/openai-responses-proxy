@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.runtime.process_environment import native_process_environment
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_isolation_preserves_the_host_execution_substrate(tmp_path: Path) -> None:
@@ -114,7 +118,7 @@ def test_product_process_keeps_the_user_root_and_projects_runtime_roots(
 
 
 def test_relative_roots_are_bound_before_the_child_changes_directory(
-    tmp_path: Path, *, monkeypatch
+    tmp_path: Path, *, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Keep all owned roots stable across a subprocess working-directory change."""
     monkeypatch.chdir(tmp_path)

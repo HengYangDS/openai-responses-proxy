@@ -8,6 +8,7 @@ import socket
 import threading
 import urllib.error
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,6 +20,9 @@ from openai_responses_proxy.runtime import config
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -51,7 +55,9 @@ class ProviderRouteTests:
 
         assert received == [body]
 
-    def test_all_three_routes_forward_the_same_portable_body(self, subtests) -> None:
+    def test_all_three_routes_forward_the_same_portable_body(
+        self, subtests: pytest.Subtests
+    ) -> None:
         raw = _body(
             {
                 "previous_response_id": "provider-response",
@@ -134,7 +140,9 @@ class ProviderRouteTests:
             assert output["output"] == [{"type": "input_text", "text": "tool result"}]
             assert trigger == {"type": "compaction_trigger"}
 
-    def test_unknown_route_and_unknown_replay_shape_never_reach_upstream(self, subtests) -> None:
+    def test_unknown_route_and_unknown_replay_shape_never_reach_upstream(
+        self, subtests: pytest.Subtests
+    ) -> None:
         with running_proxy([]) as (port, received):
             for path, body, expected_code in (
                 ("/unknown/v1/responses", _body({"input": "hello"}), 404),
@@ -144,17 +152,15 @@ class ProviderRouteTests:
                     400,
                 ),
             ):
-                with (
-                    subtests.test(path=path),
-                    pytest.raises(urllib.error.HTTPError) as raised,
-                ):
-                    request(port, body, path=path)
-                with raised.value as error:
-                    assert error.code == expected_code
+                with subtests.test(path=path):
+                    with pytest.raises(urllib.error.HTTPError) as raised:
+                        request(port, body, path=path)
+                    with raised.value as error:
+                        assert error.code == expected_code
             assert received == []
 
     def test_empty_request_and_ambiguous_routes_never_reach_upstream(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         valid = _body({"input": [{"type": "message", "role": "user", "content": "hello"}]})
         cases = (
@@ -168,17 +174,17 @@ class ProviderRouteTests:
         log = mocker.patch("openai_responses_proxy.relay.operational_log.log")
         with running_proxy([]) as (port, received):
             for path, body, status in cases:
-                with (
-                    subtests.test(path=path),
-                    pytest.raises(urllib.error.HTTPError) as raised,
-                ):
-                    request(port, body, path=path)
-                with raised.value as error:
-                    assert error.code == status
+                with subtests.test(path=path):
+                    with pytest.raises(urllib.error.HTTPError) as raised:
+                        request(port, body, path=path)
+                    with raised.value as error:
+                        assert error.code == status
             assert received == []
         assert log.call_count == len(cases)
 
-    def test_rejected_routes_close_before_an_unread_body_can_be_reparsed(self, subtests) -> None:
+    def test_rejected_routes_close_before_an_unread_body_can_be_reparsed(
+        self, subtests: pytest.Subtests
+    ) -> None:
         body = b'{"ignored":true}'
         with running_proxy([]) as (port, received):
             for path, method in (
@@ -277,7 +283,7 @@ class ProviderRouteTests:
 
     @pytest.mark.parametrize("length", ["4097", "999999999999999999999999"])
     def test_oversized_request_is_rejected_before_reading_its_body(
-        self, length: str, *, mocker
+        self, length: str, *, mocker: MockerFixture
     ) -> None:
         settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "4096"})
         mocker.patch.object(responses, "_SETTINGS", settings)
@@ -300,7 +306,7 @@ class ProviderRouteTests:
 
     @pytest.mark.parametrize("trickle", [False, True])
     def test_body_progress_cannot_extend_the_total_admission_deadline(
-        self, *, trickle: bool, capsys: pytest.CaptureFixture[str], mocker
+        self, *, trickle: bool, capsys: pytest.CaptureFixture[str], mocker: MockerFixture
     ) -> None:
         settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "0.25"})
         mocker.patch.object(responses, "_SETTINGS", settings)
@@ -338,7 +344,9 @@ class ProviderRouteTests:
             assert received == []
         assert "Traceback" not in capsys.readouterr().err
 
-    def test_body_at_the_limit_preserves_bytes_and_keep_alive(self, *, mocker) -> None:
+    def test_body_at_the_limit_preserves_bytes_and_keep_alive(
+        self, *, mocker: MockerFixture
+    ) -> None:
         settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES": "4096"})
         mocker.patch.object(responses, "_SETTINGS", settings)
         raw = b'{"store":false,"input":"hello"}'
@@ -390,7 +398,9 @@ class ProviderRouteTests:
             assert received == []
         assert "Traceback" not in capsys.readouterr().err
 
-    def test_all_three_catalog_routes_relay_once_without_responses_policy(self, subtests) -> None:
+    def test_all_three_catalog_routes_relay_once_without_responses_policy(
+        self, subtests: pytest.Subtests
+    ) -> None:
         payload = b'{"object":"list","data":[]}'
         captures: list[dict[str, object]] = []
         with running_proxy([(200, payload)] * 3, captures=captures) as (port, received):

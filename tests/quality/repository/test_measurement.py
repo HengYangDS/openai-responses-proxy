@@ -184,7 +184,7 @@ class TestStructuralMeasurement:
 
     @pytest.mark.parametrize("value", [None, True, 0, -1, "5"])
     def test_missing_or_invalid_control_depth_policy_cannot_admit_source(
-        self, value: object, monkeypatch
+        self, value: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         policy = tomllib.loads(repository_audit.CONFIG.read_text(encoding="utf-8"))
         if value is None:

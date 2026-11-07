@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,6 +14,9 @@ from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import set_file as _set_file
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -28,7 +32,7 @@ class TestLinuxLifecycle:
         ids=("unreachable-manager", "failed-observation", "missing-properties"),
     )
     def test_service_absence_requires_a_successful_manager_observation(
-        self, observation, tmp_path, *, mocker
+        self, observation, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
@@ -44,13 +48,15 @@ class TestLinuxLifecycle:
         assert all(call.args[0][2] == "show" for call in command.call_args_list)
         processes.assert_not_called()
 
-    def test_systemctl_resolves_from_the_default_path_not_the_caller_path(self, *, mocker) -> None:
+    def test_systemctl_resolves_from_the_default_path_not_the_caller_path(
+        self, *, mocker: MockerFixture
+    ) -> None:
         which = mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
 
         assert linux._systemctl() == "/usr/bin/systemctl"
         which.assert_called_once_with("systemctl", path=linux.os.defpath)
 
-    def test_service_carrier_uses_the_context_user_home(self, tmp_path) -> None:
+    def test_service_carrier_uses_the_context_user_home(self, tmp_path: Path) -> None:
         owned_home = tmp_path / "owned-home"
         ctx = platform_context()
         ctx.user_home = str(owned_home)
@@ -72,7 +78,7 @@ class TestLinuxLifecycle:
         ids=("no-command", "running", "degraded", "no-bus", "failed-query", "empty-state"),
     )
     def test_install_requires_a_successful_manager_query(
-        self, executable, observation, available, *, mocker
+        self, executable, observation, available, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value=executable)
@@ -164,7 +170,9 @@ class TestLinuxLifecycle:
             assert linux.configured_executable(ctx) == ctx.executable
             assert linux.projection_is_current(ctx) is False
 
-    def test_status_observes_registered_service_without_a_unit_file(self, *, mocker) -> None:
+    def test_status_observes_registered_service_without_a_unit_file(
+        self, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
         mocker.patch.object(
@@ -175,7 +183,7 @@ class TestLinuxLifecycle:
 
         assert linux.status(ctx) == "running"
 
-    def test_systemd_install_success_and_failure(self, *, mocker) -> None:
+    def test_systemd_install_success_and_failure(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             watchdog = linux.process.OwnedProcess(417, ctx.executable, 1.0)
@@ -228,7 +236,7 @@ class TestLinuxLifecycle:
                 linux._install_systemd(ctx, "/usr/bin/systemctl")
             assert "/home/private/unit" not in str(raised.value)
 
-    def test_uninstall_and_status(self, *, mocker) -> None:
+    def test_uninstall_and_status(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             _set_file(unit, "unit")
@@ -281,7 +289,7 @@ class TestLinuxLifecycle:
                 )
                 assert linux.status(ctx) == expected
 
-    def test_uninstall_requires_verified_systemd_removal(self, *, mocker) -> None:
+    def test_uninstall_requires_verified_systemd_removal(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = _set_file(linux._unit_path(ctx), "unit")
             mocker.patch.object(linux.shutil, "which", return_value=None)
@@ -329,7 +337,7 @@ class TestLinuxLifecycle:
                 linux.uninstall(ctx)
 
     def test_uninstall_refuses_unproved_process_terminal_states(
-        self, tmp_path, subtests, *, mocker
+        self, tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
@@ -349,7 +357,9 @@ class TestLinuxLifecycle:
         ):
             linux.uninstall(ctx)
 
-    def test_uninstall_terminates_each_verified_linux_watchdog(self, tmp_path, *, mocker) -> None:
+    def test_uninstall_terminates_each_verified_linux_watchdog(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
         mocker.patch.object(linux, "status", return_value="absent")

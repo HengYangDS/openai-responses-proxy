@@ -6,6 +6,7 @@ import json
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -24,12 +25,17 @@ from tests.relay.fixtures import request
 from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 class TestSseRecovery(InputTransportFixture):
     @pytest.mark.parametrize(
         "control", [b"data: [DONE]\n\n", b": keepalive\n\n", b"event: ping\n\n"]
     )
-    def test_pre_content_failure_controls_preserve_reconnect(self, control, *, mocker) -> None:
+    def test_pre_content_failure_controls_preserve_reconnect(
+        self, control, *, mocker: MockerFixture
+    ) -> None:
         failed = (
             b'data:{"type" : "response.created"}\n\n'
             b'data:{"type" : "response.in_progress"}\n\n'
@@ -52,7 +58,7 @@ class TestSseRecovery(InputTransportFixture):
         assert handler.output().count(b"response.completed") == 1
 
     @pytest.mark.parametrize("event", ["response.output_text.delta", "response.output_item.added"])
-    def test_committed_output_is_never_replayed(self, event, *, mocker) -> None:
+    def test_committed_output_is_never_replayed(self, event, *, mocker: MockerFixture) -> None:
         content = json.dumps(
             {"type": event, "delta": "keep", "item": {"type": "function_call"}}
         ).encode()
@@ -72,7 +78,9 @@ class TestSseRecovery(InputTransportFixture):
         assert b"response.failed" in handler.output()
 
     @pytest.mark.parametrize("code", ["invalid_prompt", "rate_limit_exceeded", "unknown"])
-    def test_permanent_failure_is_preserved_without_reconnect(self, code, *, mocker) -> None:
+    def test_permanent_failure_is_preserved_without_reconnect(
+        self, code, *, mocker: MockerFixture
+    ) -> None:
         raw = (
             b"data: "
             + json.dumps(
@@ -89,7 +97,7 @@ class TestSseRecovery(InputTransportFixture):
         reopen.assert_not_called()
         assert raw in handler.output()
 
-    def test_failed_response_with_output_is_not_replayed(self, *, mocker) -> None:
+    def test_failed_response_with_output_is_not_replayed(self, *, mocker: MockerFixture) -> None:
         raw = (
             b'data: {"type":"response.failed","response":{"output":[{"type":"function_call"}],'
             b'"error":{"code":"server_error"}}}\n\n'
@@ -104,7 +112,9 @@ class TestSseRecovery(InputTransportFixture):
         reopen.assert_not_called()
         assert raw in handler.output()
 
-    def test_failure_diagnostics_correlate_without_disclosing_payload(self, *, mocker) -> None:
+    def test_failure_diagnostics_correlate_without_disclosing_payload(
+        self, *, mocker: MockerFixture
+    ) -> None:
         request_id = "64781e82-1e8f-42af-a06a-409e154bbfe2"
         raw = (
             b"data: "
@@ -136,7 +146,9 @@ class TestSseRecovery(InputTransportFixture):
         assert "req=7 event=sse_upstream_failed" in logs
         assert "private-prompt-secret" not in logs
 
-    def test_reconnect_backoff_does_not_outlive_stream_deadline(self, *, mocker) -> None:
+    def test_reconnect_backoff_does_not_outlive_stream_deadline(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler()
         reopen = mocker.Mock(return_value=DirectResponse())
         mocker.patch.object(
@@ -165,7 +177,7 @@ class TestSseRecovery(InputTransportFixture):
 
     @pytest.mark.parametrize("detail", ["eof", "incomplete_read", "timeout"])
     def test_a_pre_content_ending_without_a_failure_event_is_not_reopened(
-        self, detail, *, mocker
+        self, detail, *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler()
         reopen = mocker.Mock(return_value=DirectResponse())
@@ -190,7 +202,9 @@ class TestSseRecovery(InputTransportFixture):
         sleep.assert_not_called()
         assert handler.output() == b""
 
-    def test_a_reopened_request_lost_after_sending_is_outcome_unknown(self, *, mocker) -> None:
+    def test_a_reopened_request_lost_after_sending_is_outcome_unknown(
+        self, *, mocker: MockerFixture
+    ) -> None:
         failed = (
             b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
         )
@@ -205,7 +219,7 @@ class TestSseRecovery(InputTransportFixture):
         assert result["attempts"] == 2
         assert result["outcome_unknown"]
 
-    def test_transient_failure_reconnects_are_bounded(self, *, mocker) -> None:
+    def test_transient_failure_reconnects_are_bounded(self, *, mocker: MockerFixture) -> None:
         raw = (
             b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
             b"data: [DONE]\n\n"
@@ -221,7 +235,7 @@ class TestSseRecovery(InputTransportFixture):
         assert reopen.call_count == 5
         assert handler.output() == b""
 
-    def test_recovered_sse_failure_does_not_reconnect(self, *, mocker) -> None:
+    def test_recovered_sse_failure_does_not_reconnect(self, *, mocker: MockerFixture) -> None:
         body = request_body(stream=True)
         incomplete = b'data: {"type":"response.created"}\n\n'
         unexpected_reconnect = b'data: {"type":"response.completed"}\n\n'
@@ -293,7 +307,7 @@ class TestSseRecovery(InputTransportFixture):
         assert classifications == {"input_variant_validation_error": 1}
 
     def test_direct_sse_relay_handles_reopen_failure_and_incomplete_terminal(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         failed = DirectResponse(
             b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
@@ -326,7 +340,9 @@ class TestSseRecovery(InputTransportFixture):
         counters = cast("dict[str, int]", self._status_snapshot()["counters"])
         assert counters["streams_incomplete"] == 1
 
-    def test_sse_deadline_and_reconnect_deadline_are_bounded(self, *, mocker) -> None:
+    def test_sse_deadline_and_reconnect_deadline_are_bounded(
+        self, *, mocker: MockerFixture
+    ) -> None:
         handler = MemoryHandler()
         result = sse._read_one_stream(
             handler, DirectResponse(), lambda: None, deadline=sse.time.monotonic() - 1

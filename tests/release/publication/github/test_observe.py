@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import subprocess
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
 
 from tests.release.artifact.fixtures import release_bundle
 from tools.release.publication.github import observe as github
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class GitHubObservationContracts:
@@ -95,7 +99,7 @@ class GitHubObservationContracts:
         assert cast("dict[str, object]", result["ci"])["id"] == 1
 
     def test_github_selects_the_newest_published_ancestor_before_the_candidate(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """Resolve one immutable predecessor instead of inheriting GitHub's latest pointer."""
         releases = [
@@ -120,7 +124,7 @@ class GitHubObservationContracts:
         ]
 
     def test_github_predecessor_selection_rejects_ambiguous_or_missing_history(
-        self, *, mocker, subtests
+        self, *, mocker: MockerFixture, subtests: pytest.Subtests
     ) -> None:
         """Fail closed when hosted release records cannot name one local ancestor."""
         cases = (
@@ -154,7 +158,7 @@ class GitHubObservationContracts:
         [("", "3.1.2"), ("owner/repo", "03.1.2"), ("owner/repo", "v3.1.2")],
     )
     def test_github_predecessor_request_requires_a_repository_and_strict_version(
-        self, repository: str, version: str, *, mocker
+        self, repository: str, version: str, *, mocker: MockerFixture
     ) -> None:
         """Refuse a malformed candidate before any hosted read."""
         pages = mocker.patch.object(github, "_api_pages")
@@ -163,7 +167,7 @@ class GitHubObservationContracts:
         pages.assert_not_called()
 
     def test_github_predecessor_rejects_a_published_tag_outside_the_release_grammar(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         """A published release named by a non-canonical tag cannot become the predecessor."""
         releases = [{"tag_name": "v03.1.0", "draft": False, "prerelease": False}]
@@ -171,7 +175,9 @@ class GitHubObservationContracts:
         with pytest.raises(github.GitHubProofError, match="published release tag is invalid"):
             github.published_predecessor(repository="owner/repo", version="3.1.2")
 
-    def test_github_collection_binds_api_tag_object_to_fetched_identity(self, *, mocker) -> None:
+    def test_github_collection_binds_api_tag_object_to_fetched_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
         commit = "a" * 40
         tag_object = "b" * 40
         runs, _, _, asset_bytes = self._github_fixture(commit)
@@ -222,7 +228,7 @@ class GitHubObservationContracts:
             )
 
     def test_github_malformed_boundaries_and_hosted_transport_fail_closed(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         commit, tag_object = ("a" * 40, "b" * 40)
         runs, jobs, release, assets = self._github_fixture(commit)
@@ -264,7 +270,9 @@ class GitHubObservationContracts:
         with pytest.raises(github.GitHubProofError):
             self._normalize_github(commit, (runs, github_jobs, github_release, github_assets))
 
-    def test_github_provider_candidates_and_release_identity_fail_closed(self, subtests) -> None:
+    def test_github_provider_candidates_and_release_identity_fail_closed(
+        self, subtests: pytest.Subtests
+    ) -> None:
         commit = "a" * 40
         runs, github_jobs, github_release, github_assets = self._github_fixture(commit)
         for mutation in (

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,11 +19,14 @@ from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize("operation", ["activate", "rollback", "recover"])
 @pytest.mark.parametrize("replacement", ["canonical_bytes", "file_link", "directory_link"])
 def test_transaction_refuses_replaced_snapshot_before_any_effect(
-    tmp_path: Path, operation: str, replacement: str, *, mocker
+    tmp_path: Path, operation: str, replacement: str, *, mocker: MockerFixture
 ) -> None:
     """Preserve every carrier and external command before rejecting snapshot drift."""
     ctx = install_context(tmp_path)

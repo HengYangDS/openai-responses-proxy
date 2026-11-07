@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,6 +19,9 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 def _write_payload_manifest(
@@ -49,7 +53,7 @@ class TestPayloadProjection:
     """Manifest and installed-projection contracts over opaque release bytes."""
 
     def test_transaction_installs_complete_runtime_and_manifest(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)
@@ -77,7 +81,7 @@ class TestPayloadProjection:
         assert payload_projection.verify_payload_manifest(ctx)[0]
 
     def test_manifest_detects_payload_and_aggregate_tampering(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)
@@ -98,7 +102,7 @@ class TestPayloadProjection:
         assert detail == "serving payload aggregate mismatch"
 
     def test_purge_unlinks_only_manifest_owned_payload_and_preserves_unknown_content(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)
@@ -143,7 +147,7 @@ class TestPayloadProjection:
         assert (install / "operator-note.txt").read_bytes() == b"keep\n"
 
     def test_purge_fails_closed_without_one_valid_manifest(
-        self, subtests, tmp_path_factory: pytest.TempPathFactory
+        self, subtests: pytest.Subtests, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         for mutate, message in (
             (lambda _ctx: None, "manifest is required"),
@@ -182,7 +186,7 @@ class TestPayloadProjection:
         ) != payload_projection.manifest_serving_payload_sha256(changed)
 
     def test_owned_directory_and_empty_root_edges_fail_closed(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         install = tmp_path_factory.mktemp("case")
         payload_projection.remove_empty_owned_directories(
@@ -201,7 +205,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("native_code", [None, 5, 32])
     def test_purge_preserves_native_failure_code_without_private_os_detail(
-        self, tmp_path: Path, native_code: int | None, *, mocker
+        self, tmp_path: Path, native_code: int | None, *, mocker: MockerFixture
     ) -> None:
         target = tmp_path / "owned.pyd"
         target.write_bytes(b"payload")
@@ -224,7 +228,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("native_code", [5, 32])
     def test_purge_rechecks_owned_bytes_after_a_transient_windows_delete_failure(
-        self, tmp_path: Path, native_code: int, *, mocker
+        self, tmp_path: Path, native_code: int, *, mocker: MockerFixture
     ) -> None:
         """A released native lock permits disposal without changing permissions."""
         target = tmp_path / "owned.dll"
@@ -255,7 +259,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("replacement", ["bytes", "identity", "ancestor", "linked-ancestor"])
     def test_windows_purge_retry_rejects_a_changed_file_or_ancestor(
-        self, tmp_path: Path, replacement: str, *, mocker
+        self, tmp_path: Path, replacement: str, *, mocker: MockerFixture
     ) -> None:
         """A retry never inherits disposal authority for replacement content."""
         install = tmp_path / "install"
@@ -292,7 +296,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("native_code", [5, 32])
     def test_windows_purge_retry_stops_at_the_disposal_deadline(
-        self, tmp_path: Path, native_code: int, *, mocker
+        self, tmp_path: Path, native_code: int, *, mocker: MockerFixture
     ) -> None:
         """Persistent native denial keeps both owned and unknown content intact."""
         target = tmp_path / "owned.dll"
@@ -319,7 +323,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("native_code", [None, 87])
     def test_nontransient_purge_failure_does_not_retry(
-        self, tmp_path: Path, native_code: int | None, *, mocker
+        self, tmp_path: Path, native_code: int | None, *, mocker: MockerFixture
     ) -> None:
         """A POSIX denial or unrelated Windows error is not a sharing retry."""
         target = tmp_path / "owned.dll"
@@ -339,7 +343,7 @@ class TestPayloadProjection:
         sleep.assert_not_called()
 
     def test_windows_purge_retry_cannot_renew_the_shared_deadline(
-        self, tmp_path: Path, *, mocker
+        self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         """A second obstructed file shares the first file's bounded wait."""
         first = tmp_path / "first.dll"
@@ -372,7 +376,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("replacement", ["identity", "ancestor"])
     def test_purge_rechecks_captured_identity_after_the_read_boundary(
-        self, tmp_path: Path, replacement: str, *, mocker
+        self, tmp_path: Path, replacement: str, *, mocker: MockerFixture
     ) -> None:
         """Equal replacement bytes cannot inherit the captured file authority."""
         root = tmp_path / "payload"
@@ -404,7 +408,7 @@ class TestPayloadProjection:
 
     @pytest.mark.parametrize("exhausted_at", ["retry-entry", "after-read"])
     def test_purge_does_not_unlink_after_the_sharing_deadline(
-        self, tmp_path: Path, exhausted_at: str, *, mocker
+        self, tmp_path: Path, exhausted_at: str, *, mocker: MockerFixture
     ) -> None:
         """Budget exhaustion refuses even a retry that could now succeed."""
         target = tmp_path / "owned.dll"
@@ -437,7 +441,7 @@ class TestPayloadProjection:
         assert target.read_bytes() == b"payload"
 
     def test_purge_and_residue_inventory_report_filesystem_failures(
-        self, *, mocker, tmp_path_factory: pytest.TempPathFactory
+        self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
         install_payload(ctx, mocker=mocker)

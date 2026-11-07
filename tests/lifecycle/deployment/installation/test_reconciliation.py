@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -20,6 +21,9 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 @pytest.mark.parametrize(
     "evidence",
@@ -35,7 +39,7 @@ from tests.lifecycle.fixtures import released_artifact
     ],
 )
 def test_install_of_exact_active_artifact_preserves_every_projection(
-    tmp_path: Path, evidence: str, *, mocker
+    tmp_path: Path, evidence: str, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, mocker=mocker)
@@ -118,7 +122,7 @@ def test_install_of_exact_active_artifact_preserves_every_projection(
     ],
 )
 def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_installation(
-    tmp_path: Path, service: str, *, serving: bool, command_removed: bool, mocker
+    tmp_path: Path, service: str, *, serving: bool, command_removed: bool, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native, committed, runtime = _unsupervised_installation(
         tmp_path, service=service, serving=serving, mocker=mocker
@@ -167,7 +171,7 @@ def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_install
     ],
 )
 def test_install_of_the_exact_artifact_refuses_an_unproved_unsupervised_installation(
-    tmp_path: Path, evidence: str, *, mocker
+    tmp_path: Path, evidence: str, *, mocker: MockerFixture
 ) -> None:
     ctx, _control_ctx, native, _committed, _runtime = _unsupervised_installation(
         tmp_path,
@@ -213,7 +217,7 @@ def test_install_of_the_exact_artifact_refuses_an_unproved_unsupervised_installa
 
 
 def test_install_of_the_exact_artifact_keeps_restored_supervision_when_no_listener_is_proved(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx, control_ctx, native, _committed, _runtime = _unsupervised_installation(
         tmp_path, service="absent", mocker=mocker

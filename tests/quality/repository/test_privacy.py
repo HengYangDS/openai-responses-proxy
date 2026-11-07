@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_lifecycle_never_reads_or_prescribes_client_state() -> None:
@@ -21,7 +25,9 @@ def test_lifecycle_never_reads_or_prescribes_client_state() -> None:
     assert "config.toml" not in text
 
 
-def test_control_and_data_planes_keep_explicit_privacy_boundaries(subtests) -> None:
+def test_control_and_data_planes_keep_explicit_privacy_boundaries(
+    subtests: pytest.Subtests,
+) -> None:
     cases = (
         (
             ("src/openai_responses_proxy/lifecycle/control.py",),

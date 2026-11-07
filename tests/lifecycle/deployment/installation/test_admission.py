@@ -18,10 +18,12 @@ from tests.lifecycle.fixtures import install_context
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     def test_upgrade_requires_the_control_supervisor_before_payload_mutation(
-        self, *, mocker
+        self, *, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
@@ -37,7 +39,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         request.assert_not_called()
 
     def test_incompatible_or_unverified_runtime_refuses_before_write(
-        self, subtests, *, mocker
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         for current, captured, message in (
             (
@@ -65,7 +67,9 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                     self.deploy(payload, current, mocker=mocker)
                 assert payload.events == []
 
-    def test_unidentified_listener_refuses_fresh_install_before_write(self, *, mocker) -> None:
+    def test_unidentified_listener_refuses_fresh_install_before_write(
+        self, *, mocker: MockerFixture
+    ) -> None:
         payload = FakeTransaction(self.ctx)
         mocker.patch.object(process, "listener_pids", return_value=[111])
 
@@ -94,7 +98,7 @@ def test_install_has_no_json_publication_proof_loader() -> None:
 
 
 def test_install_admission_failure_closes_the_prepared_transaction(
-    tmp_path: Path, *, mocker
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     payload = mocker.Mock()
@@ -119,7 +123,7 @@ def test_install_admission_failure_closes_the_prepared_transaction(
 
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_install_admission_failure_retains_failed_prepared_cleanup(
-    tmp_path: Path, *, unavailable: bool, mocker
+    tmp_path: Path, *, unavailable: bool, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     payload = mocker.Mock()

@@ -6,6 +6,7 @@ import contextlib
 import io
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,13 +14,20 @@ from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
-def test_source_version_requires_the_real_src_checkout_shape(tmp_path, *, mocker) -> None:
+
+def test_source_version_requires_the_real_src_checkout_shape(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     mocker.patch.object(application, "__file__", str(tmp_path / "installed.py"))
     assert application._source_version() is None
 
 
-def test_frozen_and_source_release_versions_use_their_bound_owners(tmp_path, *, mocker) -> None:
+def test_frozen_and_source_release_versions_use_their_bound_owners(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     (tmp_path / "VERSION").write_text("9.8.7\n", encoding="utf-8")
     mocker.patch.object(sys, "_MEIPASS", str(tmp_path), create=True)
     assert application._release_version() == "9.8.7"
@@ -28,7 +36,9 @@ def test_frozen_and_source_release_versions_use_their_bound_owners(tmp_path, *, 
     assert application._release_version() == "2.0.8"
 
 
-def test_internal_dispatch_argument_contracts_fail_closed(tmp_path, *, mocker) -> None:
+def test_internal_dispatch_argument_contracts_fail_closed(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
     # A private installation context: the operator's live installation, and a lifecycle writer
     # holding its lock, must not decide this argument contract.
     mocker.patch.object(
@@ -71,7 +81,7 @@ def test_subcommand_help_and_parse_errors_are_bounded() -> None:
     assert "Unknown option" in stderr
 
 
-def test_no_command_uses_sys_argv_and_renders_public_help(*, mocker) -> None:
+def test_no_command_uses_sys_argv_and_renders_public_help(*, mocker: MockerFixture) -> None:
     mocker.patch.object(application.sys, "argv", ["openai-responses-proxy"])
     stdout, stderr = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
@@ -82,7 +92,7 @@ def test_no_command_uses_sys_argv_and_renders_public_help(*, mocker) -> None:
     assert stderr.getvalue() == ""
 
 
-def test_internal_roles_are_exact_and_never_public_commands(*, mocker) -> None:
+def test_internal_roles_are_exact_and_never_public_commands(*, mocker: MockerFixture) -> None:
     activate = mocker.patch.object(application.runtime_spec, "activate")
     executable = mocker.patch.object(
         application.serving_roles,
