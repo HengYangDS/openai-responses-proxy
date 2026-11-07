@@ -254,7 +254,7 @@ def test_branch_parity_rejects_missing_or_different_roles(local, peer):
 )
 def test_native_branch_roles_must_be_complete(roles, tmp_path, mocker):
     mocker.patch.object(audit.observation, "read", return_value={"role_policy": roles})
-    with pytest.raises(RuntimeError, match="policy"):
+    with pytest.raises((RuntimeError, TypeError), match="policy"):
         branches_for_audit(tmp_path)
 
 

@@ -423,7 +423,7 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
     except http.client.IncompleteRead:
         _invalid_responses_success(exchange, "incomplete_read")
         return
-    except ValueError:
+    except (TypeError, ValueError):
         _invalid_responses_success(exchange, "invalid_terminal_json")
         return
     except Exception as error:

@@ -94,7 +94,7 @@ def validate_json_response(raw_response: bytes) -> bytes:
     except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
         raise ValueError("invalid_responses_success_body") from exc
     if not isinstance(payload, dict):
-        raise ValueError("invalid_responses_success_body")
+        raise TypeError("invalid_responses_success_body")
     status = payload.get("status")
     if not isinstance(status, str) or status not in _JSON_TERMINALS:
         raise ValueError("invalid_responses_success_body")

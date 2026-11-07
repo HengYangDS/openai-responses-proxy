@@ -50,11 +50,11 @@ def _rule(value: object) -> Rule:
 def _results(value: object) -> dict[str, str]:
     """Accept only the native needs mapping and its declared terminal results."""
     if not isinstance(value, dict):
-        raise ValueError("branch admission job results are invalid")
+        raise TypeError("branch admission job results are invalid")
     results: dict[str, str] = {}
     for name, job in value.items():
         if not isinstance(name, str) or not isinstance(job, dict):
-            raise ValueError("branch admission job results are invalid")
+            raise TypeError("branch admission job results are invalid")
         result = job.get("result")
         if not isinstance(result, str) or result not in JOB_RESULTS:
             raise ValueError("branch admission job results are invalid")
@@ -83,7 +83,7 @@ def main() -> None:
     """Run the dependency-free native proof command with bounded diagnostics."""
     try:
         admit(os.environ)
-    except ValueError as error:
+    except (TypeError, ValueError) as error:
         raise SystemExit(str(error)) from None
 
 

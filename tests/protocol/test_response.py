@@ -129,6 +129,6 @@ class LiveJsonContracts:
         for payload in invalid:
             with (
                 subtests.test(payload=payload),
-                pytest.raises(ValueError, match="invalid_responses_success_body"),
+                pytest.raises((TypeError, ValueError), match="invalid_responses_success_body"),
             ):
                 response.validate_json_response(payload)

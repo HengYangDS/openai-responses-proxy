@@ -142,7 +142,7 @@ def _read_one_stream(
         try:
             event = agent_delivery.restore_event(event, active=plaintext_agent_delivery)
             payload = live_response.sse_event_data(event)
-        except ValueError as error:
+        except (TypeError, ValueError) as error:
             upstream_detail = "projection_failed"
             upstream_error = error
             failure_code = live_response.validation_reason(error)

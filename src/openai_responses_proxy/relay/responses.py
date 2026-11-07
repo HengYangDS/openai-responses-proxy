@@ -283,7 +283,7 @@ def relay(
     body = projection.body
     try:
         prepared = agent_delivery.prepare_request(body, profile.agent_message_delivery)
-    except ValueError as error:
+    except (TypeError, ValueError) as error:
         downstream.send_payload(
             handler,
             400,

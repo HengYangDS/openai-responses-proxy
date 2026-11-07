@@ -44,7 +44,7 @@ def branches_for_audit(root: Path = ROOT) -> tuple[frozenset[str], frozenset[str
     document = observation.read(root, "lane", "status")
     roles = document.get("role_policy")
     if not isinstance(roles, dict):
-        raise RuntimeError("repository branch-role policy is unavailable or invalid")
+        raise TypeError("repository branch-role policy is unavailable or invalid")
     release = roles.get("release_branch")
     accepted = roles.get("accepted_branch")
     candidate = roles.get("candidate_branch")
@@ -285,7 +285,7 @@ def _command(
             tag_anchor=tag_anchor,
             peers=peers,
         )
-    except RuntimeError as error:
+    except (RuntimeError, TypeError) as error:
         raise SystemExit(f"ERROR: {error}") from error
     if as_json:
         print(json.dumps(evidence, sort_keys=True))

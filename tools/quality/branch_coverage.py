@@ -231,7 +231,7 @@ def _command(
     policy = load_policy(policy_path)
     raw_floor = policy["minimum_percent"]
     if isinstance(raw_floor, bool) or not isinstance(raw_floor, int | float):
-        raise AssertionError("validated coverage floor must be numeric")
+        raise TypeError("validated coverage floor must be numeric")
     floor = float(raw_floor)
     coverage = Coverage(config_file=str(ROOT / ".config/checks/coverage/coverage.toml"))
     try:

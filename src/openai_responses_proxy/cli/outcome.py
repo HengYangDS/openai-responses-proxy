@@ -103,7 +103,7 @@ def _valid_doctor_checks(checks: Mapping[str, object]) -> bool:
 def admit(command: str, raw: Mapping[str, object] | None) -> Success:
     """Reject malformed internal results instead of presenting false success."""
     if not isinstance(raw, Mapping):
-        raise ValueError("public command result is not an object")
+        raise TypeError("public command result is not an object")
     evidence = dict(raw)
     if not json_value.is_json_object(evidence):
         raise ValueError("public command result is not a finite JSON object")

@@ -378,7 +378,7 @@ def test_status_rejects_mistyped_nested_evidence(
 
 
 def test_invalid_result_and_unknown_dispatch_have_explicit_boundaries() -> None:
-    with pytest.raises(ValueError, match="not an object"):
+    with pytest.raises(TypeError, match="not an object"):
         application.outcome.admit("status", None)
 
     with pytest.raises(ValueError, match="not implemented"):

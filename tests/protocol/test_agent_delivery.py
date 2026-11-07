@@ -115,13 +115,13 @@ class AgentDeliveryContracts:
     def test_selected_catalog_requires_string_tool_names(self, name: object) -> None:
         tools = _tools()
         tools[0]["tools"] = [{"type": "function", "name": name}]
-        with pytest.raises(ValueError, match=r"^invalid_agent_delivery_request$"):
+        with pytest.raises(TypeError, match=r"^invalid_agent_delivery_request$"):
             agent_delivery.prepare_request(_wire({"tools": tools}), "plaintext")
 
     @pytest.mark.parametrize("item_type", [[], {}])
     def test_selected_replay_requires_a_string_call_type(self, item_type: object) -> None:
         call = {**_call(), "type": item_type, "namespace": "collaboration"}
-        with pytest.raises(ValueError, match=r"^invalid_agent_delivery_request$"):
+        with pytest.raises(TypeError, match=r"^invalid_agent_delivery_request$"):
             agent_delivery.prepare_request(_wire({"input": [call]}), "plaintext")
 
     @pytest.mark.parametrize("field", ["type", "name"])
@@ -170,7 +170,7 @@ class AgentDeliveryContracts:
 
     @pytest.mark.parametrize("raw", [b"[1]", b"invalid", b'{"input":[],"tools":{}}'])
     def test_rejects_malformed_requests_without_partial_transformation(self, raw: bytes) -> None:
-        with pytest.raises(ValueError, match="invalid_agent_delivery_request"):
+        with pytest.raises((TypeError, ValueError), match="invalid_agent_delivery_request"):
             agent_delivery.prepare_request(raw, "plaintext")
 
     def test_stream_and_terminal_calls_enter_native_plaintext_delivery_with_exact_body(

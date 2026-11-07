@@ -40,7 +40,7 @@ def _object(raw: bytes, reason: str) -> JsonObject:
     except (ValueError, UnicodeError, RecursionError) as error:
         raise ValueError(reason) from error
     if not isinstance(value, dict):
-        raise ValueError(reason)
+        raise TypeError(reason)
     return cast("JsonObject", value)
 
 
@@ -74,7 +74,7 @@ def _select_catalog(tools: list[object]) -> bool:
             continue
         children = tool.get("tools")
         if not isinstance(children, list):
-            raise ValueError("invalid_agent_delivery_request")
+            raise TypeError("invalid_agent_delivery_request")
         tool["name"] = PLAINTEXT_NAMESPACE
         active = True
         for child in children:
@@ -82,7 +82,7 @@ def _select_catalog(tools: list[object]) -> bool:
                 continue
             child_name = child.get("name")
             if not isinstance(child_name, str):
-                raise ValueError("invalid_agent_delivery_request")
+                raise TypeError("invalid_agent_delivery_request")
             if child_name not in _MESSAGE_TOOLS:
                 continue
             parameters = child.get("parameters")
@@ -99,7 +99,7 @@ def _select_replayed_call(item: JsonObject) -> bool:
         return False
     item_type = item.get("type")
     if not isinstance(item_type, str):
-        raise ValueError("invalid_agent_delivery_request")
+        raise TypeError("invalid_agent_delivery_request")
     if item_type not in _CALL_ARGUMENT_FIELDS:
         return False
     item["namespace"] = PLAINTEXT_NAMESPACE
