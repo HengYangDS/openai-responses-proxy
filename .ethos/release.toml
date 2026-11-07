@@ -1,7 +1,3 @@
-[publication]
-local_verification_command = "uv run --locked --no-sync nox -s full"
-local_installation_command = "uv run --locked --no-sync nox -s release"
-
 [[publication.peers]]
 id = "gitlab"
 provider = "gitlab"
