@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import plistlib
 import re
-import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +13,7 @@ from typing import cast
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
+from openai_responses_proxy.lifecycle import system_tools
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import identity
@@ -40,8 +40,8 @@ class _Service:
 
 
 def _native_tool(name: str) -> str:
-    """Resolve one macOS system tool independently of the caller's PATH."""
-    executable = shutil.which(name, path=os.defpath)
+    """Resolve one macOS system tool from trusted system directories, never the caller's PATH."""
+    executable = system_tools.posix_tool(name)
     if executable is None:
         raise errors.InstallError(f"native macOS tool is unavailable: {name}")
     return executable

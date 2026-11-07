@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
 import getpass
 import io
 import os
@@ -12,7 +11,6 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
-from typing import cast
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
@@ -20,9 +18,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from openai_responses_proxy.lifecycle import runtime_spec
+from openai_responses_proxy.lifecycle import system_tools
 
 # A fixed past boundary so the repeating time trigger is always active; the
 # repetition, not this date, drives every self-heal relaunch.
@@ -90,22 +87,9 @@ def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
     return rendered.getvalue()
 
 
-def _system_directory() -> Path:
-    """Return the Windows system directory that the kernel reports, never a search path."""
-    load_library: object = getattr(ctypes, "WinDLL", None)
-    if not callable(load_library):
-        raise errors.UnsupportedPlatformError("Windows system libraries are unavailable")
-    kernel32 = cast("Callable[..., ctypes.CDLL]", load_library)("kernel32", use_last_error=True)
-    buffer = ctypes.create_unicode_buffer(32768)
-    length = kernel32.GetSystemDirectoryW(buffer, len(buffer))
-    if not 0 < length < len(buffer):
-        raise errors.InstallError("Windows system directory is unavailable")
-    return Path(buffer.value)
-
-
 def _schtasks() -> str:
     """Resolve Task Scheduler's own executable from the system directory."""
-    return str(_system_directory() / "schtasks.exe")
+    return str(system_tools.windows_system_directory() / "schtasks.exe")
 
 
 def _task_xml(ctx: runtime_spec.NativeServiceContext) -> str | None:

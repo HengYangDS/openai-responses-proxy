@@ -32,7 +32,8 @@ class TestWindowsTaskSchedulerResolution:
         requested = []
 
         def system_directory(
-            buffer: windows.ctypes.Array[windows.ctypes.c_wchar], size: int
+            buffer: windows.system_tools.ctypes.Array[windows.system_tools.ctypes.c_wchar],
+            size: int,
         ) -> int:
             requested.append(size)
             buffer.value = system
@@ -40,7 +41,7 @@ class TestWindowsTaskSchedulerResolution:
 
         kernel32 = mocker.Mock(GetSystemDirectoryW=system_directory)
         load = mocker.Mock(return_value=kernel32)
-        mocker.patch.object(windows.ctypes, "WinDLL", load, create=True)
+        mocker.patch.object(windows.system_tools.ctypes, "WinDLL", load, create=True)
 
         assert windows._schtasks() == str(Path(system) / "schtasks.exe")
         load.assert_called_once_with("kernel32", use_last_error=True)
@@ -51,13 +52,15 @@ class TestWindowsTaskSchedulerResolution:
         self, length: int, *, mocker: MockerFixture
     ) -> None:
         kernel32 = mocker.Mock(GetSystemDirectoryW=mocker.Mock(return_value=length))
-        mocker.patch.object(windows.ctypes, "WinDLL", return_value=kernel32, create=True)
+        mocker.patch.object(
+            windows.system_tools.ctypes, "WinDLL", return_value=kernel32, create=True
+        )
 
         with pytest.raises(errors.InstallError, match="system directory is unavailable"):
             windows._schtasks()
 
     def test_non_windows_hosts_have_no_system_directory(self, *, mocker: MockerFixture) -> None:
-        mocker.patch.object(windows.ctypes, "WinDLL", None, create=True)
+        mocker.patch.object(windows.system_tools.ctypes, "WinDLL", None, create=True)
 
         with pytest.raises(errors.UnsupportedPlatformError, match="system libraries"):
             windows._schtasks()

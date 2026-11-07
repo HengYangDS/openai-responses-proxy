@@ -6,7 +6,6 @@ import hashlib
 import io
 import json
 import re
-import shutil
 import subprocess
 import tarfile
 import weakref
@@ -24,6 +23,7 @@ from openai_responses_proxy.json_value import ReadOnlyJsonObject
 from openai_responses_proxy.json_value import freeze_object
 from openai_responses_proxy.json_value import is_json_object
 from openai_responses_proxy.json_value import thaw_value
+from openai_responses_proxy.lifecycle import system_tools
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
 
@@ -293,9 +293,7 @@ def admit(asset: Path, *, trust_anchor: Path) -> VerifiedArtifact:
 
 
 def _verify_signature(content: bytes, signature: Path, trust_anchor: Path) -> None:
-    ssh_keygen = shutil.which("ssh-keygen")
-    if ssh_keygen is None:
-        raise errors.InstallError("ssh-keygen is required to verify release assets")
+    ssh_keygen = system_tools.ssh_keygen()
     found = subprocess.run(
         [
             ssh_keygen,

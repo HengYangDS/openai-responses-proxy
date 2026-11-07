@@ -36,7 +36,7 @@ class TestLinuxLifecycle:
     ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
-        mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+        mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
         command = mocker.patch.object(linux.subprocess, "run", return_value=observation)
         processes = mocker.patch.object(linux.process, "pids_naming_executable")
 
@@ -48,13 +48,15 @@ class TestLinuxLifecycle:
         assert all(call.args[0][2] == "show" for call in command.call_args_list)
         processes.assert_not_called()
 
-    def test_systemctl_resolves_from_the_default_path_not_the_caller_path(
+    def test_systemctl_resolves_from_the_trusted_system_directories(
         self, *, mocker: MockerFixture
     ) -> None:
-        which = mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+        resolve = mocker.patch.object(
+            linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl"
+        )
 
         assert linux._systemctl() == "/usr/bin/systemctl"
-        which.assert_called_once_with("systemctl", path=linux.os.defpath)
+        resolve.assert_called_once_with("systemctl")
 
     def test_service_carrier_uses_the_context_user_home(self, tmp_path: Path) -> None:
         owned_home = tmp_path / "owned-home"
@@ -81,7 +83,7 @@ class TestLinuxLifecycle:
         self, executable: str | None, observation, *, available: bool, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
-        mocker.patch.object(linux.shutil, "which", return_value=executable)
+        mocker.patch.object(linux.system_tools, "posix_tool", return_value=executable)
         query = mocker.patch.object(linux.subprocess, "run", return_value=observation)
         install = mocker.patch.object(linux, "_install_systemd")
 
@@ -174,7 +176,7 @@ class TestLinuxLifecycle:
         self, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
-        mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+        mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
         mocker.patch.object(
             linux.subprocess,
             "run",
@@ -240,7 +242,7 @@ class TestLinuxLifecycle:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
             invoked = mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -254,7 +256,7 @@ class TestLinuxLifecycle:
             mocker.patch.object(linux.process, "pids_naming_executable", return_value=[])
             linux.uninstall(ctx)
             assert not unit.exists()
-            mocker.patch.object(linux.shutil, "which", return_value=None)
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value=None)
             invoked = mocker.patch.object(linux.subprocess, "run")
             mocker.patch.object(linux.process, "pids_naming_executable", return_value=[])
             linux.uninstall(ctx)
@@ -281,7 +283,7 @@ class TestLinuxLifecycle:
                 (False, None, "", "absent"),
             ):
                 _set_file(unit, "unit" if systemd else None)
-                mocker.patch.object(linux.shutil, "which", return_value=executable)
+                mocker.patch.object(linux.system_tools, "posix_tool", return_value=executable)
                 mocker.patch.object(
                     linux.subprocess,
                     "run",
@@ -292,12 +294,12 @@ class TestLinuxLifecycle:
     def test_uninstall_requires_verified_systemd_removal(self, *, mocker: MockerFixture) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = _set_file(linux._unit_path(ctx), "unit")
-            mocker.patch.object(linux.shutil, "which", return_value=None)
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value=None)
             with pytest.raises(errors.InstallError, match="systemctl is unavailable"):
                 linux.uninstall(ctx)
             assert unit.exists()
 
-            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -312,7 +314,7 @@ class TestLinuxLifecycle:
             assert unit.exists()
 
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -326,7 +328,7 @@ class TestLinuxLifecycle:
                 linux.uninstall(ctx)
 
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+            mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",

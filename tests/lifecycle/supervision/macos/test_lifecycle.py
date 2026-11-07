@@ -27,33 +27,25 @@ class TestMacosLifecycle:
     def _isolate_launch_agents(self, tmp_path: Path, *, mocker: MockerFixture) -> None:
         mocker.patch.object(macos.config, "home_dir", return_value=str(tmp_path))
         mocker.patch.object(
-            macos.shutil,
-            "which",
-            side_effect=lambda name, *, path: (
-                f"/native/{name}" if path == macos.os.defpath else None
-            ),
+            macos.system_tools, "posix_tool", side_effect=lambda name: f"/native/{name}"
         )
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_domains", return_value=("user/501",))
 
-    def test_native_tools_resolve_from_the_host_default_path(
+    def test_native_tools_resolve_from_the_trusted_system_directories(
         self, *, mocker: MockerFixture
     ) -> None:
         resolved = mocker.patch.object(
-            macos.shutil,
-            "which",
-            side_effect=lambda name, *, path: (
-                f"/native/{name}" if path == macos.os.defpath else None
-            ),
+            macos.system_tools, "posix_tool", side_effect=lambda name: f"/native/{name}"
         )
 
         assert macos._native_tool("launchctl") == "/native/launchctl"
-        resolved.assert_called_once_with("launchctl", path=macos.os.defpath)
+        resolved.assert_called_once_with("launchctl")
 
     def test_native_tool_resolution_fails_with_one_product_error(
         self, *, mocker: MockerFixture
     ) -> None:
-        mocker.patch.object(macos.shutil, "which", return_value=None)
+        mocker.patch.object(macos.system_tools, "posix_tool", return_value=None)
 
         with pytest.raises(
             errors.InstallError, match="native macOS tool is unavailable: launchctl"

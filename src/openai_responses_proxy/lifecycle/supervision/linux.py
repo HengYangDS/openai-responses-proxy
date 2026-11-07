@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import os
 import shlex
-import shutil
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle import system_tools
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
@@ -35,8 +34,8 @@ WantedBy=default.target
 
 
 def _systemctl() -> str | None:
-    """Resolve systemctl from the system's default path, independently of the caller's PATH."""
-    return shutil.which("systemctl", path=os.defpath)
+    """Resolve systemctl from the trusted system directories, independently of the caller's PATH."""
+    return system_tools.posix_tool("systemctl")
 
 
 def _user_systemctl() -> str | None:

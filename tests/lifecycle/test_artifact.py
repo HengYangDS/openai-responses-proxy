@@ -410,11 +410,15 @@ def test_signature_verification_fails_closed_at_each_external_boundary(
     signature.write_bytes(b"signature")
     anchor.write_bytes(b"anchor")
 
-    mocker.patch.object(artifact.shutil, "which", return_value=None)
+    mocker.patch.object(
+        artifact.system_tools,
+        "ssh_keygen",
+        side_effect=errors.InstallError("ssh-keygen is required to verify release assets"),
+    )
     with pytest.raises(errors.InstallError, match="ssh-keygen is required"):
         artifact._verify_signature(b"content", signature, anchor)
 
-    mocker.patch.object(artifact.shutil, "which", return_value="/usr/bin/ssh-keygen")
+    mocker.patch.object(artifact.system_tools, "ssh_keygen", return_value="/usr/bin/ssh-keygen")
     run = mocker.patch.object(
         artifact.subprocess,
         "run",
