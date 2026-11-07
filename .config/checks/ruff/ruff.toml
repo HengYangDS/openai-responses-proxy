@@ -153,6 +153,11 @@ ignore = [
   # Executables resolve through PATH by design: Mise puts the locked tools on PATH and
   # the service managers live in platform directories; shutil.which repeats that lookup.
   "S607",
+  # The only product XML is the Windows Task Scheduler's own export and tests parse fixtures;
+  # ElementTree and minidom resolve no external entities, and Expat limits entity expansion
+  # on every supported Python (Python documentation, "XML vulnerabilities").
+  "S314",
+  "S318",
   # Ruff marks the pathlib fix unsafe: no pathlib form makes a path absolute and removes ".."
   # without resolving links, as the lexical install and process identities require.
   "PTH100",
