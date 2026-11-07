@@ -75,6 +75,7 @@ select = [
   "ANN201",
   "ANN204",
   "PLC0414",
+  "PLC0415",
   "PLR0917",
   "PLR2004",
   "PLW0108",
@@ -189,8 +190,13 @@ ignore = [
 [lint.per-file-ignores]
 # PyInstaller loads its hook files by path from this hooks directory; it is not a package.
 "tools/release/hooks/*" = ["INP001"]
+# The CLI writes the program's output, and its service roles import their modules only after
+# runtime activation.
+"src/openai_responses_proxy/cli/application.py" = ["T201", "PLC0415"]
+# Platform adapters import at first use, so an incomplete installation reports the product's
+# assembly error; a test exercises that import failure.
+"src/openai_responses_proxy/lifecycle/supervision/native_service.py" = ["PLC0415"]
 # Each of these modules writes its program's output.
-"src/openai_responses_proxy/cli/application.py" = ["T201"]
 "tools/forge/audit.py" = ["T201"]
 "tools/performance/verify.py" = ["T201"]
 "tools/quality/branch_coverage.py" = ["T201"]

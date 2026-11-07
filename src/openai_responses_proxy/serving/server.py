@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import socket
 import socketserver
+import sys
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
@@ -93,8 +94,6 @@ class ResilientProxyServer(ThreadingHTTPServer):
     @override
     def handle_error(self, request: object, client_address: object) -> None:
         """Classify expected client disconnects without noisy tracebacks."""
-        import sys
-
         error = sys.exception()
         if isinstance(error, (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)):
             operational_log.log(

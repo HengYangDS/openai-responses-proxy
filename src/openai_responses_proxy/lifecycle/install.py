@@ -14,8 +14,10 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.deployment import apply
+from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
+from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import identity
 
 
@@ -62,8 +64,6 @@ def install_asset(
     timeout_seconds: float = 30.0,
 ) -> dict[str, object]:
     """Install one verified native asset through the platform service adapter."""
-    from openai_responses_proxy.lifecycle.supervision import native_service
-
     try:
         released = artifact.admit(asset, trust_anchor=trust_anchor)
     except errors.InstallError as exc:
@@ -77,8 +77,6 @@ def install_asset(
         control_ctx = generation.control_context(ctx)
         configured = native_service.adapter().configured_executable(control_ctx)
         selected_settings = runtime_spec.environment(runtime_spec.path(control_ctx))
-        from openai_responses_proxy.runtime import config
-
         if selected_settings[config.UPSTREAM_BASE_URL_ENV] != ctx.upstream_base_url:
             raise errors.InstallInputError(
                 "upstream selection differs from the active installation"

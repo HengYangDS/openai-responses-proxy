@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import os
 import subprocess
 import sys
 import time
 from collections.abc import Callable
+from ctypes import wintypes
 from pathlib import Path
 from threading import Event
 from threading import Thread
@@ -40,9 +42,6 @@ class TestSignedNativeLifecycle:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Exercise a real delete-denying native handle, not a mocked OS error."""
-        import ctypes
-        from ctypes import wintypes
-
         root = tmp_path / "payload"
         root.mkdir()
         target = root / "owned.dll"

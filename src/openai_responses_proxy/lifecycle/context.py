@@ -13,6 +13,8 @@ from pathlib import PureWindowsPath
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
+from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import inventory
@@ -136,9 +138,6 @@ def create(
             maximum=10,
         ),
     )
-    from openai_responses_proxy.lifecycle import generation
-    from openai_responses_proxy.lifecycle import runtime_spec
-
     selected = generation.selected_context(projected)
     carrier = runtime_spec.path(selected)
     try:

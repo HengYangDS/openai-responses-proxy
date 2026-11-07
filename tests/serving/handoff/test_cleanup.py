@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.lifecycle import candidate
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import projection
@@ -214,8 +215,6 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
         rows = contexts.read_bytes().splitlines()
         assert len(rows) == 1, "complete cleanup custody must precede native execution"
         assert json.loads(rows[0]) == asdict(ctx)
-
-    from openai_responses_proxy.lifecycle import candidate
 
     mocker.patch.object(candidate, "prewarm", side_effect=prewarm)
     ctx = write_installed_payload(

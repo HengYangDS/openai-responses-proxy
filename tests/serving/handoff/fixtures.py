@@ -25,6 +25,7 @@ from typing import cast
 from typing import override
 
 from openai_responses_proxy import errors
+from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle.supervision import process
@@ -408,8 +409,6 @@ def write_installed_payload(
     # frozen macOS payload can incur its one-time trust-cache startup before
     # any application log exists; paying that bounded cost here keeps the
     # handoff tests focused on listener transfer rather than host assessment.
-    from openai_responses_proxy.lifecycle import candidate as payload_candidate
-
     try:
         payload_candidate.prewarm(ctx)
     except errors.InstallError as exc:

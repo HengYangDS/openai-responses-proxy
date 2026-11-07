@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import Path
@@ -120,8 +121,6 @@ def write_projection(
 
 def prewarm(ctx: runtime_context.RuntimeContext) -> None:
     """Start the exact installed native executable before listener handoff."""
-    import subprocess
-
     executable = Path(ctx.executable)
     environment = native_process_environment(
         install_root=Path(ctx.payload_dir),

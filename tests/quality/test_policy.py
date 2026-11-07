@@ -130,10 +130,10 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     per_file = ruff["lint"]["per-file-ignores"]
     assert per_file["tests/**"] == ["D101", "D102", "D103", "ANN201", "S101", "SLF001", "PLR2004"]
     assert per_file["tools/release/hooks/*"] == ["INP001"]
-    output_owners = {path for path, rules in per_file.items() if rules == ["T201"]}
-    assert output_owners
-    assert all((ROOT / path).is_file() for path in output_owners)
-    assert set(per_file) == {"tests/**", "tools/release/hooks/*", *output_owners}
+    named = {path for path in per_file if not any(char in path for char in "*?[")}
+    assert named
+    assert all((ROOT / path).is_file() for path in named)
+    assert set(per_file) == {"tests/**", "tools/release/hooks/*", *named}
     assert ruff["namespace-packages"] == ["tests"]
 
     rationale = {
