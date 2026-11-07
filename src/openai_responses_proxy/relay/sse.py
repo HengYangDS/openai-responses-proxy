@@ -14,7 +14,6 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 from typing import NotRequired
 from typing import TypedDict
-from typing import cast
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
@@ -243,22 +242,23 @@ def relay(
     backoffs = (1.0, 2.0, 4.0, 6.0, 8.0)
     if deadline is None:
         deadline = time.monotonic() + UPSTREAM_TIMEOUT
-    current = response
-    result: StreamResult | None = None
-    attempt = 0
-    attempts_started = 1
-    reopened_outcome_unknown = False
-    for attempt in range(max_attempts):
+
+    def read(stream: UpstreamResponse) -> StreamResult:
         try:
-            result = _read_one_stream(
+            return _read_one_stream(
                 handler,
-                current,
+                stream,
                 on_first_write,
                 deadline,
                 plaintext_agent_delivery=plaintext_agent_delivery,
             )
         finally:
-            _release_upstream(current)
+            _release_upstream(stream)
+
+    result = read(response)
+    attempts_started = 1
+    reopened_outcome_unknown = False
+    for attempt in range(max_attempts):
         terminal = result["terminal"]
         if terminal == "response.failed":
             code = result.get("failure_code", "unknown")
@@ -292,7 +292,7 @@ def relay(
             break
         attempts_started += 1
         try:
-            current = reopen(deadline)
+            reopened = reopen(deadline)
         except Exception as error:
             if (
                 isinstance(error, upstream_transport.ExchangeDeadlineError)
@@ -308,9 +308,8 @@ def relay(
                 f"path={operational_log.safe_request_path(path)}"
             )
             break
+        result = read(reopened)
     pre_content_exhausted = not headers_sent
-    # Every attempt reads its stream before it can leave the loop.
-    result = cast("StreamResult", result)
     outcome_unknown = pre_content_exhausted and (
         reopened_outcome_unknown
         or (
