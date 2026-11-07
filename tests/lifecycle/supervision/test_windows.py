@@ -16,7 +16,52 @@ from tests.lifecycle.supervision.fixtures import temporary_context as _temporary
 ROOT = Path(__file__).resolve().parents[3]
 
 
+SCHTASKS = r"C:\Windows\System32\schtasks.exe"
+
+
+class TestWindowsTaskSchedulerResolution:
+    """Task Scheduler resolves from the kernel-reported system directory, never a search path."""
+
+    def test_schtasks_is_the_system_directory_executable(self, *, mocker) -> None:
+        system = r"C:\Windows\System32"
+        requested = []
+
+        def system_directory(
+            buffer: windows.ctypes.Array[windows.ctypes.c_wchar], size: int
+        ) -> int:
+            requested.append(size)
+            buffer.value = system
+            return len(system)
+
+        kernel32 = mocker.Mock(GetSystemDirectoryW=system_directory)
+        load = mocker.Mock(return_value=kernel32)
+        mocker.patch.object(windows.ctypes, "WinDLL", load, create=True)
+
+        assert windows._schtasks() == str(Path(system) / "schtasks.exe")
+        load.assert_called_once_with("kernel32", use_last_error=True)
+        assert requested == [32768]
+
+    @pytest.mark.parametrize("length", [0, 32768])
+    def test_unreported_system_directory_fails_closed(self, length: int, *, mocker) -> None:
+        kernel32 = mocker.Mock(GetSystemDirectoryW=mocker.Mock(return_value=length))
+        mocker.patch.object(windows.ctypes, "WinDLL", return_value=kernel32, create=True)
+
+        with pytest.raises(errors.InstallError, match="system directory is unavailable"):
+            windows._schtasks()
+
+    def test_non_windows_hosts_have_no_system_directory(self, *, mocker) -> None:
+        mocker.patch.object(windows.ctypes, "WinDLL", None, create=True)
+
+        with pytest.raises(errors.UnsupportedPlatformError, match="system libraries"):
+            windows._schtasks()
+
+
 class TestWindowsLifecycle:
+    @pytest.fixture(autouse=True)
+    def _system_schtasks(self, *, mocker) -> None:
+        """Resolve Task Scheduler as the kernel-reported system directory would."""
+        mocker.patch.object(windows, "_schtasks", return_value=SCHTASKS)
+
     @pytest.mark.parametrize("code", [0x80070002, -2147024894, 0x80070003, -2147024893])
     def test_exact_missing_task_hresult_proves_absence(self, code, *, mocker):
         ctx = platform_context(windows=True)
@@ -106,9 +151,9 @@ class TestWindowsLifecycle:
         imported = []
 
         def run(arguments, **_kwargs):
-            if arguments[:2] == ["schtasks", "/create"]:
+            if arguments[:2] == [SCHTASKS, "/create"]:
                 imported.append(Path(arguments[-1]).read_bytes())
-            if arguments[:2] == ["schtasks", "/query"]:
+            if arguments[:2] == [SCHTASKS, "/query"]:
                 return _completed(stdout=rendered.decode("utf-16"))
             return _completed()
 
@@ -130,7 +175,7 @@ class TestWindowsLifecycle:
             invoked = mocker.patch.object(windows.subprocess, "run", return_value=completed)
             assert windows.configured_executable(ctx) == expected
             assert invoked.call_args.args[0] == [
-                "schtasks",
+                SCHTASKS,
                 "/query",
                 "/tn",
                 ctx.service_id,
@@ -176,7 +221,7 @@ class TestWindowsLifecycle:
             )
             windows.install(ctx)
             assert invoked.call_args_list[3].args[0] == [
-                "schtasks",
+                SCHTASKS,
                 "/run",
                 "/tn",
                 ctx.service_id,
@@ -323,7 +368,7 @@ class TestWindowsLifecycle:
 
         with pytest.raises(errors.InstallError, match="verified watchdog 4242 exit is unproved"):
             windows.uninstall(ctx)
-        assert invoked.call_args_list[0].args[0][:2] == ["schtasks", "/delete"]
+        assert invoked.call_args_list[0].args[0][:2] == [SCHTASKS, "/delete"]
         terminate.assert_called_once_with(
             4242,
             ctx.executable,

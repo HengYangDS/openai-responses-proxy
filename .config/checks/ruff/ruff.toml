@@ -154,9 +154,6 @@ ignore = [
   # Ruff flags each subprocess call whose argument list is computed; every flagged call passes
   # an argument list, never a shell string, built by its owner from validated values.
   "S603",
-  # Executables resolve through PATH by design: Mise puts the locked tools on PATH and
-  # the service managers live in platform directories; shutil.which repeats that lookup.
-  "S607",
   # The only product XML is the Windows Task Scheduler's own export and tests parse fixtures;
   # ElementTree and minidom resolve no external entities, and Expat limits entity expansion
   # on every supported Python (Python documentation, "XML vulnerabilities").
@@ -220,6 +217,9 @@ ignore = [
 "tools/release/artifact/bundle.py" = ["T201"]
 "tools/release/metadata.py" = ["T201"]
 "tools/release/publication/__main__.py" = ["T201"]
+# Repository tooling, Nox and tests find the Mise-managed tools through PATH by design.
+"tools/**" = ["S607"]
+"noxfile.py" = ["S607"]
 "tests/**" = [
   # Tests expose no product or repository interface: pytest collects their behavior-named
   # classes, functions and methods. Module docstrings and existing prose are still checked.
@@ -235,4 +235,6 @@ ignore = [
   "SLF001",
   # A test's comparison literal is the expected value that the test specifies.
   "PLR2004",
+  # Tests find the Mise-managed tools through PATH by design.
+  "S607",
 ]

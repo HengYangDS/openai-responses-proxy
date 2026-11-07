@@ -132,12 +132,26 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     )
     assert ruff["lint"]["pydocstyle"] == {"convention": "google"}
     per_file = ruff["lint"]["per-file-ignores"]
-    assert per_file["tests/**"] == ["D101", "D102", "D103", "ANN201", "S101", "SLF001", "PLR2004"]
+    assert per_file["tests/**"] == [
+        "D101",
+        "D102",
+        "D103",
+        "ANN201",
+        "S101",
+        "SLF001",
+        "PLR2004",
+        "S607",
+    ]
     assert per_file["tools/release/hooks/*"] == ["INP001"]
-    named = {path for path in per_file if not any(char in path for char in "*?[")}
+    assert per_file["tools/**"] == per_file["noxfile.py"] == ["S607"]
+    named = {
+        path
+        for path in per_file
+        if not any(char in path for char in "*?[") and path != "noxfile.py"
+    }
     assert named
     assert all((ROOT / path).is_file() for path in named)
-    assert set(per_file) == {"tests/**", "tools/release/hooks/*", *named}
+    assert set(per_file) == {"tests/**", "tools/**", "tools/release/hooks/*", "noxfile.py", *named}
     assert ruff["namespace-packages"] == ["tests"]
 
     rationale = {

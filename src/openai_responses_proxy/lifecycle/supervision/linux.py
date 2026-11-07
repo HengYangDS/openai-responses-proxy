@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
@@ -33,16 +34,23 @@ WantedBy=default.target
 """
 
 
-def _has_user_systemd() -> bool:
-    if shutil.which("systemctl") is None:
-        return False
+def _systemctl() -> str | None:
+    """Resolve systemctl from the system's default path, independently of the caller's PATH."""
+    return shutil.which("systemctl", path=os.defpath)
+
+
+def _user_systemctl() -> str | None:
+    """Return the resolved systemctl when it reaches a systemd user manager."""
+    systemctl = _systemctl()
+    if systemctl is None:
+        return None
     result = subprocess.run(
-        ["systemctl", "--user", "show", "--property=SystemState", "--value"],
+        [systemctl, "--user", "show", "--property=SystemState", "--value"],
         capture_output=True,
         check=False,
         text=True,
     )
-    return result.returncode == 0 and bool(result.stdout.strip())
+    return systemctl if result.returncode == 0 and result.stdout.strip() else None
 
 
 def _unit_path(ctx: runtime_spec.NativeServiceContext) -> str:
@@ -92,14 +100,14 @@ def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
     return content == render_unit(ctx).encode("utf-8")
 
 
-def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
+def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> None:
     unit = Path(_unit_path(ctx))
     service = f"{ctx.service_id}.service"
     unit.parent.mkdir(parents=True, exist_ok=True)
     unit.write_text(render_unit(ctx), encoding="utf-8")
-    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+    subprocess.run([systemctl, "--user", "daemon-reload"], check=True)
     enabled = subprocess.run(
-        ["systemctl", "--user", "enable", str(unit)],
+        [systemctl, "--user", "enable", str(unit)],
         capture_output=True,
         check=False,
         text=True,
@@ -107,7 +115,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
     if enabled.returncode != 0:
         raise errors.InstallError(f"systemctl enable failed (exit {enabled.returncode})")
     restarted = subprocess.run(
-        ["systemctl", "--user", "restart", service],
+        [systemctl, "--user", "restart", service],
         capture_output=True,
         check=False,
         text=True,
@@ -115,7 +123,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
     if restarted.returncode != 0:
         raise errors.InstallError(f"systemctl restart failed (exit {restarted.returncode})")
     observed = subprocess.run(
-        ["systemctl", "--user", "show", service, "--property=MainPID", "--value"],
+        [systemctl, "--user", "show", service, "--property=MainPID", "--value"],
         capture_output=True,
         check=False,
         text=True,
@@ -139,13 +147,13 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext) -> None:
 
 def install(ctx: runtime_spec.NativeServiceContext) -> None:
     """Install and start the Linux user-level watchdog service."""
-    if _has_user_systemd():
-        _install_systemd(ctx)
-    else:
+    systemctl = _user_systemctl()
+    if systemctl is None:
         raise errors.NativeServiceUnavailableError(
             "a reachable systemd user manager is required for Linux installation; "
             "enable a systemd user session and retry installation"
         )
+    _install_systemd(ctx, systemctl)
 
 
 def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
@@ -154,10 +162,11 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     service = f"{ctx.service_id}.service"
     registered = status(ctx) != "absent"
     if registered or unit.exists():
-        if shutil.which("systemctl") is None:
+        systemctl = _systemctl()
+        if systemctl is None:
             raise errors.InstallError("systemctl is unavailable; service removal is unproven")
         disabled = subprocess.run(
-            ["systemctl", "--user", "disable", "--now", service],
+            [systemctl, "--user", "disable", "--now", service],
             capture_output=True,
             check=False,
             text=True,
@@ -166,7 +175,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             raise errors.InstallError(f"systemctl disable failed (exit {disabled.returncode})")
         unit.unlink(missing_ok=True)
         reloaded = subprocess.run(
-            ["systemctl", "--user", "daemon-reload"],
+            [systemctl, "--user", "daemon-reload"],
             capture_output=True,
             check=False,
             text=True,
@@ -190,10 +199,11 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
 def status(ctx: runtime_spec.NativeServiceContext) -> str:
     """Return the Linux service manager's read-only status classification."""
     unit = Path(_unit_path(ctx))
-    if shutil.which("systemctl") is not None:
+    systemctl = _systemctl()
+    if systemctl is not None:
         observed = subprocess.run(
             [
-                "systemctl",
+                systemctl,
                 "--user",
                 "show",
                 f"{ctx.service_id}.service",

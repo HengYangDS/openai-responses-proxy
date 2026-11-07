@@ -32,7 +32,7 @@ class TestLinuxLifecycle:
     ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
-        mocker.patch.object(linux.shutil, "which", return_value="systemctl")
+        mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
         command = mocker.patch.object(linux.subprocess, "run", return_value=observation)
         processes = mocker.patch.object(linux.process, "pids_naming_executable")
 
@@ -43,6 +43,12 @@ class TestLinuxLifecycle:
 
         assert all(call.args[0][2] == "show" for call in command.call_args_list)
         processes.assert_not_called()
+
+    def test_systemctl_resolves_from_the_default_path_not_the_caller_path(self, *, mocker) -> None:
+        which = mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
+
+        assert linux._systemctl() == "/usr/bin/systemctl"
+        which.assert_called_once_with("systemctl", path=linux.os.defpath)
 
     def test_service_carrier_uses_the_context_user_home(self, tmp_path) -> None:
         owned_home = tmp_path / "owned-home"
@@ -57,11 +63,11 @@ class TestLinuxLifecycle:
         ("executable", "observation", "available"),
         [
             (None, None, False),
-            ("systemctl", _completed(stdout="running\n"), True),
-            ("systemctl", _completed(stdout="degraded\n"), True),
-            ("systemctl", _completed(returncode=1), False),
-            ("systemctl", _completed(returncode=1, stdout="running\n"), False),
-            ("systemctl", _completed(stdout="\n"), False),
+            ("/usr/bin/systemctl", _completed(stdout="running\n"), True),
+            ("/usr/bin/systemctl", _completed(stdout="degraded\n"), True),
+            ("/usr/bin/systemctl", _completed(returncode=1), False),
+            ("/usr/bin/systemctl", _completed(returncode=1, stdout="running\n"), False),
+            ("/usr/bin/systemctl", _completed(stdout="\n"), False),
         ],
         ids=("no-command", "running", "degraded", "no-bus", "failed-query", "empty-state"),
     )
@@ -75,7 +81,7 @@ class TestLinuxLifecycle:
 
         if available:
             linux.install(ctx)
-            install.assert_called_once_with(ctx)
+            install.assert_called_once_with(ctx, executable)
         else:
             with pytest.raises(
                 errors.NativeServiceUnavailableError, match="systemd user manager"
@@ -93,7 +99,7 @@ class TestLinuxLifecycle:
             query.assert_not_called()
         else:
             query.assert_called_once_with(
-                ["systemctl", "--user", "show", "--property=SystemState", "--value"],
+                ["/usr/bin/systemctl", "--user", "show", "--property=SystemState", "--value"],
                 capture_output=True,
                 check=False,
                 text=True,
@@ -161,7 +167,6 @@ class TestLinuxLifecycle:
     def test_status_observes_registered_service_without_a_unit_file(self, *, mocker):
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
-        mocker.patch.object(linux, "_has_user_systemd", return_value=True)
         mocker.patch.object(
             linux.subprocess,
             "run",
@@ -190,14 +195,14 @@ class TestLinuxLifecycle:
                     _completed(stdout="417\n"),
                 ],
             )
-            linux._install_systemd(ctx)
+            linux._install_systemd(ctx, "/usr/bin/systemctl")
             assert unit.read_text(encoding="utf-8") == linux.render_unit(ctx)
             assert [call.args[0] for call in invoked.call_args_list] == [
-                ["systemctl", "--user", "daemon-reload"],
-                ["systemctl", "--user", "enable", str(unit)],
-                ["systemctl", "--user", "restart", f"{ctx.service_id}.service"],
+                ["/usr/bin/systemctl", "--user", "daemon-reload"],
+                ["/usr/bin/systemctl", "--user", "enable", str(unit)],
+                ["/usr/bin/systemctl", "--user", "restart", f"{ctx.service_id}.service"],
                 [
-                    "systemctl",
+                    "/usr/bin/systemctl",
                     "--user",
                     "show",
                     f"{ctx.service_id}.service",
@@ -220,14 +225,14 @@ class TestLinuxLifecycle:
             )
 
             with pytest.raises(errors.InstallError, match="systemctl enable failed") as raised:
-                linux._install_systemd(ctx)
+                linux._install_systemd(ctx, "/usr/bin/systemctl")
             assert "/home/private/unit" not in str(raised.value)
 
     def test_uninstall_and_status(self, *, mocker):
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="systemctl")
+            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
             invoked = mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -249,19 +254,19 @@ class TestLinuxLifecycle:
             for systemd, executable, output, expected in (
                 (
                     True,
-                    "systemctl",
+                    "/usr/bin/systemctl",
                     "LoadState=loaded\nActiveState=active\n",
                     "running",
                 ),
                 (
                     True,
-                    "systemctl",
+                    "/usr/bin/systemctl",
                     "LoadState=loaded\nActiveState=inactive\n",
                     "installed",
                 ),
                 (
                     False,
-                    "systemctl",
+                    "/usr/bin/systemctl",
                     "LoadState=not-found\nActiveState=inactive\n",
                     "absent",
                 ),
@@ -284,7 +289,7 @@ class TestLinuxLifecycle:
                 linux.uninstall(ctx)
             assert unit.exists()
 
-            mocker.patch.object(linux.shutil, "which", return_value="systemctl")
+            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -299,7 +304,7 @@ class TestLinuxLifecycle:
             assert unit.exists()
 
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="systemctl")
+            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",
@@ -313,7 +318,7 @@ class TestLinuxLifecycle:
                 linux.uninstall(ctx)
 
             _set_file(unit, "unit")
-            mocker.patch.object(linux.shutil, "which", return_value="systemctl")
+            mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
             mocker.patch.object(
                 linux.subprocess,
                 "run",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import getpass
 import io
 import os
@@ -11,6 +12,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import cast
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
@@ -18,6 +20,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from openai_responses_proxy.lifecycle import runtime_spec
 
 # A fixed past boundary so the repeating time trigger is always active; the
@@ -86,11 +90,29 @@ def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
     return rendered.getvalue()
 
 
+def _system_directory() -> Path:
+    """Return the Windows system directory that the kernel reports, never a search path."""
+    load_library: object = getattr(ctypes, "WinDLL", None)
+    if not callable(load_library):
+        raise errors.UnsupportedPlatformError("Windows system libraries are unavailable")
+    kernel32 = cast("Callable[..., ctypes.CDLL]", load_library)("kernel32", use_last_error=True)
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = kernel32.GetSystemDirectoryW(buffer, len(buffer))
+    if not 0 < length < len(buffer):
+        raise errors.InstallError("Windows system directory is unavailable")
+    return Path(buffer.value)
+
+
+def _schtasks() -> str:
+    """Resolve Task Scheduler's own executable from the system directory."""
+    return str(_system_directory() / "schtasks.exe")
+
+
 def _task_xml(ctx: runtime_spec.NativeServiceContext) -> str | None:
     """Read one exact task; only its native not-found code proves absence."""
     try:
         completed = subprocess.run(
-            ["schtasks", "/query", "/tn", ctx.service_id, "/xml", "/hresult"],
+            [_schtasks(), "/query", "/tn", ctx.service_id, "/xml", "/hresult"],
             capture_output=True,
             check=False,
             text=True,
@@ -165,13 +187,13 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         stream.write(render_task_xml(ctx))
     try:
         subprocess.run(
-            ["schtasks", "/delete", "/tn", ctx.service_id, "/f"],
+            [_schtasks(), "/delete", "/tn", ctx.service_id, "/f"],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         created = subprocess.run(
-            ["schtasks", "/create", "/tn", ctx.service_id, "/xml", xml_path],
+            [_schtasks(), "/create", "/tn", ctx.service_id, "/xml", xml_path],
             capture_output=True,
             check=False,
             text=True,
@@ -181,7 +203,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     finally:
         Path(xml_path).unlink()
     started = subprocess.run(
-        ["schtasks", "/run", "/tn", ctx.service_id],
+        [_schtasks(), "/run", "/tn", ctx.service_id],
         capture_output=True,
         check=False,
         text=True,
@@ -223,7 +245,7 @@ def _wait_for_watchdog(
 def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     """Stop and remove only this installation's scheduled watchdog task."""
     deleted = subprocess.run(
-        ["schtasks", "/delete", "/tn", ctx.service_id, "/f"],
+        [_schtasks(), "/delete", "/tn", ctx.service_id, "/f"],
         capture_output=True,
         check=False,
         text=True,
