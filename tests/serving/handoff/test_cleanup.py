@@ -57,7 +57,7 @@ class TestHandoffCleanup(SubprocessFixture):
     ) -> None:
         roots = []
         failure = RuntimeError("payload initialization failed")
-        mocker.patch.object(subprocess_fixtures.tempfile, "tempdir", str(tmp_path))
+        mocker.patch.object(tempfile, "tempdir", str(tmp_path))
 
         def fail_initialization(root, **_kwargs):
             roots.append(root)
