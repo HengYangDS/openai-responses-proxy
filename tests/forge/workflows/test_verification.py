@@ -217,7 +217,6 @@ def _assert_github_native_and_forbidden_contract(text: str) -> None:
             raise AssertionError(
                 f"GitHub workflows must not suppress Git diagnostics with {forbidden!r}"
             )
-    print("GitHub Actions verification contract: OK")
 
 
 def test_github_verification_workflow_contract() -> None:

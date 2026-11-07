@@ -65,6 +65,7 @@ select = [
   "SLF",
   "SLOT",
   "T10",
+  "T20",
   "TD",
   "TID",
   "UP",
@@ -188,6 +189,20 @@ ignore = [
 [lint.per-file-ignores]
 # PyInstaller loads its hook files by path from this hooks directory; it is not a package.
 "tools/release/hooks/*" = ["INP001"]
+# Each of these modules writes its program's output.
+"src/openai_responses_proxy/cli/application.py" = ["T201"]
+"tools/forge/audit.py" = ["T201"]
+"tools/performance/verify.py" = ["T201"]
+"tools/quality/branch_coverage.py" = ["T201"]
+"tools/quality/governance.py" = ["T201"]
+"tools/quality/hard_coding.py" = ["T201"]
+"tools/quality/repository/__main__.py" = ["T201"]
+"tools/quality/responsibilities.py" = ["T201"]
+"tools/release/artifact/__main__.py" = ["T201"]
+"tools/release/artifact/bundle.py" = ["T201"]
+"tools/release/metadata.py" = ["T201"]
+"tools/release/publication/__main__.py" = ["T201"]
+"tools/release/tag_signature.py" = ["T201"]
 "tests/**" = [
   # Tests expose no product or repository interface: pytest collects their behavior-named
   # classes, functions and methods. Module docstrings and existing prose are still checked.

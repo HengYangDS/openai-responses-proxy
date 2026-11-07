@@ -417,10 +417,10 @@ def write_installed_payload(
         # render subprocess bytes. Keep the actual failure for hosted diagnosis.
         cause = exc.__cause__
         if isinstance(cause, subprocess.CalledProcessError):
-            print(f"native candidate prewarm exit: {cause.returncode}")
+            exc.add_note(f"native candidate prewarm exit: {cause.returncode}")
             for stream in (cause.stdout, cause.stderr):
                 if stream:
-                    print(stream.decode("utf-8", errors="replace"))
+                    exc.add_note(stream.decode("utf-8", errors="replace"))
         raise
     return ctx
 
