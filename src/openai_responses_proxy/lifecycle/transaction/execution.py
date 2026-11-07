@@ -28,6 +28,9 @@ from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
+# Only this module's admission paths hold the token that constructs a transaction.
+_ADMISSION_TOKEN = object()
+
 
 class PayloadTransaction:
     """Single-use owner of payload, receipt, state, journal, and rollback."""
@@ -48,7 +51,6 @@ class PayloadTransaction:
         "_transaction_id",
         "_version",
     )
-    _TOKEN = object()
     _blobs: tuple[artifact.ArtifactFile, ...]
     _ctx: runtime_context.RuntimeContext
     _fresh: bool
@@ -74,7 +76,7 @@ class PayloadTransaction:
         _token: object | None = None,
     ) -> None:
         """Construct a transaction through the private admission token."""
-        if _token is not self._TOKEN:
+        if _token is not _ADMISSION_TOKEN:
             raise TypeError("PayloadTransaction is sealed; use begin_transaction()")
         self._ctx = ctx
         self._blobs = blobs
@@ -370,7 +372,7 @@ def begin_rollback_transaction(
         previous_generation=selection.active,
         reuse_generation=True,
         retained_identity=retained.predecessor,
-        _token=PayloadTransaction._TOKEN,
+        _token=_ADMISSION_TOKEN,
     )
 
 
@@ -450,7 +452,7 @@ def _begin_transaction(
         transaction_id=transaction_id,
         fresh=fresh,
         previous_generation=previous_generation,
-        _token=PayloadTransaction._TOKEN,
+        _token=_ADMISSION_TOKEN,
     )
 
 

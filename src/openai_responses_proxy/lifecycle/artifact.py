@@ -57,6 +57,7 @@ class _ArtifactAuthority:
     def __init__(self) -> None:
         self.token = object()
         self.issued: weakref.WeakSet[VerifiedArtifact] = weakref.WeakSet()
+        self.claimed: weakref.WeakSet[VerifiedArtifact] = weakref.WeakSet()
 
     def mint(
         self,
@@ -75,9 +76,12 @@ class _ArtifactAuthority:
     ) -> tuple[tuple[ArtifactFile, ...], str, str, FrozenJsonObject, FrozenJsonObject]:
         if type(candidate) is not VerifiedArtifact or candidate not in self.issued:
             raise ArtifactError("installation requires an admitted VerifiedArtifact")
-        candidate._verify_integrity()
+        _verify_integrity(candidate)
+        if candidate in self.claimed:
+            raise ArtifactError("verified artifact bytes were already claimed")
+        self.claimed.add(candidate)
         return (
-            candidate._claim_blobs(),
+            candidate.peek_blobs(),
             candidate.version,
             candidate.receipt_sha256,
             candidate.receipt,
@@ -94,14 +98,12 @@ class VerifiedArtifact:
     __slots__ = (
         "__weakref__",
         "_blobs",
-        "_claimed",
         "_receipt",
         "_receipt_sha256",
         "_sidecar",
     )
 
     _blobs: tuple[ArtifactFile, ...]
-    _claimed: bool
     _receipt: FrozenJsonObject
     _receipt_sha256: str
     _sidecar: FrozenJsonObject
@@ -125,7 +127,6 @@ class VerifiedArtifact:
             "_receipt_sha256",
             hashlib.sha256(digest.canonical_json(receipt)).hexdigest(),
         )
-        object.__setattr__(self, "_claimed", False)
 
     @override
     def __setattr__(self, name: str, value: object) -> None:
@@ -161,52 +162,46 @@ class VerifiedArtifact:
         """Return immutable bytes for read-only identity checks."""
         return self._blobs
 
-    def _claim_blobs(self) -> tuple[ArtifactFile, ...]:
-        if self._claimed:
-            raise ArtifactError("verified artifact bytes were already claimed")
-        object.__setattr__(self, "_claimed", True)
-        return self._blobs
 
-    def _verify_integrity(self) -> None:
-        receipt_digest = hashlib.sha256(
-            digest.canonical_json(thaw_value(self._receipt))
-        ).hexdigest()
-        entries = self._receipt.get("payload")
-        bound = ("serving_payload_sha256",)
+def _verify_integrity(artifact: VerifiedArtifact) -> None:
+    """Recompute every digest that binds an admitted artifact's receipt to its bytes."""
+    receipt_digest = hashlib.sha256(digest.canonical_json(thaw_value(artifact.receipt))).hexdigest()
+    entries = artifact.receipt.get("payload")
+    bound = ("serving_payload_sha256",)
+    if (
+        receipt_digest != artifact.receipt_sha256
+        or artifact.sidecar.get("schema_version") != RECEIPT_SCHEMA
+        or artifact.sidecar.get("algorithm") != "sha256"
+        or artifact.sidecar.get("receipt_sha256") != receipt_digest
+        or any(artifact.sidecar.get(field) != artifact.receipt.get(field) for field in bound)
+        or not isinstance(entries, tuple)
+        or len(entries) != len(artifact.peek_blobs())
+    ):
+        raise ArtifactError("verified artifact integrity check failed")
+    for entry, blob in zip(entries, artifact.peek_blobs(), strict=True):
+        expected = {
+            "path": blob.path,
+            "mode": blob.mode,
+            "blob_oid": blob.blob_oid,
+            "sha256": hashlib.sha256(blob.content).hexdigest(),
+        }
         if (
-            receipt_digest != self._receipt_sha256
-            or self._sidecar.get("schema_version") != RECEIPT_SCHEMA
-            or self._sidecar.get("algorithm") != "sha256"
-            or self._sidecar.get("receipt_sha256") != receipt_digest
-            or any(self._sidecar.get(field) != self._receipt.get(field) for field in bound)
-            or not isinstance(entries, tuple)
-            or len(entries) != len(self._blobs)
+            not isinstance(entry, Mapping)
+            or dict(entry) != expected
+            or blob.sha256 != expected["sha256"]
         ):
             raise ArtifactError("verified artifact integrity check failed")
-        for entry, blob in zip(entries, self._blobs, strict=True):
-            expected = {
-                "path": blob.path,
-                "mode": blob.mode,
-                "blob_oid": blob.blob_oid,
-                "sha256": hashlib.sha256(blob.content).hexdigest(),
-            }
-            if (
-                not isinstance(entry, Mapping)
-                or dict(entry) != expected
-                or blob.sha256 != expected["sha256"]
-            ):
-                raise ArtifactError("verified artifact integrity check failed")
-        serving_paths = self._receipt.get("serving_files")
-        if not isinstance(serving_paths, tuple):
-            raise ArtifactError("verified artifact integrity check failed")
-        try:
-            actual = inventory.validated_serving_payload_sha256(
-                {blob.path: blob.sha256 for blob in self._blobs if blob.path in serving_paths}
-            )
-        except digest.PayloadDigestError as error:
-            raise ArtifactError("verified artifact integrity check failed") from error
-        if actual != self._receipt.get("serving_payload_sha256"):
-            raise ArtifactError("verified artifact integrity check failed")
+    serving_paths = artifact.receipt.get("serving_files")
+    if not isinstance(serving_paths, tuple):
+        raise ArtifactError("verified artifact integrity check failed")
+    try:
+        actual = inventory.validated_serving_payload_sha256(
+            {blob.path: blob.sha256 for blob in artifact.peek_blobs() if blob.path in serving_paths}
+        )
+    except digest.PayloadDigestError as error:
+        raise ArtifactError("verified artifact integrity check failed") from error
+    if actual != artifact.receipt.get("serving_payload_sha256"):
+        raise ArtifactError("verified artifact integrity check failed")
 
 
 def mint(
