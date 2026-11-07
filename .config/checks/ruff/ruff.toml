@@ -178,6 +178,11 @@ ignore = [
   "PLR0915",
   # PLR0917 owns positional-argument ambiguity; keyword-only parameters carry no ordering risk.
   "PLR0913",
+  # Exceptions are this product's diagnostics: their messages stay beside the condition they
+  # describe, and the CLI renders expected errors without a traceback.
+  "TRY003",
+  "EM101",
+  "EM102",
 ]
 
 [lint.per-file-ignores]
