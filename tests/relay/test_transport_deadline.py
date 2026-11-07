@@ -76,7 +76,7 @@ class TestTransportDeadline(InputTransportFixture):
         ids=["deadline-only", "equal-limits", "deadline-shorter", "idle-shorter"],
     )
     def test_native_read_timeout_keeps_its_selected_budget_identity(
-        self, idle_timeout, deadline_bound, *, mocker: MockerFixture
+        self, idle_timeout: float | None, *, deadline_bound: bool, mocker: MockerFixture
     ) -> None:
         left, right = socket.socketpair()
         with left, right:
@@ -111,7 +111,7 @@ class TestTransportDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("interrupt", [False, True], ids=["last-os-error", "interrupt"])
     def test_connection_setup_failure_releases_its_source_bound_socket(
-        self, interrupt, *, mocker: MockerFixture
+        self, *, interrupt: bool, mocker: MockerFixture
     ) -> None:
         original_socket = socket.socket
         sockets = []

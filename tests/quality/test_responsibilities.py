@@ -6,6 +6,7 @@ import json
 import subprocess
 import tomllib
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -73,7 +74,11 @@ def audit_document(document, tmp_path: Path, mocker: MockerFixture, *, paths=("s
     ],
 )
 def test_empty_and_malformed_inventory_cannot_pass(
-    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
+    field: Literal["schema_version", "roles", "scopes", "concerns"],
+    value,
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     policy_document[field] = value
     report = audit_document(policy_document, tmp_path, mocker)
@@ -91,7 +96,11 @@ def test_empty_tracked_inventory_does_not_prove_coverage(
 
 @pytest.mark.parametrize(("field", "value"), [("owner", ""), ("purpose", None)])
 def test_map_identity_requires_meaningful_text(
-    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
+    field: Literal["owner", "purpose"],
+    value: str | None,
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     policy_document[field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
@@ -109,7 +118,17 @@ def test_map_identity_requires_meaningful_text(
     ],
 )
 def test_each_role_declares_its_complete_lifecycle(
-    field, policy_document, tmp_path: Path, mocker: MockerFixture
+    field: Literal[
+        "owner",
+        "consumer",
+        "source_of_truth",
+        "change_condition",
+        "dependency_direction",
+        "retirement_condition",
+    ],
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     policy_document["roles"][0].pop(field, None)
 
@@ -121,7 +140,11 @@ def test_each_role_declares_its_complete_lifecycle(
 @pytest.mark.parametrize("collection", ["roles", "scopes", "concerns"])
 @pytest.mark.parametrize("change", ["non-table", "empty-id", "duplicate"])
 def test_every_declaration_has_one_unique_identity(
-    collection, change, policy_document, tmp_path: Path, mocker: MockerFixture
+    collection: Literal["roles", "scopes", "concerns"],
+    change: Literal["non-table", "empty-id", "duplicate"],
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     entries = policy_document[collection]
     if change == "non-table":
@@ -137,7 +160,11 @@ def test_every_declaration_has_one_unique_identity(
     ("field", "value"), [("description", ""), ("prefixes", []), ("prefixes", [""]), ("files", [3])]
 )
 def test_role_selectors_are_explicit_and_valid(
-    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
+    field: Literal["description", "prefixes", "files"],
+    value,
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     policy_document["roles"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
@@ -156,7 +183,11 @@ def test_scopes_reference_nonempty_unique_roles(
     [("owner", ""), ("scope", "absent"), ("configuration", []), ("configuration", ["missing"])],
 )
 def test_concerns_have_live_owners_and_configuration(
-    field, value, policy_document, tmp_path: Path, mocker: MockerFixture
+    field: Literal["owner", "scope", "configuration"],
+    value,
+    policy_document,
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     policy_document["concerns"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
@@ -205,7 +236,9 @@ def test_gate_cli_returns_json_and_preserves_failed_exit(
         ("toml-formatted", (".toml",)),
     ],
 )
-def test_formatter_inputs_have_complete_declared_roles(scope, suffixes) -> None:
+def test_formatter_inputs_have_complete_declared_roles(
+    scope: Literal["prettier-formatted", "toml-formatted"], suffixes
+) -> None:
     report = responsibilities.audit()
     assert report["ok"], report["errors"]
     policy = tomllib.loads(responsibilities.MAP.read_text(encoding="utf-8"))

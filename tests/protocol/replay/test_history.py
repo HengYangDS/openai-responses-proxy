@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
 
 import pytest
 
@@ -17,7 +18,7 @@ class ProviderPortableHistoryTests:
 
     @pytest.mark.parametrize("root_ciphertext", [False, True])
     def test_preserves_encrypted_agent_payload_with_its_native_envelope(
-        self, root_ciphertext
+        self, *, root_ciphertext: bool
     ) -> None:
         message = {
             "type": "agent_message",
@@ -61,7 +62,9 @@ class ProviderPortableHistoryTests:
         assert result.reason == "invalid_encrypted_content"
 
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
-    def test_preserves_named_async_deliveries_at_their_original_positions(self, call_type) -> None:
+    def test_preserves_named_async_deliveries_at_their_original_positions(
+        self, call_type: Literal["function_call", "custom_tool_call"]
+    ) -> None:
         argument = "arguments" if call_type == "function_call" else "input"
         call = {"type": call_type, "call_id": "job", "name": "run", argument: "{}"}
         initial = {

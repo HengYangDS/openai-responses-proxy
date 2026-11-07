@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import cast
 
 import pytest
@@ -34,7 +35,7 @@ class TestSseRecovery(InputTransportFixture):
         "control", [b"data: [DONE]\n\n", b": keepalive\n\n", b"event: ping\n\n"]
     )
     def test_pre_content_failure_controls_preserve_reconnect(
-        self, control, *, mocker: MockerFixture
+        self, control: bytes, *, mocker: MockerFixture
     ) -> None:
         failed = (
             b'data:{"type" : "response.created"}\n\n'
@@ -58,7 +59,12 @@ class TestSseRecovery(InputTransportFixture):
         assert handler.output().count(b"response.completed") == 1
 
     @pytest.mark.parametrize("event", ["response.output_text.delta", "response.output_item.added"])
-    def test_committed_output_is_never_replayed(self, event, *, mocker: MockerFixture) -> None:
+    def test_committed_output_is_never_replayed(
+        self,
+        event: Literal["response.output_text.delta", "response.output_item.added"],
+        *,
+        mocker: MockerFixture,
+    ) -> None:
         content = json.dumps(
             {"type": event, "delta": "keep", "item": {"type": "function_call"}}
         ).encode()
@@ -79,7 +85,10 @@ class TestSseRecovery(InputTransportFixture):
 
     @pytest.mark.parametrize("code", ["invalid_prompt", "rate_limit_exceeded", "unknown"])
     def test_permanent_failure_is_preserved_without_reconnect(
-        self, code, *, mocker: MockerFixture
+        self,
+        code: Literal["invalid_prompt", "rate_limit_exceeded", "unknown"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         raw = (
             b"data: "
@@ -177,7 +186,7 @@ class TestSseRecovery(InputTransportFixture):
 
     @pytest.mark.parametrize("detail", ["eof", "incomplete_read", "timeout"])
     def test_a_pre_content_ending_without_a_failure_event_is_not_reopened(
-        self, detail, *, mocker: MockerFixture
+        self, detail: Literal["eof", "incomplete_read", "timeout"], *, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler()
         reopen = mocker.Mock(return_value=DirectResponse())

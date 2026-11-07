@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -38,7 +39,7 @@ class TestDialogueRecovery:
     )
     @pytest.mark.parametrize("explicit_type", [False, True])
     def test_every_recovery_preserves_latest_instruction_roles(
-        self, recover, explicit_type
+        self, recover, *, explicit_type: bool
     ) -> None:
         instruction_type = {"type": "message"} if explicit_type else {}
         system = {**instruction_type, "role": "system", "content": "current system policy"}
@@ -101,7 +102,10 @@ class TestDialogueRecovery:
         ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
     )
     def test_refuses_to_orphan_a_delayed_current_tool_delivery(
-        self, recover, kind, argument
+        self,
+        recover,
+        kind: Literal["function_call", "custom_tool_call"],
+        argument: Literal["arguments", "input"],
     ) -> None:
         payload = {
             "input": [
@@ -230,7 +234,11 @@ class TestDialogueRecovery:
     @pytest.mark.parametrize(
         ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
     )
-    def test_compaction_validates_the_actual_retention_not_its_suffix(self, kind, argument) -> None:
+    def test_compaction_validates_the_actual_retention_not_its_suffix(
+        self,
+        kind: Literal["function_call", "custom_tool_call"],
+        argument: Literal["arguments", "input"],
+    ) -> None:
         call = {"type": kind, "call_id": "job", "name": "run", argument: "{}"}
         output = {"type": kind + "_output", "call_id": "job", "output": "started"}
         current = {"type": "message", "role": "user", "content": "current request"}

@@ -295,7 +295,7 @@ def test_github_predecessor_cli_reads_the_candidate_source_identity(
 
 @pytest.mark.parametrize("version", [None, "latest"])
 def test_github_predecessor_cli_refuses_unproved_source_before_remote_lookup(
-    tmp_path: Path, mocker: MockerFixture, version
+    tmp_path: Path, mocker: MockerFixture, version: str | None
 ) -> None:
     resolve = mocker.patch.object(github_observer, "published_predecessor")
     source = tmp_path / "source"

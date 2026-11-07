@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -135,7 +136,21 @@ class TestHardCodingResponsibility:
     ],
 )
 def test_empty_or_malformed_policy_cannot_establish_acceptance(
-    source, error, tmp_path: Path
+    source: Literal[
+        "[broken",
+        'schema_version=true\nallowed_kinds=["domain-constant"]\ncontrols=[]',
+        'schema_version=1.0\nallowed_kinds=["domain-constant"]\ncontrols=[]',
+        "schema_version=1\nallowed_kinds=[]\ncontrols=[]",
+        'schema_version=1\nallowed_kinds=["domain-constant"]\ncontrols=[]',
+        'schema_version=1\nallowed_kinds=["domain-constant"]\ncontrols=1',
+    ],
+    error: Literal[
+        "hard_coding_policy_invalid",
+        "hard_coding_schema_version",
+        "hard_coding_allowed_kinds",
+        "hard_coding_controls",
+    ],
+    tmp_path: Path,
 ) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text(source)
@@ -154,7 +169,23 @@ def test_empty_or_malformed_policy_cannot_establish_acceptance(
         ('[[controls]]\nid="x"\nowner="missing"\nprojections=["missing"]', "owner_missing"),
     ],
 )
-def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_path: Path) -> None:
+def test_invalid_control_is_reported_instead_of_crashing(
+    control: Literal[
+        "controls=[1]",
+        '[[controls]]\nid=""',
+        '[[controls]]\nid="x"',
+        '[[controls]]\nid="x"\nkind=[]',
+        '[[controls]]\nid="x"\nowner="missing"\nprojections=["missing"]',
+    ],
+    error: Literal[
+        "control_must_be_table",
+        "control_id_invalid",
+        "control_field_missing",
+        "control_kind_invalid",
+        "owner_missing",
+    ],
+    tmp_path: Path,
+) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text('schema_version=1\nallowed_kinds=["domain-constant"]\n' + control)
     report = checker.audit(tmp_path, policy)
@@ -244,7 +275,9 @@ def projection_root(tmp_path: Path):
         ),
     ],
 )
-def test_projection_checks_follow_the_declared_owner(projection_root, checks, error) -> None:
+def test_projection_checks_follow_the_declared_owner(
+    projection_root, checks, error: str | None
+) -> None:
     errors = checker._projection_errors(
         root=projection_root, identifier="x", owner="owner.py", checks=checks
     )
@@ -257,7 +290,12 @@ def test_projection_checks_follow_the_declared_owner(projection_root, checks, er
     ("owner", "source", "error"),
     [("owner.txt", "x", "unsupported"), ("owner.py", "if", "owner_invalid")],
 )
-def test_projection_owner_must_be_parseable_python(owner, source, error, tmp_path: Path) -> None:
+def test_projection_owner_must_be_parseable_python(
+    owner: Literal["owner.txt", "owner.py"],
+    source: Literal["x", "if"],
+    error: Literal["unsupported", "owner_invalid"],
+    tmp_path: Path,
+) -> None:
     (tmp_path / owner).write_text(source)
     errors = checker._projection_errors(root=tmp_path, identifier="x", owner=owner, checks=[{}])
     assert error in errors[0]

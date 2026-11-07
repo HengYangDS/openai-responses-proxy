@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -105,7 +106,9 @@ def test_remote_annotated_tag_is_bound_to_local_objects() -> None:
 
 @pytest.mark.parametrize("state", ["created", "matched", "digest-drift", "byte-drift"])
 def test_publish_owns_download_validation_creation_and_byte_parity(
-    state, tmp_path: Path, mocker: MockerFixture
+    state: Literal["created", "matched", "digest-drift", "byte-drift"],
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     source, downloaded = tmp_path / "source", tmp_path / "downloaded"
     source.mkdir()

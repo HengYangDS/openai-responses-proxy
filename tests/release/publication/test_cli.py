@@ -24,7 +24,7 @@ class PublicationProofCliContracts:
 
     @pytest.mark.parametrize("as_json", [True, False])
     def test_cli_serializes_frozen_publication_evidence(
-        self, capsys: pytest.CaptureFixture[str], as_json, *, mocker: MockerFixture
+        self, capsys: pytest.CaptureFixture[str], *, as_json: bool, mocker: MockerFixture
     ) -> None:
         frozen = MappingProxyType(
             {

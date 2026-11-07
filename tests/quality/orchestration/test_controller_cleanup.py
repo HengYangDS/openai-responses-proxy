@@ -7,6 +7,7 @@ import subprocess
 import sys
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.parametrize("failure", ["registration", "termination"])
 def test_controller_cleanup_stops_independent_children_after_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: Literal["registration", "termination"]
 ) -> None:
     """A failed observation must not strand a separate known child generation."""
     root = tmp_path / "owned"

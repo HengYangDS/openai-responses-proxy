@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -54,7 +55,25 @@ class TestWatchdogLogging:
         ],
     )
     def test_watchdog_events_identify_actions_without_private_context(
-        self, condition, event, detail, tmp_path: Path, *, mocker: MockerFixture
+        self,
+        condition: Literal["spawned", "missing", "denied", "transaction", "ownership"],
+        event: Literal[
+            "listener_spawned",
+            "listener_spawn_refused",
+            "listener_spawn_failed",
+            "listener_start_deferred",
+            "listener_start_refused",
+        ],
+        detail: Literal[
+            "pid=42",
+            "reason=executable_missing",
+            "exception=PermissionError",
+            "reason=transaction_pending",
+            "reason=invalid_runtime_ownership",
+        ],
+        tmp_path: Path,
+        *,
+        mocker: MockerFixture,
     ) -> None:
         watchdog = load_watchdog()
         executable = tmp_path / "private-installation" / "openai-responses-proxy"

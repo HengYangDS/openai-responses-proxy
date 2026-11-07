@@ -9,6 +9,7 @@ import runpy
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -25,7 +26,12 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.mark.parametrize(
     "defect", ["missing-distribution", "missing-record", "malformed-record", "missing-provenance"]
 )
-def test_normalization_requires_complete_installed_metadata(tmp_path: Path, defect) -> None:
+def test_normalization_requires_complete_installed_metadata(
+    tmp_path: Path,
+    defect: Literal[
+        "missing-distribution", "missing-record", "malformed-record", "missing-provenance"
+    ],
+) -> None:
     if defect != "missing-distribution":
         _installed_distribution(tmp_path, "isolated")
         metadata = next(tmp_path.glob("*.dist-info"))
@@ -46,7 +52,9 @@ def test_bundle_rejects_directory_symlink_cycles(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("defect", ["occupied-output", "file-input", "missing-executable"])
-def test_pack_rejects_invalid_roots_before_writing(tmp_path: Path, defect) -> None:
+def test_pack_rejects_invalid_roots_before_writing(
+    tmp_path: Path, defect: Literal["occupied-output", "file-input", "missing-executable"]
+) -> None:
     bundle = tmp_path / "bundle"
     output = tmp_path / "output"
     if defect == "file-input":
@@ -288,7 +296,7 @@ class BundleContracts:
     [None, "archive", "version", "platform", "renamed-version", "renamed-platform", "output"],
 )
 def test_materialization_uses_only_complete_current_platform_assets(
-    tmp_path: Path, mocker: MockerFixture, defect
+    tmp_path: Path, mocker: MockerFixture, defect: str | None
 ) -> None:
     source = tmp_path / "assets"
     source.mkdir()
@@ -331,7 +339,7 @@ def test_materialization_uses_only_complete_current_platform_assets(
         (output / "preserved").write_bytes(b"operator content")
     before = {p.name: p.read_bytes() for p in source.iterdir()}
 
-    if defect:
+    if defect is not None:
         with pytest.raises((assets.AssetError, SystemExit)):
             commands.main(("materialize", "--source", str(source), "--output", str(output)))
         if defect == "output":
@@ -349,7 +357,9 @@ def test_materialization_uses_only_complete_current_platform_assets(
 
 
 @pytest.mark.parametrize("defect", ["missing", "empty", "directory", "symlink"])
-def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path: Path, defect) -> None:
+def test_materialization_refuses_invalid_asset_roots_before_output(
+    tmp_path: Path, defect: Literal["missing", "empty", "directory", "symlink"]
+) -> None:
     source = tmp_path / "assets"
     output = tmp_path / "runtime"
     if defect != "missing":

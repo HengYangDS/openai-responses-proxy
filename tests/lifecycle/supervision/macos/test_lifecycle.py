@@ -6,6 +6,7 @@ import plistlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -117,11 +118,18 @@ class TestMacosLifecycle:
         ],
     )
     def test_install_requires_exact_predecessor_identity(
-        self, *, configured, captured, message, mocker: MockerFixture
+        self,
+        *,
+        configured: str | None,
+        captured,
+        message: Literal["executable is unproved", "process identity is unproved"],
+        mocker: MockerFixture,
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(
-                macos, "_carrier", return_value=(b"fixture", configured) if configured else None
+                macos,
+                "_carrier",
+                return_value=(b"fixture", configured) if configured is not None else None,
             )
             mocker.patch.object(
                 macos, "_service", return_value=macos._Service(registered=True, pid=41)
@@ -232,7 +240,12 @@ class TestMacosLifecycle:
         ],
     )
     def test_install_rejects_unproved_kickstart_result(
-        self, *, kickstart_stdout, observed, message, mocker: MockerFixture
+        self,
+        *,
+        kickstart_stdout: Literal["not-a-pid", "73\n"],
+        observed,
+        message: Literal["returned no watchdog pid", "pid was not re-observed"],
+        mocker: MockerFixture,
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             mocker.patch.object(

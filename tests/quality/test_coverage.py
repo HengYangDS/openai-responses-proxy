@@ -10,6 +10,7 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 from xml.etree import ElementTree as ET
 
 import pytest
@@ -38,7 +39,19 @@ if TYPE_CHECKING:
         ("unknown", "value"),
     ],
 )
-def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker: MockerFixture) -> None:
+def test_policy_cannot_weaken_the_declared_boundary(
+    field: Literal[
+        "minimum_percent",
+        "comparison",
+        "threshold_scopes",
+        "package_observation",
+        "metrics",
+        "owner",
+        "unknown",
+    ],
+    value,
+    mocker: MockerFixture,
+) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     policy = tomllib.loads(path.read_text())
     policy[field] = value

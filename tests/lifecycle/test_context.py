@@ -7,6 +7,7 @@ import ntpath
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import TypedDict
 
 import pytest
@@ -391,7 +392,13 @@ class TestRuntimeContext:
             ("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES", "1.5"),
         ],
     )
-    def test_catalog_budget_selection_rejects_invalid_values(self, name, invalid) -> None:
+    def test_catalog_budget_selection_rejects_invalid_values(
+        self,
+        name: Literal[
+            "OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT", "OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES"
+        ],
+        invalid: Literal["0", "NaN", "301", "4095", "67108865", "1.5"],
+    ) -> None:
         with pytest.raises(config.ConfigurationError):
             config.load({name: invalid})
 

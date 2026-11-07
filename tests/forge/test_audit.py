@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import TypedDict
 
 import pytest
@@ -307,7 +308,7 @@ def test_release_audit_detects_untrusted_tags_identity_and_residual_branches(for
 
 @pytest.mark.parametrize("as_json", [False, True])
 def test_cli_reports_exact_selected_peer_scope(
-    as_json, forge_fixture, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+    *, as_json: bool, forge_fixture, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     expected = {"ok": True, "branch_object_parity": True, "tag_object_parity": True}
     collect = mocker.patch.object(audit, "audit", return_value=expected)
@@ -337,7 +338,9 @@ def test_cli_reports_exact_selected_peer_scope(
 
 
 @pytest.mark.parametrize("failure", ["anchor", "observation", "parity"])
-def test_cli_failure_is_nonzero(failure, forge_fixture, mocker: MockerFixture) -> None:
+def test_cli_failure_is_nonzero(
+    failure: Literal["anchor", "observation", "parity"], forge_fixture, mocker: MockerFixture
+) -> None:
     anchor = forge_fixture["anchor"]
     if failure == "anchor":
         anchor = anchor.with_name("absent")

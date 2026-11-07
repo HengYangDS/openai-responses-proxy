@@ -220,7 +220,7 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
         mocker.patch.object(nox_configuration, name)
     mocker.patch.object(nox_configuration, "_installed_executable", return_value=work / "proxy")
 
-    def execute(*args, env=None, **_kwargs):
+    def execute(*args, env=None, **_kwargs: object):
         command = (
             (sys.executable, "-m", "coverage", *args[1:])
             if args[0] == "coverage"

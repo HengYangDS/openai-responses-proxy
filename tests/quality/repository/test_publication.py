@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -90,7 +91,51 @@ if TYPE_CHECKING:
     ],
 )
 def test_governance_reader_detects_contradicted_public_contract(
-    carrier, before, after, diagnostic, mocker: MockerFixture
+    carrier: Literal[
+        "README.md", ".gitlab-ci.yml", "docs/operations/forge-operations.md", ".ethos/release.toml"
+    ],
+    before: Literal[
+        "# OpenAI Responses Proxy",
+        "python -m tools.release.metadata",
+        "verify-release-tag:",
+        "",
+        "tools.forge.audit",
+        "fast-forward or idempotent",
+        "ethos publish --ref refs/heads/dev",
+        'branches = ["main", "dev"]',
+        "ethos publish --retire",
+        "`Admission`",
+        "python -m tools.release.metadata --prepare-release",
+        "ethos land --release",
+        'tags = ["v*"]',
+    ],
+    after: Literal[
+        "# Other",
+        "unrelated",
+        "other-tag:",
+        "\npublish-gitlab-release:\n",
+        "other",
+        "ethos publish --ref refs/heads/other",
+        'branches = ["main", "dev", "next"]',
+        "ethos publish",
+        "`Other`",
+        "python -m tools.release.metadata",
+        "ethos land",
+        'tags = ["release-*"]',
+        "\ncommit-author-name\n",
+    ],
+    diagnostic: Literal[
+        "formal Project Name",
+        "release and governance checker",
+        "exact trusted product tag",
+        "must not rebuild",
+        "read-only parity audit",
+        "exact object publication",
+        "ETHOS branch publication",
+        "ETHOS tag publication",
+        "couple shared history",
+    ],
+    mocker: MockerFixture,
 ) -> None:
     original = Path.read_text
 

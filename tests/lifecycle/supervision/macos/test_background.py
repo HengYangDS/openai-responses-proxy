@@ -6,6 +6,7 @@ import plistlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -29,7 +30,12 @@ class TestMacosBackgroundContract:
         ],
     )
     def test_unavailable_user_domain_preserves_installation(
-        self, *, returncode, stdout, message, mocker: MockerFixture
+        self,
+        *,
+        returncode: int,
+        stdout: Literal["", "gui/501 = {\n\ttype = login\n}\n"],
+        message: Literal["reachable launchd user domain", "user-domain identity is unproved"],
+        mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
@@ -51,7 +57,12 @@ class TestMacosBackgroundContract:
         ["other/bin/openai-responses-proxy", "generations/invalid/bin/openai-responses-proxy"],
     )
     def test_carrier_requires_the_canonical_install_generation(
-        self, *, executable_suffix, mocker: MockerFixture
+        self,
+        *,
+        executable_suffix: Literal[
+            "other/bin/openai-responses-proxy", "generations/invalid/bin/openai-responses-proxy"
+        ],
+        mocker: MockerFixture,
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             foreign_context = SimpleNamespace(
@@ -77,7 +88,7 @@ class TestMacosBackgroundContract:
             changed = b"new external carrier content"
             reads = iter([_completed(stdout="registered"), _completed(returncode=113)])
 
-            def native_operation(arguments, **_kwargs):
+            def native_operation(arguments, **_kwargs: object):
                 if arguments[1] == "bootout":
                     carrier.write_bytes(changed)
                     return _completed()
@@ -114,7 +125,9 @@ class TestMacosBackgroundContract:
             assert macos.configured_executable(ctx) == ctx.executable
 
     @pytest.mark.parametrize("sessions", [None, "Background"])
-    def test_projection_is_current_only_for_this_release_rendering(self, *, sessions) -> None:
+    def test_projection_is_current_only_for_this_release_rendering(
+        self, *, sessions: str | None
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             assert macos.projection_is_current(ctx) is False
@@ -280,7 +293,7 @@ class TestMacosBackgroundContract:
 
     @pytest.mark.parametrize("gui", [False, True])
     def test_domain_observation_accepts_a_user_session_without_gui(
-        self, *, gui, mocker: MockerFixture
+        self, *, gui: bool, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)

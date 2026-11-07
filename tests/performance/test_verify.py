@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -243,7 +244,7 @@ class TestPerformanceEvidence:
 
     @pytest.mark.parametrize(("unit", "minimum"), [("byte", 2), ("second", 3)])
     def test_rejects_wrong_unit_and_short_distributions(
-        self, unit, minimum, tmp_path: Path
+        self, unit: Literal["byte", "second"], minimum: int, tmp_path: Path
     ) -> None:
         with pytest.raises(PerformanceError, match=r"unit mismatch|too few samples"):
             _measurements(
@@ -261,7 +262,15 @@ class TestPerformanceEvidence:
             "[execution]\nminimum_latency_samples=true\nminimum_memory_samples=2\npercentile=95\n",
         ],
     )
-    def test_rejects_incomplete_or_boolean_execution_policy(self, document, tmp_path: Path) -> None:
+    def test_rejects_incomplete_or_boolean_execution_policy(
+        self,
+        document: Literal[
+            "",
+            "[execution]\n",
+            "[execution]\nminimum_latency_samples=true\nminimum_memory_samples=2\npercentile=95\n",
+        ],
+        tmp_path: Path,
+    ) -> None:
         policy = tmp_path / "policy.toml"
         policy.write_text(document)
         with pytest.raises(PerformanceError, match="policy"):
@@ -330,7 +339,11 @@ class TestPerformanceEvidence:
     @pytest.mark.parametrize(
         "field", ["minimum_latency_samples", "minimum_memory_samples", "percentile"]
     )
-    def test_execution_counts_require_integers_not_booleans(self, field, tmp_path: Path) -> None:
+    def test_execution_counts_require_integers_not_booleans(
+        self,
+        field: Literal["minimum_latency_samples", "minimum_memory_samples", "percentile"],
+        tmp_path: Path,
+    ) -> None:
         policy = _policy(tmp_path / "policy.toml")
         original = f"{field} = "
         lines = policy.read_text().splitlines()

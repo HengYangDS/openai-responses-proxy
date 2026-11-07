@@ -6,6 +6,7 @@ import tempfile
 import urllib.error
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -39,7 +40,13 @@ class RuntimeLoggingTests:
         ],
     )
     def test_stream_events_correlate_outcomes_without_payloads(
-        self, raw, event, detail, tmp_path: Path, *, mocker: MockerFixture
+        self,
+        raw,
+        event: Literal["sse_terminal", "sse_end_without_terminal"],
+        detail: Literal["terminal=response.completed", "exception=OSError"],
+        tmp_path: Path,
+        *,
+        mocker: MockerFixture,
     ) -> None:
         log_path = tmp_path / "proxy.log"
         mocker.patch.object(operational_log, "LOG_PATH", str(log_path))

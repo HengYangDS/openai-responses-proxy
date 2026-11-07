@@ -78,7 +78,7 @@ class TestLinuxLifecycle:
         ids=("no-command", "running", "degraded", "no-bus", "failed-query", "empty-state"),
     )
     def test_install_requires_a_successful_manager_query(
-        self, executable, observation, available, *, mocker: MockerFixture
+        self, executable: str | None, observation, *, available: bool, mocker: MockerFixture
     ) -> None:
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value=executable)

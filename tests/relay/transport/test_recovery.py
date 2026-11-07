@@ -6,6 +6,7 @@ import json
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import cast
 
 import pytest
@@ -34,7 +35,11 @@ class TestProxyTransport(LoopbackTransportFixture):
         ids=("non-json", "parser-depth-exhaustion", "wire-parser-depth-exhaustion"),
     )
     def test_unclassified_error_passes_through_without_retry(
-        self, path, status, error_body, capsys: pytest.CaptureFixture[str]
+        self,
+        path: Literal["/aihubmix/v1/responses", "/dmxapi/v1/responses"],
+        status: int,
+        error_body,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         body = b'{"stream":false,"input":[{"type":"message","role":"user","content":"hello"}]}'
         success = b'{"id":"resp_next","status":"completed","output":[]}'

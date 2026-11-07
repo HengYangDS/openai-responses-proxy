@@ -8,6 +8,7 @@ import socket
 import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import cast
 
 import pytest
@@ -34,7 +35,9 @@ if TYPE_CHECKING:
 class TestSseFraming(InputTransportFixture):
     @pytest.mark.parametrize("chunk_size", [1, 7, 4096])
     @pytest.mark.parametrize("terminal", ["response.completed", "response.incomplete"])
-    def test_prelude_commits_once_and_preserves_wire_order(self, chunk_size, terminal) -> None:
+    def test_prelude_commits_once_and_preserves_wire_order(
+        self, chunk_size: int, terminal: Literal["response.completed", "response.incomplete"]
+    ) -> None:
         prelude = b': keepalive\n\ndata: {"type":"response.created"}\n\n'
         content = b'data: {"type":"response.output_text.delta","delta":"hello"}\n\n'
         ending = b'data: {"type":"' + terminal.encode() + b'"}\n\n'
@@ -102,7 +105,10 @@ class TestSseFraming(InputTransportFixture):
         "terminal", ["response.completed", "response.incomplete", "response.failed"]
     )
     def test_terminal_event_finishes_without_reading_or_forwarding_trailing_data(
-        self, terminal, *, mocker: MockerFixture
+        self,
+        terminal: Literal["response.completed", "response.incomplete", "response.failed"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         event = b"data: " + json.dumps({"type": terminal}).encode() + b"\n\n"
         tail = b'data: {"type":"response.output_text.delta","delta":"after-terminal"}\n\n'

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -36,7 +37,11 @@ class TestSseBuffering(InputTransportFixture):
         ],
     )
     def test_pending_bytes_fail_without_replay_or_successful_termination(
-        self, shape, *, committed, mocker: MockerFixture
+        self,
+        shape: Literal["partial", "event", "comments", "created", "tail", "failed"],
+        *,
+        committed: bool,
+        mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(sse, "SSE_BUFFER_MAX_BYTES", LIMIT, create=True)
         oversized = b'data: {"type":"response.output_text.delta","delta":"' + b"x" * LIMIT

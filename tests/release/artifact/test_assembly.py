@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -57,7 +58,10 @@ class AssemblyContracts:
 @pytest.mark.parametrize(
     "defect", ["occupied-output", "duplicate", "unknown", "missing", "no-inputs"]
 )
-def test_assembly_rejects_ambiguous_or_incomplete_inventory(tmp_path: Path, defect) -> None:
+def test_assembly_rejects_ambiguous_or_incomplete_inventory(
+    tmp_path: Path,
+    defect: Literal["occupied-output", "duplicate", "unknown", "missing", "no-inputs"],
+) -> None:
     inputs = native_inputs(tmp_path)
     output = tmp_path / "release"
     if defect == "occupied-output":

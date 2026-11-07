@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -70,7 +71,7 @@ class TestWindowsLifecycle:
 
     @pytest.mark.parametrize("code", [0x80070002, -2147024894, 0x80070003, -2147024893])
     def test_exact_missing_task_hresult_proves_absence(
-        self, code, *, mocker: MockerFixture
+        self, code: int, *, mocker: MockerFixture
     ) -> None:
         ctx = platform_context(windows=True)
         run = mocker.patch.object(
@@ -89,7 +90,11 @@ class TestWindowsLifecycle:
     )
     @pytest.mark.parametrize("operation", ["configured_executable", "status"])
     def test_failed_task_query_cannot_prove_absence(
-        self, code, operation, *, mocker: MockerFixture
+        self,
+        code: int,
+        operation: Literal["configured_executable", "status"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(
             windows.subprocess,
@@ -103,7 +108,11 @@ class TestWindowsLifecycle:
     @pytest.mark.parametrize("operation", ["configured_executable", "status"])
     @pytest.mark.parametrize("malformed", ["xml", "action"])
     def test_successful_query_requires_an_owned_task_projection(
-        self, operation, malformed, *, mocker: MockerFixture
+        self,
+        operation: Literal["configured_executable", "status"],
+        malformed: Literal["xml", "action"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
@@ -117,7 +126,7 @@ class TestWindowsLifecycle:
 
     @pytest.mark.parametrize("live", [False, True])
     def test_task_status_uses_owned_processes_not_localized_output(
-        self, live, *, mocker: MockerFixture
+        self, *, live: bool, mocker: MockerFixture
     ) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
@@ -164,7 +173,7 @@ class TestWindowsLifecycle:
 
         imported = []
 
-        def run(arguments, **_kwargs):
+        def run(arguments, **_kwargs: object):
             if arguments[:2] == [SCHTASKS, "/create"]:
                 imported.append(Path(arguments[-1]).read_bytes())
             if arguments[:2] == [SCHTASKS, "/query"]:
@@ -320,11 +329,21 @@ class TestWindowsLifecycle:
         ],
     )
     def test_install_requires_started_task_and_exact_successor(
-        self, *, started, configured, successor, message, mocker: MockerFixture
+        self,
+        *,
+        started,
+        configured: Literal["expected", "other"],
+        successor,
+        message: Literal[
+            "run failed",
+            "task executable is unproved",
+            "successor watchdog process identity is unproved",
+        ],
+        mocker: MockerFixture,
     ) -> None:
         ctx = platform_context(windows=True)
-        configured = ctx.executable if configured == "expected" else configured
-        mocker.patch.object(windows, "configured_executable", side_effect=[None, configured])
+        registered = ctx.executable if configured == "expected" else configured
+        mocker.patch.object(windows, "configured_executable", side_effect=[None, registered])
         mocker.patch.object(windows, "_wait_for_watchdog", return_value=successor)
         mocker.patch.object(
             windows.subprocess,

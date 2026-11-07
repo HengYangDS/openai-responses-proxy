@@ -71,7 +71,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
         def __enter__(self) -> Self:
             return self
 
-        def __exit__(self, *_args) -> bool:
+        def __exit__(self, *_args: object) -> bool:
             return False
 
         def read(self) -> bytes:
@@ -373,7 +373,7 @@ def test_reload_rebinds_native_supervision_after_a_proven_handoff(
     ctx, control_ctx, native = _serving_installation(tmp_path, service=service, mocker=mocker)
     effects: list[str] = []
 
-    def hand_off(*_args, **_kwargs) -> dict[str, int]:
+    def hand_off(*_args: object, **_kwargs: object) -> dict[str, int]:
         effects.append("handoff")
         return {"old_pid": 7, "child_pid": 8}
 
@@ -392,7 +392,7 @@ def test_reload_rebinds_native_supervision_after_a_recovered_handoff(
     ctx, control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
     effects: list[str] = []
 
-    def resolve(*_args, **_kwargs) -> tuple[str, dict[str, int]]:
+    def resolve(*_args: object, **_kwargs: object) -> tuple[str, dict[str, int]]:
         effects.append("resolve")
         return "finalized", {"pid": 8}
 

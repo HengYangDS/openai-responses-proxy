@@ -147,7 +147,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
         mocker.patch.object(process, "capture_executable", return_value=source)
 
-        def terminate(*_args, **_kwargs) -> bool:
+        def terminate(*_args: object, **_kwargs: object) -> bool:
             events.append("source-exit")
             return True
 
@@ -198,7 +198,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
 
     @pytest.mark.parametrize("phase_failure", [False, True])
     def test_generation_replacement_preserves_an_unconfirmed_source_exit(
-        self, phase_failure, *, mocker: MockerFixture
+        self, *, phase_failure: bool, mocker: MockerFixture
     ) -> None:
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime(

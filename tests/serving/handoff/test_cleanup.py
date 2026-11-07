@@ -42,7 +42,7 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("stop before runtime effects")
         allocated = []
 
-        def stop(candidate, **_kwargs) -> Never:
+        def stop(candidate, **_kwargs: object) -> Never:
             allocated.append(candidate)
             raise failure
 
@@ -58,13 +58,13 @@ class TestHandoffCleanup(SubprocessFixture):
 
     @pytest.mark.parametrize("partial_payload", [False, True])
     def test_failed_fixture_initialization_removes_its_temporary_payload(
-        self, *, mocker: MockerFixture, tmp_path: Path, partial_payload
+        self, *, mocker: MockerFixture, tmp_path: Path, partial_payload: bool
     ) -> None:
         roots = []
         failure = RuntimeError("payload initialization failed")
         mocker.patch.object(tempfile, "tempdir", str(tmp_path))
 
-        def fail_initialization(root, **_kwargs) -> Never:
+        def fail_initialization(root, **_kwargs: object) -> Never:
             roots.append(root)
             if partial_payload:
                 payload = root / "payload"
@@ -102,7 +102,7 @@ class TestHandoffCleanup(SubprocessFixture):
         service.status.side_effect = lambda _ctx: events.append("service-status") or "absent"
         mocker.patch.object(native_service, "adapter", return_value=service)
 
-        def inventory(_proxy_script):
+        def inventory(_proxy_script: object):
             events.append("inventory")
             return [123] if events.count("inventory") == 1 else []
 

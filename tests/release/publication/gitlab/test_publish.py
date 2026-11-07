@@ -309,7 +309,7 @@ def test_credential_kind_selects_one_exact_gitlab_header(
     ],
 )
 def test_http_failure_preserves_status_and_closes_response(
-    status, error_type, mocker: MockerFixture
+    status: int, error_type, mocker: MockerFixture
 ) -> None:
     stream = io.BytesIO(b"provider unavailable")
     error = urllib.error.HTTPError(
@@ -323,7 +323,7 @@ def test_http_failure_preserves_status_and_closes_response(
 
 @pytest.mark.parametrize("content", [b"payload", "not-bytes"])
 def test_request_admits_binary_payload_and_sets_json_content_type(
-    content, mocker: MockerFixture
+    content: bytes | str, mocker: MockerFixture
 ) -> None:
     response = mocker.MagicMock()
     response.__enter__.return_value.read.return_value = content

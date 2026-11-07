@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -67,7 +68,7 @@ def test_python_matrix_rejects_invalid_or_mismatched_release_runtime(
 
 @pytest.mark.parametrize("explicit", [False, True])
 def test_matrix_cli_projects_to_exact_selected_output(
-    explicit, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    *, explicit: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output = tmp_path / "output"
     args = (
@@ -114,7 +115,9 @@ def test_matrix_cli_requires_an_output_and_nonempty_unique_versions(
     [("3.12\n3.13\n3.14\n", ">=3.12,<3.15"), ("3.13\n3.14\n", ">=3.13,<3.15")],
 )
 def test_package_python_bounds_derive_from_the_selected_matrix(
-    tmp_path: Path, versions, requirement
+    tmp_path: Path,
+    versions: Literal["3.12\n3.13\n3.14\n", "3.13\n3.14\n"],
+    requirement: Literal[">=3.12,<3.15", ">=3.13,<3.15"],
 ) -> None:
     path = tmp_path / "versions"
     path.write_text(versions)
@@ -123,7 +126,7 @@ def test_package_python_bounds_derive_from_the_selected_matrix(
 
 @pytest.mark.parametrize("versions", ["3.12\n3.12\n", "3.12.7\n", "3.12\n3.14\n"])
 def test_package_python_bounds_require_an_ordered_contiguous_matrix(
-    tmp_path: Path, versions
+    tmp_path: Path, versions: Literal["3.12\n3.12\n", "3.12.7\n", "3.12\n3.14\n"]
 ) -> None:
     path = tmp_path / "versions"
     path.write_text(versions)

@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -97,7 +98,7 @@ def test_native_report_has_no_replacement_or_retry(
 
 @pytest.mark.parametrize("exit_code", [0, 1])
 def test_native_report_preserves_a_block_without_claiming_acceptance(
-    tmp_path: Path, mocker: MockerFixture, exit_code
+    tmp_path: Path, mocker: MockerFixture, exit_code: int
 ) -> None:
     report = {
         "command": "status",
@@ -114,7 +115,7 @@ def test_native_report_preserves_a_block_without_claiming_acceptance(
 
 @pytest.mark.parametrize("path", ["report.json", "absent"])
 def test_native_report_refuses_unverifiable_evidence_paths(
-    tmp_path: Path, mocker: MockerFixture, path
+    tmp_path: Path, mocker: MockerFixture, path: Literal["report.json", "absent"]
 ) -> None:
     content = b"{}"
     (tmp_path / "report.json").write_bytes(content)

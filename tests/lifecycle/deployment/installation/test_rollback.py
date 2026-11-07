@@ -40,7 +40,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
         service = FakeServiceAdapter(mocker=mocker)
 
-        def runtime_reader(_ctx):
+        def runtime_reader(_ctx: object):
             return {"pid": 321}
 
         result = apply.rollback(

@@ -8,6 +8,7 @@ import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -27,7 +28,7 @@ pytestmark = [
 class TestRealSubprocessHandoffIntegration(SubprocessFixture):
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
     def test_native_listener_preserves_tool_deliveries_and_encrypted_agent_tasks(
-        self, call_type
+        self, call_type: Literal["function_call", "custom_tool_call"]
     ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
@@ -89,7 +90,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
     @pytest.mark.parametrize("ending", ["closed", "held_open", "malformed"])
     def test_native_listener_recovers_pre_content_failure_without_duplicate_output(
-        self, ending
+        self, ending: Literal["closed", "held_open", "malformed"]
     ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)

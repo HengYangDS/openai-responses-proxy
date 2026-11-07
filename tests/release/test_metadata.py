@@ -9,6 +9,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -450,7 +451,19 @@ def test_current_release_metadata_chronology(
     ],
 )
 def test_cli_release_transition_admission(
-    defect, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+    defect: Literal[
+        "combined",
+        "missing-heading",
+        "not-first",
+        "future",
+        "invalid-train",
+        "invalid-tag",
+        "missing-tag-heading",
+        "valid-prepared",
+        "valid-tagged",
+    ],
+    mocker: MockerFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     mocker.patch.object(metadata, "read_version", return_value="1.2.3")
     mocker.patch.object(metadata, "check_python_metadata")

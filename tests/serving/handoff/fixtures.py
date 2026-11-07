@@ -129,11 +129,11 @@ class Response:
         """Return this response for a context-managed request."""
         return self
 
-    def __exit__(self, *_args) -> bool:
+    def __exit__(self, *_args: object) -> bool:
         """Propagate exceptions raised by the managed caller."""
         return False
 
-    def read(self, _limit):
+    def read(self, _limit: object):
         return self.payload
 
 

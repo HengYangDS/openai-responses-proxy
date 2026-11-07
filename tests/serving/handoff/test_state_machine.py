@@ -134,7 +134,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child = fake_child(mocker=mocker)
         child.recv_message.side_effect = [child_message("ready", child, expected)]
 
-        def slow_spawn(*_args, **_kwargs):
+        def slow_spawn(*_args: object, **_kwargs: object):
             release_spawn.wait(timeout=5)
             return child
 

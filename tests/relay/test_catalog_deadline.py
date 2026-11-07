@@ -10,6 +10,7 @@ import threading
 import time
 import urllib.error
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import Never
 from typing import override
 
@@ -37,7 +38,7 @@ PROVIDERS = provider_registry.load()
 class TestCatalogDeadline(InputTransportFixture):
     @pytest.mark.parametrize("deadline", [100.0, 99.0], ids=["at-expiry", "after-expiry"])
     def test_expired_catalog_budget_never_starts_upstream_lookup(
-        self, deadline, *, mocker: MockerFixture
+        self, deadline: float, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(time, "monotonic", return_value=100.0)
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
@@ -94,7 +95,7 @@ class TestCatalogDeadline(InputTransportFixture):
             responses, "_SETTINGS", config.load({"OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "0.5"})
         )
 
-        def open_headers(_request, timeout, *, deadline=None) -> Never:
+        def open_headers(_request: object, timeout, *, deadline=None) -> Never:
             del timeout, deadline
             now[0] += 0.6
             raise OSError("private expired transport error")
@@ -123,7 +124,7 @@ class TestCatalogDeadline(InputTransportFixture):
         handler.close_connection = False
         observed = []
 
-        def write(_payload) -> Never:
+        def write(_payload: object) -> Never:
             observed.append(handler.connection.gettimeout())
             raise TimeoutError("private downstream timeout")
 
@@ -140,7 +141,7 @@ class TestCatalogDeadline(InputTransportFixture):
     @pytest.mark.parametrize("phase", ["headers", "body"])
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_native_framing_cannot_renew_its_deadline(
-        self, phase, status, *, mocker: MockerFixture
+        self, phase: Literal["headers", "body"], status: int, *, mocker: MockerFixture
     ) -> None:
         upstream = ScriptedUpstream()
         release = threading.Event()
@@ -202,7 +203,7 @@ class TestCatalogDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_body_cannot_refund_time_spent_acquiring_headers(
-        self, status, *, mocker: MockerFixture
+        self, status: int, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -212,7 +213,7 @@ class TestCatalogDeadline(InputTransportFixture):
         upstream = TimedResponse(now, [b"private-body"] * 3, "application/json")
         upstream.status = status
 
-        def open_headers(_request, timeout, *, deadline=None):
+        def open_headers(_request: object, timeout, *, deadline=None):
             del timeout, deadline
             now[0] += 0.4
             if status >= 400:
@@ -237,7 +238,7 @@ class TestCatalogDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("status", [200, 403])
     def test_catalog_headers_arriving_after_expiry_cannot_commit(
-        self, status, *, mocker: MockerFixture
+        self, status: int, *, mocker: MockerFixture
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -246,7 +247,7 @@ class TestCatalogDeadline(InputTransportFixture):
         )
         upstream = TimedResponse(now, [], "application/json")
 
-        def open_headers(_request, timeout, *, deadline=None):
+        def open_headers(_request: object, timeout, *, deadline=None):
             del timeout, deadline
             now[0] += 0.6
             if status >= 400:
@@ -364,7 +365,7 @@ class TestCatalogTransport(InputTransportFixture):
     @pytest.mark.parametrize("status", [200, 403])
     @pytest.mark.parametrize("overflow", [False, True], ids=["exact-limit", "over-limit"])
     def test_catalog_byte_limit_preserves_only_admitted_bytes(
-        self, status, *, overflow, mocker: MockerFixture
+        self, status: int, *, overflow: bool, mocker: MockerFixture
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False

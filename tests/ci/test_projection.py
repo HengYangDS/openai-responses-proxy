@@ -6,6 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 import yaml
@@ -196,7 +197,7 @@ def test_ci_projection_checks_then_restores_only_owned_files(
 
 @pytest.mark.parametrize("output_format", ["yaml", "text"])
 def test_ci_projection_renderer_binds_the_locked_repository(
-    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, output_format
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, output_format: Literal["yaml", "text"]
 ) -> None:
     monkeypatch.setenv("MISE_CONFIG_FILE", "/foreign/config.toml")
     command = mocker.patch.object(

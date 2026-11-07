@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import astuple
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -28,7 +29,12 @@ class TestTermination:
         ],
     )
     def test_unproved_termination_preserves_safe_failure_phase(
-        self, phase, failure, reason, *, mocker: MockerFixture
+        self,
+        phase: Literal["capture", "generation", "status", "signal", "wait"],
+        failure,
+        reason: Literal["access denied", "invalid native observation", "OS error 5"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         candidate = mocker.Mock()
         candidate.create_time.return_value = 42.0

@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import tarfile
+from typing import Literal
 
 import pytest
 
@@ -134,7 +135,7 @@ class FormatContracts:
 
 
 @pytest.mark.parametrize("version", [True, 1.0, 2])
-def test_manifest_schema_uses_exact_integer_identity(version) -> None:
+def test_manifest_schema_uses_exact_integer_identity(*, version: bool | float) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])
@@ -146,7 +147,7 @@ def test_manifest_schema_uses_exact_integer_identity(version) -> None:
 
 
 @pytest.mark.parametrize("manifest", [b"not-json", b"[]", b"{}"])
-def test_manifest_requires_one_complete_object(manifest) -> None:
+def test_manifest_requires_one_complete_object(manifest: bytes) -> None:
     with pytest.raises(assets.AssetError, match="manifest is malformed"):
         assets.verify_platform_archive(b"", manifest)
 
@@ -154,7 +155,9 @@ def test_manifest_requires_one_complete_object(manifest) -> None:
 @pytest.mark.parametrize(
     ("field", "value"), [("version", 1), ("platform", None), ("files", {"../outside": "0" * 64})]
 )
-def test_manifest_requires_portable_typed_inventory(field, value) -> None:
+def test_manifest_requires_portable_typed_inventory(
+    field: Literal["version", "platform", "files"], value
+) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])
@@ -168,7 +171,9 @@ def test_manifest_requires_portable_typed_inventory(field, value) -> None:
 @pytest.mark.parametrize(
     "defect", ["directory", "outside", "duplicate", "mode", "digest", "corrupt"]
 )
-def test_archive_members_are_bound_to_portable_manifest(defect) -> None:
+def test_archive_members_are_bound_to_portable_manifest(
+    defect: Literal["directory", "outside", "duplicate", "mode", "digest", "corrupt"],
+) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])

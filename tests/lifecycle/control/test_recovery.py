@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import pytest
 
@@ -29,7 +30,7 @@ def test_recovery_rebinds_supervision_to_the_control_generation(
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
 
-    def recover_and_bind(_ctx, *, runtime, bind_terminal, discard_native):
+    def recover_and_bind(_ctx: object, *, runtime, bind_terminal, discard_native):
         assert runtime == {"pid": 7}
         assert callable(discard_native)
         bind_terminal(control_generation)
@@ -57,7 +58,7 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
 
-    def recover_and_bind(_ctx, *, runtime, bind_terminal, discard_native) -> None:
+    def recover_and_bind(_ctx: object, *, runtime, bind_terminal, discard_native) -> None:
         assert runtime == {"pid": 7}
         assert callable(discard_native)
         bind_terminal(control_generation)
@@ -89,7 +90,7 @@ def test_recovery_no_op_does_not_touch_native_supervision(
 
 @pytest.mark.parametrize("failure", [None, "wrong-supervisor", "registered", "process-exit"])
 def test_recovery_stops_only_its_candidate_before_native_disposal(
-    failure, tmp_path: Path, mocker: MockerFixture
+    failure: str | None, tmp_path: Path, mocker: MockerFixture
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = generation.context(ctx, "a" * 32)
@@ -106,7 +107,7 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
     mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
-    def recover_and_discard(_ctx, *, runtime, bind_terminal, discard_native):
+    def recover_and_discard(_ctx: object, *, runtime, bind_terminal, discard_native):
         assert runtime is None
         assert callable(bind_terminal)
         discard_native(candidate)
@@ -128,7 +129,9 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
 
 @pytest.mark.parametrize("native_state", ["absent", "running", "installed", "unknown"])
 def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
-    native_state, tmp_path: Path, mocker: MockerFixture
+    native_state: Literal["absent", "running", "installed", "unknown"],
+    tmp_path: Path,
+    mocker: MockerFixture,
 ) -> None:
     ctx = install_context(tmp_path)
     candidate = generation.context(ctx, "a" * 32)
@@ -139,7 +142,7 @@ def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
     mocker.patch.object(control.records, "status", return_value={"state": "activated"})
     mocker.patch.object(control, "read_runtime", return_value=None)
 
-    def recover_and_discard(_ctx, *, runtime, bind_terminal, discard_native):
+    def recover_and_discard(_ctx: object, *, runtime, bind_terminal, discard_native):
         assert runtime is None
         assert callable(bind_terminal)
         discard_native(candidate)

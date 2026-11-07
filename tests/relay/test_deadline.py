@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import urllib.error
 from typing import TYPE_CHECKING
+from typing import Literal
 from typing import Never
 
 import pytest
@@ -33,12 +34,12 @@ class TestExchangeDeadline(InputTransportFixture):
         upstream = TimedResponse(now, [], "text/event-stream")
         chunks = iter([b'data: {"type":"response.completed"}', b"\n\n"])
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request: object, timeout, *, deadline):
             del timeout, deadline
             now[0] += 0.4
             return upstream
 
-        def late_read(_amount):
+        def late_read(_amount: object):
             chunk = next(chunks, b"")
             now[0] += 0.1 if chunk.startswith(b"data:") else 0.4
             return chunk
@@ -66,12 +67,12 @@ class TestExchangeDeadline(InputTransportFixture):
         upstream = TimedResponse(now, [], "text/event-stream")
         chunks = iter([content, completed] if committed else [completed])
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request: object, timeout, *, deadline):
             del timeout, deadline
             now[0] += 0.4
             return upstream
 
-        def late_read(_amount):
+        def late_read(_amount: object):
             chunk = next(chunks, b"")
             now[0] += 0.2 if chunk == content else 0.4
             return chunk
@@ -100,7 +101,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         upstream = TimedResponse(now, [], "application/json")
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request: object, timeout, *, deadline):
             del deadline
             now[0] += timeout
             return upstream
@@ -122,12 +123,12 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         attempted = []
 
-        def open_headers(_request, timeout, *, deadline) -> Never:
+        def open_headers(_request: object, timeout, *, deadline) -> Never:
             del deadline
             attempted.append(timeout)
             raise OSError("private connection failure")
 
-        def oversleep(_delay) -> None:
+        def oversleep(_delay: object) -> None:
             now[0] += 0.8
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
@@ -160,7 +161,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         upstream = TimedResponse(now, [], "application/json")
 
-        def open_headers(_request, timeout, *, deadline) -> Never:
+        def open_headers(_request: object, timeout, *, deadline) -> Never:
             del deadline
             now[0] += timeout
             raise urllib.error.HTTPError(
@@ -186,7 +187,11 @@ class TestExchangeDeadline(InputTransportFixture):
         ],
     )
     def test_unreadable_error_body_is_a_bounded_local_failure(
-        self, chunks, reason, *, mocker: MockerFixture
+        self,
+        chunks,
+        reason: Literal["response_too_large", "ConnectionResetError"],
+        *,
+        mocker: MockerFixture,
     ) -> None:
         mocker.patch.object(upstream_exchange.downstream, "MAX_RESPONSES_JSON_BYTES", 64)
         upstream = TimedResponse([0.0], chunks, "application/json")
@@ -216,7 +221,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.5)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
 
-        def open_headers(_request, timeout, *, deadline) -> Never:
+        def open_headers(_request: object, timeout, *, deadline) -> Never:
             del deadline
             attempts.append(timeout)
             now[0] += 0.2
@@ -253,7 +258,7 @@ class TestExchangeDeadline(InputTransportFixture):
             "application/json",
         )
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request: object, timeout, *, deadline):
             del deadline
             upstream.settimeout(timeout)
             now[0] += 0.4
@@ -290,7 +295,7 @@ class TestExchangeDeadline(InputTransportFixture):
         upstream = TimedResponse(now, [content, completed], "text/event-stream")
         attempts = []
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request: object, timeout, *, deadline):
             del deadline
             attempts.append(timeout)
             upstream.settimeout(timeout)
