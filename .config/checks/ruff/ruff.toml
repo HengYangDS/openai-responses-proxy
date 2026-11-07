@@ -135,6 +135,7 @@ select = [
   "S704",
   "TRY004",
   "TRY300",
+  "TRY301",
 ]
 
 ignore = [
