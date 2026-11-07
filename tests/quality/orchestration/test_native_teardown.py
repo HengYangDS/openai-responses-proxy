@@ -331,6 +331,55 @@ def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
     terminate.assert_called_once_with(41, ctx.executable, roles=serving_roles.RUNTIME_ROLES)
 
 
+def test_native_cleanup_refuses_a_service_executable_outside_the_installation(
+    tmp_path: Path, *, mocker
+) -> None:
+    """A registered executable outside the private installation stops teardown untouched."""
+    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    service = mocker.Mock()
+    service.configured_executable.return_value = str(tmp_path / "elsewhere" / "proxy")
+    mocker.patch.object(verification.native_service, "adapter", return_value=service)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+
+    with pytest.raises(errors.InstallError, match="outside the owned installation"):
+        verification.cleanup_runtime(ctx)
+
+    service.uninstall.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("statuses", "configured", "inventories", "message"),
+    [
+        (["running"], [None], [[]], "service remains after uninstall"),
+        (["absent", "running"], [None], [[]], "service reappeared after cleanup"),
+        (["absent", "absent"], [None, "bound"], [[]], "binding remains after cleanup"),
+        (["absent", "absent"], [None, None], [[], [41]], "process remains after cleanup"),
+    ],
+)
+def test_native_cleanup_proves_every_registration_and_process_is_gone(
+    tmp_path: Path,
+    statuses: list[str],
+    configured: list[str | None],
+    inventories: list[list[int]],
+    message: str,
+    *,
+    mocker,
+) -> None:
+    """Each residue that cleanup observes afterwards fails teardown with its own diagnosis."""
+    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    service = mocker.Mock()
+    service.status.side_effect = statuses
+    service.configured_executable.side_effect = configured
+    mocker.patch.object(verification.native_service, "adapter", return_value=service)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    mocker.patch.object(verification.process, "pids_naming_executable", side_effect=inventories)
+
+    with pytest.raises(errors.InstallError, match=message):
+        verification.cleanup_runtime(ctx)
+
+    service.uninstall.assert_called_once_with(ctx)
+
+
 @pytest.mark.parametrize("arguments", [("--basetemp",), ("--basetemp=/a", "--basetemp=/b")])
 def test_native_acceptance_refuses_ambiguous_roots_before_launch(
     tmp_path: Path, mocker, arguments: tuple[str, ...]
