@@ -34,7 +34,7 @@ from tools.quality import branch_coverage
         ("unknown", "value"),
     ],
 )
-def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker):
+def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     policy = tomllib.loads(path.read_text())
     policy[field] = value
@@ -45,12 +45,12 @@ def test_policy_cannot_weaken_the_declared_boundary(field, value, mocker):
 
 
 @pytest.mark.parametrize("value", [None, {1: "invalid"}])
-def test_report_objects_require_string_keys(value):
+def test_report_objects_require_string_keys(value) -> None:
     with pytest.raises(ValueError, match="must be an object"):
         branch_coverage._object_mapping(value, label="measured report")
 
 
-def test_empty_package_cannot_claim_observed_statements():
+def test_empty_package_cannot_claim_observed_statements() -> None:
     assert branch_coverage.package_gaps(
         {
             "tools": {
@@ -63,7 +63,7 @@ def test_empty_package_cannot_claim_observed_statements():
     ) == ["package_statement_coverage_requires_measured_statements:tools"]
 
 
-def test_malformed_package_counts_are_not_coverage_evidence():
+def test_malformed_package_counts_are_not_coverage_evidence() -> None:
     assert branch_coverage.package_totals(
         {
             "tools/quality/observed.py": {
@@ -87,7 +87,9 @@ def test_malformed_package_counts_are_not_coverage_evidence():
 
 
 @pytest.mark.parametrize("source", [None, [1], ["tools"]])
-def test_cli_requires_native_source_inventory_and_returns_measured_success(source, mocker, capsys):
+def test_cli_requires_native_source_inventory_and_returns_measured_success(
+    source, mocker, capsys
+) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     coverage = mocker.patch.object(branch_coverage, "Coverage").return_value
     coverage.get_option.return_value = source

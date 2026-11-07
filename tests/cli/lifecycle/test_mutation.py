@@ -145,7 +145,7 @@ def test_install_delegates_with_an_explicit_timeout(tmp_path: Path, *, mocker) -
     install.assert_called_once_with(ctx, asset, trust_anchor=trust, timeout_seconds=45.0)
 
 
-def test_install_of_the_active_artifact_reports_no_change(tmp_path: Path, *, mocker):
+def test_install_of_the_active_artifact_reports_no_change(tmp_path: Path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     unchanged = {"state": "unchanged", "release": "3.1.16"}

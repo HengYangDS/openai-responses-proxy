@@ -142,7 +142,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
         mocker.patch.object(process, "capture_executable", return_value=source)
 
-        def terminate(*_args, **_kwargs):
+        def terminate(*_args, **_kwargs) -> bool:
             events.append("source-exit")
             return True
 

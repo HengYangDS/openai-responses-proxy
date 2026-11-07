@@ -19,7 +19,7 @@ from tests.lifecycle.supervision.macos.fixtures import service as _service
 
 class TestMacosLifecycle:
     @pytest.fixture(autouse=True)
-    def _isolate_launch_agents(self, tmp_path, *, mocker):
+    def _isolate_launch_agents(self, tmp_path, *, mocker) -> None:
         mocker.patch.object(macos.config, "home_dir", return_value=str(tmp_path))
         mocker.patch.object(
             macos.shutil,
@@ -339,13 +339,13 @@ class TestMacosLifecycle:
                 macos.install(ctx)
             assert "/Users/private/LaunchAgents" not in str(raised.value)
 
-    def test_plist_executes_the_installed_binary_in_private_watchdog_mode(self):
+    def test_plist_executes_the_installed_binary_in_private_watchdog_mode(self) -> None:
         with _temporary_context("log_dir") as ctx:
             ctx.executable = f"{ctx.install_dir}/python-build.py/bin/openai-responses-proxy"
             payload = plistlib.loads(macos.render_plist(ctx).encode())
         assert payload["ProgramArguments"] == [ctx.executable, "--internal-watchdog"]
 
-    def test_plist_serialization_preserves_special_characters(self):
+    def test_plist_serialization_preserves_special_characters(self) -> None:
         with _temporary_context("log_dir") as ctx:
             ctx.executable = f"{ctx.executable} & native"
             payload = plistlib.loads(macos.render_plist(ctx).encode())
@@ -355,7 +355,7 @@ class TestMacosLifecycle:
             macos.serving_roles.WATCHDOG_MODE,
         ]
 
-    def test_configured_executable_reads_only_a_valid_watchdog_plist(self):
+    def test_configured_executable_reads_only_a_valid_watchdog_plist(self) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             assert macos.configured_executable(ctx) is None
@@ -365,14 +365,14 @@ class TestMacosLifecycle:
             with pytest.raises(errors.InstallError, match="carrier is invalid"):
                 macos.configured_executable(ctx)
 
-    def test_rendered_plist_captures_watchdog_stderr(self):
+    def test_rendered_plist_captures_watchdog_stderr(self) -> None:
         with _temporary_context("log_dir") as ctx:
             rendered = macos.render_plist(ctx)
         assert "<key>StandardErrorPath</key>\n  <string>/dev/null</string>" not in rendered
         stderr_log = runtime_config.path_join(ctx.log_dir, "watchdog.stderr.log")
         assert f"<string>{stderr_log}</string>" in rendered
 
-    def test_status_and_uninstall(self, *, mocker):
+    def test_status_and_uninstall(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             for exists, result, expected in (
@@ -397,7 +397,7 @@ class TestMacosLifecycle:
                 assert not plist.exists()
                 assert invoked.call_count == 2
 
-    def test_uninstall_keeps_plist_when_launchd_removal_is_unproven(self, *, mocker):
+    def test_uninstall_keeps_plist_when_launchd_removal_is_unproven(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             configured = f"{ctx.install_dir}/generations/{'a' * 32}/bin/openai-responses-proxy"
             configured_context = SimpleNamespace(
@@ -431,7 +431,7 @@ class TestMacosLifecycle:
                 roles={macos.serving_roles.WATCHDOG_MODE},
             )
 
-    def test_uninstall_boots_out_registered_service_when_plist_is_missing(self, *, mocker):
+    def test_uninstall_boots_out_registered_service_when_plist_is_missing(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             plist.unlink(missing_ok=True)

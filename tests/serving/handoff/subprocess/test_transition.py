@@ -34,7 +34,7 @@ pytestmark = [
 
 
 class TestRealSubprocessHandoffIntegration(SubprocessFixture):
-    def test_old_pid_serves_before_handoff_and_child_pid_serves_after(self):
+    def test_old_pid_serves_before_handoff_and_child_pid_serves_after(self) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         upstream.push((200, b'{"id":"ok","status":"completed"}'))
@@ -75,7 +75,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
             "old process did not exit after finalize"
         )
 
-    def test_finalized_child_can_drive_a_second_real_handoff(self):
+    def test_finalized_child_can_drive_a_second_real_handoff(self) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()
@@ -132,13 +132,13 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
     def test_long_upstream_response_completes_during_handoff_while_child_serves_and_old_exits_after(
         self,
-    ):
+    ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         started = threading.Event()
         release = threading.Event()
 
-        def long_response(handler):
+        def long_response(handler) -> None:
             started.set()
             release.wait(timeout=10)
             payload = b'{"id":"finished-late","status":"completed"}'
@@ -161,7 +161,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
         held = {}
 
-        def run_holder():
+        def run_holder() -> None:
             held["body"] = self._post_responses(port)
 
         holder = threading.Thread(target=run_holder)
@@ -205,13 +205,13 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
     def test_bounded_lease_forces_old_to_exit_even_if_a_held_stream_never_finishes(
         self,
-    ):
+    ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         started = threading.Event()
         never_release = threading.Event()
 
-        def never_finishes(handler):
+        def never_finishes(handler) -> None:
             started.set()
             never_release.wait(timeout=6)  # bounded so the test itself cannot hang
             handler.send_response(200)
@@ -232,7 +232,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
-        def hold_stream():
+        def hold_stream() -> None:
             with contextlib.suppress(Exception):
                 self._post_responses(port, timeout=8)
 
@@ -274,7 +274,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         assert still_healthy.get("pid") == child_pid["value"]
         assert still_healthy.get("accepting") is True
 
-    def test_handoff_completes_after_requesting_controller_disconnects(self):
+    def test_handoff_completes_after_requesting_controller_disconnects(self) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()
@@ -313,7 +313,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         assert health.get("pid") == child_pid["value"]
         assert health.get("accepting") is True
 
-    def test_a_stalled_handoff_envelope_is_refused_and_starts_no_handoff(self):
+    def test_a_stalled_handoff_envelope_is_refused_and_starts_no_handoff(self) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()

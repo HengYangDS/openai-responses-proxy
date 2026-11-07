@@ -18,7 +18,7 @@ def _request_body(input_items: object, **extra: object) -> bytes:
 
 
 class RequestSanitizationContracts:
-    def test_strips_reasoning_and_encrypted(self):
+    def test_strips_reasoning_and_encrypted(self) -> None:
         body = _request_body(
             [
                 {"type": "reasoning", "encrypted_content": "gAAAA_secret"},
@@ -33,7 +33,7 @@ class RequestSanitizationContracts:
         assert obj["input"] == [{"type": "message", "role": "user", "content": "hello"}]
         assert "reasoning.encrypted_content" not in obj["include"]
 
-    def test_preserves_native_agent_message_and_removes_reasoning(self):
+    def test_preserves_native_agent_message_and_removes_reasoning(self) -> None:
         body = json.dumps(
             {
                 "input": [
@@ -66,7 +66,7 @@ class RequestSanitizationContracts:
         assert "reasoning_items=1" in note
         assert "reasoning.encrypted_content" not in obj["include"]
 
-    def test_rejects_malformed_agent_ciphertext_instead_of_partial_delivery(self):
+    def test_rejects_malformed_agent_ciphertext_instead_of_partial_delivery(self) -> None:
         body = json.dumps(
             {
                 "input": [
@@ -93,7 +93,7 @@ class RequestSanitizationContracts:
         assert out is None
         assert note == "rejected invalid_encrypted_content"
 
-    def test_rejects_unknown_fields_that_resemble_encrypted_content(self):
+    def test_rejects_unknown_fields_that_resemble_encrypted_content(self) -> None:
         body = json.dumps(
             {
                 "input": [
@@ -110,7 +110,7 @@ class RequestSanitizationContracts:
         assert out is None
         assert note == "rejected unknown_call_field"
 
-    def test_fail_closed_on_non_json(self):
+    def test_fail_closed_on_non_json(self) -> None:
         raw = b"not json at all"
         _projection = rewrite.sanitize_responses_body(raw)
         out = _projection.body
@@ -118,7 +118,7 @@ class RequestSanitizationContracts:
         assert out is None
         assert note == "rejected invalid_json"
 
-    def test_json_parser_depth_failure_is_structural_rejection(self):
+    def test_json_parser_depth_failure_is_structural_rejection(self) -> None:
         raw = b'{"input":"private-current-prompt","metadata":' + b"[" * 100_000 + b"0"
         projection = rewrite.sanitize_responses_body(raw)
         assert projection.body is None
@@ -127,20 +127,22 @@ class RequestSanitizationContracts:
 
     @pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999", b"-1e9999"])
     @pytest.mark.parametrize("store", [b"", b',"store":false'])
-    def test_nonfinite_numbers_fail_closed_before_projection(self, number: bytes, store: bytes):
+    def test_nonfinite_numbers_fail_closed_before_projection(
+        self, number: bytes, store: bytes
+    ) -> None:
         raw = b'{"input":"private-current-prompt","temperature":' + number + store + b"}"
         projection = rewrite.sanitize_responses_body(raw)
         assert projection.body is None
         assert projection.diagnostic() == "rejected invalid_json"
         assert recovery.diagnose(raw).first_incompatible_reason == "invalid_json"
 
-    def test_nested_nonfinite_number_is_rejected_even_in_removed_provider_state(self):
+    def test_nested_nonfinite_number_is_rejected_even_in_removed_provider_state(self) -> None:
         raw = b'{"input":"current","previous_response_id":{"nested":[NaN]},"store":false}'
         projection = rewrite.sanitize_responses_body(raw)
         assert projection.body is None
         assert projection.diagnostic() == "rejected invalid_json"
 
-    def test_finite_json_numbers_preserve_clean_request_bytes(self):
+    def test_finite_json_numbers_preserve_clean_request_bytes(self) -> None:
         raw = (
             b'{ "input" : "current", "store" : false, "temperature" : 0.5, '
             b'"metadata" : {"numbers":[0,-0.0,1e308,1e-320],"text":"NaN Infinity"} }'
@@ -149,7 +151,7 @@ class RequestSanitizationContracts:
         assert projection.body == raw
         assert projection.diagnostic() == "clean portable_replay"
 
-    def test_finite_json_numbers_survive_request_normalization(self):
+    def test_finite_json_numbers_survive_request_normalization(self) -> None:
         raw = b'{"input":"current","temperature":0.5,"metadata":{"numbers":[0,-0.0,1e308,1e-320]}}'
         projection = rewrite.sanitize_responses_body(raw)
         assert projection.body is not None
@@ -201,7 +203,7 @@ class RequestSanitizationContracts:
         assert recovery.diagnose(raw).first_incompatible_reason == reason
         assert "private-current-prompt" not in projection.diagnostic()
 
-    def test_fail_closed_on_json_values_that_are_not_response_objects(self, subtests):
+    def test_fail_closed_on_json_values_that_are_not_response_objects(self, subtests) -> None:
         for raw in (b"[]", b"null", b'"text"'):
             with subtests.test(raw=raw):
                 _projection = rewrite.sanitize_responses_body(raw)
@@ -210,7 +212,9 @@ class RequestSanitizationContracts:
                 assert out is None
                 assert note == "rejected request_not_object"
 
-    def test_request_sanitizer_fails_closed_when_mutation_cannot_be_serialized(self, *, mocker):
+    def test_request_sanitizer_fails_closed_when_mutation_cannot_be_serialized(
+        self, *, mocker
+    ) -> None:
         raw = (
             b'{"input":[{"type":"reasoning","encrypted_content":"opaque"},'
             b'{"type":"message","role":"user","content":"continue"}]}'

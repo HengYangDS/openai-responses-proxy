@@ -344,7 +344,7 @@ class ScriptedUpstream:
             def log_message(self, *args: object, **kwargs: object) -> None:
                 del args, kwargs
 
-            def do_POST(self):
+            def do_POST(self) -> None:
                 length = int(self.headers.get("Content-Length", "0"))
                 received.append(self.rfile.read(length))
                 with outer._lock:
@@ -362,7 +362,7 @@ class ScriptedUpstream:
                 self.end_headers()
                 self.wfile.write(response_payload)
 
-            def do_GET(self):
+            def do_GET(self) -> None:
                 self.do_POST()
 
         self.server = _DisconnectAwareHTTPServer(("127.0.0.1", 0), Handler)
@@ -525,7 +525,7 @@ def handoff_outcome_ready() -> threading.Event:
 class HandoffFixture:
     """Reset handoff and runtime state for parent-side unit tests."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.p = handoff_module
         runtime_state_module.reset_for_test()
         self.p.reset_session_to_idle()

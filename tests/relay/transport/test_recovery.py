@@ -31,7 +31,7 @@ class TestProxyTransport(LoopbackTransportFixture):
     )
     def test_unclassified_error_passes_through_without_retry(
         self, path, status, error_body, capsys
-    ):
+    ) -> None:
         body = b'{"stream":false,"input":[{"type":"message","role":"user","content":"hello"}]}'
         success = b'{"id":"resp_next","status":"completed","output":[]}'
 
@@ -56,7 +56,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         captured = capsys.readouterr()
         assert "Traceback" not in captured.out + captured.err
 
-    def test_recovers_response_failed_with_pair_safe_compact_request(self):
+    def test_recovers_response_failed_with_pair_safe_compact_request(self) -> None:
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
             b'response_failed - Response failed",'
@@ -110,7 +110,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         outputs = {item["call_id"] for item in compact["input"] if item.get("type") in output_types}
         assert outputs.issubset(calls)
 
-    def test_recovers_blocked_invalid_prompt_with_pair_safe_compact_request(self):
+    def test_recovers_blocked_invalid_prompt_with_pair_safe_compact_request(self) -> None:
         blocked = (
             b'{"error":{"message":"Request blocked. (request id: fixture)",'
             b'"type":"invalid_request_error","param":"","code":"invalid_prompt"}}'
@@ -162,7 +162,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert classifications.get("blocked_invalid_prompt") == 1
         assert "response_failed" not in classifications
 
-    def test_passes_through_unrelated_invalid_prompt(self):
+    def test_passes_through_unrelated_invalid_prompt(self) -> None:
         invalid_prompt = (
             b'{"error":{"message":"caller supplied an unsupported option",'
             b'"type":"invalid_request_error","param":"tool_choice","code":"invalid_prompt"}}'
@@ -191,7 +191,7 @@ class TestProxyTransport(LoopbackTransportFixture):
 
         assert json.loads(received[0]) == {**json.loads(body), "store": False}
 
-    def test_rejected_encrypted_delegation_keeps_its_required_task_payload(self):
+    def test_rejected_encrypted_delegation_keeps_its_required_task_payload(self) -> None:
         rejection = b'{"error":{"type":"invalid_request_error","code":"invalid_encrypted_content"}}'
         request_body = json.dumps(
             {
@@ -236,7 +236,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         classifications = cast("dict[str, int]", snapshot["upstream_classifications"])
         assert classifications["provider_bound_encrypted_content"] == 1
 
-    def test_response_failed_final_recovery_retains_the_current_tool_pair(self, *, mocker):
+    def test_response_failed_final_recovery_retains_the_current_tool_pair(self, *, mocker) -> None:
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
             b'response_failed - Response failed",'
@@ -317,7 +317,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert "event=response_failed_dialogue_recovery_accepted" in logs
         assert "event=response_failed_compact_recovery_accepted" not in logs
 
-    def test_normalizes_exhausted_response_failed_recovery_to_retryable_503(self, *, mocker):
+    def test_normalizes_exhausted_response_failed_recovery_to_retryable_503(
+        self, *, mocker
+    ) -> None:
         response_failed = (
             b'{"error":{"message":"OpenAI responses stream failed: '
             b'response_failed - Response failed",'
@@ -370,7 +372,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert len(received) == 1
         assert payload["error"]["code"] == "response_failed_recovery_exhausted"
 
-    def test_retries_classified_empty_response_at_most_once_with_unchanged_body(self, *, mocker):
+    def test_retries_classified_empty_response_at_most_once_with_unchanged_body(
+        self, *, mocker
+    ) -> None:
         empty_response = (
             b'{"error":{"message":"official provider returned an empty response",'
             b'"type":"dmx_api_error","code":"empty_response"}}'
@@ -391,7 +395,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert received[0] == received[1]
         assert json.loads(received[0]) == {**json.loads(body), "store": False}
 
-    def test_runtime_metrics_classify_recovery_without_retaining_request_content(self):
+    def test_runtime_metrics_classify_recovery_without_retaining_request_content(self) -> None:
         response_failed = b'{"error":{"type":"new_api_error","code":"response_failed"}}'
         success = b'{"id":"resp_recovered","status":"completed"}'
         body = json.dumps(
@@ -421,7 +425,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert "private prompt" not in json.dumps(status)
         assert "secret-replay" not in json.dumps(status)
 
-    def test_normalizes_exhausted_classified_empty_response_to_retryable_503(self, *, mocker):
+    def test_normalizes_exhausted_classified_empty_response_to_retryable_503(
+        self, *, mocker
+    ) -> None:
         empty_response = (
             b'{"error":{"message":"official provider returned an empty response",'
             b'"type":"dmx_api_error","code":"empty_response"}}'

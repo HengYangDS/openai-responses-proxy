@@ -18,7 +18,7 @@ from tests.release.lifecycle import test_cleanup
 @pytest.mark.parametrize("failure", ["registration", "termination"])
 def test_controller_cleanup_stops_independent_children_after_failure(
     tmp_path, monkeypatch, failure
-):
+) -> None:
     """A failed observation must not strand a separate known child generation."""
     root = tmp_path / "owned"
     root.mkdir()
@@ -45,7 +45,7 @@ def test_controller_cleanup_stops_independent_children_after_failure(
         if failure == "registration":
             registered.write_bytes(b'{"pid":')
 
-            def observe_registration():
+            def observe_registration() -> None:
                 try:
                     json.loads(registered.read_text())
                 finally:

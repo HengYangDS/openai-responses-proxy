@@ -60,7 +60,7 @@ class TestSseFraming(InputTransportFixture):
         assert result["events"] == 5
         assert result["wrote_downstream"] is True
 
-    def test_terminal_stream_finishes_while_chunked_upstream_remains_open(self, *, mocker):
+    def test_terminal_stream_finishes_while_chunked_upstream_remains_open(self, *, mocker) -> None:
         completed = b'data: {"type":"response.completed"}\n\n'
         release = threading.Event()
         mocker.patch.object(sse, "UPSTREAM_READ_TIMEOUT", 1.0)
@@ -75,7 +75,7 @@ class TestSseFraming(InputTransportFixture):
                 release.set()
         assert len(received) == 1
 
-    def test_malformed_committed_stream_remains_a_truncated_http_response(self):
+    def test_malformed_committed_stream_remains_a_truncated_http_response(self) -> None:
         content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
         with (
             running_proxy([{"chunks": [content, b'data: {"type":\n\n']}]) as (

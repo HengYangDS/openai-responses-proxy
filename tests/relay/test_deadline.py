@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from typing import Never
 
 import pytest
 
@@ -85,7 +86,7 @@ class TestExchangeDeadline(InputTransportFixture):
         assert upstream.closed
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_success_headers_arriving_after_expiry_release_the_socket(self, *, mocker):
+    def test_success_headers_arriving_after_expiry_release_the_socket(self, *, mocker) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.5)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
@@ -105,18 +106,18 @@ class TestExchangeDeadline(InputTransportFixture):
         assert upstream.closed
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_overslept_recovery_never_starts_another_request(self, *, mocker):
+    def test_overslept_recovery_never_starts_another_request(self, *, mocker) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         attempted = []
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request, timeout, *, deadline) -> Never:
             del deadline
             attempted.append(timeout)
             raise OSError("private connection failure")
 
-        def oversleep(_delay):
+        def oversleep(_delay) -> None:
             now[0] += 0.8
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
@@ -129,7 +130,7 @@ class TestExchangeDeadline(InputTransportFixture):
         assert handler.statuses == [504]
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_expired_body_budget_refuses_even_buffered_bytes(self, *, mocker):
+    def test_expired_body_budget_refuses_even_buffered_bytes(self, *, mocker) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         response = TimedResponse(now, [b"never read"], "application/json")
@@ -139,13 +140,15 @@ class TestExchangeDeadline(InputTransportFixture):
 
         assert next(response.chunks) == b"never read"
 
-    def test_http_error_arriving_at_expiry_is_closed_without_reading_or_retry(self, *, mocker):
+    def test_http_error_arriving_at_expiry_is_closed_without_reading_or_retry(
+        self, *, mocker
+    ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
         upstream = TimedResponse(now, [], "application/json")
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request, timeout, *, deadline) -> Never:
             del deadline
             now[0] += timeout
             raise urllib.error.HTTPError(
@@ -170,7 +173,9 @@ class TestExchangeDeadline(InputTransportFixture):
             ),
         ],
     )
-    def test_unreadable_error_body_is_a_bounded_local_failure(self, chunks, reason, *, mocker):
+    def test_unreadable_error_body_is_a_bounded_local_failure(
+        self, chunks, reason, *, mocker
+    ) -> None:
         mocker.patch.object(upstream_exchange.downstream, "MAX_RESPONSES_JSON_BYTES", 64)
         upstream = TimedResponse([0.0], chunks, "application/json")
         closed = mocker.spy(upstream, "close")
@@ -199,7 +204,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.5)
         mocker.patch.object(upstream_exchange.time, "monotonic", side_effect=lambda: now[0])
 
-        def open_headers(_request, timeout, *, deadline):
+        def open_headers(_request, timeout, *, deadline) -> Never:
             del deadline
             attempts.append(timeout)
             now[0] += 0.2
@@ -207,7 +212,7 @@ class TestExchangeDeadline(InputTransportFixture):
                 raise OSError("private transport failure")
             raise http_error(500, "Failed", b'{"error":{"code":"server_error"}}')
 
-        def sleep(delay):
+        def sleep(delay) -> None:
             now[0] += delay
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)

@@ -16,7 +16,9 @@ class ProviderPortableHistoryTests:
     """The normal outbound path owns provider-portable history."""
 
     @pytest.mark.parametrize("root_ciphertext", [False, True])
-    def test_preserves_encrypted_agent_payload_with_its_native_envelope(self, root_ciphertext):
+    def test_preserves_encrypted_agent_payload_with_its_native_envelope(
+        self, root_ciphertext
+    ) -> None:
         message = {
             "type": "agent_message",
             "id": "agent_delivery",
@@ -43,7 +45,7 @@ class ProviderPortableHistoryTests:
         assert rewrite.sanitize_responses_body(result.body).body == result.body
 
     @pytest.mark.parametrize("ciphertext", [None, "", 1, {"nested": "value"}])
-    def test_rejects_invalid_encrypted_agent_payload_without_empty_task(self, ciphertext):
+    def test_rejects_invalid_encrypted_agent_payload_without_empty_task(self, ciphertext) -> None:
         message = {
             "type": "agent_message",
             "author": "/root",
@@ -59,7 +61,7 @@ class ProviderPortableHistoryTests:
         assert result.reason == "invalid_encrypted_content"
 
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
-    def test_preserves_named_async_deliveries_at_their_original_positions(self, call_type):
+    def test_preserves_named_async_deliveries_at_their_original_positions(self, call_type) -> None:
         argument = "arguments" if call_type == "function_call" else "input"
         call = {"type": call_type, "call_id": "job", "name": "run", argument: "{}"}
         initial = {

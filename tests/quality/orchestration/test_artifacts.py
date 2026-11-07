@@ -410,7 +410,7 @@ def test_runtime_context_uses_the_native_command_projection(tmp_path: Path, *, m
 @pytest.mark.parametrize("invalid", [None, "python:3.14.7-bookworm@sha256:a"])
 def test_release_runtime_refuses_invalid_projection_before_build(
     tmp_path, mocker, nox_configuration, invalid
-):
+) -> None:
     release = tmp_path / ".config/mise/python-release"
     release.parent.mkdir(parents=True)
     release.write_text("3.14.7\n")
@@ -521,7 +521,9 @@ def test_native_candidate_requires_bundle_and_executable_paths(
     )
 
 
-def test_native_freeze_requires_the_produced_executable(tmp_path, mocker, nox_configuration):
+def test_native_freeze_requires_the_produced_executable(
+    tmp_path, mocker, nox_configuration
+) -> None:
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))
     with pytest.raises(RuntimeError, match="native executable was not produced"):

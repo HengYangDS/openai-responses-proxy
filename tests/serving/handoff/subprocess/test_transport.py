@@ -26,12 +26,14 @@ pytestmark = [
 
 class TestRealSubprocessHandoffIntegration(SubprocessFixture):
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
-    def test_native_listener_preserves_tool_deliveries_and_encrypted_agent_tasks(self, call_type):
+    def test_native_listener_preserves_tool_deliveries_and_encrypted_agent_tasks(
+        self, call_type
+    ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         completed = b'data: {"type":"response.completed"}\n\n'
 
-        def send(handler):
+        def send(handler) -> None:
             handler.send_response(200)
             handler.send_header("Content-Type", "text/event-stream")
             handler.send_header("Content-Length", str(len(completed)))
@@ -86,7 +88,9 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         assert items[4] == task
 
     @pytest.mark.parametrize("ending", ["closed", "held_open", "malformed"])
-    def test_native_listener_recovers_pre_content_failure_without_duplicate_output(self, ending):
+    def test_native_listener_recovers_pre_content_failure_without_duplicate_output(
+        self, ending
+    ) -> None:
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         release = threading.Event()
@@ -105,7 +109,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
             completed = completed.split(b'data: {"type":"response.completed"}')[0]
             completed += b'data: {"type":\n\n'
 
-        def send(handler):
+        def send(handler) -> None:
             payload = failed if len(upstream.received) == 1 else completed
             handler.send_response(200)
             handler.send_header("Content-Type", "text/event-stream")

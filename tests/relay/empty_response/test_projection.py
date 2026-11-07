@@ -19,7 +19,7 @@ from tests.relay.fixtures import serve_proxy
 
 
 class EmptyResponseTransportTests(EmptyResponseFixture):
-    def test_classified_477_dispatches_policy_fallback_once(self):
+    def test_classified_477_dispatches_policy_fallback_once(self) -> None:
         body = semantic_body()
         _projection = rewrite.sanitize_responses_body(body)
         sanitized = _projection.body
@@ -40,7 +40,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         )
         assert isinstance(assistant["content"], str)
 
-    def test_encrypted_only_agent_history_is_projected_once_then_retried_exactly(self):
+    def test_encrypted_only_agent_history_is_projected_once_then_retried_exactly(self) -> None:
         secret = "provider-bound-agent-state"
         request_body = self._body(
             {
@@ -118,7 +118,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert replay["input"][0]["content"] == [image]
         assert replay["input"][2]["output"] == [image]
 
-    def test_unsafe_projection_returns_local_400_without_an_upstream_call(self):
+    def test_unsafe_projection_returns_local_400_without_an_upstream_call(self) -> None:
         body = self._body({"stream": False, "input": [{"type": "future_item"}]})
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -133,7 +133,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert json.loads(raw)["error"]["code"] == "provider_portable_projection_rejected"
         assert received == []
 
-    def test_search_history_is_removed_before_dmx_fallback(self):
+    def test_search_history_is_removed_before_dmx_fallback(self) -> None:
         payload = {
             "previous_response_id": "stale",
             "prompt_cache_key": "stale-cache",
@@ -166,7 +166,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
             item["type"] for item in forwarded["input"]
         }
 
-    def test_rejected_projection_returns_400_without_an_upstream_fallback(self, subtests):
+    def test_rejected_projection_returns_400_without_an_upstream_fallback(self, subtests) -> None:
         cases = (
             (
                 [

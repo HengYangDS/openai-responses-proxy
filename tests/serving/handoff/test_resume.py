@@ -14,11 +14,11 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class TestServeWithHandoffResume(HandoffFixture):
-    def test_rollback_outcome_serves_again_on_the_same_socket(self, *, mocker):
+    def test_rollback_outcome_serves_again_on_the_same_socket(self, *, mocker) -> None:
         server = mocker.Mock()
         calls = []
 
-        def fake_serve_forever():
+        def fake_serve_forever() -> None:
             calls.append(len(calls) + 1)
             if len(calls) == 1:
                 self.p._HANDOFF_SESSION["outcome"] = "rolled_back"
@@ -31,7 +31,9 @@ class TestServeWithHandoffResume(HandoffFixture):
         self.p.serve_with_resume(server, self.context)
         assert server.serve_forever.call_count == 2
 
-    def test_waits_for_the_outcome_ready_event_instead_of_trusting_stale_state(self, *, mocker):
+    def test_waits_for_the_outcome_ready_event_instead_of_trusting_stale_state(
+        self, *, mocker
+    ) -> None:
         # ``server.shutdown()`` returning on the request thread races with the
         # background coordinator thread still finishing its work; the resume
         # loop must not read ``outcome`` the instant ``serve_forever()``
@@ -39,12 +41,12 @@ class TestServeWithHandoffResume(HandoffFixture):
         server = mocker.Mock()
         calls = []
 
-        def fake_serve_forever():
+        def fake_serve_forever() -> None:
             calls.append(len(calls) + 1)
             if len(calls) == 1:
                 self.p._HANDOFF_SESSION["state"] = "committing"
 
-                def delayed_outcome():
+                def delayed_outcome() -> None:
                     time.sleep(0.05)
                     self.p._HANDOFF_SESSION["outcome"] = "rolled_back"
                     handoff_outcome_ready().set()
@@ -62,7 +64,7 @@ class TestServeWithHandoffResume(HandoffFixture):
 
     def test_terminal_outcomes_stop_serving_and_log_only_unconfirmed_states(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         for outcome, expected_log in (
             ("finalized", None),
             (None, None),
@@ -76,7 +78,7 @@ class TestServeWithHandoffResume(HandoffFixture):
                 object.__setattr__(context, "log", logs.append)
                 server = mocker.Mock()
 
-                def serve(outcome=outcome):
+                def serve(outcome=outcome) -> None:
                     self.p._HANDOFF_SESSION["outcome"] = outcome
                     handoff_outcome_ready().set()
 
@@ -85,7 +87,7 @@ class TestServeWithHandoffResume(HandoffFixture):
                 server.serve_forever.assert_called_once()
                 assert bool(logs and expected_log in logs[0]) == bool(expected_log)
 
-    def test_finalized_outcome_waits_for_active_work_until_deadline(self, *, mocker):
+    def test_finalized_outcome_waits_for_active_work_until_deadline(self, *, mocker) -> None:
         server = mocker.Mock()
         active = iter((2, 0))
         context = entrypoint_module._handoff_context()
@@ -114,7 +116,7 @@ class TestServeWithHandoffResume(HandoffFixture):
         self.p.serve_with_resume(server, context)
         assert "remaining_active=3" in logs[0]
 
-    def test_initial_serving_thread_is_joined_before_outcome_projection(self, *, mocker):
+    def test_initial_serving_thread_is_joined_before_outcome_projection(self, *, mocker) -> None:
         initial = mocker.Mock()
         server = mocker.Mock()
         self.p._HANDOFF_SESSION.update(outcome=None, state="idle")

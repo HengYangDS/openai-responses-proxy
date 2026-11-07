@@ -70,21 +70,25 @@ def audit_document(document, tmp_path, mocker, *, paths=("src/a.py",)):
         ("concerns", "bad"),
     ],
 )
-def test_empty_and_malformed_inventory_cannot_pass(field, value, policy_document, tmp_path, mocker):
+def test_empty_and_malformed_inventory_cannot_pass(
+    field, value, policy_document, tmp_path, mocker
+) -> None:
     policy_document[field] = value
     report = audit_document(policy_document, tmp_path, mocker)
     assert not report["ok"]
     assert report["errors"]
 
 
-def test_empty_tracked_inventory_does_not_prove_coverage(policy_document, tmp_path, mocker):
+def test_empty_tracked_inventory_does_not_prove_coverage(policy_document, tmp_path, mocker) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=())
     assert not report["ok"]
     assert "responsibility_map_tracked_inventory_empty" in report["errors"]
 
 
 @pytest.mark.parametrize(("field", "value"), [("owner", ""), ("purpose", None)])
-def test_map_identity_requires_meaningful_text(field, value, policy_document, tmp_path, mocker):
+def test_map_identity_requires_meaningful_text(
+    field, value, policy_document, tmp_path, mocker
+) -> None:
     policy_document[field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
@@ -100,7 +104,9 @@ def test_map_identity_requires_meaningful_text(field, value, policy_document, tm
         "retirement_condition",
     ],
 )
-def test_each_role_declares_its_complete_lifecycle(field, policy_document, tmp_path, mocker):
+def test_each_role_declares_its_complete_lifecycle(
+    field, policy_document, tmp_path, mocker
+) -> None:
     policy_document["roles"][0].pop(field, None)
 
     report = audit_document(policy_document, tmp_path, mocker)
@@ -112,7 +118,7 @@ def test_each_role_declares_its_complete_lifecycle(field, policy_document, tmp_p
 @pytest.mark.parametrize("change", ["non-table", "empty-id", "duplicate"])
 def test_every_declaration_has_one_unique_identity(
     collection, change, policy_document, tmp_path, mocker
-):
+) -> None:
     entries = policy_document[collection]
     if change == "non-table":
         entries.append(1)
@@ -126,13 +132,15 @@ def test_every_declaration_has_one_unique_identity(
 @pytest.mark.parametrize(
     ("field", "value"), [("description", ""), ("prefixes", []), ("prefixes", [""]), ("files", [3])]
 )
-def test_role_selectors_are_explicit_and_valid(field, value, policy_document, tmp_path, mocker):
+def test_role_selectors_are_explicit_and_valid(
+    field, value, policy_document, tmp_path, mocker
+) -> None:
     policy_document["roles"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
 @pytest.mark.parametrize("roles", [[], ["source", "source"], ["absent"], [""]])
-def test_scopes_reference_nonempty_unique_roles(roles, policy_document, tmp_path, mocker):
+def test_scopes_reference_nonempty_unique_roles(roles, policy_document, tmp_path, mocker) -> None:
     policy_document["scopes"][0]["roles"] = roles
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
@@ -143,17 +151,17 @@ def test_scopes_reference_nonempty_unique_roles(roles, policy_document, tmp_path
 )
 def test_concerns_have_live_owners_and_configuration(
     field, value, policy_document, tmp_path, mocker
-):
+) -> None:
     policy_document["concerns"][0][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
 
 
-def test_unowned_carrier_is_visible(policy_document, tmp_path, mocker):
+def test_unowned_carrier_is_visible(policy_document, tmp_path, mocker) -> None:
     report = audit_document(policy_document, tmp_path, mocker, paths=("unknown.bin",))
     assert report["errors"] == ["responsibility_map_unowned_carrier:unknown.bin"]
 
 
-def test_tracked_code_intelligence_paths_are_not_silently_removed(tmp_path, mocker):
+def test_tracked_code_intelligence_paths_are_not_silently_removed(tmp_path, mocker) -> None:
     mocker.patch.object(
         responsibilities.subprocess,
         "run",
@@ -167,7 +175,7 @@ def test_tracked_code_intelligence_paths_are_not_silently_removed(tmp_path, mock
     )
 
 
-def test_gate_cli_returns_json_and_preserves_failed_exit(mocker, capsys):
+def test_gate_cli_returns_json_and_preserves_failed_exit(mocker, capsys) -> None:
     report = {"ok": True, "errors": []}
     mocker.patch.object(responsibilities, "audit", return_value=report)
     responsibilities.main()
@@ -187,7 +195,7 @@ def test_gate_cli_returns_json_and_preserves_failed_exit(mocker, capsys):
         ("toml-formatted", (".toml",)),
     ],
 )
-def test_formatter_inputs_have_complete_declared_roles(scope, suffixes):
+def test_formatter_inputs_have_complete_declared_roles(scope, suffixes) -> None:
     report = responsibilities.audit()
     assert report["ok"], report["errors"]
     policy = tomllib.loads(responsibilities.MAP.read_text(encoding="utf-8"))

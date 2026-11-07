@@ -43,6 +43,6 @@ class TestPackageMetadata:
         assert (not any(gap.startswith("requires_python_") for gap in gaps)) is accepted
 
 
-def test_mit_license_is_present():
+def test_mit_license_is_present() -> None:
     license_text = Path(ROOT, "LICENSE").read_text(encoding="utf-8")
     assert license_text.startswith("MIT License\n")

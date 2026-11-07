@@ -21,7 +21,7 @@ def load_watchdog():
 
 
 class TestWatchdogEntrypoint:
-    def test_installed_watchdog_module_imports_without_checkout_context(self):
+    def test_installed_watchdog_module_imports_without_checkout_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             completed = subprocess.run(
                 [
@@ -51,7 +51,7 @@ class TestWatchdogLogging:
     )
     def test_watchdog_events_identify_actions_without_private_context(
         self, condition, event, detail, tmp_path, *, mocker
-    ):
+    ) -> None:
         watchdog = load_watchdog()
         executable = tmp_path / "private-installation" / "openai-responses-proxy"
         executable.parent.mkdir()
@@ -88,7 +88,7 @@ class TestWatchdogLogging:
         if condition in {"transaction", "ownership", "missing"}:
             popen.assert_not_called()
 
-    def test_watchdog_log_is_bounded_and_redacts_secrets(self, *, mocker):
+    def test_watchdog_log_is_bounded_and_redacts_secrets(self, *, mocker) -> None:
         watchdog = load_watchdog()
         with tempfile.TemporaryDirectory() as directory:
             log_path = Path(directory) / "watchdog.log"
@@ -107,7 +107,7 @@ class TestWatchdogLogging:
         assert size <= 4096
         assert_private_log_mode(mode)
 
-    def test_watchdog_probe_and_spawn(self, *, mocker):
+    def test_watchdog_probe_and_spawn(self, *, mocker) -> None:
         watchdog = load_watchdog()
         connect = mocker.patch.object(watchdog.socket, "create_connection")
         connect.return_value.__enter__.return_value = None
@@ -156,7 +156,7 @@ class TestWatchdogLogging:
             assert watchdog.spawn_proxy(str(executable)) is None
             assert "OSError" in logged.call_args.args[0]
 
-    def test_watchdog_reaps_exited_listener_children(self, *, mocker):
+    def test_watchdog_reaps_exited_listener_children(self, *, mocker) -> None:
         watchdog = load_watchdog()
         running = mocker.Mock()
         running.poll.return_value = None
@@ -170,7 +170,7 @@ class TestWatchdogLogging:
         running.poll.assert_called_once_with()
         exited.poll.assert_called_once_with()
 
-    def test_watchdog_loop_is_bounded(self, *, mocker):
+    def test_watchdog_loop_is_bounded(self, *, mocker) -> None:
         watchdog = load_watchdog()
         current = mocker.Mock(executable="/installed/current")
         mocker.patch.object(watchdog.runtime_context, "create", return_value=current)
@@ -193,7 +193,7 @@ class TestWatchdogLogging:
         watchdog.run(max_iterations=1)
         spawn.assert_called_once_with(current.executable)
 
-    def test_watchdog_never_crosses_invalid_transaction_evidence(self, *, mocker):
+    def test_watchdog_never_crosses_invalid_transaction_evidence(self, *, mocker) -> None:
         watchdog = load_watchdog()
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         mocker.patch.object(watchdog.runtime_context, "create")

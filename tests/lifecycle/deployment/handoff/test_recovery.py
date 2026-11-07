@@ -38,7 +38,7 @@ class TestControllerHandoffWiring(HandoffFixture):
 
     def test_failure_resolver_classifies_finalized_rolled_back_and_unknown_states(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         old = idle_runtime()
@@ -96,7 +96,9 @@ class TestControllerHandoffWiring(HandoffFixture):
             source_listener=predecessor,
         ) == ("finalized", finalized)
 
-    def test_failure_resolver_ignores_non_mapping_and_non_integer_runtime_pids(self, *, mocker):
+    def test_failure_resolver_ignores_non_mapping_and_non_integer_runtime_pids(
+        self, *, mocker
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         old = idle_runtime()

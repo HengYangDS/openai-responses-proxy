@@ -27,7 +27,7 @@ from tests.serving.handoff.fixtures import ready_ack
 class TestControllerHandoffWiring(HandoffFixture):
     def test_request_handoff_waits_for_predecessor_exit_and_finalized_successor(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         for name, alive_states in (
@@ -70,7 +70,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                 assert (result["old_pid"], result["child_pid"]) == (999, 1000)
                 tcp_attribution.assert_not_called()
 
-    def test_request_handoff_waits_for_finalized_successor_identity(self, *, mocker):
+    def test_request_handoff_waits_for_finalized_successor_identity(self, *, mocker) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor, _, _ = admit_handoff_generations(mocker, ctx)
@@ -92,7 +92,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert result["runtime"] == finalized
         assert runtime_reader.call_count == 3
 
-    def test_request_handoff_accepts_a_finalized_successor_when_tcp_ownership_lags(self, *, mocker):
+    def test_request_handoff_accepts_a_finalized_successor_when_tcp_ownership_lags(
+        self, *, mocker
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -135,7 +137,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         )
         assert {call.args[0].pid for call in alive.call_args_list} == {999, 1000}
 
-    def test_request_handoff_allows_ready_until_the_configured_deadline(self, *, mocker):
+    def test_request_handoff_allows_ready_until_the_configured_deadline(self, *, mocker) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor, _, _ = admit_handoff_generations(mocker, ctx)
@@ -159,7 +161,7 @@ class TestControllerHandoffWiring(HandoffFixture):
 
     def test_request_handoff_rejects_invalid_listener_ownership_or_control_conflict(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         cases = (
@@ -207,7 +209,9 @@ class TestControllerHandoffWiring(HandoffFixture):
 
         posted.assert_not_called()
 
-    def test_handoff_post_requires_a_complete_ready_acknowledgement(self, subtests, *, mocker):
+    def test_handoff_post_requires_a_complete_ready_acknowledgement(
+        self, subtests, *, mocker
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         valid = ready_ack(expected)
@@ -231,7 +235,7 @@ class TestControllerHandoffWiring(HandoffFixture):
 
     def test_post_ready_bounds_timing_and_rejects_transport_or_response_failures(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         valid = json.dumps(ready_ack(expected)).encode()
@@ -277,7 +281,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         with pytest.raises(errors.InstallError, match="request payload is too large"):
             handoff.post_ready(ctx, oversized)
 
-    def test_request_handoff_rejects_a_wrong_child_pid_in_the_health_snapshot(self, *, mocker):
+    def test_request_handoff_rejects_a_wrong_child_pid_in_the_health_snapshot(
+        self, *, mocker
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor, _, _ = admit_handoff_generations(mocker, ctx)
@@ -303,7 +309,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                 timeout_seconds=1,
             )
 
-    def test_request_handoff_rejects_each_runtime_field_mismatch(self, subtests, *, mocker):
+    def test_request_handoff_rejects_each_runtime_field_mismatch(self, subtests, *, mocker) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor, _, _ = admit_handoff_generations(mocker, ctx)
@@ -349,7 +355,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                         timeout_seconds=1,
                     )
 
-    def test_request_handoff_times_out_before_the_child_listener_converges(self, *, mocker):
+    def test_request_handoff_times_out_before_the_child_listener_converges(self, *, mocker) -> None:
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         predecessor, _, _ = admit_handoff_generations(mocker, ctx)

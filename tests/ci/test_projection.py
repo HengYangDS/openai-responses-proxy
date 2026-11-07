@@ -221,7 +221,7 @@ def test_ci_projection_renderer_binds_the_locked_repository(
 
 
 @pytest.mark.repository_toolchain
-def test_native_release_projections_share_one_cue_owner(tmp_path, monkeypatch):
+def test_native_release_projections_share_one_cue_owner(tmp_path, monkeypatch) -> None:
     root = project.ROOT
     for relative in (
         ".config/mise/config.toml",

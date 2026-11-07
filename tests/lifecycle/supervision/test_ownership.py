@@ -77,7 +77,7 @@ def test_retired_generation_stops_each_owned_service_role(role: str, *, mocker) 
         assert executable == ctx.executable
         return sorted(live) if role in roles else []
 
-    def stop(pid, executable, *, roles, timeout_seconds):
+    def stop(pid, executable, *, roles, timeout_seconds) -> bool:
         assert executable == ctx.executable
         assert role in roles
         assert timeout_seconds == 2.5

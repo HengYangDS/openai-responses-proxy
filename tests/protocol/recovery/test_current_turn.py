@@ -37,7 +37,9 @@ class TestDialogueRecovery:
         ],
     )
     @pytest.mark.parametrize("explicit_type", [False, True])
-    def test_every_recovery_preserves_latest_instruction_roles(self, recover, explicit_type):
+    def test_every_recovery_preserves_latest_instruction_roles(
+        self, recover, explicit_type
+    ) -> None:
         instruction_type = {"type": "message"} if explicit_type else {}
         system = {**instruction_type, "role": "system", "content": "current system policy"}
         developer = {
@@ -78,7 +80,7 @@ class TestDialogueRecovery:
             execution_recovery.recover_dialogue,
         ],
     )
-    def test_recovery_cannot_shrink_by_discarding_instruction_roles(self, recover):
+    def test_recovery_cannot_shrink_by_discarding_instruction_roles(self, recover) -> None:
         raw = _json(
             {
                 "store": False,
@@ -98,7 +100,9 @@ class TestDialogueRecovery:
     @pytest.mark.parametrize(
         ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
     )
-    def test_refuses_to_orphan_a_delayed_current_tool_delivery(self, recover, kind, argument):
+    def test_refuses_to_orphan_a_delayed_current_tool_delivery(
+        self, recover, kind, argument
+    ) -> None:
         payload = {
             "input": [
                 {"type": "message", "role": "user", "content": "old" * 1000},
@@ -182,7 +186,9 @@ class TestDialogueRecovery:
     @pytest.mark.parametrize(
         "recover", [input_recovery.build_recovery, execution_recovery.compact_request]
     )
-    def test_projection_provenance_preserves_plaintext_delegation_before_the_user(self, recover):
+    def test_projection_provenance_preserves_plaintext_delegation_before_the_user(
+        self, recover
+    ) -> None:
         task = {
             "type": "agent_message",
             "author": "/root",
@@ -224,7 +230,7 @@ class TestDialogueRecovery:
     @pytest.mark.parametrize(
         ("kind", "argument"), [("function_call", "arguments"), ("custom_tool_call", "input")]
     )
-    def test_compaction_validates_the_actual_retention_not_its_suffix(self, kind, argument):
+    def test_compaction_validates_the_actual_retention_not_its_suffix(self, kind, argument) -> None:
         call = {"type": kind, "call_id": "job", "name": "run", argument: "{}"}
         output = {"type": kind + "_output", "call_id": "job", "output": "started"}
         current = {"type": "message", "role": "user", "content": "current request"}

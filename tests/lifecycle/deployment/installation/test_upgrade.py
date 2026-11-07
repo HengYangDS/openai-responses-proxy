@@ -64,7 +64,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
         mocker.patch.object(apply.handoff, "resume_responses", return_value=True)
 
-        def terminate(ctx, *, timeout_seconds):
+        def terminate(ctx, *, timeout_seconds) -> int:
             del timeout_seconds
             events.extend((("candidate-exit", 222), ("candidate-exit", 333)))
             service.running_contexts.discard(ctx.executable)

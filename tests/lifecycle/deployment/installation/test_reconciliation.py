@@ -36,7 +36,7 @@ from tests.lifecycle.fixtures import released_artifact
 )
 def test_install_of_exact_active_artifact_preserves_every_projection(
     tmp_path: Path, evidence: str, *, mocker
-):
+) -> None:
     ctx = install_context(tmp_path)
     installed = install_payload(ctx, mocker=mocker)
     released = released_artifact(

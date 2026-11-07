@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize("failure", [OSError("missing"), subprocess.CompletedProcess([], 1)])
-def test_governance_failure_stops_before_subsequent_commands(failure, mocker, capsys):
+def test_governance_failure_stops_before_subsequent_commands(failure, mocker, capsys) -> None:
     mocker.patch.object(governance, "_commands", return_value=(("first",), ("second",)))
     run = mocker.patch.object(governance.subprocess, "run")
     if isinstance(failure, OSError):

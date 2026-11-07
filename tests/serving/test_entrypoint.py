@@ -197,10 +197,10 @@ class TestListenerEntrypoint:
 
 
 class ServiceRuntimeIdentityContracts:
-    def test_source_tree_without_an_installed_manifest_has_no_release_claim(self):
+    def test_source_tree_without_an_installed_manifest_has_no_release_claim(self) -> None:
         assert entrypoint.release_version() == "0+unknown"
 
-    def test_runtime_status_reports_loaded_serving_payload_sha256(self):
+    def test_runtime_status_reports_loaded_serving_payload_sha256(self) -> None:
         identity = entrypoint.runtime_status()["serving_payload_sha256"]
         if entrypoint._PROCESS.bootstrap is None:
             assert identity is None

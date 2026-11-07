@@ -7,7 +7,7 @@ from pathlib import Path
 from tests.quality.fixtures import ROOT
 
 
-def test_lifecycle_never_reads_or_prescribes_client_state():
+def test_lifecycle_never_reads_or_prescribes_client_state() -> None:
     text = "\n".join(
         Path(ROOT, relative).read_text(encoding="utf-8").lower()
         for relative in (
@@ -21,7 +21,7 @@ def test_lifecycle_never_reads_or_prescribes_client_state():
     assert "config.toml" not in text
 
 
-def test_control_and_data_planes_keep_explicit_privacy_boundaries(subtests):
+def test_control_and_data_planes_keep_explicit_privacy_boundaries(subtests) -> None:
     cases = (
         (
             ("src/openai_responses_proxy/lifecycle/control.py",),

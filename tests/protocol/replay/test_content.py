@@ -208,7 +208,7 @@ class ProviderPortableRequestEdgeTests:
                 assert projected["content"] == content
                 assert projected["encrypted_content"] == "agent-secret"
 
-    def test_drops_unreplayable_images_and_keeps_text_and_https(self):
+    def test_drops_unreplayable_images_and_keeps_text_and_https(self) -> None:
         body = json.dumps(
             {
                 "input": [
@@ -259,7 +259,7 @@ class ProviderPortableRequestEdgeTests:
             {"type": "input_image", "image_url": "https://example.test/valid.png"}
         ]
 
-    def test_drops_malformed_http_like_image_urls(self):
+    def test_drops_malformed_http_like_image_urls(self) -> None:
         bad_urls = [
             "https://",
             "https://bad host/example.png",

@@ -124,7 +124,7 @@ def _exchange(port: int, method: str, path: str, body: bytes) -> tuple[int, str]
 
 class TestUpstreamRedirects(InputTransportFixture):
     @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
-    def test_catalog_redirect_reaches_the_client_unfollowed(self, status):
+    def test_catalog_redirect_reaches_the_client_unfollowed(self, status) -> None:
         with _redirecting_upstream(status) as (port, collected):
             reply, location = _exchange(port, "GET", "/aihubmix/v1/models", b"")
 
@@ -133,7 +133,7 @@ class TestUpstreamRedirects(InputTransportFixture):
         assert location.endswith("/collect")
 
     @pytest.mark.parametrize("status", [301, 302, 303])
-    def test_responses_redirect_reaches_the_client_unfollowed(self, status):
+    def test_responses_redirect_reaches_the_client_unfollowed(self, status) -> None:
         body = json.dumps({"model": "gpt-5.6-terra", "stream": False, "input": []}).encode()
         with _redirecting_upstream(status) as (port, collected):
             reply, location = _exchange(port, "POST", "/aihubmix/v1/responses", body)

@@ -40,7 +40,7 @@ WINDOWS_TASK_CONTAINS = f"""<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
 
 
 class TestServiceDefinitions:
-    def test_macos_plist(self):
+    def test_macos_plist(self) -> None:
         xml = macos.render_plist(platform_context())
         minidom.parseString(xml)
         _assert_fragments(
@@ -49,19 +49,19 @@ class TestServiceDefinitions:
             ("responses-proxy-watchdog.out.log", "responses-proxy-watchdog.err.log"),
         )
 
-    def test_linux_unit(self):
+    def test_linux_unit(self) -> None:
         unit = linux.render_unit(platform_context())
         _assert_fragments(unit, LINUX_CONTAINS)
         assert "multi-user.target" not in unit
 
-    def test_windows_task(self):
+    def test_windows_task(self) -> None:
         rendered = windows.render_task_xml(WINDOWS_CONTEXT)
         minidom.parseString(rendered)
         xml = rendered.decode("utf-16")
         _assert_fragments(xml, WINDOWS_TASK_CONTAINS)
         _assert_fragments(xml.lower(), exclude=("cmd.exe", "comspec", "run-watchdog.cmd"))
 
-    def test_service_definitions_never_persist_python_or_source_paths(self, subtests):
+    def test_service_definitions_never_persist_python_or_source_paths(self, subtests) -> None:
         ctx = platform_context(port=8801)
         definitions = (
             macos.render_plist(ctx),
@@ -73,7 +73,7 @@ class TestServiceDefinitions:
                 assert "python" not in definition.lower()
                 assert ".py" not in definition
 
-    def test_service_definitions_contain_no_product_configuration(self, subtests):
+    def test_service_definitions_contain_no_product_configuration(self, subtests) -> None:
         definitions = (
             macos.render_plist(POSIX_CONTEXT),
             linux.render_unit(POSIX_CONTEXT),

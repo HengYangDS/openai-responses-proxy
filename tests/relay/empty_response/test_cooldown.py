@@ -23,7 +23,7 @@ from tests.relay.fixtures import serve_proxy
 
 
 class EmptyResponseTransportTests(EmptyResponseFixture):
-    def test_failed_recovery_cools_identical_request_without_upstream_replay(self):
+    def test_failed_recovery_cools_identical_request_without_upstream_replay(self) -> None:
         body = self._body({"stream": False, "input": []})
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -41,7 +41,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         status = proxy.runtime_status()
         assert cast("dict[str, int]", status["counters"])["wire_failure_cooldown_hits"] == 1
 
-    def test_cooldown_ttl_capacity_and_concurrent_access_are_bounded(self):
+    def test_cooldown_ttl_capacity_and_concurrent_access_are_bounded(self) -> None:
         first = self._body(
             {
                 "previous_response_id": "first",
@@ -87,7 +87,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
 
     def test_successful_fallback_does_not_enter_cooldown_and_metrics_are_secret_free(
         self,
-    ):
+    ) -> None:
         secret = "private-prompt-must-not-appear"
         body = self._body(
             {
@@ -112,7 +112,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert secret not in json.dumps(status)
         assert key not in json.dumps(status)
 
-    def test_downstream_disconnect_releases_response_slot(self):
+    def test_downstream_disconnect_releases_response_slot(self) -> None:
         body = self._body(
             {
                 "previous_response_id": "stale",

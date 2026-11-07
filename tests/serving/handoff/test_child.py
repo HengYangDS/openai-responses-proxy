@@ -22,10 +22,10 @@ from tests.serving.handoff.fixtures import handoff_module
 
 
 class TestHandoffChild:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.p = handoff_protocol_module
 
-    def test_platform_popen_kwargs_are_minimal_and_inherit_only_the_listener(self):
+    def test_platform_popen_kwargs_are_minimal_and_inherit_only_the_listener(self) -> None:
         posix = self.p.popen_kwargs(37, is_windows=False)
         windows = self.p.popen_kwargs(None, is_windows=True)
         assert posix["pass_fds"] == (37,)
@@ -37,8 +37,8 @@ class TestHandoffChild:
         with pytest.raises(self.p.HandoffError, match="requires a listener fd"):
             self.p.popen_kwargs(None, is_windows=False)
 
-    def test_child_constructor_requires_both_control_pipes(self, *, mocker):
-        def reject_pipes(pipes):
+    def test_child_constructor_requires_both_control_pipes(self, *, mocker) -> None:
+        def reject_pipes(pipes) -> None:
             process = mocker.Mock(stdin=pipes[0], stdout=pipes[1])
             with pytest.raises(self.p.HandoffError, match="pipes are unavailable"):
                 self.p.HandoffChild(process)
@@ -50,7 +50,9 @@ class TestHandoffChild:
         with pytest.raises(self.p.HandoffError, match="runtime has not started"):
             _ = child.runtime_pid
 
-    def test_child_message_writer_rejects_oversized_messages_and_broken_pipes(self, *, mocker):
+    def test_child_message_writer_rejects_oversized_messages_and_broken_pipes(
+        self, *, mocker
+    ) -> None:
         process = mocker.Mock(stdin=mocker.Mock(), stdout=mocker.Mock())
         child = self.p.HandoffChild(process)
         with pytest.raises(self.p.HandoffError, match="exceeds the control limit"):
@@ -59,8 +61,8 @@ class TestHandoffChild:
         with pytest.raises(self.p.HandoffError, match="pipe write failed"):
             child.send_message({"type": "prepare"})
 
-    def test_child_reader_projects_timeout_and_malformed_messages(self, *, mocker):
-        def reject(case):
+    def test_child_reader_projects_timeout_and_malformed_messages(self, *, mocker) -> None:
+        def reject(case) -> None:
             raw, message = case
             process = mocker.Mock(stdin=io.BytesIO(), stdout=io.BytesIO(raw))
             child = self.p.HandoffChild(process)
@@ -107,8 +109,10 @@ class TestHandoffChild:
         with pytest.raises(self.p.HandoffError, match="STARTED identity mismatch"):
             child.await_runtime(1)
 
-    def test_bounded_child_shutdown_handles_already_exited_success_and_timeout(self, *, mocker):
-        def verify(case):
+    def test_bounded_child_shutdown_handles_already_exited_success_and_timeout(
+        self, *, mocker
+    ) -> None:
+        def verify(case) -> None:
             method, poll_result, poll_effect, wait, expected = case
             process = mocker.Mock(stdin=mocker.Mock(), stdout=mocker.Mock())
             process.poll.return_value = poll_result
@@ -129,7 +133,9 @@ class TestHandoffChild:
         for case in cases:
             verify(case)
 
-    def test_spawn_projects_only_the_platform_listener_capability(self, subtests, *, mocker):
+    def test_spawn_projects_only_the_platform_listener_capability(
+        self, subtests, *, mocker
+    ) -> None:
         expected = expected_metadata(transaction_id="txn-platform", release_receipt_sha256="e" * 64)
         for is_windows, pid in ((False, 4242), (True, 5150)):
             with subtests.test(is_windows=is_windows):
@@ -177,7 +183,7 @@ class TestHandoffChild:
 
     def test_spawn_binds_protocol_identity_to_the_runtime_not_the_launcher(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         expected = expected_metadata(transaction_id="txn-runtime-pid")
         launcher_pid = 4242
         runtime_pid = 5150
@@ -206,7 +212,7 @@ class TestHandoffChild:
                 if is_windows:
                     listener.share.assert_called_once_with(runtime_pid)
 
-    def test_windows_share_failure_terminates_the_owned_child(self, *, mocker):
+    def test_windows_share_failure_terminates_the_owned_child(self, *, mocker) -> None:
         fake_process = mocker.Mock(
             pid=5150,
             stdin=mocker.Mock(),
@@ -225,7 +231,7 @@ class TestHandoffChild:
             )
         terminate.assert_called_once()
 
-    def test_spawn_write_failure_escalates_from_terminate_to_kill(self, *, mocker):
+    def test_spawn_write_failure_escalates_from_terminate_to_kill(self, *, mocker) -> None:
         fake_process = mocker.Mock(
             pid=4242,
             stdin=mocker.Mock(),
@@ -249,7 +255,7 @@ class TestHandoffChild:
         terminate.assert_called_once()
         kill.assert_called_once()
 
-    def test_listener_reconstruction_uses_the_platform_specific_projection(self, *, mocker):
+    def test_listener_reconstruction_uses_the_platform_specific_projection(self, *, mocker) -> None:
         fake_socket = mocker.Mock()
         share = base64.b64encode(b"share-bytes").decode("ascii")
         ctor = mocker.patch.object(socket, "fromshare", create=True, return_value=fake_socket)
@@ -259,8 +265,8 @@ class TestHandoffChild:
         assert self.p.listener_from_prepare({"listener_fd": 37}) is fake_socket
         ctor.assert_called_once_with(fileno=37)
 
-    def test_listener_reconstruction_rejects_invalid_platform_payloads(self):
-        def reject(message):
+    def test_listener_reconstruction_rejects_invalid_platform_payloads(self) -> None:
+        def reject(message) -> None:
             with pytest.raises(self.p.HandoffError):
                 self.p.listener_from_prepare(message)
 
@@ -274,12 +280,12 @@ class TestHandoffChild:
         for message in invalid:
             reject(message)
 
-    def test_control_message_helpers_reject_invalid_framing_and_round_trip(self):
+    def test_control_message_helpers_reject_invalid_framing_and_round_trip(self) -> None:
         target = io.BytesIO()
         self.p.write_control_message(target, {"type": "commit"})
         assert self.p.read_control_message(io.BytesIO(target.getvalue())) == {"type": "commit"}
 
-        def reject(case):
+        def reject(case) -> None:
             raw, error = case
             with pytest.raises(error):
                 self.p.read_control_message(io.BytesIO(raw))
@@ -299,7 +305,7 @@ class TestHandoffChild:
 
     def test_child_protocol_accepts_finalize_and_rejects_invalid_commands(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         context = entrypoint_module._handoff_context()
         prepare = {
             "type": "prepare",

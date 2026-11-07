@@ -69,7 +69,7 @@ class EmptyResponseFixture(InputTransportFixture):
     _request = staticmethod(request)
 
     @staticmethod
-    def _remember_failure(key, *, now=None):
+    def _remember_failure(key, *, now=None) -> None:
         cooldown.remember_failure(
             key,
             capacity=policy.FAILURE_CACHE_CAPACITY,

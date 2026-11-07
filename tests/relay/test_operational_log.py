@@ -136,7 +136,7 @@ class RuntimeLoggingTests:
 
 
 class OperationalLogPrivacyContracts:
-    def test_log_redacts_secrets_limits_line_length_and_removes_query_values(self):
+    def test_log_redacts_secrets_limits_line_length_and_removes_query_values(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             log_path = Path(tmp) / "proxy.log"
             old_log_path = operational_log.LOG_PATH
@@ -164,7 +164,7 @@ class OperationalLogPrivacyContracts:
             <= bounded_log.LINE_MAX_BYTES + 96
         )
 
-    def test_log_rotation_discards_an_oversized_segment_without_reading_it(self):
+    def test_log_rotation_discards_an_oversized_segment_without_reading_it(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             log_path = Path(tmp) / "proxy.log"
             log_path.write_bytes(b"x" * 8192)

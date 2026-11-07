@@ -6,6 +6,7 @@ import json
 import socket
 import threading
 import time
+from typing import Never
 
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
@@ -15,11 +16,11 @@ from tests.relay.fixtures import MemoryHandler
 
 
 class TestBoundedResolution(InputTransportFixture):
-    def test_a_stalled_lookup_ends_the_exchange_at_its_deadline(self, *, mocker):
+    def test_a_stalled_lookup_ends_the_exchange_at_its_deadline(self, *, mocker) -> None:
         released = threading.Event()
         hosts: list[str] = []
 
-        def stalled(host, *args, **kwargs):
+        def stalled(host, *args, **kwargs) -> Never:
             del args, kwargs
             hosts.append(host)
             released.wait(timeout=10)
@@ -44,7 +45,7 @@ class TestBoundedResolution(InputTransportFixture):
         assert hosts == ["upstream.invalid"]
         assert self._status_snapshot()["active_responses"] == 0
 
-    def test_exchanges_for_one_address_share_one_lookup(self, *, mocker):
+    def test_exchanges_for_one_address_share_one_lookup(self, *, mocker) -> None:
         released = threading.Event()
         calls: list[str] = []
 
@@ -77,7 +78,7 @@ class TestBoundedResolution(InputTransportFixture):
         assert calls == ["shared.invalid"]
         assert len(results) == 3
 
-    def test_a_numeric_address_needs_no_lookup(self, *, mocker):
+    def test_a_numeric_address_needs_no_lookup(self, *, mocker) -> None:
         lookup = mocker.patch.object(socket, "getaddrinfo", wraps=socket.getaddrinfo)
         threads = threading.active_count()
 

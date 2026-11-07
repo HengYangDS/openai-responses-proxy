@@ -284,7 +284,7 @@ def test_repository_cli_is_quiet_on_success_and_diagnostic_on_failure(
     output.assert_called_once()
 
 
-def test_ignore_policy_excludes_generated_state_not_authored_configuration(tmp_path):
+def test_ignore_policy_excludes_generated_state_not_authored_configuration(tmp_path) -> None:
     environment = isolated_config_environment()
     subprocess.run(["git", "init", "-q", str(tmp_path)], env=environment, check=True)
     (tmp_path / ".gitignore").write_bytes((ROOT / ".gitignore").read_bytes())

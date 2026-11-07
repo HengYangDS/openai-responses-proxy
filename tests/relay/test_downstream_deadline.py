@@ -15,7 +15,9 @@ from tests.serving.handoff.fixtures import wait_until
 
 
 class TestDownstreamWriteDeadline(LoopbackTransportFixture):
-    def test_a_stalled_reader_releases_admission_and_upstream_at_the_deadline(self, *, mocker):
+    def test_a_stalled_reader_releases_admission_and_upstream_at_the_deadline(
+        self, *, mocker
+    ) -> None:
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 1.0)
         delta = b'data: {"type":"response.output_text.delta","delta":"' + b"x" * 65536 + b'"}\n\n'
         held_open = threading.Event()

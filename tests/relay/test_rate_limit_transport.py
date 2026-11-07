@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from email.message import Message
 from pathlib import Path
+from typing import Never
 
 import pytest
 
@@ -39,7 +40,7 @@ class TestRateLimitTransport(InputTransportFixture):
         headers["Retry-After"] = "7"
         headers["X-Request-Id"] = "rate-limit-request"
 
-        def rate_limited(*_args, **_kwargs):
+        def rate_limited(*_args, **_kwargs) -> Never:
             raise urllib.error.HTTPError(
                 "https://upstream.test/v1/responses",
                 429,
@@ -89,7 +90,7 @@ class TestRateLimitTransport(InputTransportFixture):
         profiles["ucloud"] = type(current)(current.name, current.base_url, policy)
         registry = type(PROVIDERS)(profiles)
 
-        def rate_limited(*_args, **_kwargs):
+        def rate_limited(*_args, **_kwargs) -> Never:
             raise urllib.error.HTTPError(
                 "https://upstream.test/v1/responses",
                 429,

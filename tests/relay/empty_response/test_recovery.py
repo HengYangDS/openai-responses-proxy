@@ -19,7 +19,9 @@ from tests.relay.fixtures import serve_proxy
 
 
 class EmptyResponseTransportTests(EmptyResponseFixture):
-    def test_fallback_failure_is_terminal_after_exactly_two_upstream_attempts(self, subtests):
+    def test_fallback_failure_is_terminal_after_exactly_two_upstream_attempts(
+        self, subtests
+    ) -> None:
         body = self._body(
             {
                 "stream": False,
@@ -49,7 +51,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
                 assert len(received) == 2
                 assert json.loads(raw)["error"]["attempts"] == 2
 
-    def test_unknown_477_is_passed_through_without_fallback_or_cooldown(self):
+    def test_unknown_477_is_passed_through_without_fallback_or_cooldown(self) -> None:
         body = self._body({"stream": False, "input": []})
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -66,7 +68,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         key = policy.request_fingerprint(projected)
         assert self._cooldown_remaining(key, now=100.0) == 0
 
-    def test_streaming_request_recovers_only_before_any_sse_bytes(self):
+    def test_streaming_request_recovers_only_before_any_sse_bytes(self) -> None:
         body = self._body(
             {
                 "stream": True,
@@ -95,7 +97,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert len(received) == 2
         assert received[1] != body
 
-    def test_streaming_fallback_exhaustion_is_standard_http_503(self):
+    def test_streaming_fallback_exhaustion_is_standard_http_503(self) -> None:
         body = self._body({"stream": True, "input": []})
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -111,7 +113,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert json.loads(raw)["error"]["attempts"] == 2
         assert len(received) == 2
 
-    def test_dedicated_slot_survives_ordinary_transient_retry_budget(self):
+    def test_dedicated_slot_survives_ordinary_transient_retry_budget(self) -> None:
         body = self._body(
             {
                 "stream": False,
@@ -140,7 +142,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert cast("dict[str, int]", status["counters"])["wire_failure_retry_attempts"] == 1
         assert cast("dict[str, int]", status["counters"])["wire_failure_retry_accepted"] == 1
 
-    def test_fallback_follows_response_failed_recovery_without_metric_overlap(self):
+    def test_fallback_follows_response_failed_recovery_without_metric_overlap(self) -> None:
         error = b'{"error":{"type":"new_api_error","code":"response_failed"}}'
         body = self._body(
             {

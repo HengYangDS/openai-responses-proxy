@@ -130,7 +130,7 @@ class TestHardCodingResponsibility:
         ('schema_version=1\nallowed_kinds=["domain-constant"]\ncontrols=1', "hard_coding_controls"),
     ],
 )
-def test_empty_or_malformed_policy_cannot_establish_acceptance(source, error, tmp_path):
+def test_empty_or_malformed_policy_cannot_establish_acceptance(source, error, tmp_path) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text(source)
     report = checker.audit(tmp_path, policy)
@@ -148,7 +148,7 @@ def test_empty_or_malformed_policy_cannot_establish_acceptance(source, error, tm
         ('[[controls]]\nid="x"\nowner="missing"\nprojections=["missing"]', "owner_missing"),
     ],
 )
-def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_path):
+def test_invalid_control_is_reported_instead_of_crashing(control, error, tmp_path) -> None:
     policy = tmp_path / "policy.toml"
     policy.write_text('schema_version=1\nallowed_kinds=["domain-constant"]\n' + control)
     report = checker.audit(tmp_path, policy)
@@ -238,7 +238,7 @@ def projection_root(tmp_path):
         ),
     ],
 )
-def test_projection_checks_follow_the_declared_owner(projection_root, checks, error):
+def test_projection_checks_follow_the_declared_owner(projection_root, checks, error) -> None:
     errors = checker._projection_errors(
         root=projection_root, identifier="x", owner="owner.py", checks=checks
     )
@@ -251,13 +251,13 @@ def test_projection_checks_follow_the_declared_owner(projection_root, checks, er
     ("owner", "source", "error"),
     [("owner.txt", "x", "unsupported"), ("owner.py", "if", "owner_invalid")],
 )
-def test_projection_owner_must_be_parseable_python(owner, source, error, tmp_path):
+def test_projection_owner_must_be_parseable_python(owner, source, error, tmp_path) -> None:
     (tmp_path / owner).write_text(source)
     errors = checker._projection_errors(root=tmp_path, identifier="x", owner=owner, checks=[{}])
     assert error in errors[0]
 
 
-def test_audit_cli_preserves_failure_status_and_json(mocker, capsys):
+def test_audit_cli_preserves_failure_status_and_json(mocker, capsys) -> None:
     mocker.patch.object(checker, "audit", return_value={"ok": False, "errors": ["missing"]})
     with pytest.raises(SystemExit) as stopped:
         checker.main()
@@ -267,7 +267,7 @@ def test_audit_cli_preserves_failure_status_and_json(mocker, capsys):
         checker.main(("unexpected",))
 
 
-def test_listener_port_literals_have_one_production_owner():
+def test_listener_port_literals_have_one_production_owner() -> None:
     production = ROOT / "src" / "openai_responses_proxy"
     owner = production / "runtime" / "config.py"
     owner_text = owner.read_text(encoding="utf-8")

@@ -138,7 +138,7 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
 
 def test_process_teardown_fails_closed_when_exit_is_unproved(
     *, mocker, tmp_path_factory: pytest.TempPathFactory
-):
+) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     service = mocker.Mock()
     service.terminate_runtime.side_effect = errors.InstallError(
@@ -155,7 +155,7 @@ def test_process_teardown_fails_closed_when_exit_is_unproved(
 
 def test_process_teardown_includes_a_replaced_non_listener_generation(
     *, mocker, tmp_path_factory: pytest.TempPathFactory
-):
+) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     service = mocker.Mock()
     service.terminate_runtime.return_value = 2
@@ -164,7 +164,7 @@ def test_process_teardown_includes_a_replaced_non_listener_generation(
     service.terminate_runtime.assert_called_once_with(ctx, timeout_seconds=5.0)
 
 
-def test_process_teardown_visits_one_active_generation_once(tmp_path: Path, *, mocker):
+def test_process_teardown_visits_one_active_generation_once(tmp_path: Path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)
     selected = generation.read(ctx)
@@ -178,7 +178,7 @@ def test_process_teardown_visits_one_active_generation_once(tmp_path: Path, *, m
     service.terminate_runtime.assert_called_once_with(active, timeout_seconds=5.0)
 
 
-def test_uninstall_product_covers_success_and_fail_closed_boundaries(tmp_path, *, mocker):
+def test_uninstall_product_covers_success_and_fail_closed_boundaries(tmp_path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
     service = mocker.Mock()
@@ -229,7 +229,7 @@ def test_purge_rejects_control_root_residue_after_owned_generations_are_removed(
     assert residue.read_text(encoding="utf-8") == "operator data"
 
 
-def test_uninstall_is_idempotent_when_no_installation_exists(tmp_path, *, mocker):
+def test_uninstall_is_idempotent_when_no_installation_exists(tmp_path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     service = mocker.Mock()
     service.status.return_value = "absent"
@@ -267,7 +267,7 @@ def test_uninstall_refuses_any_retained_transaction_before_mutation(
     transaction.rollback()
 
 
-def test_status_and_uninstall_use_the_finalized_command_path(tmp_path: Path, *, mocker):
+def test_status_and_uninstall_use_the_finalized_command_path(tmp_path: Path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     installed_command = tmp_path / "original-bin" / "openai-responses-proxy"
     changed_environment_command = tmp_path / "changed-bin" / "openai-responses-proxy"

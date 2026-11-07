@@ -105,20 +105,20 @@ class TestLinuxLifecycle:
                 text=True,
             )
 
-    def test_native_service_contract_never_persists_python_or_source_paths(self):
+    def test_native_service_contract_never_persists_python_or_source_paths(self) -> None:
         ctx = platform_context()
         unit = linux.render_unit(ctx)
         assert f'ExecStart="{ctx.executable}" --internal-watchdog' in unit
         assert "python" not in unit.lower()
         assert ".py" not in unit
 
-    def test_systemd_supervisor_never_signals_detached_runtime_generations(self):
+    def test_systemd_supervisor_never_signals_detached_runtime_generations(self) -> None:
         """Replacing the watchdog must not kill a listener-owned handoff child."""
         unit = linux.render_unit(platform_context())
 
         assert "KillMode=process" in unit
 
-    def test_systemd_unit_quotes_path_values_and_specifier_tokens(self):
+    def test_systemd_unit_quotes_path_values_and_specifier_tokens(self) -> None:
         ctx = platform_context()
         ctx.install_dir = '/opt/product path/%i/"payload"'
         ctx.executable = f"{ctx.install_dir}/bin/openai-responses-proxy"
@@ -137,14 +137,14 @@ class TestLinuxLifecycle:
             _set_file(linux._unit_path(temporary), unit)
             assert linux.configured_executable(temporary) == ctx.executable
 
-    def test_systemd_unit_rejects_control_characters(self):
+    def test_systemd_unit_rejects_control_characters(self) -> None:
         ctx = platform_context()
         ctx.executable = "/opt/bin/openai-responses-proxy\nother"
 
         with pytest.raises(errors.InstallError, match="control character"):
             linux.render_unit(ctx)
 
-    def test_configured_executable_reads_only_one_valid_exec_start(self):
+    def test_configured_executable_reads_only_one_valid_exec_start(self) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             assert linux.configured_executable(ctx) is None
@@ -153,7 +153,7 @@ class TestLinuxLifecycle:
             _set_file(unit, "[Service]\nExecStart=/one\nExecStart=/two\n")
             assert linux.configured_executable(ctx) is None
 
-    def test_projection_is_current_only_for_this_release_rendering(self):
+    def test_projection_is_current_only_for_this_release_rendering(self) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             assert linux.projection_is_current(ctx) is False
@@ -164,7 +164,7 @@ class TestLinuxLifecycle:
             assert linux.configured_executable(ctx) == ctx.executable
             assert linux.projection_is_current(ctx) is False
 
-    def test_status_observes_registered_service_without_a_unit_file(self, *, mocker):
+    def test_status_observes_registered_service_without_a_unit_file(self, *, mocker) -> None:
         ctx = platform_context()
         mocker.patch.object(linux.shutil, "which", return_value="/usr/bin/systemctl")
         mocker.patch.object(
@@ -175,7 +175,7 @@ class TestLinuxLifecycle:
 
         assert linux.status(ctx) == "running"
 
-    def test_systemd_install_success_and_failure(self, *, mocker):
+    def test_systemd_install_success_and_failure(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             watchdog = linux.process.OwnedProcess(417, ctx.executable, 1.0)
@@ -228,7 +228,7 @@ class TestLinuxLifecycle:
                 linux._install_systemd(ctx, "/usr/bin/systemctl")
             assert "/home/private/unit" not in str(raised.value)
 
-    def test_uninstall_and_status(self, *, mocker):
+    def test_uninstall_and_status(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = Path(linux._unit_path(ctx))
             _set_file(unit, "unit")
@@ -281,7 +281,7 @@ class TestLinuxLifecycle:
                 )
                 assert linux.status(ctx) == expected
 
-    def test_uninstall_requires_verified_systemd_removal(self, *, mocker):
+    def test_uninstall_requires_verified_systemd_removal(self, *, mocker) -> None:
         with _temporary_context("log_dir") as ctx:
             unit = _set_file(linux._unit_path(ctx), "unit")
             mocker.patch.object(linux.shutil, "which", return_value=None)
@@ -349,7 +349,7 @@ class TestLinuxLifecycle:
         ):
             linux.uninstall(ctx)
 
-    def test_uninstall_terminates_each_verified_linux_watchdog(self, tmp_path, *, mocker):
+    def test_uninstall_terminates_each_verified_linux_watchdog(self, tmp_path, *, mocker) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
         mocker.patch.object(linux, "status", return_value="absent")

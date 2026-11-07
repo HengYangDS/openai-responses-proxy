@@ -50,7 +50,7 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
     recover = mocker.patch.object(control.transaction, "recover")
     mocker.patch.object(control, "adapter", return_value=service)
 
-    def recover_and_bind(_ctx, *, runtime, bind_terminal, discard_native):
+    def recover_and_bind(_ctx, *, runtime, bind_terminal, discard_native) -> None:
         assert runtime == {"pid": 7}
         assert callable(discard_native)
         bind_terminal(control_generation)

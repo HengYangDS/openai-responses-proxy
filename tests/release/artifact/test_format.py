@@ -132,7 +132,7 @@ class FormatContracts:
 
 
 @pytest.mark.parametrize("version", [True, 1.0, 2])
-def test_manifest_schema_uses_exact_integer_identity(version):
+def test_manifest_schema_uses_exact_integer_identity(version) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])
@@ -144,7 +144,7 @@ def test_manifest_schema_uses_exact_integer_identity(version):
 
 
 @pytest.mark.parametrize("manifest", [b"not-json", b"[]", b"{}"])
-def test_manifest_requires_one_complete_object(manifest):
+def test_manifest_requires_one_complete_object(manifest) -> None:
     with pytest.raises(assets.AssetError, match="manifest is malformed"):
         assets.verify_platform_archive(b"", manifest)
 
@@ -152,7 +152,7 @@ def test_manifest_requires_one_complete_object(manifest):
 @pytest.mark.parametrize(
     ("field", "value"), [("version", 1), ("platform", None), ("files", {"../outside": "0" * 64})]
 )
-def test_manifest_requires_portable_typed_inventory(field, value):
+def test_manifest_requires_portable_typed_inventory(field, value) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])
@@ -166,7 +166,7 @@ def test_manifest_requires_portable_typed_inventory(field, value):
 @pytest.mark.parametrize(
     "defect", ["directory", "outside", "duplicate", "mode", "digest", "corrupt"]
 )
-def test_archive_members_are_bound_to_portable_manifest(defect):
+def test_archive_members_are_bound_to_portable_manifest(defect) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
     manifest = json.loads(files[assets.manifest_name(platform)])
@@ -188,14 +188,14 @@ def test_archive_members_are_bound_to_portable_manifest(defect):
 
 
 @pytest.mark.parametrize("platforms", [(), ("linux-x86_64", "linux-x86_64")])
-def test_platform_inventory_has_one_nonempty_identity(platforms):
+def test_platform_inventory_has_one_nonempty_identity(platforms) -> None:
     with pytest.raises(assets.AssetError, match="unique and nonempty"):
         assets.release_asset_names("1.2.3", platforms)
     with pytest.raises(assets.AssetError, match="unique and nonempty"):
         assets.release_digests({}, "1.2.3", platforms)
 
 
-def test_asset_paths_modes_and_names_must_be_canonical():
+def test_asset_paths_modes_and_names_must_be_canonical() -> None:
     with pytest.raises(assets.AssetError, match="mode is invalid"):
         assets.archive_bytes({"file": assets.ArchiveFile(b"x", 0o777)}, "1.2.3", "linux-x86_64")
     with pytest.raises(assets.AssetError, match="identity is invalid"):

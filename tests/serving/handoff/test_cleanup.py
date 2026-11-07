@@ -7,6 +7,7 @@ import os
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
+from typing import Never
 
 import pytest
 
@@ -37,7 +38,7 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("stop before runtime effects")
         allocated = []
 
-        def stop(candidate, **_kwargs):
+        def stop(candidate, **_kwargs) -> Never:
             allocated.append(candidate)
             raise failure
 
@@ -59,7 +60,7 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("payload initialization failed")
         mocker.patch.object(tempfile, "tempdir", str(tmp_path))
 
-        def fail_initialization(root, **_kwargs):
+        def fail_initialization(root, **_kwargs) -> Never:
             roots.append(root)
             if partial_payload:
                 payload = root / "payload"
@@ -210,7 +211,7 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
     monkeypatch.setenv("OPENAI_RESPONSES_PROXY_EXECUTABLE", str(source))
     observed = []
 
-    def prewarm(ctx):
+    def prewarm(ctx) -> None:
         observed.append(ctx)
         rows = contexts.read_bytes().splitlines()
         assert len(rows) == 1, "complete cleanup custody must precede native execution"

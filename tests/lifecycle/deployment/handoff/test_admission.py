@@ -22,7 +22,7 @@ from tests.serving.handoff.fixtures import idle_runtime
 class TestControllerHandoffWiring(HandoffFixture):
     def test_capture_source_listener_requires_one_live_exact_product_generation(
         self, subtests, mocker
-    ):
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         runtime = idle_runtime()
         admitted = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -54,7 +54,9 @@ class TestControllerHandoffWiring(HandoffFixture):
                 with pytest.raises(errors.InstallError, match="not verified"):
                     handoff.capture_source_listener(ctx, runtime)
 
-    def test_capture_source_listener_does_not_depend_on_platform_tcp_attribution(self, mocker):
+    def test_capture_source_listener_does_not_depend_on_platform_tcp_attribution(
+        self, mocker
+    ) -> None:
         ctx = install_context(Path(self.tempdir.name))
         runtime = idle_runtime()
         admitted = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -69,7 +71,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         tcp_attribution.assert_not_called()
         stale_identity_read.assert_not_called()
 
-    def test_runtime_supports_handoff_requires_a_complete_available_identity(self, subtests):
+    def test_runtime_supports_handoff_requires_a_complete_available_identity(
+        self, subtests
+    ) -> None:
         incomplete = idle_runtime()
         incomplete.pop("serving_payload_sha256")
         cases: list[tuple[dict[str, object] | None, bool]] = [
@@ -153,7 +157,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             with subtests.test(runtime=runtime):
                 assert strategy.deployment_strategy(runtime) == expected
 
-    def test_expected_metadata_reads_and_validates_each_release_identity(self, *, mocker):
+    def test_expected_metadata_reads_and_validates_each_release_identity(self, *, mocker) -> None:
         root = Path(self.tempdir.name)
         manifest_path = root / inventory.MANIFEST_FILENAME
 
@@ -207,7 +211,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert metadata["release"] == "1.0.25"
         assert metadata["manifest_sha256"] == handoff.digest.sha256_file(manifest_path)
 
-    def test_digest_helpers_reject_noncanonical_values_and_hash_large_files(self, subtests):
+    def test_digest_helpers_reject_noncanonical_values_and_hash_large_files(self, subtests) -> None:
         for value in (None, "a" * 63, "g" * 64, "A" * 64):
             with subtests.test(value=value):
                 assert not handoff.digest.is_sha256(value)

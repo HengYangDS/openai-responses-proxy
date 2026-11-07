@@ -63,7 +63,7 @@ class TestWindowsLifecycle:
         mocker.patch.object(windows, "_schtasks", return_value=SCHTASKS)
 
     @pytest.mark.parametrize("code", [0x80070002, -2147024894, 0x80070003, -2147024893])
-    def test_exact_missing_task_hresult_proves_absence(self, code, *, mocker):
+    def test_exact_missing_task_hresult_proves_absence(self, code, *, mocker) -> None:
         ctx = platform_context(windows=True)
         run = mocker.patch.object(
             windows.subprocess, "run", return_value=_completed(returncode=code)
@@ -80,7 +80,7 @@ class TestWindowsLifecycle:
         "code", [1, 0x80070005, -2147024891, 0x800706BA, 0x80070035, 0x80070057, 0x8007007B]
     )
     @pytest.mark.parametrize("operation", ["configured_executable", "status"])
-    def test_failed_task_query_cannot_prove_absence(self, code, operation, *, mocker):
+    def test_failed_task_query_cannot_prove_absence(self, code, operation, *, mocker) -> None:
         mocker.patch.object(
             windows.subprocess,
             "run",
@@ -94,7 +94,7 @@ class TestWindowsLifecycle:
     @pytest.mark.parametrize("malformed", ["xml", "action"])
     def test_successful_query_requires_an_owned_task_projection(
         self, operation, malformed, *, mocker
-    ):
+    ) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
         if malformed == "xml":
@@ -106,7 +106,7 @@ class TestWindowsLifecycle:
             getattr(windows, operation)(ctx)
 
     @pytest.mark.parametrize("live", [False, True])
-    def test_task_status_uses_owned_processes_not_localized_output(self, live, *, mocker):
+    def test_task_status_uses_owned_processes_not_localized_output(self, live, *, mocker) -> None:
         ctx = platform_context(windows=True)
         xml = windows.render_task_xml(ctx).decode("utf-16")
         run = mocker.patch.object(windows.subprocess, "run", return_value=_completed(stdout=xml))
@@ -125,12 +125,12 @@ class TestWindowsLifecycle:
             windows.subprocess.TimeoutExpired("schtasks", 5.0),
         ],
     )
-    def test_task_query_failure_preserves_unknown_state(self, failure, *, mocker):
+    def test_task_query_failure_preserves_unknown_state(self, failure, *, mocker) -> None:
         mocker.patch.object(windows.subprocess, "run", side_effect=failure)
         with pytest.raises(errors.InstallError, match="task state is unproved"):
             windows.status(platform_context(windows=True))
 
-    def test_task_executes_the_installed_binary_in_private_watchdog_mode(self):
+    def test_task_executes_the_installed_binary_in_private_watchdog_mode(self) -> None:
         ctx = platform_context(windows=True)
         rendered = windows.render_task_xml(ctx)
         decoded = rendered.decode("utf-16")
@@ -140,7 +140,7 @@ class TestWindowsLifecycle:
         assert "python" not in decoded.lower()
         assert ".py" not in decoded
 
-    def test_task_xml_bytes_use_the_declared_utf16_encoding(self, *, mocker):
+    def test_task_xml_bytes_use_the_declared_utf16_encoding(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         rendered = windows.render_task_xml(ctx)
 
@@ -163,7 +163,7 @@ class TestWindowsLifecycle:
 
         assert imported == [rendered]
 
-    def test_configured_executable_reads_only_the_registered_task(self, *, mocker):
+    def test_configured_executable_reads_only_the_registered_task(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         for completed, expected in (
             (_completed(returncode=0x80070002), None),
@@ -183,7 +183,7 @@ class TestWindowsLifecycle:
                 "/hresult",
             ]
 
-    def test_projection_compares_only_the_registered_task_action(self, *, mocker):
+    def test_projection_compares_only_the_registered_task_action(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         task = windows.render_task_xml(ctx).decode("utf-16")
         exported = task.replace(
@@ -202,7 +202,7 @@ class TestWindowsLifecycle:
             mocker.patch.object(windows.subprocess, "run", return_value=completed)
             assert windows.projection_is_current(ctx) is expected
 
-    def test_install_success_and_failure_messages(self, *, mocker):
+    def test_install_success_and_failure_messages(self, *, mocker) -> None:
         with _temporary_context("install_dir", windows=True) as ctx:
             task = windows.render_task_xml(ctx).decode("utf-16")
             invoked = mocker.patch.object(
@@ -333,7 +333,7 @@ class TestWindowsLifecycle:
 
         assert windows._wait_for_watchdog(ctx) == candidate
 
-    def test_task_xml_serialization_preserves_special_characters(self, *, mocker):
+    def test_task_xml_serialization_preserves_special_characters(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         ctx.executable = f"{ctx.executable} & native"
         mocker.patch.object(windows, "_current_user", return_value="ACME\\A&B")
@@ -344,7 +344,7 @@ class TestWindowsLifecycle:
         assert root.findtext(".//task:Command", namespaces=namespace) == ctx.executable
         assert root.findtext(".//task:UserId", namespaces=namespace) == "ACME\\A&B"
 
-    def test_current_user(self, *, mocker):
+    def test_current_user(self, *, mocker) -> None:
         for env, expected in (
             ({"USERNAME": "tester"}, "tester"),
             ({"USERNAME": "tester", "USERDOMAIN": "ACME"}, r"ACME\tester"),
@@ -352,7 +352,7 @@ class TestWindowsLifecycle:
             mocker.patch.dict(windows.os.environ, env, clear=True)
             assert windows._current_user() == expected
 
-    def test_pid_discovery_and_uninstall(self, *, mocker):
+    def test_pid_discovery_and_uninstall(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         inventory = mocker.patch.object(
             windows.process,
@@ -383,7 +383,7 @@ class TestWindowsLifecycle:
             roles={serving_roles.WATCHDOG_MODE},
         )
 
-    def test_uninstall_requires_task_deletion_and_absence_proof(self, *, mocker):
+    def test_uninstall_requires_task_deletion_and_absence_proof(self, *, mocker) -> None:
         ctx = platform_context(windows=True)
         for deleted, message in (
             (

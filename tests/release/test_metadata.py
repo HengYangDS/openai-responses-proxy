@@ -443,7 +443,7 @@ def test_current_release_metadata_chronology(
         "valid-tagged",
     ],
 )
-def test_cli_release_transition_admission(defect, mocker, capsys):
+def test_cli_release_transition_admission(defect, mocker, capsys) -> None:
     mocker.patch.object(metadata, "read_version", return_value="1.2.3")
     mocker.patch.object(metadata, "check_python_metadata")
     releases = [("1.2.3", "2026-01-01"), ("1.2.2", "2025-12-31")]
@@ -474,18 +474,18 @@ def test_cli_release_transition_admission(defect, mocker, capsys):
 
 
 @pytest.mark.parametrize("releases", [[("1.2.3", "invalid")], []])
-def test_pending_release_requires_an_actual_date(releases):
+def test_pending_release_requires_an_actual_date(releases) -> None:
     with pytest.raises(ValueError, match="no valid release date"):
         metadata.check_pending_release_date("1.2.3", releases)
 
 
-def test_duplicate_changelog_versions_cannot_claim_one_release(mocker):
+def test_duplicate_changelog_versions_cannot_claim_one_release(mocker) -> None:
     mocker.patch.object(metadata, "known_release_versions", return_value=[])
     with pytest.raises(ValueError, match="must not duplicate"):
         metadata.check_changelog_provenance([("1.2.3", "2026-01-01")] * 2)
 
 
-def test_missing_tag_is_a_release_identity_error(mocker):
+def test_missing_tag_is_a_release_identity_error(mocker) -> None:
     mocker.patch.object(metadata, "_git", side_effect=subprocess.CalledProcessError(1, ["git"]))
     with pytest.raises(ValueError, match="does not exist"):
         metadata.check_release_tag("v1.2.3", "1.2.3")

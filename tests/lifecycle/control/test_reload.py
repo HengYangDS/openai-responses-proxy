@@ -57,7 +57,7 @@ def _serving_installation(root: Path, *, service: str, mocker):
 
 def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
     subtests, *, mocker, tmp_path_factory: pytest.TempPathFactory
-):
+) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
 
@@ -70,7 +70,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
         def __exit__(self, *_args) -> bool:
             return False
 
-        def read(self):
+        def read(self) -> bytes:
             return b'{"pid": 7}'
 
     open_request = mocker.patch.object(
@@ -145,7 +145,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
             control.reload(ctx)
 
 
-def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, mocker):
+def test_reload_reads_handoff_identity_from_selected_generation(tmp_path, *, mocker) -> None:
     stable = install_context(tmp_path)
     Path(stable.install_dir).mkdir(parents=True)
     ctx = generation.context(stable, "a" * 32)
@@ -254,7 +254,7 @@ def test_reload_requires_installation_and_resolved_transaction_state(
 
 def test_reload_refuses_incompatible_listener_without_mutation(
     *, mocker, tmp_path_factory: pytest.TempPathFactory
-):
+) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
     mocker.patch.object(control, "read_runtime", return_value={"pid": 12345})

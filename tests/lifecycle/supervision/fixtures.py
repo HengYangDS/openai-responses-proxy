@@ -55,7 +55,7 @@ def set_file(path, text=None):
     return path
 
 
-def assert_fragments(text, include=(), exclude=()):
+def assert_fragments(text, include=(), exclude=()) -> None:
     """Assert required and forbidden fragments."""
     for fragment in include:
         assert fragment in text

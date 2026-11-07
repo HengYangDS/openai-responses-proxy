@@ -39,7 +39,7 @@ def admit_handoff_generations(
 class HandoffFixture:
     """Release each controller contract's temporary installation state."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self._cleanups = ExitStack()
         self.tempdir = tempfile.TemporaryDirectory()
         self._cleanups.callback(self.tempdir.cleanup)

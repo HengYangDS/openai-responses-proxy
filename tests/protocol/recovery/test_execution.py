@@ -58,7 +58,7 @@ class ResponseFailedContracts:
         assert dialogue_metrics["dropped_input_items"] == 1
         assert dialogue_metrics["retained_messages"] == 1
 
-    def test_shrinking_recovery_preserves_an_encrypted_agent_task(self):
+    def test_shrinking_recovery_preserves_an_encrypted_agent_task(self) -> None:
         task = {
             "type": "agent_message",
             "author": "/root",
@@ -79,7 +79,7 @@ class ResponseFailedContracts:
             assert metrics is not None
             assert json.loads(recovery)["input"] == [task, _message("user", "Continue")]
 
-    def test_dialogue_recovery_preserves_current_tool_results_or_refuses_the_budget(self):
+    def test_dialogue_recovery_preserves_current_tool_results_or_refuses_the_budget(self) -> None:
         current = [
             _message("user", "current request"),
             _message("assistant", "calling the required tool"),
@@ -95,7 +95,7 @@ class ResponseFailedContracts:
         assert json.loads(recovered)["input"] == current
         assert execution_recovery.recover_dialogue(raw, 100) == (None, None)
 
-    def assert_rejected(self, function, fixtures, subtests):
+    def assert_rejected(self, function, fixtures, subtests) -> None:
         for raw, budget in fixtures:
             with subtests.test(raw=raw, budget=budget):
                 assert function(raw, budget) == (None, None)
@@ -106,7 +106,7 @@ class ResponseFailedContracts:
         assert detail is not None
         return (compact, detail)
 
-    def test_retry_disposition_classifies_gateway_and_terminal_failures(self, subtests):
+    def test_retry_disposition_classifies_gateway_and_terminal_failures(self, subtests) -> None:
         cases = (
             (429, b"rate limited", ""),
             (524, b"gateway timeout", "full"),
@@ -172,7 +172,7 @@ class ResponseFailedContracts:
 
         assert execution_recovery.retry_disposition(400, payload) == ""
 
-    def test_response_failed_compaction_keeps_complete_tool_pairs_and_latest_user(self):
+    def test_response_failed_compaction_keeps_complete_tool_pairs_and_latest_user(self) -> None:
         """Fallback removes historical input without orphaning retained outputs."""
         body = _body(
             [
@@ -206,7 +206,7 @@ class ResponseFailedContracts:
         assert outputs.issubset(calls)
         assert "function-1" in calls
 
-    def test_response_failed_compaction_never_starts_at_an_orphaned_tool_output(self):
+    def test_response_failed_compaction_never_starts_at_an_orphaned_tool_output(self) -> None:
         body = _body(
             [
                 _message("user", "old" + "x" * 10000),
@@ -221,7 +221,7 @@ class ResponseFailedContracts:
         obj = json.loads(compact)
         assert obj["input"] == [_message("user", "newest user context")]
 
-    def test_response_failed_compaction_reduces_an_already_sub_budget_failure(self):
+    def test_response_failed_compaction_reduces_an_already_sub_budget_failure(self) -> None:
         body = _body(
             [
                 _message("user", "old" + "x" * 280000),
@@ -240,7 +240,7 @@ class ResponseFailedContracts:
 
     def test_response_failed_compaction_uses_smallest_safe_retention_when_budget_is_impossible(
         self,
-    ):
+    ) -> None:
         body = _body(
             [
                 _message("user", "old context"),
@@ -257,7 +257,7 @@ class ResponseFailedContracts:
         assert obj["input"][0]["content"] == "latest user context"
         assert projection.sanitize_responses_body(compact).body == compact
 
-    def test_response_failed_compaction_is_a_noop_without_removable_history(self):
+    def test_response_failed_compaction_is_a_noop_without_removable_history(self) -> None:
         body = _body(
             [_message("user", "newest user context")],
             tools=[{"type": "function", "name": "huge", "parameters": "x" * 600000}],
@@ -268,7 +268,7 @@ class ResponseFailedContracts:
         assert detail is None
         assert json.loads(body)["prompt_cache_key"] == "must-remain-on-original-request"
 
-    def test_response_failed_compaction_refuses_orphaned_input_before_removal(self):
+    def test_response_failed_compaction_refuses_orphaned_input_before_removal(self) -> None:
         body = _body(
             [
                 _message("user", "old" * 1000),
@@ -280,7 +280,7 @@ class ResponseFailedContracts:
 
     def test_response_failed_dialogue_recovery_keeps_latest_context_without_historical_tools(
         self,
-    ):
+    ) -> None:
         body = _body(
             [
                 _message("developer", "old policy"),
@@ -309,7 +309,7 @@ class ResponseFailedContracts:
 
     def test_response_failed_dialogue_recovery_allows_current_user_without_instruction(
         self,
-    ):
+    ) -> None:
         body = _body(
             [
                 _message("user", "old request"),
@@ -324,7 +324,9 @@ class ResponseFailedContracts:
         assert json.loads(recovery)["input"] == [_message("user", "latest user request")]
         assert detail["retained_messages"] == 1
 
-    def test_response_failed_rejects_invalid_compaction_and_recovery_boundaries(self, subtests):
+    def test_response_failed_rejects_invalid_compaction_and_recovery_boundaries(
+        self, subtests
+    ) -> None:
         common = ((b"not-json", 1024), (b"[]", 1024), (b'{"input":[]}', 1024))
         self.assert_rejected(
             execution_recovery.compact_request,

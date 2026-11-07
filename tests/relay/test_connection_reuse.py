@@ -152,12 +152,12 @@ class TestConnectionReuse:
     def teardown_method(self) -> None:
         upstream_transport.reset_for_test()
 
-    def test_sequential_exchanges_share_one_connection(self):
+    def test_sequential_exchanges_share_one_connection(self) -> None:
         with _upstream() as upstream:
             assert [_get(upstream.url) for _ in range(3)] == [OK, OK, OK]
         assert _shape(upstream) == [3]
 
-    def test_requests_keep_urllib_headers_except_the_forced_close(self):
+    def test_requests_keep_urllib_headers_except_the_forced_close(self) -> None:
         with _upstream() as upstream:
             request = urllib.request.Request(
                 upstream.url,
@@ -180,7 +180,7 @@ class TestConnectionReuse:
         assert headers["content-length"] == "2"
         assert headers["authorization"] == "Bearer fixture"
 
-    def test_an_announced_close_and_a_partial_read_are_not_reused(self):
+    def test_an_announced_close_and_a_partial_read_are_not_reused(self) -> None:
         replies: list[Reply] = [(200, OK, {"Connection": "close"}), (200, b"x" * 65536, {})]
         with _upstream(replies) as upstream:
             assert _get(upstream.url) == OK
@@ -192,7 +192,7 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert _shape(upstream) == [1, 1, 1]
 
-    def test_a_connection_the_upstream_closed_while_idle_is_replaced_without_replay(self):
+    def test_a_connection_the_upstream_closed_while_idle_is_replaced_without_replay(self) -> None:
         with _upstream(drop_first=True) as upstream:
             assert _get(upstream.url) == OK
             assert upstream.dropped.wait(timeout=5)
@@ -200,7 +200,7 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert _shape(upstream) == [1, 1]
 
-    def test_an_http_error_body_stays_readable_and_its_connection_is_reused(self):
+    def test_an_http_error_body_stays_readable_and_its_connection_is_reused(self) -> None:
         with _upstream([(429, b'{"error":"busy"}', {})]) as upstream:
             with pytest.raises(urllib.error.HTTPError) as caught:
                 _open(upstream.url)
@@ -210,7 +210,9 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert _shape(upstream) == [2]
 
-    def test_a_send_failure_on_a_reused_connection_retries_once_on_a_new_one(self, *, mocker):
+    def test_a_send_failure_on_a_reused_connection_retries_once_on_a_new_one(
+        self, *, mocker
+    ) -> None:
         original = http.client.HTTPConnection.send
         failures: list[object] = []
 
@@ -227,7 +229,7 @@ class TestConnectionReuse:
         assert len(failures) == 1
         assert _shape(upstream) == [1, 1]
 
-    def test_a_send_failure_on_a_new_connection_is_not_retried(self, *, mocker):
+    def test_a_send_failure_on_a_new_connection_is_not_retried(self, *, mocker) -> None:
         attempts: list[object] = []
 
         def send(connection: http.client.HTTPConnection, data: bytes) -> None:
@@ -241,7 +243,7 @@ class TestConnectionReuse:
                 _get(upstream.url)
         assert len(attempts) == 1
 
-    def test_concurrent_exchanges_never_share_a_connection(self):
+    def test_concurrent_exchanges_never_share_a_connection(self) -> None:
         with _upstream(hold=threading.Barrier(2, timeout=5)) as upstream:
             bodies: list[bytes] = []
             threads = [
@@ -255,7 +257,7 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert sorted(_shape(upstream)) == [1, 2]
 
-    def test_an_expired_idle_connection_is_not_reused(self, *, mocker):
+    def test_an_expired_idle_connection_is_not_reused(self, *, mocker) -> None:
         # A negative lifetime expires every idle connection whatever the clock's resolution:
         # before Python 3.13, time.monotonic() on Windows advances in 15.6 ms steps, so a short
         # sleep under a zero lifetime could leave the age at 0.0 and reuse the connection.
@@ -265,7 +267,7 @@ class TestConnectionReuse:
             assert _get(upstream.url) == OK
         assert _shape(upstream) == [1, 1]
 
-    def test_a_reused_connection_still_ends_at_its_exchange_deadline(self):
+    def test_a_reused_connection_still_ends_at_its_exchange_deadline(self) -> None:
         released = threading.Event()
         with _upstream(stall_second=released) as upstream:
             assert _get(upstream.url) == OK
@@ -279,7 +281,7 @@ class TestConnectionReuse:
         assert elapsed < 1.5
         assert _shape(upstream) == [2]
 
-    def test_a_send_failure_with_an_unreplayable_body_is_not_retried(self, *, mocker):
+    def test_a_send_failure_with_an_unreplayable_body_is_not_retried(self, *, mocker) -> None:
         original = http.client.HTTPConnection.send
         failures: list[object] = []
 
@@ -302,7 +304,7 @@ class TestConnectionReuse:
 class TestConnectionPool:
     address = ("http", "127.0.0.1", 9)
 
-    def test_a_connection_beyond_the_idle_bound_is_closed(self, *, mocker):
+    def test_a_connection_beyond_the_idle_bound_is_closed(self, *, mocker) -> None:
         mocker.patch.object(connections, "IDLE_PER_ADDRESS", 0)
         pool: connections.Pool[connections.Reusable] = connections.Pool()
         connection = connections.Reusable("127.0.0.1", 9)
@@ -317,18 +319,18 @@ class TestConnectionPool:
             local.close()
             peer.close()
 
-    def test_an_idle_connection_without_a_socket_is_discarded(self):
+    def test_an_idle_connection_without_a_socket_is_discarded(self) -> None:
         pool: connections.Pool[connections.Reusable] = connections.Pool()
         pool.release(self.address, connections.Reusable("127.0.0.1", 9))
         assert pool.acquire(self.address) is None
 
 
 class TestPooledRequestBoundaries:
-    def test_a_response_without_a_request_is_refused(self):
+    def test_a_response_without_a_request_is_refused(self) -> None:
         with pytest.raises(http.client.ResponseNotReady):
             upstream_transport._PooledRequest("127.0.0.1").getresponse()
 
-    def test_a_response_body_reports_its_end_once(self):
+    def test_a_response_body_reports_its_end_once(self) -> None:
         local, peer = socket.socketpair()
         ends: list[None] = []
         reader = upstream_transport._DeadlineReader(

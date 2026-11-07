@@ -87,7 +87,7 @@ from tools.release import metadata
 )
 def test_governance_reader_detects_contradicted_public_contract(
     carrier, before, after, diagnostic, mocker
-):
+) -> None:
     original = Path.read_text
 
     def read(path, *args, **kwargs):
@@ -101,13 +101,13 @@ def test_governance_reader_detects_contradicted_public_contract(
         metadata.check_governance_contract()
 
 
-def test_governance_requires_real_repository_carriers(tmp_path, mocker):
+def test_governance_requires_real_repository_carriers(tmp_path, mocker) -> None:
     mocker.patch.object(metadata, "ROOT", tmp_path)
     with pytest.raises(ValueError, match="missing governance documents"):
         metadata.check_governance_contract()
 
 
-def test_forge_publication_has_no_implicit_actor_or_trust_source():
+def test_forge_publication_has_no_implicit_actor_or_trust_source() -> None:
     source = (ROOT / "tools" / "release" / "tag_signature.py").read_text(encoding="utf-8")
     assert "packaging/release" not in source
     assert "/Users/" not in source
@@ -115,6 +115,6 @@ def test_forge_publication_has_no_implicit_actor_or_trust_source():
     assert "anchor" in source
 
 
-def test_publication_has_importable_command_and_peer_owners():
+def test_publication_has_importable_command_and_peer_owners() -> None:
     for owner in ("__main__", "verification", "github.publish", "gitlab.publish"):
         assert importlib.util.find_spec(f"tools.release.publication.{owner}") is not None

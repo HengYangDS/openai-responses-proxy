@@ -48,7 +48,7 @@ def test_semantic_name_gate_accepts_official_pyinstaller_hook_modules() -> None:
     assert gaps == []
 
 
-def test_product_module_names_do_not_shadow_the_standard_library():
+def test_product_module_names_do_not_shadow_the_standard_library() -> None:
     collisions = sorted(
         path.relative_to(ROOT).as_posix()
         for path in (ROOT / "src" / "openai_responses_proxy").rglob("*.py")

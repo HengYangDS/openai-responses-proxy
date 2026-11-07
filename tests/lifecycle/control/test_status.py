@@ -290,7 +290,7 @@ def test_status_routes_terminal_cleanup_to_recovery(
     pending.rollback()
 
 
-def test_control_status_includes_secret_free_runtime_when_listener_is_available(*, mocker):
+def test_control_status_includes_secret_free_runtime_when_listener_is_available(*, mocker) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         ctx = install_context(root)
@@ -427,7 +427,7 @@ def test_status_rejects_a_non_accepting_or_draining_runtime(
             assert evidence["runtime"] is None
 
 
-def test_status_rejects_runtime_from_an_unowned_listener(tmp_path: Path, *, mocker):
+def test_status_rejects_runtime_from_an_unowned_listener(tmp_path: Path, *, mocker) -> None:
     ctx = install_context(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
@@ -450,7 +450,7 @@ def test_status_rejects_runtime_from_an_unowned_listener(tmp_path: Path, *, mock
     assert evidence["runtime"] is None
 
 
-def test_control_status_json_reports_recovery_without_private_transaction_data(*, mocker):
+def test_control_status_json_reports_recovery_without_private_transaction_data(*, mocker) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         ctx = install_context(root)

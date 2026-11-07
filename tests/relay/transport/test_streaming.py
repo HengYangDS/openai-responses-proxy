@@ -18,7 +18,7 @@ from tests.relay.fixtures import running_proxy
 
 
 class TestProxyTransport(LoopbackTransportFixture):
-    def test_reconnects_a_pre_content_response_failed_stream(self, *, mocker):
+    def test_reconnects_a_pre_content_response_failed_stream(self, *, mocker) -> None:
         failed = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',
@@ -48,7 +48,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["streams_pre_content_reconnect_attempts"] == 1
         assert counters["streams_completed"] == 1
 
-    def test_normalizes_exhausted_pre_content_sse_failures_to_retryable_503(self, *, mocker):
+    def test_normalizes_exhausted_pre_content_sse_failures_to_retryable_503(
+        self, *, mocker
+    ) -> None:
         failed = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',
@@ -84,7 +86,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["streams_failed"] == 1
         assert last_failure["classification"] == "stream_pre_content_exhausted"
 
-    def test_does_not_reconnect_after_downstream_stream_bytes_are_committed(self):
+    def test_does_not_reconnect_after_downstream_stream_bytes_are_committed(self) -> None:
         partial = {
             "chunks": [
                 b'data: {"type":"response.created"}\n\n',

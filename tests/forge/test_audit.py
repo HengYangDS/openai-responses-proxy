@@ -169,7 +169,9 @@ class TestForgeAuditContracts:
 
 
 @pytest.mark.parametrize("peers", [(), ("origin",), ("github",), ("origin", "github")])
-def test_selected_peers_are_optional_and_object_preserving(forge_fixture: ForgeFixture, peers):
+def test_selected_peers_are_optional_and_object_preserving(
+    forge_fixture: ForgeFixture, peers
+) -> None:
     source = forge_fixture["source"]
     run("git", "tag", "-s", "v1.0.0", "-m", "Release", cwd=source)
     for remote in ("origin", "github"):
@@ -196,7 +198,7 @@ def test_selected_peers_are_optional_and_object_preserving(forge_fixture: ForgeF
     assert refs_before == run("git", "show-ref", cwd=source).stdout
 
 
-def test_audit_uses_original_role_observation(forge_fixture: ForgeFixture, mocker):
+def test_audit_uses_original_role_observation(forge_fixture: ForgeFixture, mocker) -> None:
     source = forge_fixture["source"]
     run("git", "branch", "-m", "main", "stable", cwd=source)
     run("git", "branch", "-m", "dev", "integration", cwd=source)
@@ -227,7 +229,7 @@ def test_audit_uses_original_role_observation(forge_fixture: ForgeFixture, mocke
 @pytest.mark.parametrize("peers", [("origin", "origin"), ("absent",), ("local",)])
 def test_invalid_peer_selection_fails_before_observation(
     forge_fixture: ForgeFixture, peers, mocker
-):
+) -> None:
     remote = mocker.patch.object(audit, "remote_branch_oids")
     with pytest.raises(RuntimeError, match="peer"):
         audit.audit(
@@ -243,7 +245,7 @@ def test_invalid_peer_selection_fails_before_observation(
 @pytest.mark.parametrize(
     ("local", "peer"), [({}, {}), ({"stable": "x"}, {}), ({"stable": "x"}, {"other": "x"})]
 )
-def test_branch_parity_rejects_missing_or_different_roles(local, peer):
+def test_branch_parity_rejects_missing_or_different_roles(local, peer) -> None:
     assert not exact_branch_parity(local, peer)
 
 
@@ -255,13 +257,13 @@ def test_branch_parity_rejects_missing_or_different_roles(local, peer):
         {"release_branch": "", "accepted_branch": "dev", "candidate_branch": "candidate/dev"},
     ],
 )
-def test_native_branch_roles_must_be_complete(roles, tmp_path, mocker):
+def test_native_branch_roles_must_be_complete(roles, tmp_path, mocker) -> None:
     mocker.patch.object(audit.observation, "read", return_value={"role_policy": roles})
     with pytest.raises((RuntimeError, TypeError), match="policy"):
         branches_for_audit(tmp_path)
 
 
-def test_unavailable_native_roles_are_not_guessed(tmp_path, mocker):
+def test_unavailable_native_roles_are_not_guessed(tmp_path, mocker) -> None:
     mocker.patch.object(
         audit.observation, "read", side_effect=audit.observation.ObservationError("unavailable")
     )
@@ -269,7 +271,7 @@ def test_unavailable_native_roles_are_not_guessed(tmp_path, mocker):
         branches_for_audit(tmp_path)
 
 
-def test_subprocess_failure_is_bounded_and_checked(tmp_path):
+def test_subprocess_failure_is_bounded_and_checked(tmp_path) -> None:
     with pytest.raises(RuntimeError):
         audit.command("git", "rev-parse", "--verify", "missing", cwd=tmp_path)
     assert (
@@ -280,7 +282,7 @@ def test_subprocess_failure_is_bounded_and_checked(tmp_path):
     )
 
 
-def test_release_audit_detects_untrusted_tags_identity_and_residual_branches(forge_fixture):
+def test_release_audit_detects_untrusted_tags_identity_and_residual_branches(forge_fixture) -> None:
     source = forge_fixture["source"]
     anchor = forge_fixture["anchor"]
     commit = run("git", "rev-parse", "HEAD", cwd=source).stdout.strip()
@@ -298,7 +300,7 @@ def test_release_audit_detects_untrusted_tags_identity_and_residual_branches(for
 
 
 @pytest.mark.parametrize("as_json", [False, True])
-def test_cli_reports_exact_selected_peer_scope(as_json, forge_fixture, mocker, capsys):
+def test_cli_reports_exact_selected_peer_scope(as_json, forge_fixture, mocker, capsys) -> None:
     expected = {"ok": True, "branch_object_parity": True, "tag_object_parity": True}
     collect = mocker.patch.object(audit, "audit", return_value=expected)
     args = [
@@ -327,7 +329,7 @@ def test_cli_reports_exact_selected_peer_scope(as_json, forge_fixture, mocker, c
 
 
 @pytest.mark.parametrize("failure", ["anchor", "observation", "parity"])
-def test_cli_failure_is_nonzero(failure, forge_fixture, mocker):
+def test_cli_failure_is_nonzero(failure, forge_fixture, mocker) -> None:
     anchor = forge_fixture["anchor"]
     if failure == "anchor":
         anchor = anchor.with_name("absent")

@@ -22,7 +22,7 @@ from tests.relay.fixtures import running_proxy
 
 
 class TestProxyTransport(LoopbackTransportFixture):
-    def test_json_depth_failure_returns_local_400_and_keeps_listener_usable(self):
+    def test_json_depth_failure_returns_local_400_and_keeps_listener_usable(self) -> None:
         body = b'{"input":"private-depth-prompt","metadata":' + b"[" * 100_000 + b"0"
         raw = (
             b"POST /aihubmix/v1/responses HTTP/1.1\r\nHost: localhost\r\n"
@@ -45,7 +45,7 @@ class TestProxyTransport(LoopbackTransportFixture):
                 assert response.read() == success
             assert received == [current]
 
-    def test_same_provider_requests_overlap_without_a_proxy_concurrency_gate(self):
+    def test_same_provider_requests_overlap_without_a_proxy_concurrency_gate(self) -> None:
         started = [threading.Event(), threading.Event()]
         release = threading.Event()
         success = b'{"id":"resp_concurrent","status":"completed"}'
@@ -81,7 +81,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert len(received) == 2
         assert results == [(200, success), (200, success)]
 
-    def test_loopback_healthz_returns_machine_readable_metrics(self):
+    def test_loopback_healthz_returns_machine_readable_metrics(self) -> None:
         with (
             running_proxy([]) as (port, _received),
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
@@ -101,7 +101,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         [{"Origin": "https://example.invalid"}, {"Host": "example.invalid"}],
         ids=["browser-origin", "rebound-host"],
     )
-    def test_lifecycle_control_refuses_requests_a_browser_page_can_send(self, headers):
+    def test_lifecycle_control_refuses_requests_a_browser_page_can_send(self, headers) -> None:
         with running_proxy([]) as (port, _received):
             for method, path in (
                 ("POST", "/control/drain"),
@@ -118,7 +118,7 @@ class TestProxyTransport(LoopbackTransportFixture):
                 assert response.status == 403, (method, path)
             assert not proxy.runtime_status()["draining"]
 
-    def test_loopback_drain_rejects_new_responses_and_can_be_reopened(self):
+    def test_loopback_drain_rejects_new_responses_and_can_be_reopened(self) -> None:
         success = b'{"id":"resp_served","status":"completed"}'
         body = json.dumps({"stream": False, "input": []}).encode()
         with running_proxy([(200, success)]) as (port, received):
@@ -155,7 +155,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert counters["responses_rejected_while_draining"] == 1
         assert not status["draining"]
 
-    def test_drain_lease_expires_without_a_controller_rollback_request(self, *, mocker):
+    def test_drain_lease_expires_without_a_controller_rollback_request(self, *, mocker) -> None:
         admission.reset_for_test()
         telemetry.reset_for_test()
         cooldown.reset_for_test()
@@ -168,7 +168,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         counters = cast("dict[str, int]", expired["counters"])
         assert counters["drain_leases_expired"] == 1
 
-    def test_drain_closes_admission_while_an_existing_response_finishes(self):
+    def test_drain_closes_admission_while_an_existing_response_finishes(self) -> None:
         success = b'{"id":"resp_served","status":"completed"}'
         body = json.dumps({"stream": False, "input": []}).encode()
         started = threading.Event()
@@ -184,7 +184,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         }
         with running_proxy([scripted]) as (port, received):
 
-            def request_in_flight():
+            def request_in_flight() -> None:
                 try:
                     with request(port, body) as response:
                         worker_result["body"] = response.read()

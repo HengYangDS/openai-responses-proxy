@@ -55,7 +55,7 @@ class AssemblyContracts:
 @pytest.mark.parametrize(
     "defect", ["occupied-output", "duplicate", "unknown", "missing", "no-inputs"]
 )
-def test_assembly_rejects_ambiguous_or_incomplete_inventory(tmp_path, defect):
+def test_assembly_rejects_ambiguous_or_incomplete_inventory(tmp_path, defect) -> None:
     inputs = native_inputs(tmp_path)
     output = tmp_path / "release"
     if defect == "occupied-output":
@@ -77,7 +77,7 @@ def test_assembly_rejects_ambiguous_or_incomplete_inventory(tmp_path, defect):
         assert not output.exists()
 
 
-def test_assembly_preserves_missing_signer_and_signature_failures(tmp_path, mocker):
+def test_assembly_preserves_missing_signer_and_signature_failures(tmp_path, mocker) -> None:
     output = tmp_path / "release"
     with pytest.raises(assets.AssetError, match="signing inputs"):
         assembly.assemble_sign_verify(

@@ -297,7 +297,9 @@ class TestMacosBackgroundContract:
         invoked.assert_not_called()
 
     @pytest.mark.parametrize("operation", [macos.install, macos.uninstall])
-    def test_carrier_symlink_preserves_its_foreign_target(self, tmp_path, *, operation, mocker):
+    def test_carrier_symlink_preserves_its_foreign_target(
+        self, tmp_path, *, operation, mocker
+    ) -> None:
         foreign = tmp_path / "foreign.plist"
         content = b"foreign launch agent"
         foreign.write_bytes(content)

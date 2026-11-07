@@ -65,7 +65,7 @@ def test_workload_rejects_non_bytes_response(method: str, mocker) -> None:
 def test_pyperf_registrations_execute_the_declared_workloads(mode: str, mocker) -> None:
     recorded = {}
 
-    def execute(name, function, *arguments):
+    def execute(name, function, *arguments) -> None:
         recorded[name] = function(*arguments)
 
     runner = mocker.Mock()

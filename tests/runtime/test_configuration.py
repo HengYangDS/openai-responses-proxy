@@ -15,11 +15,13 @@ if TYPE_CHECKING:
 
 
 class TestRuntimeConfiguration:
-    def test_home_dir_expands_the_runtime_user_home(self, *, mocker):
+    def test_home_dir_expands_the_runtime_user_home(self, *, mocker) -> None:
         mocker.patch.object(runtime_config.os.path, "expanduser", return_value="/portable/home")
         assert runtime_config.home_dir() == "/portable/home"
 
-    def test_product_roots_are_portable_and_explicitly_overridable(self, subtests, *, mocker):
+    def test_product_roots_are_portable_and_explicitly_overridable(
+        self, subtests, *, mocker
+    ) -> None:
         cases = (
             (
                 {"OPENAI_RESPONSES_PROXY_HOME": "~/payload"},
@@ -60,7 +62,7 @@ class TestRuntimeConfiguration:
                 assert runtime_config.data_dir().endswith(expected[0])
                 assert runtime_config.state_dir().endswith(expected[1])
 
-    def test_macos_state_root_is_not_lost_in_platform_matrix(self, *, mocker):
+    def test_macos_state_root_is_not_lost_in_platform_matrix(self, *, mocker) -> None:
         """Keep the native macOS path branch covered on every CI host."""
         mocker.patch.dict(runtime_config.os.environ, {}, clear=True)
         mocker.patch.object(runtime_config.os, "name", "posix")
@@ -72,7 +74,9 @@ class TestRuntimeConfiguration:
             home, "Library", "Logs", "openai-responses-proxy"
         )
 
-    def test_runtime_configuration_is_loopback_only_and_rejects_invalid_ports(self, subtests):
+    def test_runtime_configuration_is_loopback_only_and_rejects_invalid_ports(
+        self, subtests
+    ) -> None:
         assert runtime_config.listener_host() == "127.0.0.1"
         for value in ("0", "65536", "not-a-port"):
             with (
@@ -81,13 +85,13 @@ class TestRuntimeConfiguration:
             ):
                 runtime_config.listener_port({runtime_config.PROXY_PORT_ENV: value})
 
-    def test_runtime_log_defaults_share_the_portable_state_owner(self, *, mocker):
+    def test_runtime_log_defaults_share_the_portable_state_owner(self, *, mocker) -> None:
         mocker.patch.dict(runtime_config.os.environ, {}, clear=True)
         mocker.patch.object(runtime_config, "state_dir", return_value="/portable/state")
         assert runtime_config.proxy_log_path() == "/portable/state/proxy.log"
         assert runtime_config.watchdog_log_path() == "/portable/state/watchdog.log"
 
-    def test_runtime_path_overrides_expand_against_the_supplied_home(self):
+    def test_runtime_path_overrides_expand_against_the_supplied_home(self) -> None:
         environment = {
             "HOME": "/portable/home",
             runtime_config.HOME_ENV: "~/payload",
@@ -96,7 +100,7 @@ class TestRuntimeConfiguration:
         assert runtime_config.data_dir(environment) == "/portable/home/payload"
         assert runtime_config.state_dir(environment) == "/portable/home/state"
 
-    def test_posix_overrides_are_not_reinterpreted_by_a_windows_host(self, *, mocker):
+    def test_posix_overrides_are_not_reinterpreted_by_a_windows_host(self, *, mocker) -> None:
         environment = {
             "HOME": "/portable/home",
             runtime_config.HOME_ENV: "~/payload",
@@ -106,7 +110,7 @@ class TestRuntimeConfiguration:
         assert runtime_config.data_dir(environment) == "/portable/home/payload"
         assert runtime_config.state_dir(environment) == "/portable/state"
 
-    def test_runtime_settings_expose_only_the_owned_configuration_model(self):
+    def test_runtime_settings_expose_only_the_owned_configuration_model(self) -> None:
         assert set(runtime_config.Settings.__dataclass_fields__) == {
             "host",
             "port",
@@ -130,7 +134,7 @@ class TestRuntimeConfiguration:
             runtime_config.DEFAULT_PORT,
         )
 
-    def test_runtime_settings_have_one_owner_and_strict_validation(self, subtests):
+    def test_runtime_settings_have_one_owner_and_strict_validation(self, subtests) -> None:
         environment = {
             runtime_config.PROXY_PORT_ENV: "8801",
             runtime_config.PROXY_LOG_MAX_BYTES_ENV: "8192",

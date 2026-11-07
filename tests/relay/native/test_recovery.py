@@ -187,7 +187,7 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: 
     release = threading.Event()
     content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
 
-    def delayed(handler):
+    def delayed(handler) -> None:
         if phase == "slow-framing":
             handler.connection.sendall(b"HTTP/1.1 200 OK\r\nX-Progress: ")
             for _ in range(20):
@@ -284,7 +284,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     release = threading.Event()
     started = threading.Event()
 
-    def first(handler):
+    def first(handler) -> None:
         failed = (
             b'data: {"type":"response.failed","response":{"output":[],'
             b'"error":{"code":"server_error"}}}\n\n'
@@ -295,7 +295,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
         handler.end_headers()
         handler.wfile.write(failed)
 
-    def second(handler):
+    def second(handler) -> None:
         started.set()
         release.wait(timeout=5)
         handler.send_response(200)
@@ -367,7 +367,7 @@ def test_frozen_listener_never_resends_a_request_the_upstream_received(*, stream
     This is the regression of BLOCK bde945c5.
     """
 
-    def lose_response(handler):
+    def lose_response(handler) -> None:
         if stream:
             created = b'data: {"type":"response.created"}\n\n'
             handler.send_response(200)
@@ -430,7 +430,7 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
     ).encode()
     peers: list[int] = []
 
-    def keep(handler):
+    def keep(handler) -> None:
         peers.append(handler.client_address[1])
         handler.wfile.write(
             b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
@@ -438,7 +438,7 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
         )
         handler.close_connection = False
 
-    def lose(handler):
+    def lose(handler) -> None:
         peers.append(handler.client_address[1])
         handler.close_connection = True
 

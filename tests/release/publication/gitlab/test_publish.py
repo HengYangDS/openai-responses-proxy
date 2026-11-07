@@ -304,7 +304,7 @@ def test_credential_kind_selects_one_exact_gitlab_header(
         (500, publish.GitLabPublishError),
     ],
 )
-def test_http_failure_preserves_status_and_closes_response(status, error_type, mocker):
+def test_http_failure_preserves_status_and_closes_response(status, error_type, mocker) -> None:
     stream = io.BytesIO(b"provider unavailable")
     error = urllib.error.HTTPError(
         "https://gitlab.example/api", status, "failed", Message(), stream
@@ -316,7 +316,7 @@ def test_http_failure_preserves_status_and_closes_response(status, error_type, m
 
 
 @pytest.mark.parametrize("content", [b"payload", "not-bytes"])
-def test_request_admits_binary_payload_and_sets_json_content_type(content, mocker):
+def test_request_admits_binary_payload_and_sets_json_content_type(content, mocker) -> None:
     response = mocker.MagicMock()
     response.__enter__.return_value.read.return_value = content
     open_url = mocker.patch.object(publish.urllib.request, "urlopen", return_value=response)
@@ -339,7 +339,7 @@ def test_request_admits_binary_payload_and_sets_json_content_type(content, mocke
             )
 
 
-def test_transport_failure_does_not_become_resource_absence(mocker):
+def test_transport_failure_does_not_become_resource_absence(mocker) -> None:
     mocker.patch.object(publish.urllib.request, "urlopen", side_effect=OSError("offline"))
     with pytest.raises(publish.GitLabPublishError, match="transport failed"):
         publish._request(
@@ -351,7 +351,7 @@ def test_transport_failure_does_not_become_resource_absence(mocker):
     "content",
     [b"", b"a" * 3000, b'{"message":{"reason":"invalid"}}', b'"failure"', b'{"message":""}'],
 )
-def test_provider_diagnostic_is_bounded_for_each_payload_shape(content):
+def test_provider_diagnostic_is_bounded_for_each_payload_shape(content) -> None:
     error = urllib.error.HTTPError(
         "https://gitlab.example/api", 500, "failed", Message(), io.BytesIO(content)
     )
@@ -362,14 +362,14 @@ def test_provider_diagnostic_is_bounded_for_each_payload_shape(content):
         error.close()
 
 
-def test_unreadable_error_body_has_no_secondary_failure(mocker):
+def test_unreadable_error_body_has_no_secondary_failure(mocker) -> None:
     error = mocker.Mock()
     error.read.side_effect = OSError("closed")
     assert publish._error_detail(error) == ""
 
 
 @pytest.mark.parametrize("existing", [None, {"assets": None}, {"assets": {"links": [1]}}])
-def test_existing_release_requires_complete_link_objects(existing):
+def test_existing_release_requires_complete_link_objects(existing) -> None:
     expected = {"tag_name": "v1.2.3", "name": "release", "description": "notes"}
     with pytest.raises(publish.GitLabPublishError, match="immutable identity"):
         publish._require_matching_release(

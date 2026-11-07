@@ -257,7 +257,9 @@ class TestTransportFailures(InputTransportFixture):
 
     @pytest.mark.parametrize("status", [200, 403])
     @pytest.mark.parametrize("overflow", [False, True], ids=["exact-limit", "over-limit"])
-    def test_catalog_byte_limit_preserves_only_admitted_bytes(self, status, *, overflow, mocker):
+    def test_catalog_byte_limit_preserves_only_admitted_bytes(
+        self, status, *, overflow, mocker
+    ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         handler.close_connection = False
         mocker.patch.object(
@@ -354,7 +356,7 @@ class TestTransportFailures(InputTransportFixture):
         assert responses._admit(exchange)
         assert not responses._cooldown_active(exchange)
 
-    def test_catalog_log_failure_still_releases_the_owned_response(self, *, mocker):
+    def test_catalog_log_failure_still_releases_the_owned_response(self, *, mocker) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         upstream = http_error(403, "denied", b"private-body")
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=upstream)

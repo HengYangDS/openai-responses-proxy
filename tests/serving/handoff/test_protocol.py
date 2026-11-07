@@ -22,18 +22,18 @@ ROOT = Path(__file__).resolve().parents[3]
 class TestProtocolContract:
     """The wire-level contract every other component below depends on."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.p = entrypoint_module
         runtime_state_module.reset_for_test()
         handoff_module.reset_session_to_idle()
 
-    def test_parent_and_controller_declare_protocol_version_two(self):
+    def test_parent_and_controller_declare_protocol_version_two(self) -> None:
         assert (
             handoff_module.HANDOFF_PROTOCOL_VERSION,
             handoff.HANDOFF_PROTOCOL_VERSION,
         ) == (2, 2)
 
-    def test_runtime_status_contains_full_handoff_health_shape(self):
+    def test_runtime_status_contains_full_handoff_health_shape(self) -> None:
         status = self.p.runtime_status()
         required = (
             "pid",
@@ -56,7 +56,7 @@ class TestProtocolContract:
         ]
         assert status["pid"] == os.getpid()
 
-    def test_runtime_status_reports_an_accepting_idle_state(self):
+    def test_runtime_status_reports_an_accepting_idle_state(self) -> None:
         status = self.p.runtime_status()
         assert (
             status["accepting"],
@@ -71,8 +71,8 @@ class TestProtocolContract:
 
     def test_a_prepared_or_committing_handoff_keeps_request_admission_open(
         self,
-    ):
-        def assert_accepting(state):
+    ) -> None:
+        def assert_accepting(state) -> None:
             handoff_module._HANDOFF_SESSION["state"] = state
             try:
                 status = self.p.runtime_status()
@@ -83,7 +83,7 @@ class TestProtocolContract:
         for state in ("preparing", "ready", "committing", "serving", "finalizing"):
             assert_accepting(state)
 
-    def test_healthz_over_real_loopback_http_exposes_the_same_shape(self):
+    def test_healthz_over_real_loopback_http_exposes_the_same_shape(self) -> None:
         providers = provider_registry.Registry(
             {"fixture": provider_registry.Profile("fixture", "https://gateway.example/v1")}
         )
@@ -110,7 +110,7 @@ class TestProtocolContract:
 
 
 class TestHandoffTransitionValidation:
-    def test_transition_table_matches_the_documented_protocol(self):
+    def test_transition_table_matches_the_documented_protocol(self) -> None:
         allowed = frozenset(
             (
                 ("idle", "preparing"),

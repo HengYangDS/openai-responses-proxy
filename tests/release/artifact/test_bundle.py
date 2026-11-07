@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.mark.parametrize(
     "defect", ["missing-distribution", "missing-record", "malformed-record", "missing-provenance"]
 )
-def test_normalization_requires_complete_installed_metadata(tmp_path, defect):
+def test_normalization_requires_complete_installed_metadata(tmp_path, defect) -> None:
     if defect != "missing-distribution":
         _installed_distribution(tmp_path, "isolated")
         metadata = next(tmp_path.glob("*.dist-info"))
@@ -35,14 +35,14 @@ def test_normalization_requires_complete_installed_metadata(tmp_path, defect):
         asset_command.normalize(tmp_path)
 
 
-def test_bundle_rejects_directory_symlink_cycles(tmp_path):
+def test_bundle_rejects_directory_symlink_cycles(tmp_path) -> None:
     (tmp_path / "cycle").symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(SystemExit, match="symlink cycle"):
         asset_command.bundle_files(tmp_path)
 
 
 @pytest.mark.parametrize("defect", ["occupied-output", "file-input", "missing-executable"])
-def test_pack_rejects_invalid_roots_before_writing(tmp_path, defect):
+def test_pack_rejects_invalid_roots_before_writing(tmp_path, defect) -> None:
     bundle = tmp_path / "bundle"
     output = tmp_path / "output"
     if defect == "file-input":
@@ -277,7 +277,9 @@ class BundleContracts:
     "defect",
     [None, "archive", "version", "platform", "renamed-version", "renamed-platform", "output"],
 )
-def test_materialization_uses_only_complete_current_platform_assets(tmp_path, mocker, defect):
+def test_materialization_uses_only_complete_current_platform_assets(
+    tmp_path, mocker, defect
+) -> None:
     source = tmp_path / "assets"
     source.mkdir()
     output = tmp_path / "runtime"
@@ -337,7 +339,7 @@ def test_materialization_uses_only_complete_current_platform_assets(tmp_path, mo
 
 
 @pytest.mark.parametrize("defect", ["missing", "empty", "directory", "symlink"])
-def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path, defect):
+def test_materialization_refuses_invalid_asset_roots_before_output(tmp_path, defect) -> None:
     source = tmp_path / "assets"
     output = tmp_path / "runtime"
     if defect != "missing":

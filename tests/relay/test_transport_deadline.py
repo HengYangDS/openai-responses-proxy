@@ -11,6 +11,7 @@ import threading
 import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from typing import Never
 from typing import cast
 from typing import override
 
@@ -74,7 +75,7 @@ class TestTransportDeadline(InputTransportFixture):
     )
     def test_native_read_timeout_keeps_its_selected_budget_identity(
         self, idle_timeout, deadline_bound, *, mocker
-    ):
+    ) -> None:
         left, right = socket.socketpair()
         with left, right:
             left.settimeout(idle_timeout)
@@ -107,13 +108,15 @@ class TestTransportDeadline(InputTransportFixture):
         assert left.fileno() == right.fileno() == -1
 
     @pytest.mark.parametrize("interrupt", [False, True], ids=["last-os-error", "interrupt"])
-    def test_connection_setup_failure_releases_its_source_bound_socket(self, interrupt, *, mocker):
+    def test_connection_setup_failure_releases_its_source_bound_socket(
+        self, interrupt, *, mocker
+    ) -> None:
         original_socket = socket.socket
         sockets = []
         bindings = []
         original_bind = socket.socket.bind
 
-        def bind(sock, address):
+        def bind(sock, address) -> None:
             bindings.append(address)
             original_bind(sock, address)
 
@@ -145,7 +148,7 @@ class TestTransportDeadline(InputTransportFixture):
             for sock in sockets:
                 sock.close()
 
-    def test_empty_dns_answer_opens_no_socket(self, *, mocker):
+    def test_empty_dns_answer_opens_no_socket(self, *, mocker) -> None:
         mocker.patch.object(socket, "getaddrinfo", return_value=[])
         create = mocker.patch.object(socket, "socket")
 
@@ -156,7 +159,7 @@ class TestTransportDeadline(InputTransportFixture):
 
         create.assert_not_called()
 
-    def test_expired_dns_result_cannot_start_a_tcp_connection(self, *, mocker):
+    def test_expired_dns_result_cannot_start_a_tcp_connection(self, *, mocker) -> None:
         upstream = ScriptedUpstream()
         upstream.push(lambda handler: handler.connection.sendall(b"HTTP/1.1 200 OK\r\n\r\n"))
         original_resolve = socket.getaddrinfo
@@ -187,14 +190,14 @@ class TestTransportDeadline(InputTransportFixture):
             upstream.close()
             assert not upstream.thread.is_alive()
 
-    def test_address_fallback_uses_only_the_remaining_setup_budget(self, *, mocker):
+    def test_address_fallback_uses_only_the_remaining_setup_budget(self, *, mocker) -> None:
         now = [time.monotonic()]
         sockets = []
         budgets = []
 
         class UnreachableSocket(socket.socket):
             @override
-            def connect(self, address):
+            def connect(self, address) -> Never:
                 del address
                 budget = self.gettimeout()
                 assert budget is not None
@@ -235,7 +238,7 @@ class TestTransportDeadline(InputTransportFixture):
     @pytest.mark.parametrize("handshake_delay", [0.0, 0.15], ids=["immediate", "scheduled"])
     def test_verified_tls_cannot_refund_time_spent_connecting(
         self, tls_context, handshake_delay: float, *, mocker
-    ):
+    ) -> None:
         upstream = ScriptedUpstream()
         server_context, client_context = tls_context
         upstream.server.socket = server_context.wrap_socket(
@@ -254,7 +257,7 @@ class TestTransportDeadline(InputTransportFixture):
         now = [time.monotonic()]
         tls_budgets = []
 
-        def connect(sock, address):
+        def connect(sock, address) -> None:
             original_connect(sock, address)
             now[0] += 3.2
 
@@ -295,7 +298,9 @@ class TestTransportDeadline(InputTransportFixture):
             upstream.close()
             assert not upstream.thread.is_alive()
 
-    def test_stalled_tls_handshake_closes_within_the_remaining_wall_clock_budget(self, *, mocker):
+    def test_stalled_tls_handshake_closes_within_the_remaining_wall_clock_budget(
+        self, *, mocker
+    ) -> None:
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
@@ -303,7 +308,7 @@ class TestTransportDeadline(InputTransportFixture):
         release = threading.Event()
         accepted = threading.Event()
 
-        def hold_handshake():
+        def hold_handshake() -> None:
             peer, _ = listener.accept()
             with peer:
                 accepted.set()
@@ -313,7 +318,7 @@ class TestTransportDeadline(InputTransportFixture):
         peer_thread.start()
         original_connect = socket.socket.connect
 
-        def connect(sock, address):
+        def connect(sock, address) -> None:
             original_connect(sock, address)
             time.sleep(0.25)
 
@@ -345,14 +350,14 @@ class TestTransportDeadline(InputTransportFixture):
             assert not peer_thread.is_alive()
             assert listener.fileno() == -1
 
-    def test_request_body_cannot_refund_time_spent_sending_headers(self, *, mocker):
+    def test_request_body_cannot_refund_time_spent_sending_headers(self, *, mocker) -> None:
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         listener.settimeout(2)
         release = threading.Event()
 
-        def consume_request():
+        def consume_request() -> None:
             peer, _ = listener.accept()
             with peer:
                 release.wait(timeout=3)
@@ -363,7 +368,7 @@ class TestTransportDeadline(InputTransportFixture):
         now = [time.monotonic()]
         budgets = []
 
-        def send(sock, data, *args, **kwargs):
+        def send(sock, data, *args, **kwargs) -> None:
             if data.startswith(b"POST "):
                 original_send(sock, data, *args, **kwargs)
                 now[0] += 0.16
@@ -409,7 +414,7 @@ class TestTransportDeadline(InputTransportFixture):
     @pytest.mark.parametrize("tls", [False, True], ids=["http", "https"])
     def test_progressing_http_framing_cannot_renew_the_deadline(
         self, phase: str, *, tls: bool, tls_context, mocker
-    ):
+    ) -> None:
         upstream = ScriptedUpstream()
         release = threading.Event()
         finished = threading.Event()
@@ -422,7 +427,7 @@ class TestTransportDeadline(InputTransportFixture):
             )
             mocker.patch.object(upstream_exchange, "_TLS_CONTEXT", client_context)
 
-        def slow_framing(handler):
+        def slow_framing(handler) -> None:
             try:
                 if phase == "headers":
                     handler.connection.sendall(b"HTTP/1.1 200 OK\r\nX-Progress: ")

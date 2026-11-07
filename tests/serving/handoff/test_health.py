@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[3]
 class TestSuccessorHealthObservation:
     """Exact successor states accepted by the subprocess health observer."""
 
-    def test_successor_observer_accepts_the_stable_finalized_health_state(self, *, mocker):
+    def test_successor_observer_accepts_the_stable_finalized_health_state(self, *, mocker) -> None:
         expected = expected_metadata()
         health = matching_health(54321, expected, handoff_state="finalized")
         mocker.patch("tests.serving.handoff.fixtures.http_json", return_value=(200, health))
@@ -27,7 +27,7 @@ class TestSuccessorHealthObservation:
 
         assert observed == 54321
 
-    def test_successor_observer_rejects_non_successor_health(self, subtests, *, mocker):
+    def test_successor_observer_rejects_non_successor_health(self, subtests, *, mocker) -> None:
         expected = expected_metadata()
         cases = (
             matching_health(54321, expected, handoff_state="idle"),
@@ -47,7 +47,7 @@ class TestParentHealthProbe:
 
     def test_probe_health_rejects_oversized_invalid_and_non_object_payloads(
         self, subtests, *, mocker
-    ):
+    ) -> None:
         response = mocker.MagicMock()
         response.__enter__.return_value = response
         mocker.patch.object(
@@ -70,7 +70,9 @@ class TestParentHealthProbe:
         response.read.return_value = b'{"ok":true}'
         assert handoff_protocol_module.probe_health(8791, timeout_seconds=1) == {"ok": True}
 
-    def test_probe_health_retries_until_the_successor_serves_the_expected_identity(self, *, mocker):
+    def test_probe_health_retries_until_the_successor_serves_the_expected_identity(
+        self, *, mocker
+    ) -> None:
         expected = expected_metadata()
         child = fake_child(mocker=mocker)
         old = {**matching_health(child, expected), "pid": child.runtime_pid - 1}
@@ -99,7 +101,7 @@ class TestParentHealthProbe:
             == current
         )
 
-    def test_probe_health_retries_failed_observations_until_exact_identity(self, *, mocker):
+    def test_probe_health_retries_failed_observations_until_exact_identity(self, *, mocker) -> None:
         expected = expected_metadata()
         child = fake_child(mocker=mocker)
         current = matching_health(child, expected)
