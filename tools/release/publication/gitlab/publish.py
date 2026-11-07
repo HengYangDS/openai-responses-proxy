@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import tempfile
@@ -129,7 +130,7 @@ def publish(
             try:
                 received = _request(f"{asset_base}/{asset_name}", token, credential_kind)
             except _GitLabResourceMissingError:
-                try:
+                with contextlib.suppress(FileExistsError):
                     _request(
                         f"{asset_base}/{asset_name}",
                         token,
@@ -137,8 +138,6 @@ def publish(
                         data=payload,
                         method="PUT",
                     )
-                except FileExistsError:
-                    pass
                 received = _request(f"{asset_base}/{asset_name}", token, credential_kind)
             if received != payload:
                 raise GitLabPublishError(

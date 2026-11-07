@@ -53,6 +53,7 @@ select = [
   "RET",
   "RSE",
   "RUF",
+  "SIM",
   "SLOT",
   "T10",
   "TD",
@@ -67,6 +68,7 @@ select = [
   "E7",
   "E9",
   "PLC0414",
+  "PLW0108",
   "PLW1510",
   "PLW2901",
   "S102",
@@ -82,10 +84,6 @@ select = [
   "S611",
   "S612",
   "S701",
-  "SIM102",
-  "SIM109",
-  "SIM112",
-  "SIM117",
 ]
 
 [lint.per-file-ignores]

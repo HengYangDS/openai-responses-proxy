@@ -77,7 +77,7 @@ class TestOwnedInventory:
             before = (root / current).read_bytes()
             monkeypatch.setattr(governance, "ROOT", root)
             launched: list[tuple[str, ...]] = []
-            monkeypatch.setattr(governance, "_run", lambda commands: launched.extend(commands))
+            monkeypatch.setattr(governance, "_run", launched.extend)
             operation = governance.fix if write else governance.audit
             with pytest.raises(governance.GovernanceError, match="formatter_input"):
                 operation()

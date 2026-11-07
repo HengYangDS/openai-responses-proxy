@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import time
@@ -177,10 +178,8 @@ def remove_empty_owned_directories(install: Path, owned: set[str]) -> None:
             raise errors.InstallError(
                 f"installed payload directory changed type: {relative.as_posix()}"
             )
-        try:
+        with contextlib.suppress(OSError):
             directory.rmdir()
-        except OSError:
-            pass
 
 
 def _remaining_paths(install: Path) -> tuple[str, ...]:

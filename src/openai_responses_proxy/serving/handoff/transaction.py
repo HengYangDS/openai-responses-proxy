@@ -8,6 +8,7 @@ through :class:`Context`.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import socket
 import sys
@@ -218,10 +219,8 @@ def _reset_preparation(child: HandoffChild | None) -> None:
 
 
 def _ignore_failure(action: Callable[[], object]) -> None:
-    try:
+    with contextlib.suppress(Exception):
         action()
-    except Exception:
-        pass
 
 
 def abort(child: HandoffChild) -> None:

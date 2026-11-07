@@ -21,8 +21,8 @@ class TestHardCodingResponsibility:
         assert identity.DISPLAY_NAME == "OpenAI Responses Proxy"
         assert identity.COMMAND_NAME == identity.PRODUCT_SLUG
         assert identity.ENVIRONMENT_PREFIX == "OPENAI_RESPONSES_PROXY"
-        assert identity.SERVICE_ID == f"{identity.PRODUCT_SLUG}.watchdog"
-        assert identity.RELEASE_NAMESPACE == f"{identity.PRODUCT_SLUG}-release"
+        assert f"{identity.PRODUCT_SLUG}.watchdog" == identity.SERVICE_ID
+        assert f"{identity.PRODUCT_SLUG}-release" == identity.RELEASE_NAMESPACE
 
     def test_controlled_values_have_complete_positive_ownership(self) -> None:
         report = checker.audit()

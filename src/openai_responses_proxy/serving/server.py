@@ -7,6 +7,7 @@ process bindings supplied by the executable entrypoint.
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import socketserver
 from dataclasses import dataclass
@@ -104,10 +105,8 @@ class ResilientProxyServer(ThreadingHTTPServer):
 
 
 def _disable_nagle(connection: socket.socket) -> None:
-    try:
+    with contextlib.suppress(OSError):
         connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    except OSError:
-        pass
 
 
 class Handler(BaseHTTPRequestHandler):

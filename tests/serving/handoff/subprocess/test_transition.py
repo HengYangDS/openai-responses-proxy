@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import json
 import shlex
@@ -165,7 +166,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
         holder = threading.Thread(target=run_holder)
         holder.start()
-        self._cleanups.callback(lambda: release.set())
+        self._cleanups.callback(release.set)
         assert started.wait(timeout=10), (
             "long upstream call did not start on the old process in time"
         )
@@ -232,10 +233,8 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream.start()
 
         def hold_stream():
-            try:
+            with contextlib.suppress(Exception):
                 self._post_responses(port, timeout=8)
-            except Exception:
-                pass
 
         holder = threading.Thread(target=hold_stream, daemon=True)
         holder.start()
