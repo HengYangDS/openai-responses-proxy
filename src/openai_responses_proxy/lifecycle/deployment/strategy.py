@@ -37,12 +37,13 @@ def runtime_supports_admission_preserving_handoff(
     runtime: handoff.RuntimeSnapshot | None,
 ) -> bool:
     """Return whether selected-generation handoff keeps admission open."""
-    if not runtime_supports_selected_generation_handoff(runtime):
+    if not runtime_supports_selected_generation_handoff(runtime) or not isinstance(runtime, dict):
         return False
-    assert isinstance(runtime, dict)
     capabilities = runtime["handoff_capabilities"]
-    assert isinstance(capabilities, list)
-    return handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY in capabilities
+    return (
+        isinstance(capabilities, list)
+        and handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY in capabilities
+    )
 
 
 def deployment_strategy_identity_is_valid(runtime: handoff.RuntimeSnapshot | None) -> bool:

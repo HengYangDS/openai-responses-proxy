@@ -293,14 +293,14 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
     ):
         configured_path = Path(configured).resolve()
         install_root = Path(ctx.install_dir).resolve()
-        assert configured_path.is_relative_to(install_root), (
-            "native service executable is outside the owned installation"
-        )
+        if not configured_path.is_relative_to(install_root):
+            raise errors.InstallError("native service executable is outside the owned installation")
         process_contexts = (*process_contexts, replace(ctx, executable=configured))
     failure: Exception | None = None
     try:
         service.uninstall(ctx)
-        assert service.status(ctx) == "absent"
+        if service.status(ctx) != "absent":
+            raise errors.InstallError("test native service remains after uninstall")
     except Exception as error:
         failure = error
     finally:
@@ -324,13 +324,15 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
                     failure = failure or error
     if failure is not None:
         raise failure
-    assert service.status(ctx) == "absent"
-    assert service.configured_executable(ctx) is None
-    assert all(
+    if service.status(ctx) != "absent":
+        raise errors.InstallError("test native service reappeared after cleanup")
+    if service.configured_executable(ctx) is not None:
+        raise errors.InstallError("test native service binding remains after cleanup")
+    if any(
         process.pids_naming_executable(owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES)
-        == []
         for owned_ctx in process_contexts
-    )
+    ):
+        raise errors.InstallError("test runtime process remains after cleanup")
 
 
 def materialize_published_bundle(

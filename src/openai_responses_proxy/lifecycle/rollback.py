@@ -33,12 +33,12 @@ class RetainedRollbackStatus:
 
 def _load_selected(
     ctx: runtime_context.RuntimeContext,
-    selection: generation.Selection,
+    active: str,
+    retained: str,
 ) -> RetainedRollback:
-    """Verify the identities bound by one already validated selection."""
-    assert selection.predecessor is not None
-    active_ctx = generation.context(ctx, selection.active)
-    predecessor_ctx = generation.context(ctx, selection.predecessor)
+    """Verify the identities bound by one already validated active and retained generation."""
+    active_ctx = generation.context(ctx, active)
+    predecessor_ctx = generation.context(ctx, retained)
     successor = identity.committed_payload(Path(active_ctx.executable))
     predecessor = identity.committed_payload(Path(predecessor_ctx.executable))
     installed = records.read_installed(ctx)
@@ -48,7 +48,7 @@ def _load_selected(
         raise errors.InstallError("retained rollback predecessor generation identity is invalid")
     if (
         installed is None
-        or installed.get("transaction_id") != selection.active
+        or installed.get("transaction_id") != active
         or installed.get("version") != successor.release
         or installed.get("receipt_sha256") != successor.release_receipt_sha256
         or installed.get("command") != ctx.command
@@ -69,7 +69,7 @@ def load_retained_or_none(
     _require_closed_generation_store(ctx, selection)
     if selection is None or selection.predecessor is None:
         return None
-    return _load_selected(ctx, selection)
+    return _load_selected(ctx, selection.active, selection.predecessor)
 
 
 def _require_closed_generation_store(

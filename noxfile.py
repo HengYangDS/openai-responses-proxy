@@ -239,8 +239,8 @@ def _build_native_candidate(session: nox.Session) -> tuple[Path, Path, Path]:
     )
     _assert_installed_product(session, work)
     bundle, executable = construction.freeze(session, work, root=ROOT, environment=_environment())
-    assert isinstance(bundle, Path)
-    assert isinstance(executable, Path)
+    if not isinstance(bundle, Path) or not isinstance(executable, Path):
+        session.error("native construction returned no bundle and executable paths")
     return work, bundle, executable
 
 

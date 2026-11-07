@@ -48,11 +48,15 @@ def branches_for_audit(root: Path = ROOT) -> tuple[frozenset[str], frozenset[str
     release = roles.get("release_branch")
     accepted = roles.get("accepted_branch")
     candidate = roles.get("candidate_branch")
-    if not all(isinstance(branch, str) and branch for branch in (release, accepted, candidate)):
+    if not (
+        isinstance(release, str)
+        and release
+        and isinstance(accepted, str)
+        and accepted
+        and isinstance(candidate, str)
+        and candidate
+    ):
         raise RuntimeError("repository branch-role policy is incomplete")
-    assert isinstance(release, str)
-    assert isinstance(accepted, str)
-    assert isinstance(candidate, str)
     return frozenset((release, accepted, candidate)), frozenset((release, accepted))
 
 

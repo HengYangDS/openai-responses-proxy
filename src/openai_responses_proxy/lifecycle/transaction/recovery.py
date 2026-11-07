@@ -174,8 +174,11 @@ def _rollback_materialized(
     previous = completion.prior_selection(journal)
     selection = generation.read(ctx)
     if completion.reuses_retained_generation(journal):
-        if selection == previous and not (records.transaction_root(ctx) / "rollback").exists():
-            assert previous is not None
+        if (
+            previous is not None
+            and selection == previous
+            and not (records.transaction_root(ctx) / "rollback").exists()
+        ):
             _require_unchanged_prior_terminal(ctx, generation_id=previous.active, runtime=runtime)
             return completion.complete_transaction(ctx, journal, outcome="rolled_back")
         return _restore_prior_generation(

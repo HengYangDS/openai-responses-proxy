@@ -126,9 +126,6 @@ def status(
         and payload_transaction is None
         and command_state.get("state") == "absent"
     )
-    transaction_invalid = (
-        isinstance(payload_transaction, dict) and payload_transaction.get("state") == "invalid"
-    )
     installation_ready = (
         integrity_ok
         and installed_matches_payload
@@ -137,8 +134,7 @@ def status(
     )
     if installed_error is not None:
         lifecycle_state, detail = "invalid", installed_error
-    elif transaction_invalid:
-        assert isinstance(payload_transaction, dict)
+    elif isinstance(payload_transaction, dict) and payload_transaction.get("state") == "invalid":
         lifecycle_state, detail = "invalid", str(payload_transaction["detail"])
     elif rollback_status is not None and rollback_status.state == "invalid":
         lifecycle_state, detail = (
@@ -311,12 +307,11 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
             )
         raise errors.RecoveryRequiredError("complete payload recovery before reloading")
     runtime = read_runtime(ctx)
-    if not strategy.runtime_supports_handoff(runtime):
+    if runtime is None or not strategy.runtime_supports_handoff(runtime):
         if runtime is None and status(ctx, include_rollback=False)["state"] == "stopped":
             started = start_supervised(ctx, timeout_seconds=timeout_seconds)
             return {"state": "started", "new_pid": started["pid"]}
         raise errors.InstallError("installed runtime is not healthy enough to reload")
-    assert runtime is not None
     integrity_ok, integrity_detail = projection.verify_payload_manifest(ctx)
     if not integrity_ok:
         raise errors.InstallError(

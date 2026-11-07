@@ -127,7 +127,9 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         for rule in rules
     )
     assert ruff["lint"]["pydocstyle"] == {"convention": "google"}
-    assert ruff["lint"]["per-file-ignores"] == {"tests/**": ["D101", "D102", "D103", "ANN201"]}
+    assert ruff["lint"]["per-file-ignores"] == {
+        "tests/**": ["D101", "D102", "D103", "ANN201", "S101"]
+    }
 
     rationale = {
         "risk_model",

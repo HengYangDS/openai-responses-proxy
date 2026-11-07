@@ -104,15 +104,19 @@ def _projection_errors(
         target = check.get("target")
         selector = check.get("selector")
         match = check.get("match")
-        if not all(isinstance(value, str) and value for value in (source, target, selector)):
+        if not (
+            isinstance(source, str)
+            and source
+            and isinstance(target, str)
+            and target
+            and isinstance(selector, str)
+            and selector
+        ):
             errors.append(f"hard_coding_projection_check_invalid:{identifier}:{index}")
             continue
         if match not in PROJECTION_MATCHES:
             errors.append(f"hard_coding_projection_match_invalid:{identifier}:{index}")
             continue
-        assert isinstance(source, str)
-        assert isinstance(target, str)
-        assert isinstance(selector, str)
         if source not in constants:
             errors.append(f"hard_coding_projection_source_missing:{identifier}:{source}")
             continue

@@ -15,6 +15,7 @@ from contextlib import suppress
 from http.server import BaseHTTPRequestHandler
 from typing import NotRequired
 from typing import TypedDict
+from typing import cast
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
@@ -267,7 +268,7 @@ def relay(
         ):
             break
         delay = backoffs[min(attempt, len(backoffs) - 1)]
-        if attempt == max_attempts - 1 or time.monotonic() + delay >= deadline:
+        if reopen is None or attempt == max_attempts - 1 or time.monotonic() + delay >= deadline:
             break
         telemetry.record_counter("streams_pre_content_reconnect_attempts")
         why = terminal or result["detail"]
@@ -279,7 +280,6 @@ def relay(
         time.sleep(delay)
         if time.monotonic() >= deadline:
             break
-        assert reopen is not None
         attempts_started += 1
         try:
             current = reopen(deadline)
@@ -299,7 +299,8 @@ def relay(
             )
             break
     pre_content_exhausted = not headers_sent
-    assert result is not None
+    # Every attempt reads its stream before it can leave the loop.
+    result = cast("StreamResult", result)
     outcome_unknown = pre_content_exhausted and (
         reopened_outcome_unknown
         or (

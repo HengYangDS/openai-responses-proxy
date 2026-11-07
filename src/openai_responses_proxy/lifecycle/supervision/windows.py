@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import getpass
+import io
 import os
 import subprocess
 import tempfile
@@ -76,9 +77,9 @@ def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
     _element(execute, "Arguments", serving_roles.WATCHDOG_MODE)
     _element(execute, "WorkingDirectory", ctx.payload_dir)
     ET.indent(root, space="  ")
-    rendered = ET.tostring(root, encoding="utf-16", xml_declaration=True)
-    assert isinstance(rendered, bytes)
-    return rendered
+    rendered = io.BytesIO()
+    ET.ElementTree(root).write(rendered, encoding="utf-16", xml_declaration=True)
+    return rendered.getvalue()
 
 
 def _task_xml(ctx: runtime_spec.NativeServiceContext) -> str | None:

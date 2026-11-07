@@ -161,10 +161,9 @@ def post_ready(
         isinstance(key, str) for key in loaded_response
     ):
         raise errors.InstallError("handoff control returned an invalid response")
-    response_payload: RuntimeSnapshot = {}
-    for key, value in loaded_response.items():
-        assert isinstance(key, str)
-        response_payload[key] = value
+    response_payload: RuntimeSnapshot = {
+        key: value for key, value in loaded_response.items() if isinstance(key, str)
+    }
     if not fields_match(
         response_payload,
         {"ok": True, "state": "ready", "protocol_version": HANDOFF_PROTOCOL_VERSION},
@@ -227,9 +226,11 @@ def drain_responses(
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         runtime = runtime_reader(ctx)
-        if not _runtime_is_captured_source(source_listener, runtime, source_runtime):
+        if (
+            not _runtime_is_captured_source(source_listener, runtime, source_runtime)
+            or runtime is None
+        ):
             raise errors.InstallError("predecessor changed while draining active Responses")
-        assert runtime is not None
         if (
             runtime.get("draining") is True
             and runtime.get("accepting") is False
@@ -281,9 +282,8 @@ def resume_responses(
     if not isinstance(resumed, dict) or resumed.get("draining") is not False:
         raise errors.InstallError("drain release did not reopen Responses admission")
     runtime = runtime_reader(ctx)
-    if not _runtime_is_captured_source(source_listener, runtime, source_runtime):
+    if not _runtime_is_captured_source(source_listener, runtime, source_runtime) or runtime is None:
         return False
-    assert runtime is not None
     return runtime.get("accepting") is True and runtime.get("draining") is False
 
 
