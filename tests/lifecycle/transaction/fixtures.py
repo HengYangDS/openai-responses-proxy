@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -65,7 +66,7 @@ def _retained_carrier_snapshot(root: Path, external_target: Path) -> tuple[objec
     if root.is_symlink():
         return (
             "root-link",
-            root.readlink(),
+            os.readlink(root),
             (external_target / "evidence").read_bytes(),
         )
     if root.is_file():
@@ -74,7 +75,7 @@ def _retained_carrier_snapshot(root: Path, external_target: Path) -> tuple[objec
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root).as_posix()
         if path.is_symlink():
-            entries.append((relative, "link", path.readlink()))
+            entries.append((relative, "link", os.readlink(path)))
         elif path.is_dir():
             entries.append((relative, "directory"))
         else:

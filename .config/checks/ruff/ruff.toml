@@ -204,6 +204,8 @@ ignore = [
 # at run time.
 "tools/performance/verify.py" = ["T201", "TC003"]
 "tools/release/tag_signature.py" = ["T201", "TC003"]
+# Carrier snapshots compare exact link targets, and Path.readlink normalizes them (t/ to t).
+"tests/lifecycle/transaction/fixtures.py" = ["PTH115"]
 # Each of these modules writes its program's output.
 "tools/forge/audit.py" = ["T201"]
 "tools/quality/branch_coverage.py" = ["T201"]
