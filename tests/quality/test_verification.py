@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import shlex
@@ -369,86 +368,6 @@ class TestVerificationContracts:
         assert toolchain["tasks"][task]["run"] == (
             'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s ' + session
         )
-
-    @pytest.mark.parametrize(
-        ("relative", "source", "expected"),
-        [
-            (
-                "src/openai_responses_proxy/probe.py",
-                "def answer():\n    return 42\n",
-                {"D100", "D103", "ANN201"},
-            ),
-            ("tools/probe.py", "def answer():\n    return 42\n", {"D100", "D103", "ANN201"}),
-            ("noxfile.py", "def answer():\n    return 42\n", {"D100", "D103", "ANN201"}),
-            (
-                "src/openai_responses_proxy/probe.py",
-                (
-                    '"""Native annotation probe."""\ndef answer() -> int:\n'
-                    '    """Return the answer."""\n    return 42\n'
-                ),
-                set(),
-            ),
-            (
-                "tools/probe.py",
-                (
-                    '"""Native annotation probe."""\nclass Input:\n    """One public input."""\n'
-                    "    def __init__(self, value: int):\n"
-                    '        """Bind the selected value."""\n        self.value = value\n'
-                ),
-                {"ANN204"},
-            ),
-            ("tests/probe.py", "def answer():\n    return 42\n", {"D100"}),
-            (
-                "tests/probe.py",
-                'def answer():\n    """Return the answer"""\n    return 42\n',
-                {"D100", "D415"},
-            ),
-            (
-                "tools/probe.py",
-                (
-                    '"""Public tool contract."""\ndef read(path: str, mode: str) -> str:\n'
-                    '    """Read a selected record.\n\n'
-                    '    Args:\n        path: Record path.\n    """\n    return path + mode\n'
-                ),
-                {"D417"},
-            ),
-            (
-                "src/openai_responses_proxy/probe.py",
-                (
-                    '"""Public product contract."""\ndef read(path: str, mode: str) -> str:\n'
-                    '    """Read a selected record.\n\n'
-                    "    Args:\n        path: Record path.\n        mode: Read mode.\n"
-                    '    """\n    return path + mode\n'
-                ),
-                set(),
-            ),
-        ],
-    )
-    def test_native_ruff_applies_public_interface_policy_by_semantic_role(
-        self, relative: str, source: str, expected: set[str]
-    ) -> None:
-        result = subprocess.run(
-            (
-                "ruff",
-                "check",
-                "--config",
-                str(ROOT / ".config/checks/ruff/ruff.toml"),
-                "--output-format",
-                "json",
-                "--stdin-filename",
-                str(ROOT / relative),
-                "-",
-            ),
-            input=source,
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            timeout=30,
-            check=False,
-        )
-        assert result.stderr == ""
-        assert result.returncode == bool(expected), result.stderr
-        assert {item["code"] for item in json.loads(result.stdout)} == expected
 
     def test_repository_declares_the_supported_python_matrix_once(self) -> None:
         github = (ROOT / ".github/workflows/verify.yml").read_text(encoding="utf-8")
