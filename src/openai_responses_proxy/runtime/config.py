@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
+from typing import Final
 
 from openai_responses_proxy import product_identity
 
@@ -67,10 +68,7 @@ RUNTIME_ENVIRONMENT = frozenset(
 )
 
 DEFAULT_PORT = 8792
-MAX_TCP_PORT = 65535
-MAX_TCP_PORT = 65535
-MAX_TCP_PORT = 65535
-MAX_TCP_PORT = 65535
+MAX_TCP_PORT: Final = 65535
 DEFAULT_PROXY_LOG_MAX_BYTES = 4 * 1024 * 1024
 DEFAULT_PROXY_LOG_BACKUP_COUNT = 3
 DEFAULT_WATCHDOG_LOG_MAX_BYTES = 512 * 1024
