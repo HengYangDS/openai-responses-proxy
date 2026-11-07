@@ -16,11 +16,7 @@ def _load_yaml(path: Path) -> dict[str, object]:
         WorkflowLoader.yaml_implicit_resolvers[key] = [
             resolver for resolver in resolvers if resolver[0] != "tag:yaml.org,2002:bool"
         ]
-    loader = WorkflowLoader(path.read_text(encoding="utf-8"))
-    try:
-        data = loader.get_single_data()
-    finally:
-        loader.dispose()
+    data = yaml.load(path.read_text(encoding="utf-8"), Loader=WorkflowLoader)
     assert isinstance(data, dict)
     assert all(isinstance(key, str) for key in data)
     return {str(key): value for key, value in data.items()}

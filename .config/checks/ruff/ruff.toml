@@ -204,6 +204,9 @@ ignore = [
 # at run time.
 "tools/performance/verify.py" = ["T201", "TC003"]
 "tools/release/tag_signature.py" = ["T201", "TC003"]
+# GitHub reads workflows as YAML 1.2, where the on key is a string; this SafeLoader subclass
+# only drops the YAML 1.1 booleans that yaml.safe_load would apply to that key.
+"tests/forge/workflows/fixtures.py" = ["S506"]
 # Carrier snapshots compare exact link targets, and Path.readlink normalizes them (t/ to t).
 "tests/lifecycle/transaction/fixtures.py" = ["PTH115"]
 # Each of these modules writes its program's output.
