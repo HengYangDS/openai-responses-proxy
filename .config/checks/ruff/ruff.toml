@@ -76,5 +76,12 @@ select = [
 ]
 
 [lint.per-file-ignores]
-# Fixtures use pytest's inferred injection types; existing annotations and prose are checked.
-"tests/**" = ["D1", "ANN201", "ANN204"]
+"tests/**" = [
+  # Tests expose no product or repository interface: pytest collects their behavior-named
+  # classes, functions and methods. Module docstrings and existing prose are still checked.
+  "D101",
+  "D102",
+  "D103",
+  # Pytest calls tests and fixtures by name and fails a test that returns a value.
+  "ANN201",
+]

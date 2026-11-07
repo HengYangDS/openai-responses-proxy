@@ -310,7 +310,7 @@ session = "quick"
 configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."
 measurement = "Ruff checks every Python carrier, native C901 complexity, and explicit public/special-method returns for product, tooling and Nox; real-tool probes verify admission."
-false_positive_cost = "Pytest owns fixture injection, so tests omit missing-return rules but retain type checking. Other applicability changes require review."
+false_positive_cost = "Pytest calls tests and fixtures by name and fails a test that returns a value, so tests omit only the public-return rule ANN201 and retain special-method returns and type checking. Other applicability changes require review."
 remediation = "Correct or simplify the owning implementation; change applicability only with a reviewed responsibility-map update."
 review_condition = "Reassess when Ruff adds a relevant stable rule family or repeated cohesive operations exceed the native complexity bound; review lower-bound findings semantically rather than forcing forwarding helpers."
 
@@ -333,8 +333,8 @@ scope = "python"
 session = "quick"
 configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Undocumented public product and repository interfaces make behavior ambiguous to users and maintainers."
-measurement = "One Ruff invocation enforces Google-style docstrings across Python; missing-docstring rules apply to product and tooling, while existing test prose is validated without requiring ornamental comments."
-false_positive_cost = "Behavior-named tests do not require docstrings; the native tests/** D1 applicability rule excludes only missing-docstring diagnostics, not malformed existing prose."
+measurement = "One Ruff invocation enforces Google-style docstrings across Python; missing-docstring rules apply to product, tooling and every module, while test classes, functions and methods are validated without requiring ornamental comments."
+false_positive_cost = "Behavior-named tests do not require docstrings; the native tests/** D101, D102 and D103 applicability rules exclude only those missing-docstring diagnostics, not module docstrings or malformed existing prose."
 remediation = "Document the public contract or make the symbol private when it is not an interface."
 review_condition = "Reassess when a public surface becomes private or a native checker expresses the boundary more precisely."
 

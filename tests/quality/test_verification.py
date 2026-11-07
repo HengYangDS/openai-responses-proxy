@@ -397,11 +397,11 @@ class TestVerificationContracts:
                 '        """Bind the selected value."""\n        self.value = value\n',
                 {"ANN204"},
             ),
-            ("tests/probe.py", "def answer():\n    return 42\n", set()),
+            ("tests/probe.py", "def answer():\n    return 42\n", {"D100"}),
             (
                 "tests/probe.py",
                 'def answer():\n    """Return the answer"""\n    return 42\n',
-                {"D415"},
+                {"D100", "D415"},
             ),
             (
                 "tools/probe.py",

@@ -115,6 +115,7 @@ class OrderedServiceAdapter(FakeServiceAdapter):
     """Record the service rebind in the same event stream as the transaction."""
 
     def __init__(self, events: list[object], *, mocker) -> None:
+        """Share one event list between the adapter and its transaction."""
         super().__init__(mocker=mocker)
         self.events = events
 

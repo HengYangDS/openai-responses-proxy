@@ -33,6 +33,7 @@ class TimedResponse(io.BytesIO):
     """Model an upstream socket whose reads consume its armed idle timeout."""
 
     def __init__(self, clock, chunks: list[bytes | BaseException], content_type: str) -> None:
+        """Arm the idle timeout and queue the chunks that later reads return."""
         super().__init__()
         self.clock = clock
         self.chunks = iter(chunks)

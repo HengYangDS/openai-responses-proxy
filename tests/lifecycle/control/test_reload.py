@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Self
 
 import pytest
 
@@ -63,10 +64,10 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
     class Response:
         status = 200
 
-        def __enter__(self):
+        def __enter__(self) -> Self:
             return self
 
-        def __exit__(self, *_args):
+        def __exit__(self, *_args) -> bool:
             return False
 
         def read(self):

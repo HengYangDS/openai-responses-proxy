@@ -20,6 +20,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from typing import Self
 from typing import cast
 from typing import override
 
@@ -114,16 +115,16 @@ def fake_server(*, port: int = 43123, mocker):
 class Response:
     """Minimal context-managed JSON response fixture."""
 
-    def __init__(self, payload, *, status: int = 202):
+    def __init__(self, payload, *, status: int = 202) -> None:
         """Initialize a context-managed JSON response fixture."""
         self.status = status
         self.payload = json.dumps(payload).encode() if isinstance(payload, dict) else payload
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Return this response for a context-managed request."""
         return self
 
-    def __exit__(self, *_args):
+    def __exit__(self, *_args) -> bool:
         """Propagate exceptions raised by the managed caller."""
         return False
 
@@ -329,7 +330,7 @@ class _DisconnectAwareHTTPServer(ThreadingHTTPServer):
 class ScriptedUpstream:
     """Run a real loopback HTTP upstream with a deterministic response queue."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty deterministic upstream response queue."""
         self.received: list[bytes] = []
         received = self.received

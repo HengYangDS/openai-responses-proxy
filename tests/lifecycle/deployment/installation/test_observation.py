@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import urllib.error
+from typing import Self
 
 import pytest
 
@@ -171,10 +172,10 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             def __init__(self, status: int, payload: bytes) -> None:
                 self.status, self.payload = status, payload
 
-            def __enter__(self):
+            def __enter__(self) -> Self:
                 return self
 
-            def __exit__(self, *_args):
+            def __exit__(self, *_args) -> bool:
                 return False
 
             def read(self):
