@@ -497,6 +497,30 @@ def test_predecessor_acceptance_consumes_the_built_candidate_without_rebuilding(
     build.assert_not_called()
 
 
+def test_native_candidate_requires_bundle_and_executable_paths(
+    tmp_path: Path, *, mocker: MockerFixture, nox_configuration: ModuleType
+) -> None:
+    """A construction that returns no paths fails the session before anything consumes them."""
+    for owner in (
+        "_install_tools",
+        "_assert_release_runtime",
+        "_build_wheel",
+        "_install_wheel",
+        "_session_packages",
+        "_assert_installed_product",
+    ):
+        mocker.patch.object(nox_configuration, owner)
+    mocker.patch.object(nox_configuration.construction, "freeze", return_value=(None, None))
+    session = mocker.Mock()
+    session.create_tmp.return_value = str(tmp_path)
+    session.error.side_effect = RuntimeError
+    with pytest.raises(RuntimeError):
+        nox_configuration._build_native_candidate(session)
+    session.error.assert_called_once_with(
+        "native construction returned no bundle and executable paths"
+    )
+
+
 def test_native_freeze_requires_the_produced_executable(tmp_path, mocker, nox_configuration):
     session = mocker.Mock()
     session.error.side_effect = lambda message: (_ for _ in ()).throw(RuntimeError(message))
