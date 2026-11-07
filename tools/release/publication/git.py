@@ -52,23 +52,7 @@ def collect(*, provider: str, remote: str, tag: str, anchor: Path) -> dict[str, 
                 ),
                 environment=environment,
             )
-            if (
-                _output(
-                    (git, "-C", str(repository), "cat-file", "-t", f"refs/tags/{tag}"),
-                    environment,
-                )
-                != "tag"
-            ):
-                raise GitProofError("release tag is not annotated")
-            tag_object = _output(
-                (git, "-C", str(repository), "cat-file", "tag", f"refs/tags/{tag}"),
-                environment,
-            )
-            headers = tag_object.split("\n\n", 1)[0].splitlines()
-            if f"tag {tag}" not in headers or "type commit" not in headers:
-                raise GitProofError(
-                    "annotated release tag does not directly identify the exact commit"
-                )
+            _require_annotated_commit_tag(git, repository, tag, environment)
             verify = (
                 git,
                 "-C",
@@ -117,6 +101,22 @@ def collect(*, provider: str, remote: str, tag: str, anchor: Path) -> dict[str, 
         raise
     except (OSError, subprocess.CalledProcessError) as error:
         raise GitProofError("provider tag fetch, verification, or cleanup failed") from error
+
+
+def _require_annotated_commit_tag(
+    git: str, repository: Path, tag: str, environment: dict[str, str]
+) -> None:
+    """Refuse a lightweight tag or an annotated tag that names anything but one commit."""
+    kind = _output((git, "-C", str(repository), "cat-file", "-t", f"refs/tags/{tag}"), environment)
+    if kind != "tag":
+        raise GitProofError("release tag is not annotated")
+    tag_object = _output(
+        (git, "-C", str(repository), "cat-file", "tag", f"refs/tags/{tag}"),
+        environment,
+    )
+    headers = tag_object.split("\n\n", 1)[0].splitlines()
+    if f"tag {tag}" not in headers or "type commit" not in headers:
+        raise GitProofError("annotated release tag does not directly identify the exact commit")
 
 
 def _run(

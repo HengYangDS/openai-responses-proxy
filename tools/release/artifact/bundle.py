@@ -58,10 +58,11 @@ def bundle_files(bundle: Path) -> tuple[tuple[Path, Path], ...]:
     def visit(logical: Path, source: Path, ancestors: frozenset[Path]) -> None:
         try:
             resolved = source.resolve(strict=True)
-            if not _is_within(bundle, resolved):
-                raise ValueError
+            within = _is_within(bundle, resolved)
         except (OSError, ValueError) as error:
             raise SystemExit("native bundle symlink escapes the bundle") from error
+        if not within:
+            raise SystemExit("native bundle symlink escapes the bundle")
         if resolved.is_file():
             if logical.parent.name.endswith(".dist-info") and logical.name in INSTALLER_PROVENANCE:
                 return

@@ -79,15 +79,48 @@ def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_secon
     return max(1.0, timeout_seconds, ctx.upstream_timeout)
 
 
+def _control_reply(
+    request: urllib.request.Request,
+    *,
+    timeout_seconds: float,
+    accepted: int,
+    label: str,
+) -> object:
+    """Read one bounded JSON reply from the loopback control plane, or raise one public error."""
+    try:
+        with loopback.open_request(request, timeout_seconds=timeout_seconds) as response:
+            status = response.status
+            raw = response.read(_MAX_BODY_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        raise errors.InstallError(f"{label} returned HTTP {code}") from exc
+    except (OSError, urllib.error.URLError, ValueError) as exc:
+        raise errors.InstallError(f"{label} is unavailable") from exc
+    if status != accepted:
+        raise errors.InstallError(f"{label} returned HTTP {status}")
+    if len(raw) > _MAX_BODY_BYTES:
+        raise errors.InstallError(f"{label} response is too large")
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise errors.InstallError(f"{label} is unavailable") from exc
+
+
+def _manifest_object(path: Path) -> dict[str, object]:
+    """Read the payload manifest as one object with string keys."""
+    with path.open(encoding="utf-8") as handle:
+        loaded: object = json.load(handle)
+    if not isinstance(loaded, dict) or not all(isinstance(key, str) for key in loaded):
+        raise TypeError("payload manifest must be an object with string keys")
+    return {key: value for key, value in loaded.items() if isinstance(key, str)}
+
+
 def expected_metadata(root: str) -> RuntimeSnapshot:
     """Read release, aggregate payload, receipt, and manifest identity."""
     try:
         manifest_path = Path(root) / inventory.MANIFEST_FILENAME
-        with manifest_path.open(encoding="utf-8") as handle:
-            loaded: object = json.load(handle)
-        if not isinstance(loaded, dict) or not all(isinstance(key, str) for key in loaded):
-            raise TypeError("payload manifest must be an object with string keys")
-        manifest = {key: value for key, value in loaded.items() if isinstance(key, str)}
+        manifest = _manifest_object(manifest_path)
         release = manifest["release"]
         serving_payload_sha256 = manifest["serving_payload_sha256"]
         release_receipt_sha256 = manifest["release_receipt_sha256"]
@@ -138,25 +171,12 @@ def post_ready(
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         method="POST",
     )
-    try:
-        with loopback.open_request(
-            request,
-            timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS,
-        ) as response:
-            if response.status != HTTPStatus.ACCEPTED:
-                raise errors.InstallError(f"handoff control returned HTTP {response.status}")
-            raw = response.read(_MAX_BODY_BYTES + 1)
-            if len(raw) > _MAX_BODY_BYTES:
-                raise errors.InstallError("handoff control response is too large")
-            loaded_response: object = json.loads(raw)
-    except errors.InstallError:
-        raise
-    except urllib.error.HTTPError as exc:
-        code = exc.code
-        exc.close()
-        raise errors.InstallError(f"handoff control returned HTTP {code}") from exc
-    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
-        raise errors.InstallError("handoff control is unavailable") from exc
+    loaded_response = _control_reply(
+        request,
+        timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS,
+        accepted=HTTPStatus.ACCEPTED,
+        label="handoff control",
+    )
     if not isinstance(loaded_response, dict) or not all(
         isinstance(key, str) for key in loaded_response
     ):
@@ -202,25 +222,12 @@ def drain_responses(
         },
         method="POST",
     )
-    try:
-        with loopback.open_request(
-            request,
-            timeout_seconds=min(timeout_seconds, 5.0) + _TRANSPORT_MARGIN_SECONDS,
-        ) as response:
-            if response.status != HTTPStatus.OK:
-                raise errors.InstallError(f"drain control returned HTTP {response.status}")
-            raw = response.read(_MAX_BODY_BYTES + 1)
-            if len(raw) > _MAX_BODY_BYTES:
-                raise errors.InstallError("drain control response is too large")
-            acknowledged: object = json.loads(raw)
-    except errors.InstallError:
-        raise
-    except urllib.error.HTTPError as exc:
-        code = exc.code
-        exc.close()
-        raise errors.InstallError(f"drain control returned HTTP {code}") from exc
-    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
-        raise errors.InstallError("drain control is unavailable") from exc
+    acknowledged = _control_reply(
+        request,
+        timeout_seconds=min(timeout_seconds, 5.0) + _TRANSPORT_MARGIN_SECONDS,
+        accepted=HTTPStatus.OK,
+        label="drain control",
+    )
     if not isinstance(acknowledged, dict) or acknowledged.get("draining") is not True:
         raise errors.InstallError("drain control did not close Responses admission")
     deadline = time.monotonic() + timeout_seconds
@@ -260,25 +267,12 @@ def resume_responses(
         headers={"Accept": "application/json"},
         method="DELETE",
     )
-    try:
-        with loopback.open_request(
-            request,
-            timeout_seconds=_TRANSPORT_MARGIN_SECONDS,
-        ) as response:
-            if response.status != HTTPStatus.OK:
-                raise errors.InstallError(f"drain release returned HTTP {response.status}")
-            raw = response.read(_MAX_BODY_BYTES + 1)
-            if len(raw) > _MAX_BODY_BYTES:
-                raise errors.InstallError("drain release response is too large")
-            resumed: object = json.loads(raw)
-    except errors.InstallError:
-        raise
-    except urllib.error.HTTPError as exc:
-        code = exc.code
-        exc.close()
-        raise errors.InstallError(f"drain release returned HTTP {code}") from exc
-    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
-        raise errors.InstallError("drain release is unavailable") from exc
+    resumed = _control_reply(
+        request,
+        timeout_seconds=_TRANSPORT_MARGIN_SECONDS,
+        accepted=HTTPStatus.OK,
+        label="drain release",
+    )
     if not isinstance(resumed, dict) or resumed.get("draining") is not False:
         raise errors.InstallError("drain release did not reopen Responses admission")
     runtime = runtime_reader(ctx)

@@ -65,6 +65,13 @@ def finalize_installation(
     return close_finalized(ctx, journal=journal, bind_terminal=bind_terminal)
 
 
+def _retained_predecessor(ctx: runtime_context.RuntimeContext, previous: str) -> str:
+    """Return the predecessor generation only while its payload directory still exists."""
+    if not generation.path(ctx, previous).is_dir():
+        raise errors.InstallError("predecessor payload generation is unavailable")
+    return previous
+
+
 def _select_retention(
     ctx: runtime_context.RuntimeContext,
     *,
@@ -77,10 +84,9 @@ def _select_retention(
         if journal["fresh"] is True or previous_generation is None:
             selection = generation.Selection(active, None)
         else:
-            previous = str(previous_generation)
-            if not generation.path(ctx, previous).is_dir():
-                raise errors.InstallError("predecessor payload generation is unavailable")
-            selection = generation.Selection(active, previous)
+            selection = generation.Selection(
+                active, _retained_predecessor(ctx, str(previous_generation))
+            )
         generation.select(ctx, active=selection.active, predecessor=selection.predecessor)
     except errors.InstallError:
         records.write_journal(
@@ -284,6 +290,12 @@ def finish_cleanup(
     }
 
 
+def _require_real_directory(root: Path) -> None:
+    """Refuse a transaction root that a link or a non-directory replaced."""
+    if root.is_symlink() or not root.is_dir():
+        raise errors.InstallError("payload transaction root is not a real directory")
+
+
 def _remove_transaction_root(
     ctx: runtime_context.RuntimeContext, *, snapshot_sha256: object = None
 ) -> None:
@@ -291,8 +303,7 @@ def _remove_transaction_root(
     if not root.exists() and not root.is_symlink():
         return
     try:
-        if root.is_symlink() or not root.is_dir():
-            raise errors.InstallError("payload transaction root is not a real directory")
+        _require_real_directory(root)
         relative = f"rollback/{command.SNAPSHOT_FILENAME}"
         files = {relative: str(snapshot_sha256)} if snapshot_sha256 is not None else {}
         projection.remove_empty_owned_directories(root, {relative})

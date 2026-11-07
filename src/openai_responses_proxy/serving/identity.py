@@ -151,12 +151,7 @@ def committed_payload(executable: Path) -> LoadedPayloadIdentity | None:
     try:
         root, windows = _runtime_root(executable)
         manifest = _read_manifest(root / inventory.MANIFEST_FILENAME)
-        if manifest.get("schema_version") != inventory.MANIFEST_SCHEMA_VERSION:
-            raise ValueError("installed manifest schema mismatch")
-        files = _digest_mapping(manifest, "files")
-        serving = _digest_mapping(manifest, "serving_files")
-        if serving != files:
-            raise ValueError("serving digest mismatch")
+        files = _serving_files(manifest)
         aggregate = _verify_runtime_files(root, files, windows=windows)
         return _identity(root, manifest, aggregate, require_receipt_file=True)
     except (
@@ -168,6 +163,16 @@ def committed_payload(executable: Path) -> LoadedPayloadIdentity | None:
         digest.PayloadDigestError,
     ):
         return None
+
+
+def _serving_files(manifest: Mapping[str, object]) -> dict[str, str]:
+    """Return the digests of a current-schema manifest whose files are all serving files."""
+    if manifest.get("schema_version") != inventory.MANIFEST_SCHEMA_VERSION:
+        raise ValueError("installed manifest schema mismatch")
+    files = _digest_mapping(manifest, "files")
+    if _digest_mapping(manifest, "serving_files") != files:
+        raise ValueError("serving digest mismatch")
+    return files
 
 
 def _runtime_root(executable: Path) -> tuple[Path, bool]:

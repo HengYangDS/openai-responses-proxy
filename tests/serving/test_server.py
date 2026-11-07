@@ -95,14 +95,10 @@ def test_server_tracks_handlers_and_classifies_disconnects(*, mocker) -> None:
         server.ResilientProxyServer.process_request_thread(proxy, None, None)
     assert end.call_count == 2
     log = mocker.patch.object(server.operational_log, "log")
-    try:
-        raise BrokenPipeError("private-client-context")
-    except BrokenPipeError:
-        server.ResilientProxyServer.handle_error(proxy, None, None)
+    mocker.patch.object(server.sys, "exception", return_value=BrokenPipeError("private-client"))
+    server.ResilientProxyServer.handle_error(proxy, None, None)
     log.assert_called_once_with("event=client_closed_mid_request exception=BrokenPipeError")
     fallback = mocker.patch("http.server.ThreadingHTTPServer.handle_error")
-    try:
-        raise RuntimeError("failed")
-    except RuntimeError:
-        server.ResilientProxyServer.handle_error(proxy, None, None)
+    mocker.patch.object(server.sys, "exception", return_value=RuntimeError("failed"))
+    server.ResilientProxyServer.handle_error(proxy, None, None)
     fallback.assert_called_once()

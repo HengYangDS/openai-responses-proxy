@@ -175,14 +175,19 @@ def _load_policy(name: str) -> WirePolicy:
     module_file = getattr(module, "__file__", None)
     package_module = sys.modules.get(package)
     package_paths = getattr(package_module, "__path__", ())
+    # A module file that cannot be resolved falls back to the frozen bundle's module identity.
+    resolved: Path | None = None
+    inside_package = False
     try:
-        if not isinstance(module_file, str):
-            raise TypeError
-        resolved = Path(module_file).resolve(strict=True)
-        inside_package = any(
-            resolved.is_relative_to(Path(root).resolve(strict=True)) for root in package_paths
-        )
+        if isinstance(module_file, str):
+            candidate = Path(module_file).resolve(strict=True)
+            inside_package = any(
+                candidate.is_relative_to(Path(root).resolve(strict=True)) for root in package_paths
+            )
+            resolved = candidate
     except (OSError, TypeError, ValueError):
+        resolved = None
+    if resolved is None:
         specification = getattr(module, "__spec__", None)
         inside_package = all(
             (

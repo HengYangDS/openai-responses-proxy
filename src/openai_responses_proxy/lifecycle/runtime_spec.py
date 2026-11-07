@@ -175,10 +175,11 @@ def _read(target: Path) -> JsonObject:
         if not isinstance(upstream, str) or not upstream:
             raise errors.InstallError("native runtime configuration upstream is invalid")
         try:
-            if registry.normalize_upstream(upstream) != upstream:
-                raise ValueError("upstream must be canonical")
+            canonical = registry.normalize_upstream(upstream)
         except ValueError as exc:
             raise errors.InstallError(str(exc)) from exc
+        if canonical != upstream:
+            raise errors.InstallError("upstream must be canonical")
     install_dir = value.get("install_dir")
     log_dir = value.get("log_dir")
     if not isinstance(install_dir, str) or not _absolute(install_dir):

@@ -72,10 +72,12 @@ class SubprocessFixture:
                     owned_processes[pid] = owned
             for owned in owned_processes.values():
                 try:
-                    if not process.terminate_owned_process(owned):
-                        raise errors.InstallError("test process exit is unproved")
+                    exited = process.terminate_owned_process(owned)
                 except errors.InstallError as error:
                     failure = failure or error
+                else:
+                    if not exited:
+                        failure = failure or errors.InstallError("test process exit is unproved")
         if failure is not None:
             raise failure
         remaining = {
