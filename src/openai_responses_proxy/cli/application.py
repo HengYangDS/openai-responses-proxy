@@ -552,6 +552,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     return result if isinstance(result, int) else 0
 
 
+# An internal service role that cannot activate its runtime exits 1, as it always has.
+_INTERNAL_START_FAILURE = 1
+
+
 def _run_internal(arguments: list[str]) -> int:
     """Dispatch one exact private service role without adding it to public help."""
     if len(arguments) != 1:
@@ -559,7 +563,13 @@ def _run_internal(arguments: list[str]) -> int:
     mode = arguments[0]
     if mode == serving_roles.PREWARM_MODE:
         return 0
-    runtime_spec.activate(serving_roles.current_executable())
+    try:
+        runtime_spec.activate(serving_roles.current_executable())
+    except errors.ProductError as error:
+        # A service role keeps its failed-start exit status; its supervisor reads no diagnostic,
+        # but the role still reports the failure without a traceback.
+        _error(str(error), as_json=False, next_command=error.next_command, code=error.code)
+        return _INTERNAL_START_FAILURE
     if mode == serving_roles.LISTENER_MODE:
         from openai_responses_proxy.serving import entrypoint
 

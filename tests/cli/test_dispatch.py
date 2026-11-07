@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
 from tests.lifecycle.fixtures import install_context
@@ -90,6 +91,38 @@ def test_no_command_uses_sys_argv_and_renders_public_help(*, mocker: MockerFixtu
     assert code == 0
     assert "COMMAND" in stdout.getvalue()
     assert stderr.getvalue() == ""
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        application.serving_roles.LISTENER_MODE,
+        application.serving_roles.HANDOFF_CHILD_MODE,
+        application.serving_roles.WATCHDOG_MODE,
+    ],
+)
+def test_internal_role_activation_failure_keeps_its_exit_without_a_traceback(
+    mode: str, *, mocker: MockerFixture
+) -> None:
+    mocker.patch.object(
+        application.runtime_spec,
+        "activate",
+        side_effect=errors.InstallError("native runtime configuration is unavailable or invalid"),
+    )
+    mocker.patch.object(
+        application.serving_roles,
+        "current_executable",
+        return_value="/opt/proxy/bin/openai-responses-proxy",
+    )
+    started = mocker.patch("openai_responses_proxy.serving.entrypoint.run")
+
+    code, stdout, stderr = invoke(mode)
+
+    assert code == 1
+    assert stdout == ""
+    assert "native runtime configuration is unavailable or invalid" in stderr
+    assert "Traceback" not in stderr
+    started.assert_not_called()
 
 
 def test_internal_roles_are_exact_and_never_public_commands(*, mocker: MockerFixture) -> None:
