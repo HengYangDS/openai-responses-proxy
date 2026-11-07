@@ -25,8 +25,6 @@ from openai_responses_proxy.serving import roles
 from openai_responses_proxy.serving import server
 from openai_responses_proxy.serving.handoff import transaction as handoff
 
-_SERVER_INSTANCE: ThreadingHTTPServer | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class Bootstrap:
@@ -52,11 +50,19 @@ def bootstrap(executable: Path | None = None) -> Bootstrap:
     return Bootstrap(selected, loaded, providers)
 
 
-_BOOTSTRAP: Bootstrap | None = None
+@dataclass(slots=True)
+class _ListenerProcess:
+    """This listener process's verified bootstrap and its serving instance."""
+
+    bootstrap: Bootstrap | None = None
+    server: ThreadingHTTPServer | None = None
+
+
+_PROCESS = _ListenerProcess()
 
 
 def _payload() -> identity.LoadedPayloadIdentity | None:
-    return None if _BOOTSTRAP is None else _BOOTSTRAP.payload
+    return None if _PROCESS.bootstrap is None else _PROCESS.bootstrap.payload
 
 
 def loaded_serving_payload_sha256() -> str | None:
@@ -85,9 +91,9 @@ def release_version() -> str:
 
 def runtime_providers() -> provider_registry.Registry:
     """Return routes frozen from the exact verified installation payload."""
-    if _BOOTSTRAP is None:
+    if _PROCESS.bootstrap is None:
         raise RuntimeError("listener startup has not verified an installed payload")
-    return _BOOTSTRAP.providers
+    return _PROCESS.bootstrap.providers
 
 
 def _server_bindings(
@@ -105,13 +111,16 @@ def _server_bindings(
 
 
 def _set_server_instance(server: ThreadingHTTPServer) -> None:
-    global _SERVER_INSTANCE
-    _SERVER_INSTANCE = server
+    _PROCESS.server = server
 
 
 def _handoff_context() -> handoff.Context:
     """Bind the rolling-handoff state machine to process-owned primitives."""
-    executable = Path(roles.current_executable()) if _BOOTSTRAP is None else _BOOTSTRAP.executable
+    executable = (
+        Path(roles.current_executable())
+        if _PROCESS.bootstrap is None
+        else _PROCESS.bootstrap.executable
+    )
     return handoff.Context(
         executable=executable,
         state_root=Path(runtime_config.state_dir()),
@@ -159,9 +168,8 @@ def create_server(
 
 def run(*, handoff_child: bool = False) -> int:
     """Run the normal listener or a protocol-v2 handoff child."""
-    global _BOOTSTRAP, _SERVER_INSTANCE
     try:
-        _BOOTSTRAP = bootstrap()
+        _PROCESS.bootstrap = bootstrap()
     except (OSError, RuntimeError, ValueError) as exc:
         operational_log.log(
             f"event=payload_identity_error exception={operational_log.safe_exception_label(exc)}"
@@ -183,7 +191,7 @@ def run(*, handoff_child: bool = False) -> int:
         f"log_backup_count={operational_log.LOG_BACKUP_COUNT}"
     )
     listener = create_server()
-    _SERVER_INSTANCE = listener
+    _PROCESS.server = listener
     try:
         handoff.serve_with_resume(listener, _handoff_context())
     except KeyboardInterrupt:

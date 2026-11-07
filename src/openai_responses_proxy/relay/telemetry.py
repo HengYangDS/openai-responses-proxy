@@ -62,7 +62,8 @@ _COUNTERS = {
     "wire_failure_cooldown_hits": 0,
 }
 _UPSTREAM_CLASSIFICATIONS: dict[str, int] = {}
-_LAST_FAILURE: dict[str, object] | None = None
+# The latest failure class and time; empty until a failure is recorded.
+_LAST_FAILURE: dict[str, object] = {}
 
 
 def record_counter(name: str, amount: int = 1) -> None:
@@ -79,9 +80,9 @@ def record_upstream_classification(name: str) -> None:
 
 def record_failure(classification: str) -> None:
     """Retain only the latest failure class and time, never request data."""
-    global _LAST_FAILURE
     with _METRICS_LOCK:
-        _LAST_FAILURE = {"classification": classification, "at_unix": int(time.time())}
+        _LAST_FAILURE.clear()
+        _LAST_FAILURE.update(classification=classification, at_unix=int(time.time()))
 
 
 def record_sanitization(metrics: SanitizationMetrics) -> None:
@@ -103,7 +104,7 @@ def status(
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
         upstream = dict(sorted(_UPSTREAM_CLASSIFICATIONS.items()))
-        last_failure = dict(_LAST_FAILURE) if _LAST_FAILURE is not None else None
+        last_failure = dict(_LAST_FAILURE) if _LAST_FAILURE else None
     snapshot: dict[str, object] = {
         "release": release,
         "serving_payload_sha256": serving_payload_sha256,
@@ -120,9 +121,8 @@ def status(
 
 def reset_for_test() -> None:
     """Reset telemetry state for deterministic unit tests."""
-    global _LAST_FAILURE
     with _METRICS_LOCK:
         for name in _COUNTERS:
             _COUNTERS[name] = 0
         _UPSTREAM_CLASSIFICATIONS.clear()
-        _LAST_FAILURE = None
+        _LAST_FAILURE.clear()

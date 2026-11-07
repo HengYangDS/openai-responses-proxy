@@ -14,7 +14,7 @@ from openai_responses_proxy.serving import identity
 
 class TestListenerEntrypoint:
     def teardown_method(self) -> None:
-        entrypoint._BOOTSTRAP = None
+        entrypoint._PROCESS.bootstrap = None
 
     def test_bootstrap_loads_routes_between_two_identical_identity_checks(self, *, mocker) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -89,7 +89,7 @@ class TestListenerEntrypoint:
             "2.0.8", "a" * 64, "b" * 64, "c" * 64, Path("/installed")
         )
         providers = mocker.sentinel.providers
-        entrypoint._BOOTSTRAP = entrypoint.Bootstrap(
+        entrypoint._PROCESS.bootstrap = entrypoint.Bootstrap(
             Path("/installed/bin/openai-responses-proxy"), loaded, providers
         )
         assert entrypoint.runtime_providers() is providers
@@ -97,7 +97,7 @@ class TestListenerEntrypoint:
     def test_handoff_context_launches_the_selected_generation(self, *, mocker) -> None:
         """A running predecessor resolves the candidate selected by the installer."""
         self._admit_run(mocker)
-        entrypoint._BOOTSTRAP = entrypoint.bootstrap()
+        entrypoint._PROCESS.bootstrap = entrypoint.bootstrap()
         selected = Path(
             "/installed/generations/11111111111111111111111111111111/bin/openai-responses-proxy"
         )
@@ -117,8 +117,8 @@ class TestListenerEntrypoint:
         assert context.successor_executable() == selected
         assert context.committed_payload() is mocker.sentinel.selected_identity
         assert resolve.call_args_list == [
-            mocker.call(entrypoint._BOOTSTRAP.executable),
-            mocker.call(entrypoint._BOOTSTRAP.executable),
+            mocker.call(entrypoint._PROCESS.bootstrap.executable),
+            mocker.call(entrypoint._PROCESS.bootstrap.executable),
         ]
         committed.assert_called_once_with(selected)
 
@@ -155,7 +155,7 @@ class TestListenerEntrypoint:
         } <= fields.keys()
         serve.assert_called_once_with(listener, context)
         listener.server_close.assert_called_once_with()
-        assert entrypoint._SERVER_INSTANCE is listener
+        assert entrypoint._PROCESS.server is listener
 
     def test_invalid_runtime_configuration_exits_without_starting_a_server(self, *, mocker) -> None:
         self._admit_run(mocker)
@@ -191,7 +191,7 @@ class TestListenerEntrypoint:
             listener.server_close()
 
     def test_runtime_providers_require_a_verified_bootstrap(self) -> None:
-        entrypoint._BOOTSTRAP = None
+        entrypoint._PROCESS.bootstrap = None
         with pytest.raises(RuntimeError, match="has not verified"):
             entrypoint.runtime_providers()
 
@@ -202,7 +202,7 @@ class ServiceRuntimeIdentityContracts:
 
     def test_runtime_status_reports_loaded_serving_payload_sha256(self):
         identity = entrypoint.runtime_status()["serving_payload_sha256"]
-        if entrypoint._BOOTSTRAP is None:
+        if entrypoint._PROCESS.bootstrap is None:
             assert identity is None
         else:
-            assert identity == entrypoint._BOOTSTRAP.payload.serving_payload_sha256
+            assert identity == entrypoint._PROCESS.bootstrap.payload.serving_payload_sha256

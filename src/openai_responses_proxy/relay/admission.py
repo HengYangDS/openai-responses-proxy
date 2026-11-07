@@ -8,6 +8,7 @@ import time
 import urllib.parse
 from collections.abc import Buffer
 from contextlib import suppress
+from dataclasses import dataclass
 from email.message import Message
 from http.server import BaseHTTPRequestHandler
 from typing import SupportsIndex
@@ -19,20 +20,28 @@ _MIN_DRAIN_LEASE_SECONDS = 1
 _MAX_DRAIN_LEASE_SECONDS = 900
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _RESPONSE_GATE_LOCK = threading.Lock()
-_ACTIVE_RESPONSES = 0
-_ACTIVE_HANDLERS = 0
-_DRAINING = False
-_DRAIN_GENERATION = 0
-_DRAIN_DEADLINE: float | None = None
-_REQUEST_SEQUENCE = 0
+
+
+@dataclass(slots=True)
+class _Admission:
+    """Process-local admission counters and drain latch, guarded by the response gate lock."""
+
+    active_responses: int = 0
+    active_handlers: int = 0
+    draining: bool = False
+    drain_generation: int = 0
+    drain_deadline: float | None = None
+    request_sequence: int = 0
+
+
+_STATE = _Admission()
 
 
 def next_request_id() -> int:
     """Allocate one process-local request sequence number."""
-    global _REQUEST_SEQUENCE
     with _RESPONSE_GATE_LOCK:
-        _REQUEST_SEQUENCE += 1
-        return _REQUEST_SEQUENCE
+        _STATE.request_sequence += 1
+        return _STATE.request_sequence
 
 
 def bounded_drain_lease_seconds(value: object | None) -> int:
@@ -44,37 +53,35 @@ def bounded_drain_lease_seconds(value: object | None) -> int:
 
 
 def _expire_drain_locked() -> None:
-    global _DRAINING, _DRAIN_GENERATION, _DRAIN_DEADLINE
-    deadline = _DRAIN_DEADLINE or float("inf")
+    deadline = _STATE.drain_deadline or float("inf")
     if time.monotonic() >= deadline:
-        _DRAINING = False
-        _DRAIN_DEADLINE = None
-        _DRAIN_GENERATION += 1
+        _STATE.draining = False
+        _STATE.drain_deadline = None
+        _STATE.drain_generation += 1
         telemetry.record_counter("drain_leases_expired")
         telemetry.record_failure("drain_lease_expired")
 
 
 def _drain_lease_remaining_locked() -> int | None:
-    if not _DRAINING or _DRAIN_DEADLINE is None:
+    if not _STATE.draining or _STATE.drain_deadline is None:
         return None
-    return max(0, int(_DRAIN_DEADLINE - time.monotonic() + 0.999))
+    return max(0, int(_STATE.drain_deadline - time.monotonic() + 0.999))
 
 
 def set_draining(*, enabled: bool, lease_seconds: object | None = None) -> dict[str, object]:
     """Atomically change local Responses admission and return its snapshot."""
-    global _DRAINING, _DRAIN_GENERATION, _DRAIN_DEADLINE
     with _RESPONSE_GATE_LOCK:
         _expire_drain_locked()
-        previous = _DRAINING
-        _DRAINING = bool(enabled)
-        _DRAIN_GENERATION += previous != _DRAINING
-        _DRAIN_DEADLINE = (
+        previous = _STATE.draining
+        _STATE.draining = bool(enabled)
+        _STATE.drain_generation += previous != _STATE.draining
+        _STATE.drain_deadline = (
             time.monotonic() + bounded_drain_lease_seconds(lease_seconds) if enabled else None
         )
         return {
-            "draining": _DRAINING,
-            "drain_generation": _DRAIN_GENERATION,
-            "active_responses": _ACTIVE_RESPONSES,
+            "draining": _STATE.draining,
+            "drain_generation": _STATE.drain_generation,
+            "active_responses": _STATE.active_responses,
             "drain_lease_remaining_seconds": _drain_lease_remaining_locked(),
         }
 
@@ -84,9 +91,9 @@ def snapshot() -> dict[str, object]:
     with _RESPONSE_GATE_LOCK:
         _expire_drain_locked()
         return {
-            "active_responses": _ACTIVE_RESPONSES,
-            "draining": _DRAINING,
-            "drain_generation": _DRAIN_GENERATION,
+            "active_responses": _STATE.active_responses,
+            "draining": _STATE.draining,
+            "drain_generation": _STATE.drain_generation,
             "drain_lease_remaining_seconds": _drain_lease_remaining_locked(),
         }
 
@@ -98,52 +105,48 @@ def response_gate_lock() -> threading.Lock:
 
 def is_draining() -> bool:
     """Return the current drain latch while the caller holds the gate lock."""
-    return _DRAINING
+    return _STATE.draining
 
 
 def active_responses() -> int:
     """Return the current active Responses count under the caller's gate lock."""
-    return _ACTIVE_RESPONSES
+    return _STATE.active_responses
 
 
 def active_handlers() -> int:
     """Return the current HTTP handler count under the caller's gate lock."""
-    return _ACTIVE_HANDLERS
+    return _STATE.active_handlers
 
 
 def begin_handler() -> int:
     """Account for one HTTP handler and return the current total."""
-    global _ACTIVE_HANDLERS
     with _RESPONSE_GATE_LOCK:
-        _ACTIVE_HANDLERS += 1
-        return _ACTIVE_HANDLERS
+        _STATE.active_handlers += 1
+        return _STATE.active_handlers
 
 
 def end_handler() -> int:
     """Release one HTTP handler count and return the current total."""
-    global _ACTIVE_HANDLERS
     with _RESPONSE_GATE_LOCK:
-        _ACTIVE_HANDLERS = max(0, _ACTIVE_HANDLERS - 1)
-        return _ACTIVE_HANDLERS
+        _STATE.active_handlers = max(0, _STATE.active_handlers - 1)
+        return _STATE.active_handlers
 
 
 def admit_response() -> tuple[str, int]:
     """Admit one request unless lifecycle draining closes admission."""
-    global _ACTIVE_RESPONSES
     with _RESPONSE_GATE_LOCK:
         _expire_drain_locked()
-        if _DRAINING:
-            return "draining", _ACTIVE_RESPONSES
-        _ACTIVE_RESPONSES += 1
-        return "acquired", _ACTIVE_RESPONSES
+        if _STATE.draining:
+            return "draining", _STATE.active_responses
+        _STATE.active_responses += 1
+        return "acquired", _STATE.active_responses
 
 
 def release_response() -> int:
     """Release one active Responses count and return the current total."""
-    global _ACTIVE_RESPONSES
     with _RESPONSE_GATE_LOCK:
-        _ACTIVE_RESPONSES = max(0, _ACTIVE_RESPONSES - 1)
-        return _ACTIVE_RESPONSES
+        _STATE.active_responses = max(0, _STATE.active_responses - 1)
+        return _STATE.active_responses
 
 
 def is_loopback_client(address: str) -> bool:
@@ -199,17 +202,10 @@ def read_bounded_body(
 
 def reset_for_test() -> None:
     """Reset admission state for deterministic unit tests."""
-    global \
-        _ACTIVE_RESPONSES, \
-        _ACTIVE_HANDLERS, \
-        _DRAINING, \
-        _DRAIN_GENERATION, \
-        _DRAIN_DEADLINE, \
-        _REQUEST_SEQUENCE
     with _RESPONSE_GATE_LOCK:
-        _ACTIVE_RESPONSES = 0
-        _ACTIVE_HANDLERS = 0
-        _DRAINING = False
-        _DRAIN_GENERATION = 0
-        _DRAIN_DEADLINE = None
-        _REQUEST_SEQUENCE = 0
+        _STATE.active_responses = 0
+        _STATE.active_handlers = 0
+        _STATE.draining = False
+        _STATE.drain_generation = 0
+        _STATE.drain_deadline = None
+        _STATE.request_sequence = 0
