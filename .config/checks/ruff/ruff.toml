@@ -127,6 +127,11 @@ select = [
 ]
 
 ignore = [
+  # Ruff documents that this rule conflicts with its formatter, which owns trailing commas.
+  "COM812",
+  # LICENSE and pyproject.toml declare the MIT license and its holder once; a notice in every
+  # file would copy that declaration into each carrier.
+  "CPY001",
   # Gitleaks owns committed-secret detection over content and history; these name
   # heuristics report credential-kind names and header names, not secrets.
   "S105",
