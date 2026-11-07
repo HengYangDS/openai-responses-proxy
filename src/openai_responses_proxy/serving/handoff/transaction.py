@@ -224,7 +224,7 @@ def _reset_preparation(child: HandoffChild | None) -> None:
 
 
 def _ignore_failure(action: Callable[[], object]) -> None:
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(HandoffError, OSError):
         action()
 
 
@@ -237,7 +237,7 @@ def abort(child: HandoffChild) -> None:
     _ignore_failure(lambda: child.send_message({"type": "abort"}))
     stopped = False
     for stop in (child.terminate_bounded, child.kill_bounded):
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             stopped = stop(HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS)
         if stopped:
             break

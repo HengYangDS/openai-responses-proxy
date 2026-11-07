@@ -297,7 +297,7 @@ def send_catalog_failure(
     previous_timeout = handler.connection.gettimeout()
     handler.close_connection = True
     try:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             _arm_write_timeout(handler, time.monotonic() + timeout, previous_timeout)
             send_payload(
                 handler,
