@@ -1,7 +1,8 @@
-"""Model catalog requests spend one bounded deadline across lookup, headers, body and writes."""
+"""Model catalog requests: one bounded deadline, exact byte limits and owned response release."""
 
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import socketserver
@@ -22,8 +23,11 @@ from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import TimedResponse
+from tests.relay.fixtures import http_error
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
+
+PROVIDERS = provider_registry.load()
 
 
 class TestCatalogDeadline(InputTransportFixture):
@@ -283,3 +287,176 @@ class TestCatalogDeadline(InputTransportFixture):
         assert budgets == [pytest.approx(0.3)]
         assert handler.connection.gettimeout() is None
         assert upstream.closed
+
+
+class TestCatalogTransport(InputTransportFixture):
+    @pytest.mark.parametrize(
+        ("stage", "failure"),
+        [
+            ("headers", BrokenPipeError()),
+            ("headers", ConnectionResetError()),
+            ("headers", RuntimeError("private header failure")),
+            ("body", BrokenPipeError()),
+            ("read", OSError("private upstream failure")),
+        ],
+    )
+    @pytest.mark.parametrize("status", [200, 403])
+    def test_catalog_failure_closes_the_real_upstream_response(
+        self, stage: str, failure: Exception, status: int, *, mocker
+    ) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        upstream_socket, peer = socket.socketpair()
+        with upstream_socket, peer:
+            upstream_socket.settimeout(1)
+            peer.settimeout(1)
+            peer.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+            peer.sendall(
+                f"HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\n".encode()
+                + b"Content-Length: 9000\r\n\r\n"
+                + b"x" * 9000
+            )
+            with http.client.HTTPResponse(upstream_socket) as response:
+                response.begin()
+                opened_response = (
+                    urllib.error.HTTPError(
+                        "https://upstream.test/models", status, "denied", response.headers, response
+                    )
+                    if status >= 400
+                    else response
+                )
+                closed = mocker.spy(opened_response, "close")
+                opened = mocker.patch.object(
+                    upstream_exchange, "open_readonly", return_value=opened_response
+                )
+                match stage:
+                    case "headers":
+                        mocker.patch.object(handler, "end_headers", side_effect=failure)
+                    case "body":
+                        mocker.patch.object(handler.wfile, "write", side_effect=failure)
+                    case "read":
+                        mocker.patch.object(opened_response, "read1", side_effect=failure)
+
+                responses.relay(handler, "GET", PROVIDERS)
+
+                assert response.isclosed()
+                closed.assert_called_once_with()
+                assert handler.statuses == [status]
+                assert handler.close_connection
+                assert not handler.output().endswith(b"0\r\n\r\n")
+                assert b"private" not in handler.output()
+                opened.assert_called_once()
+                counters, classifications = self._status_maps()
+                assert counters.get("responses_received", 0) == 0
+                assert classifications == {}
+
+    @pytest.mark.parametrize("status", [200, 403])
+    @pytest.mark.parametrize("overflow", [False, True], ids=["exact-limit", "over-limit"])
+    def test_catalog_byte_limit_preserves_only_admitted_bytes(
+        self, status, *, overflow, mocker
+    ) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler.close_connection = False
+        mocker.patch.object(
+            responses,
+            "_SETTINGS",
+            config.load({"OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES": "4096"}),
+        )
+        payload = b"x" * (4096 + overflow)
+        upstream_socket, peer = socket.socketpair()
+        with upstream_socket, peer:
+            upstream_socket.settimeout(1)
+            peer.settimeout(1)
+            peer.sendall(
+                (
+                    f"HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\n"
+                    f"Content-Length: {len(payload)}\r\n\r\n"
+                ).encode()
+                + payload
+            )
+            with http.client.HTTPResponse(upstream_socket) as upstream:
+                upstream.begin()
+                response = (
+                    urllib.error.HTTPError(
+                        "https://upstream.test/models", status, "denied", upstream.headers, upstream
+                    )
+                    if status >= 400
+                    else upstream
+                )
+                opened = mocker.patch.object(
+                    upstream_exchange,
+                    "urlopen_direct",
+                    side_effect=response if isinstance(response, urllib.error.HTTPError) else None,
+                    return_value=response,
+                )
+                closed = mocker.spy(response, "close")
+
+                responses.relay(handler, "GET", PROVIDERS)
+
+                assert upstream.isclosed()
+                closed.assert_called_once_with()
+
+        assert handler.statuses == [status]
+        assert handler.output() == b"1000\r\n" + b"x" * 4096 + b"\r\n" + (
+            b"" if overflow else b"0\r\n\r\n"
+        )
+        assert handler.close_connection is overflow
+        opened.assert_called_once()
+        assert self._status_snapshot()["active_responses"] == 0
+
+    @pytest.mark.parametrize(
+        ("body", "length", "expected", "disconnected"),
+        [
+            (b"", 0, b"0\r\n\r\n", False),
+            (b"complete", 8, b"8\r\ncomplete\r\n0\r\n\r\n", False),
+            (b"partial", 16, b"7\r\npartial\r\n", True),
+        ],
+        ids=["empty", "complete", "truncated"],
+    )
+    def test_catalog_terminates_only_a_complete_upstream_body(
+        self, body: bytes, length: int, expected: bytes, *, disconnected: bool, mocker
+    ) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler.close_connection = False
+        upstream_socket, peer = socket.socketpair()
+        with upstream_socket, peer:
+            upstream_socket.settimeout(1)
+            peer.settimeout(1)
+            peer.sendall(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                + f"Content-Length: {length}\r\n\r\n".encode()
+                + body
+            )
+            peer.shutdown(socket.SHUT_WR)
+            with http.client.HTTPResponse(upstream_socket) as response:
+                response.begin()
+                closed = mocker.spy(response, "close")
+                mocker.patch.object(upstream_exchange, "open_readonly", return_value=response)
+
+                responses.relay(handler, "GET", PROVIDERS)
+
+                assert response.isclosed()
+                closed.assert_called_once_with()
+
+        assert handler.statuses == [200]
+        assert handler.output() == expected
+        assert handler.close_connection is disconnected
+        counters, classifications = self._status_maps()
+        assert counters.get("responses_completed", 0) == 0
+        assert classifications == {}
+
+    def test_catalog_log_failure_still_releases_the_owned_response(self, *, mocker) -> None:
+        handler = MemoryHandler(path="/dmxapi/v1/models")
+        upstream = http_error(403, "denied", b"private-body")
+        opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=upstream)
+        closed = mocker.spy(upstream, "close")
+        mocker.patch.object(
+            responses.operational_log, "log", side_effect=OSError("disk unavailable")
+        )
+
+        with pytest.raises(OSError, match="disk unavailable"):
+            responses.relay(handler, "GET", PROVIDERS)
+
+        assert upstream.fp.closed
+        closed.assert_called_once_with()
+        opened.assert_called_once()
+        assert handler.statuses == []
