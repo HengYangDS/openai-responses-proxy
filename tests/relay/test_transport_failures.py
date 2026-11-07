@@ -5,10 +5,10 @@ from __future__ import annotations
 import http.client
 import json
 import socket
-import ssl
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Protocol
 from typing import cast
 
@@ -27,6 +27,9 @@ from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import http_error
+
+if TYPE_CHECKING:
+    import ssl
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = provider_registry.load()

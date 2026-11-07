@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,6 +19,9 @@ from tools.performance.verify import _measurements
 from tools.performance.verify import main
 from tools.performance.verify import verify
 from tools.release import verification
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _PAYLOAD = {
     "payload_release": "9.9.9",

@@ -8,13 +8,16 @@ import subprocess
 import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git
 from tools.quality import governance
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize("failure", [OSError("missing"), subprocess.CompletedProcess([], 1)])

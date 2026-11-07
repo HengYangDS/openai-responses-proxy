@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import importlib
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.quality.fixtures import ROOT
 from tools.quality import python_matrix
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_python_matrix_output_comes_from_the_repository_ssot(tmp_path: Path) -> None:

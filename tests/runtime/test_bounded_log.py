@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.runtime import bounded_log
 from tests.lifecycle.fixtures import assert_private_log_mode
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class BoundedLogTests:

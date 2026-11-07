@@ -8,10 +8,10 @@ from __future__ import annotations
 import http.client
 import json
 import threading
-from collections.abc import Generator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from typing import TYPE_CHECKING
 from typing import override
 
 import pytest
@@ -19,6 +19,9 @@ import pytest
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import InputTransportFixture
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 CREDENTIAL = "Bearer redirect-target-must-not-see-this"
 

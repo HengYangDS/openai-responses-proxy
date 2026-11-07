@@ -7,13 +7,11 @@ terminal authority and resumes cleanup without replaying completed effects.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Literal
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
@@ -22,6 +20,12 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+
+    from openai_responses_proxy.json_value import JsonObject
 
 
 def close_finalized(

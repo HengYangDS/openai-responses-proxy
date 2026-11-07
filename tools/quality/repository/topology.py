@@ -6,9 +6,12 @@ import ast
 import re
 import sys
 import tomllib
-from collections.abc import Iterator
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[3]
 POLICY = ROOT / ".config/checks/architecture/policy.toml"

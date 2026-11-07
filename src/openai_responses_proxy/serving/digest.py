@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypeGuard
 
 from openai_responses_proxy.json_value import is_json_object
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from pathlib import Path
 
 SHA256_HEX_LENGTH = 64
 _SHA256 = re.compile(rf"^[0-9a-f]{{{SHA256_HEX_LENGTH}}}$")

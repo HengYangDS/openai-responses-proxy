@@ -10,16 +10,20 @@ from concurrent.futures import Future
 from contextlib import chdir
 from pathlib import Path
 from pathlib import PureWindowsPath
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_mock import MockerFixture
 
 from openai_responses_proxy.lifecycle import control as lifecycle_control
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git
 from tests.release.compatibility.fixtures import _wait_for_upgrade_drain
 from tests.release.fixtures import runtime_context_for
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize("defect", [None, "source-checkout", "changed", "extra", "missing"])

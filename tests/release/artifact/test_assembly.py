@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +11,9 @@ from tests.release.artifact.fixtures import native_inputs
 from tools.release.artifact import __main__ as commands
 from tools.release.artifact import assembly
 from tools.release.artifact import format as assets
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class AssemblyContracts:

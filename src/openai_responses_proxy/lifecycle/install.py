@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import artifact
@@ -19,6 +19,9 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import identity
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def _lacks_supervision(

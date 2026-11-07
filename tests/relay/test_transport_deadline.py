@@ -9,8 +9,8 @@ import ssl
 import subprocess
 import threading
 import time
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
 
@@ -24,6 +24,9 @@ from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(scope="module")

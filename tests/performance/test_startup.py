@@ -7,9 +7,9 @@ import os
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from typing import cast
 
 import psutil
@@ -17,7 +17,6 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles
@@ -25,6 +24,11 @@ from tests.serving.handoff.fixtures import free_port
 from tools.performance import benchmark
 from tools.performance import payload
 from tools.release import verification
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 # A stand-in listener: it waits before binding, answers its first health
 # requests as still starting, then serves one identity on /healthz. Like the

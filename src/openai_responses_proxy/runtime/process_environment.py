@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _PRODUCT_NAMESPACE = f"{product_identity.ENVIRONMENT_PREFIX}_"
 _PYTHON_RUNTIME_NAMESPACES = ("PYTHON", "PYINSTALLER_", "_PYI_")

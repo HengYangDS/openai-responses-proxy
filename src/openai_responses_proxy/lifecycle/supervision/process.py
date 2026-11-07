@@ -6,12 +6,15 @@ import os
 import re
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import psutil
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.lifecycle.context import RuntimeContext
 from openai_responses_proxy.serving import roles as serving_roles
+
+if TYPE_CHECKING:
+    from openai_responses_proxy.lifecycle.context import RuntimeContext
 
 
 @dataclass(frozen=True)

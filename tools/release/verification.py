@@ -7,7 +7,6 @@ import json
 import os
 import platform
 import shutil
-from collections.abc import Mapping
 from dataclasses import asdict
 from dataclasses import replace
 from math import isfinite
@@ -34,6 +33,8 @@ from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import nox
 
 _TEST_ROOT = product_identity.environment_name("NATIVE_TEST_ROOT")

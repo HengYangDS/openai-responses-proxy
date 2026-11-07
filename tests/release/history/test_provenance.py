@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import re
 import subprocess
-from collections.abc import Callable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tools.git_environment import isolated_config_environment
 from tools.release import metadata
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 
 @pytest.fixture

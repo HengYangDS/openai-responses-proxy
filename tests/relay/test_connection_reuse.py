@@ -13,10 +13,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Generator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from typing import TYPE_CHECKING
 from typing import override
 
 import pytest
@@ -24,6 +24,9 @@ import pytest
 from openai_responses_proxy.relay import connections
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import upstream as upstream_transport
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 OK = b'{"ok":true}'
 type Reply = tuple[int, bytes, dict[str, str]]

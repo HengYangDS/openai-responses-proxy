@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from typing import Protocol
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.json_value import JsonObject
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
@@ -19,6 +18,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
 if TYPE_CHECKING:
+    from openai_responses_proxy.json_value import JsonObject
     from openai_responses_proxy.lifecycle.context import RuntimeContext
 
 FILENAME = inventory.RUNTIME_CONFIG_FILENAME

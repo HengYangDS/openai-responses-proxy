@@ -10,12 +10,15 @@ import shlex
 import shutil
 import subprocess
 import tomllib
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import yaml
 
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _load_yaml(path: Path) -> dict[str, object]:

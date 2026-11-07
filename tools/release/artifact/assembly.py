@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from tools.release.artifact import format as assets
 from tools.release.artifact import signing
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def assemble(inputs: tuple[Path, ...], output: Path) -> dict[str, bytes]:

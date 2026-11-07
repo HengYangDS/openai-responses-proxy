@@ -8,18 +8,15 @@ import io
 import json
 import os
 import socket
-import subprocess
 import threading
 import time
 import urllib.request
-from collections.abc import Buffer
-from collections.abc import Generator
-from collections.abc import Mapping
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import override
 
 import psutil
@@ -38,6 +35,12 @@ from openai_responses_proxy.serving import roles
 from openai_responses_proxy.serving.handoff.protocol import read_control_message
 from openai_responses_proxy.serving.handoff.protocol import write_control_message
 from tools.performance import payload
+
+if TYPE_CHECKING:
+    import subprocess
+    from collections.abc import Buffer
+    from collections.abc import Generator
+    from collections.abc import Mapping
 
 _SMALL_RESPONSE = b'{"id":"response","status":"completed"}'
 _STREAM_RESPONSE = b'data: {"type":"response.completed"}\n\n'

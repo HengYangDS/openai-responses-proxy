@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -28,6 +28,9 @@ from tests.lifecycle.transaction.fixtures import _project_as_legacy_flat_install
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.mark.parametrize("previous_release", [None, "1.2.2"])

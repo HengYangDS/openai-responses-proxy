@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import ModuleType
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_mock import MockerFixture
 
 
 def _select_released_host(

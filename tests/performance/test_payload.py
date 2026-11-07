@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.serving import identity
 from tools.performance import payload
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _HANDOFF = {
     "release": "9.9.9",

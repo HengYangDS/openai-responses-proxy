@@ -8,8 +8,8 @@ release identity, process bindings, and startup.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from http.server import ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.providers import registry as provider_registry
@@ -24,6 +24,9 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles
 from openai_responses_proxy.serving import server
 from openai_responses_proxy.serving.handoff import transaction as handoff
+
+if TYPE_CHECKING:
+    from http.server import ThreadingHTTPServer
 
 
 @dataclass(frozen=True, slots=True)

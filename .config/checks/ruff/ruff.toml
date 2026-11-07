@@ -66,6 +66,7 @@ select = [
   "SLOT",
   "T10",
   "T20",
+  "TC",
   "TD",
   "TID",
   "UP",
@@ -132,7 +133,6 @@ select = [
   "S701",
   "S702",
   "S704",
-  "TC006",
   "TRY004",
   "TRY300",
 ]
@@ -198,9 +198,14 @@ ignore = [
 # Platform adapters import at first use, so an incomplete installation reports the product's
 # assembly error; a test exercises that import failure.
 "src/openai_responses_proxy/lifecycle/supervision/native_service.py" = ["PLC0415"]
+# The release verifier reads RuntimeContext's field types with typing.get_type_hints.
+"src/openai_responses_proxy/lifecycle/context.py" = ["TC001", "TC002", "TC003"]
+# These modules write their program's output, and Cyclopts reads their command annotations
+# at run time.
+"tools/performance/verify.py" = ["T201", "TC003"]
+"tools/release/tag_signature.py" = ["T201", "TC003"]
 # Each of these modules writes its program's output.
 "tools/forge/audit.py" = ["T201"]
-"tools/performance/verify.py" = ["T201"]
 "tools/quality/branch_coverage.py" = ["T201"]
 "tools/quality/governance.py" = ["T201"]
 "tools/quality/hard_coding.py" = ["T201"]
@@ -210,7 +215,6 @@ ignore = [
 "tools/release/artifact/bundle.py" = ["T201"]
 "tools/release/metadata.py" = ["T201"]
 "tools/release/publication/__main__.py" = ["T201"]
-"tools/release/tag_signature.py" = ["T201"]
 "tests/**" = [
   # Tests expose no product or repository interface: pytest collects their behavior-named
   # classes, functions and methods. Module docstrings and existing prose are still checked.

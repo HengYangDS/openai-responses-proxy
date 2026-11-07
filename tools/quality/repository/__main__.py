@@ -10,12 +10,11 @@ import sys
 import tokenize
 import tomllib
 from bisect import bisect_right
-from collections.abc import Iterable
-from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 from typing import TypedDict
 
 from cyclopts import App
@@ -23,6 +22,10 @@ from cyclopts import App
 from tools.quality.python_matrix import supported_requirement
 from tools.quality.repository.names import semantic_name_gaps
 from tools.quality.repository.topology import architecture_gaps
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG = ROOT / ".config/checks/architecture/policy.toml"

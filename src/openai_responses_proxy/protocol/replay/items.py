@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 from enum import StrEnum
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 from typing import Final
 from typing import Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from collections.abc import Sequence
 
 
 class ProjectionStrategy(StrEnum):

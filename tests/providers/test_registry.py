@@ -6,15 +6,18 @@ import importlib.machinery
 import inspect
 import sys
 import tempfile
-from collections.abc import Generator
-from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.providers import registry
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 

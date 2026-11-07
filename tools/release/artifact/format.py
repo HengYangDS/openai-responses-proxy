@@ -8,14 +8,17 @@ import io
 import json
 import re
 import tarfile
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle.records import is_version
 from openai_responses_proxy.serving.digest import is_sha256
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ARCHIVE_NAME = f"{product_identity.PRODUCT_SLUG}-{{version}}-{{platform}}.tar.gz"
 MANIFEST_NAME = f"{product_identity.PRODUCT_SLUG}-{{platform}}.manifest.json"

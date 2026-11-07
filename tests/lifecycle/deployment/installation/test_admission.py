@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +14,9 @@ from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 from tests.lifecycle.fixtures import install_context
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):

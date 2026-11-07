@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
 from http import HTTPStatus
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
@@ -29,6 +29,9 @@ from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:

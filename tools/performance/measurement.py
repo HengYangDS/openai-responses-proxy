@@ -5,15 +5,18 @@ from __future__ import annotations
 import shutil
 import socket
 import tomllib
-from collections.abc import Mapping
 from pathlib import Path
-from types import ModuleType
-
-import nox
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from openai_responses_proxy.lifecycle import context as runtime_context
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from types import ModuleType
+
+    import nox
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / ".config/checks/performance/policy.toml"

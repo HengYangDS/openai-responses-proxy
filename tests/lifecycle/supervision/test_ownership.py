@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import sys
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import native_service
+
+if TYPE_CHECKING:
+    from openai_responses_proxy.lifecycle import runtime_spec
 
 
 class _NativeModuleFixture(ModuleType):

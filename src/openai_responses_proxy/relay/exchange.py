@@ -10,7 +10,7 @@ import urllib.request
 from dataclasses import dataclass
 from dataclasses import field
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler
+from typing import TYPE_CHECKING
 from typing import cast
 
 import certifi
@@ -19,7 +19,6 @@ from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.protocol.recovery import execution as execution_recovery
 from openai_responses_proxy.protocol.recovery import input as input_recovery
 from openai_responses_proxy.protocol.replay import items as item_policy
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
@@ -29,6 +28,11 @@ from openai_responses_proxy.relay import wire_recovery
 from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
+
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
+
+    from openai_responses_proxy.providers import registry as provider_registry
 
 _SETTINGS = runtime_config.load()
 UPSTREAM_TIMEOUT = _SETTINGS.upstream_timeout

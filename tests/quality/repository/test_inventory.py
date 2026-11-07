@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from functools import partial
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -16,6 +16,9 @@ from tools.quality import responsibilities
 from tools.quality import text_layout
 from tools.quality.repository import __main__ as repository_audit
 from tools.quality.repository.names import semantic_name_gaps
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestOwnedInventory:

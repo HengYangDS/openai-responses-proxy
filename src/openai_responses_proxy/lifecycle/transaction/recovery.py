@@ -6,9 +6,8 @@ and disposal. It never reconstructs a live controller capability.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import command
@@ -17,6 +16,10 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.transaction import completion
 from openai_responses_proxy.serving import identity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
 
 
 def recover(

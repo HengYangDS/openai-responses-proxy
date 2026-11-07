@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
@@ -12,6 +12,9 @@ from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import idle_runtime
 from tests.serving.handoff.fixtures import matching_health
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class TestControllerHandoffWiring(HandoffFixture):

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import os
 import platform
-from collections.abc import Mapping
-from concurrent.futures import Future
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -31,6 +30,10 @@ from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
 from tests.serving.handoff.fixtures import wait_until
 from tools.release.verification import cleanup_runtime
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from concurrent.futures import Future
 
 
 def _required_path(variable: str) -> Path:

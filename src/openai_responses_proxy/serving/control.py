@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Callable
-from collections.abc import Mapping
 from dataclasses import dataclass
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
+from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol
 from openai_responses_proxy.serving.handoff import transaction as handoff
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+    from http.server import BaseHTTPRequestHandler
+    from http.server import ThreadingHTTPServer
 
 
 @dataclass(frozen=True)

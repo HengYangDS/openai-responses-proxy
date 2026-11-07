@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-import tempfile
 import time
 import urllib.error
 import urllib.request
 from contextlib import ExitStack
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.serving.handoff.fixtures import write_installed_payload
 from tools.release import verification
+
+if TYPE_CHECKING:
+    import tempfile
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 PACKAGED_SUCCESSOR_TIMEOUT_SECONDS = 60
 PAYLOAD_UNLOCK_TIMEOUT_SECONDS = 5

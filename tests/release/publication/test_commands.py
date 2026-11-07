@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,9 @@ from tools.release.publication import __main__ as commands
 from tools.release.publication.github import observe as github_observer
 from tools.release.publication.github import publish as github
 from tools.release.publication.gitlab import publish as gitlab
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_github_command_dispatches_verified_inputs_without_secret_arguments(

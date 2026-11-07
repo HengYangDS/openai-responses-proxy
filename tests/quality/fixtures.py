@@ -8,13 +8,16 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 from tools.git_environment import isolated_config_environment
 from tools.quality.repository import __main__ as repository_audit
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[2]
 

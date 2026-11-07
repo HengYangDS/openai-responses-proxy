@@ -6,11 +6,14 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 NAMESPACE = product_identity.RELEASE_NAMESPACE
 PRINCIPAL = product_identity.RELEASE_PRINCIPAL

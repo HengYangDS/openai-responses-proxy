@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 from typing import Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class SanitizationMetrics(Protocol):

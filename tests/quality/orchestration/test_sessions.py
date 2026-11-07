@@ -9,14 +9,17 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from nox.command import CommandFailed
-from nox.sessions import Session
-from pytest_mock import MockerFixture
 
 from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    from nox.sessions import Session
+    from pytest_mock import MockerFixture
 
 
 def test_nox_console_discovers_the_repository_sessions_without_pythonpath() -> None:

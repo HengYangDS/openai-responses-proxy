@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
 
@@ -13,12 +14,14 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.serving.handoff.fixtures import idle_runtime
+
+if TYPE_CHECKING:
+    from openai_responses_proxy.lifecycle.transaction import execution as transaction
 
 
 class FakeTransaction:

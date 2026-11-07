@@ -6,15 +6,19 @@ import json
 import re
 import subprocess
 import tomllib
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_mock import MockerFixture
 
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git as _git
 from tools.git_environment import isolated_config_environment
 from tools.quality.repository import __main__ as repository_audit
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pytest_mock import MockerFixture
 
 
 def test_pytest_owns_temporary_directory_retirement(pytestconfig: pytest.Config) -> None:

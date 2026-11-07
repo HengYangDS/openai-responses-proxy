@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,6 +15,9 @@ from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import _recover_without_binding
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.parametrize("outcome", ["rolled_back", "finalized"])

@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import http.client
 import time
-from collections.abc import Callable
 from contextlib import suppress
-from http.server import BaseHTTPRequestHandler
+from typing import TYPE_CHECKING
 from typing import NotRequired
 from typing import TypedDict
 from typing import cast
@@ -22,8 +21,13 @@ from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay import upstream as upstream_transport
-from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from http.server import BaseHTTPRequestHandler
+
+    from openai_responses_proxy.relay.upstream import UpstreamResponse
 
 UPSTREAM_READ_TIMEOUT = runtime_config.load().upstream_read_timeout
 UPSTREAM_TIMEOUT = runtime_config.load().upstream_timeout

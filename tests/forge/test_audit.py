@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypedDict
 
 import pytest
@@ -16,6 +16,9 @@ from tools.forge.audit import exact_branch_parity
 from tools.forge.audit import exact_tag_parity
 from tools.forge.audit import remote_branch_oids
 from tools.git_environment import isolated_config_environment
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ForgeFixture(TypedDict):

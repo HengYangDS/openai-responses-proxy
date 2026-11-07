@@ -6,14 +6,17 @@ import os
 import subprocess
 import sys
 import tomllib
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Annotated
 
 from cyclopts import App
 from cyclopts import Parameter
 
 from tools.ci.project import model_inputs
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 LINK_POLICY = ".config/checks/lychee/lychee.toml"

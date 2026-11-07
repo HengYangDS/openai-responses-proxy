@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import os
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tools.release.artifact import signing
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_sign_and_verify_uses_one_external_trust_boundary(tmp_path: Path) -> None:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,6 +15,8 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from openai_responses_proxy.lifecycle import context as runtime_context
 
 SELECTOR_FILENAME = identity.PAYLOAD_SELECTOR_FILENAME

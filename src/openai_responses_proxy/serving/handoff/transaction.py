@@ -10,19 +10,15 @@ from __future__ import annotations
 
 import contextlib
 import os
-import socket
 import sys
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
-from http.server import ThreadingHTTPServer
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypedDict
 
 from openai_responses_proxy.runtime import config as runtime_config
-from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving.handoff.protocol import HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS
 from openai_responses_proxy.serving.handoff.protocol import HANDOFF_PROTOCOL_VERSION
 from openai_responses_proxy.serving.handoff.protocol import HandoffChild
@@ -38,6 +34,14 @@ from openai_responses_proxy.serving.handoff.protocol import spawn_child
 from openai_responses_proxy.serving.handoff.protocol import (
     write_control_message as _write_control_message,
 )
+
+if TYPE_CHECKING:
+    import socket
+    from collections.abc import Callable
+    from http.server import ThreadingHTTPServer
+    from pathlib import Path
+
+    from openai_responses_proxy.serving import identity
 
 
 class PreparedHandoff(TypedDict):

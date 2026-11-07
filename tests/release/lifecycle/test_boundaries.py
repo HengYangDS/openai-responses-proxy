@@ -8,11 +8,11 @@ import os
 import subprocess
 import sys
 import time
-from collections.abc import Callable
 from ctypes import wintypes
 from pathlib import Path
 from threading import Event
 from threading import Thread
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
@@ -29,6 +29,9 @@ from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
 from tests.release.fixtures import signing_inputs
 from tests.serving.handoff.fixtures import free_port
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),

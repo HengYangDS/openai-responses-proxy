@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import time
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as replay_response
 from openai_responses_proxy.protocol.replay import projection as replay_request
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
@@ -19,6 +18,11 @@ from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import header_value
 from openai_responses_proxy.runtime import config as runtime_config
+
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
+
+    from openai_responses_proxy.providers import registry as provider_registry
 
 _SETTINGS = runtime_config.load()
 # A request body at least this large is logged as a large request.

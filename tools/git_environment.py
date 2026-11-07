@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _CONFIG_ISOLATION = {
     "GIT_CONFIG_GLOBAL": os.devnull,

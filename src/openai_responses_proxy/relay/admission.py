@@ -9,12 +9,15 @@ import urllib.parse
 from collections.abc import Buffer
 from contextlib import suppress
 from dataclasses import dataclass
-from email.message import Message
-from http.server import BaseHTTPRequestHandler
+from typing import TYPE_CHECKING
 from typing import SupportsIndex
 from typing import SupportsInt
 
 from openai_responses_proxy.relay import telemetry
+
+if TYPE_CHECKING:
+    from email.message import Message
+    from http.server import BaseHTTPRequestHandler
 
 _MIN_DRAIN_LEASE_SECONDS = 1
 _MAX_DRAIN_LEASE_SECONDS = 900

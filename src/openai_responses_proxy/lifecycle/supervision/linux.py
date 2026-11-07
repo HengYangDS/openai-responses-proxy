@@ -6,12 +6,15 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
+
+if TYPE_CHECKING:
+    from openai_responses_proxy.lifecycle import runtime_spec
 
 UNIT_TEMPLATE = f"""[Unit]
 Description={product_identity.DISPLAY_NAME} watchdog

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.serving import digest
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from pathlib import Path
 
 # The pyperf run metadata that names a measured payload: the identity a
 # committed payload hands off, and the digest of the executable launched.

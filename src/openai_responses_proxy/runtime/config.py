@@ -7,12 +7,15 @@ import ntpath
 import os
 import posixpath
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 HOME_ENV = product_identity.environment_name("HOME")
 STATE_HOME_ENV = product_identity.environment_name("STATE_HOME")

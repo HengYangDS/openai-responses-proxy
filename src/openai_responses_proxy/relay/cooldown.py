@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Mapping
 from datetime import UTC
 from datetime import datetime
-from email.message import Message
 from email.utils import parsedate_to_datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from email.message import Message
 
 _FAILURES_LOCK = threading.Lock()
 _FAILURES: dict[str, float] = {}

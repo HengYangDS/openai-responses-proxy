@@ -10,12 +10,15 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
 import pytest
 from nox.sessions import Session
 from nox.virtualenv import PassthroughEnv
-from pytest_mock import MockerFixture
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 def test_native_report_selection_refuses_relative_output_before_static_writes(

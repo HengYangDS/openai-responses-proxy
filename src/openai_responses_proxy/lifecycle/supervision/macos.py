@@ -7,7 +7,6 @@ import plistlib
 import re
 import shutil
 import subprocess
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -22,6 +21,8 @@ from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from openai_responses_proxy.lifecycle import runtime_spec
 
 _SERVICE_ABSENT = 113

@@ -7,15 +7,18 @@ import sys
 import tempfile
 import tomllib
 from collections import defaultdict
-from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 from typing import Annotated
 
 from coverage import Coverage
 from cyclopts import App
 from cyclopts import Parameter
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 # A coverage floor is a percentage below complete coverage.

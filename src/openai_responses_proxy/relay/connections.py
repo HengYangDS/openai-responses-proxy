@@ -14,7 +14,10 @@ import selectors
 import ssl
 import threading
 import time
-from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 IDLE_SECONDS = 30.0
 IDLE_PER_ADDRESS = 8

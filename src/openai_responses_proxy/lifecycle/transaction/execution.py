@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.json_value import ReadOnlyJsonObject
 from openai_responses_proxy.lifecycle import artifact
 from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from openai_responses_proxy.lifecycle import command
@@ -27,6 +26,11 @@ from openai_responses_proxy.lifecycle.transaction import completion
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from openai_responses_proxy.json_value import ReadOnlyJsonObject
 
 # Only this module's admission paths hold the token that constructs a transaction.
 _ADMISSION_TOKEN = object()

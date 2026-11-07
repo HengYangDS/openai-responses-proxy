@@ -5,14 +5,17 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import unquote
 from urllib.parse import urlsplit
 
-import nox
-
 from openai_responses_proxy.serving.digest import is_sha256
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    import nox
 
 ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ("src/openai_responses_proxy", "tools", "tests", "noxfile.py")

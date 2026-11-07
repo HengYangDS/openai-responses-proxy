@@ -8,7 +8,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from email.message import Message
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypedDict
 
 import pytest
@@ -17,6 +17,9 @@ from tests.release.artifact.fixtures import release_bundle
 from tools.release.artifact import format as assets
 from tools.release.artifact import signing
 from tools.release.publication.gitlab import publish
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class _PublicationArguments(TypedDict):

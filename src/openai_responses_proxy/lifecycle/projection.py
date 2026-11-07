@@ -6,17 +6,21 @@ import contextlib
 import hashlib
 import json
 import time
-from collections.abc import Mapping
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.json_value import JsonObject
-from openai_responses_proxy.json_value import ReadOnlyJsonObject
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from openai_responses_proxy.json_value import JsonObject
+    from openai_responses_proxy.json_value import ReadOnlyJsonObject
 
 _WINDOWS_DISPOSAL_ERRORS = frozenset({5, 32})
 _DISPOSAL_RETRY_SECONDS = 5.0

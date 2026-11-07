@@ -6,9 +6,12 @@ import re
 import stat
 import threading
 import time
-from collections.abc import Callable
 from contextlib import suppress
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 LINE_MAX_BYTES = 1024
 _LOCK = threading.Lock()

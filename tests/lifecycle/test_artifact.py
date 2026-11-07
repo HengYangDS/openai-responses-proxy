@@ -8,13 +8,11 @@ import json
 import shutil
 import subprocess
 import tarfile
-from collections.abc import Callable
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Literal
 
 import pytest
-from pytest_mock import MockerFixture
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.json_value import freeze_object
@@ -25,6 +23,12 @@ from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
 from tools.release.artifact import format as product_assets
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+
+    from pytest_mock import MockerFixture
 
 VERSION = "1.2.3"
 PLATFORM = "linux-x86_64"

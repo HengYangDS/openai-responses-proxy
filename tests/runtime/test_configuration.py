@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import ntpath
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 from typing import cast
 
 import pytest
 
 from openai_responses_proxy.runtime import config as runtime_config
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class TestRuntimeConfiguration:

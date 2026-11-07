@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import digest
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 MANIFEST_FILENAME = "payload-manifest.json"
 MANIFEST_SCHEMA_VERSION = 2

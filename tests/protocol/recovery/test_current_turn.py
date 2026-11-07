@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import pytest
 
 from openai_responses_proxy.protocol.recovery import execution as execution_recovery
 from openai_responses_proxy.protocol.recovery import input as input_recovery
 from openai_responses_proxy.protocol.replay import projection
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def _json(value: object) -> bytes:

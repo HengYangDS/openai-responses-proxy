@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from collections.abc import Mapping
 from collections.abc import Sequence
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.json_value import freeze_object
 from tools.release import identity
@@ -18,6 +18,9 @@ from tools.release.publication import evaluator
 from tools.release.publication import git
 from tools.release.publication.github import observe as github
 from tools.release.publication.gitlab import observe as gitlab
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class PublicationError(RuntimeError):

@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import sys
-from types import ModuleType
+from typing import TYPE_CHECKING
 from typing import Protocol
 from typing import cast
 
 from openai_responses_proxy import errors
-from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from openai_responses_proxy.lifecycle import runtime_spec
 
 
 class NativeServiceAdapter(Protocol):

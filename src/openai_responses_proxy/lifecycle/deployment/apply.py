@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 from typing import Protocol
 
 from openai_responses_proxy import errors
@@ -17,6 +17,9 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class ServiceAdapter(Protocol):

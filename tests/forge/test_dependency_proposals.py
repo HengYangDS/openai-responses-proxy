@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from tests.forge.workflows.fixtures import _mapping
 from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _strings
 from tests.quality.fixtures import ROOT
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 POLICY = ROOT / ".config/checks/renovate/renovate.json5"
 # Renovate and Dependabot discover repository configuration here; a file at any of these paths

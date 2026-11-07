@@ -14,15 +14,18 @@ import sys
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
 
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.serving import control
+
+if TYPE_CHECKING:
+    from openai_responses_proxy.providers import registry as provider_registry
 
 type ServerRequest = socket.socket | tuple[bytes, socket.socket]
 type ClientAddress = tuple[str, int] | str

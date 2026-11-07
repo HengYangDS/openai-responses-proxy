@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import os
 import uuid
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.serving import digest
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 COMMAND_NAME = product_identity.COMMAND_NAME
 SNAPSHOT_FILENAME = "command.json"

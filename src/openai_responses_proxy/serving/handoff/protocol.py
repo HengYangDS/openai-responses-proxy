@@ -18,8 +18,8 @@ import time
 import urllib.request
 from collections.abc import Callable
 from collections.abc import Mapping
-from pathlib import Path
 from typing import IO
+from typing import TYPE_CHECKING
 from typing import Protocol
 from typing import TypedDict
 from typing import cast
@@ -27,6 +27,9 @@ from typing import cast
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
 from openai_responses_proxy.runtime.process_environment import native_process_environment
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 type JsonObject = dict[str, object]
 type ReadOnlyJsonObject = Mapping[str, object]

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tools.release import tag_signature
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.parametrize("tag", ["latest", "1.2.3", "v1.2", "v1.2.3."])

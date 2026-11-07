@@ -5,12 +5,16 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pytest
 from nox.sessions import Session
 from nox.virtualenv import VirtualEnv
-from pytest_mock import MockerFixture
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from pytest_mock import MockerFixture
 
 
 @pytest.fixture

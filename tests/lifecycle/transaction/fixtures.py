@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle.transaction import recovery as payload_transaction
-from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import executable_relative
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+
+    from openai_responses_proxy.serving import identity as listener_identity
 
 
 def recovery_runtime(

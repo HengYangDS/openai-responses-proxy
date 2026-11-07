@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import os
 import platform
-from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import nox
 
 

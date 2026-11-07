@@ -9,11 +9,14 @@ import os
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import nox
 
 from openai_responses_proxy import product_identity
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 ROOT = Path(__file__).parent.resolve()
 

@@ -4,23 +4,27 @@ from __future__ import annotations
 
 import contextlib
 import http.client
-import io
 import time
 import urllib.error
-from collections.abc import Generator
-from http.server import BaseHTTPRequestHandler
+from typing import TYPE_CHECKING
 from typing import Protocol
 from typing import cast
 
 from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay import upstream as upstream_transport
-from openai_responses_proxy.relay.upstream import ResponseHeaders
-from openai_responses_proxy.relay.upstream import UpstreamResponse
+
+if TYPE_CHECKING:
+    import io
+    from collections.abc import Generator
+    from http.server import BaseHTTPRequestHandler
+
+    from openai_responses_proxy.providers import registry as provider_registry
+    from openai_responses_proxy.relay.upstream import ResponseHeaders
+    from openai_responses_proxy.relay.upstream import UpstreamResponse
 
 HOP_BY_HOP = {
     "connection",

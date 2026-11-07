@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypeGuard
 from typing import cast
 
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import inventory
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from pathlib import Path
 
 _RUNTIME_PAYLOAD_FIELDS = {
     "release": "release",

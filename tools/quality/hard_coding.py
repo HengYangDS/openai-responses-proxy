@@ -6,9 +6,12 @@ import ast
 import json
 import sys
 import tomllib
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import TypedDict
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / ".config/checks/hard-coding/policy.toml"
