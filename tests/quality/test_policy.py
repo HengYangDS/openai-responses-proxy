@@ -119,7 +119,13 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     assert "ANN" not in selected
     assert any(rule == "S" or rule.startswith("S") for rule in selected)
     assert "D" in selected
-    assert "ignore" not in ruff["lint"]
+    single_rule = re.compile(r"[A-Z]+[0-9]+")
+    assert all(single_rule.fullmatch(rule) for rule in ruff["lint"]["ignore"])
+    assert all(
+        single_rule.fullmatch(rule)
+        for rules in ruff["lint"]["per-file-ignores"].values()
+        for rule in rules
+    )
     assert ruff["lint"]["pydocstyle"] == {"convention": "google"}
     assert ruff["lint"]["per-file-ignores"] == {"tests/**": ["D101", "D102", "D103", "ANN201"]}
 

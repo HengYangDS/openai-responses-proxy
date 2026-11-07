@@ -71,8 +71,42 @@ select = [
   "PLW1510",
   "PLW2901",
   "S102",
+  "S103",
   "S104",
+  "S108",
+  "S110",
+  "S112",
+  "S113",
+  "S201",
+  "S202",
+  "S301",
+  "S302",
+  "S303",
+  "S304",
+  "S305",
+  "S306",
   "S307",
+  "S308",
+  "S311",
+  "S312",
+  "S313",
+  "S315",
+  "S316",
+  "S317",
+  "S319",
+  "S321",
+  "S323",
+  "S324",
+  "S501",
+  "S502",
+  "S503",
+  "S504",
+  "S505",
+  "S506",
+  "S507",
+  "S508",
+  "S509",
+  "S601",
   "S602",
   "S604",
   "S605",
@@ -83,7 +117,26 @@ select = [
   "S611",
   "S612",
   "S701",
+  "S702",
+  "S704",
   "TRY300",
+]
+
+ignore = [
+  # Gitleaks owns committed-secret detection over content and history; these name
+  # heuristics report credential-kind names and header names, not secrets.
+  "S105",
+  "S106",
+  "S107",
+  # Ruff reports every non-literal URL. Each URL is admitted with an http or https scheme
+  # at its owner: the provider registry, loopback_url and the GitLab API base check.
+  "S310",
+  # Ruff documents that it cannot tell validated arguments apart, so it reports every
+  # argument-list subprocess call; S602, S604 and S605 still forbid shell invocation.
+  "S603",
+  # Executables resolve through PATH by design: Mise puts the locked tools on PATH and
+  # the service managers live in platform directories; shutil.which repeats that lookup.
+  "S607",
 ]
 
 [lint.per-file-ignores]

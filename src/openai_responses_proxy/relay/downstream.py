@@ -293,19 +293,18 @@ def send_catalog_failure(
     previous_timeout = handler.connection.gettimeout()
     handler.close_connection = True
     try:
-        _arm_write_timeout(handler, time.monotonic() + timeout, previous_timeout)
-        send_payload(
-            handler,
-            status,
-            live_response.error_payload(
-                "Upstream model catalog unavailable; retry discovery shortly",
-                "upstream_unavailable",
-                code,
-            ),
-            close=True,
-        )
-    except Exception:
-        pass
+        with contextlib.suppress(Exception):
+            _arm_write_timeout(handler, time.monotonic() + timeout, previous_timeout)
+            send_payload(
+                handler,
+                status,
+                live_response.error_payload(
+                    "Upstream model catalog unavailable; retry discovery shortly",
+                    "upstream_unavailable",
+                    code,
+                ),
+                close=True,
+            )
     finally:
         handler.connection.settimeout(previous_timeout)
 

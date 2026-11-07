@@ -106,7 +106,7 @@ def released_artifact(
         return artifact.ArtifactFile(
             path=relative,
             mode="100755" if relative != inventory.PROVIDER_MANIFEST else "100644",
-            blob_oid=hashlib.sha1(content).hexdigest(),
+            blob_oid=hashlib.sha1(content, usedforsecurity=False).hexdigest(),
             sha256=hashlib.sha256(content).hexdigest(),
             content=content,
         )

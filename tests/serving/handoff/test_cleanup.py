@@ -83,10 +83,10 @@ class TestHandoffCleanup(SubprocessFixture):
         temporary = tempfile.TemporaryDirectory()
         cleanup = temporary.cleanup
         ctx = runtime_context.RuntimeContext(
-            install_dir="/tmp/owned",
-            executable="/tmp/owned/proxy.py",
-            command="/tmp/owned/proxy",
-            log_dir="/tmp/owned/state",
+            install_dir="/opt/owned",
+            executable="/opt/owned/proxy.py",
+            command="/opt/owned/proxy",
+            log_dir="/opt/owned/state",
         )
 
         service = mocker.Mock()
@@ -100,7 +100,7 @@ class TestHandoffCleanup(SubprocessFixture):
 
         try:
             mocker.patch.object(process, "pids_naming_executable", side_effect=inventory)
-            captured = process.OwnedProcess(123, "/tmp/owned/proxy.py", 42.0)
+            captured = process.OwnedProcess(123, "/opt/owned/proxy.py", 42.0)
             mocker.patch.object(
                 process,
                 "capture_executable",
@@ -130,10 +130,10 @@ class TestHandoffCleanup(SubprocessFixture):
         temporary = mocker.Mock()
         temporary.cleanup.side_effect = [PermissionError("mapped module"), None]
         ctx = runtime_context.RuntimeContext(
-            install_dir="/tmp/owned",
-            executable="/tmp/owned/proxy.py",
-            command="/tmp/owned/proxy",
-            log_dir="/tmp/owned/state",
+            install_dir="/opt/owned",
+            executable="/opt/owned/proxy.py",
+            command="/opt/owned/proxy",
+            log_dir="/opt/owned/state",
         )
         service = mocker.Mock()
         service.status.return_value = "absent"
@@ -148,12 +148,12 @@ class TestHandoffCleanup(SubprocessFixture):
         self, *, mocker
     ) -> None:
         temporary = mocker.Mock()
-        owned = process.OwnedProcess(123, "/tmp/owned/proxy.py", 42.0)
+        owned = process.OwnedProcess(123, "/opt/owned/proxy.py", 42.0)
         ctx = runtime_context.RuntimeContext(
-            install_dir="/tmp/owned",
-            executable="/tmp/owned/proxy.py",
-            command="/tmp/owned/proxy",
-            log_dir="/tmp/owned/state",
+            install_dir="/opt/owned",
+            executable="/opt/owned/proxy.py",
+            command="/opt/owned/proxy",
+            log_dir="/opt/owned/state",
         )
         service = mocker.Mock()
         service.status.return_value = "absent"
@@ -169,7 +169,7 @@ class TestHandoffCleanup(SubprocessFixture):
         temporary.cleanup.assert_called_once_with()
 
     def test_owned_child_cleanup_is_bound_to_its_temporary_proxy_path(self, *, mocker) -> None:
-        proxy_script = "/tmp/owned/.codex/responses-proxy/proxy.py"
+        proxy_script = "/opt/owned/.codex/responses-proxy/proxy.py"
         owns_pid = mocker.patch.object(process, "pid_names_executable", return_value=True)
         terminate = mocker.patch.object(process, "terminate_executable", return_value=True)
         terminate_owned_proxy(123, proxy_script)
@@ -178,7 +178,7 @@ class TestHandoffCleanup(SubprocessFixture):
         terminate.assert_called_once()
 
     def test_owned_child_cleanup_reports_an_unconfirmed_exit(self, *, mocker) -> None:
-        proxy_script = "/tmp/owned/.codex/responses-proxy/proxy.py"
+        proxy_script = "/opt/owned/.codex/responses-proxy/proxy.py"
         mocker.patch.object(process, "pid_names_executable", return_value=True)
         mocker.patch.object(
             process, "process_argv", return_value=["python", proxy_script, "--handoff-child"]

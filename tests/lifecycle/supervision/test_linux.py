@@ -114,15 +114,15 @@ class TestLinuxLifecycle:
 
     def test_systemd_unit_quotes_path_values_and_specifier_tokens(self):
         ctx = platform_context()
-        ctx.install_dir = '/tmp/product path/%i/"payload"'
+        ctx.install_dir = '/opt/product path/%i/"payload"'
         ctx.executable = f"{ctx.install_dir}/bin/openai-responses-proxy"
-        ctx.log_dir = '/tmp/state path/%h/"logs"'
-        ctx.user_home = '/tmp/home path/%u/"user"'
+        ctx.log_dir = '/opt/state path/%h/"logs"'
+        ctx.user_home = '/opt/home path/%u/"user"'
 
         unit = linux.render_unit(ctx)
 
         assert (
-            'ExecStart="/tmp/product path/%%i/\\"payload\\"/bin/openai-responses-proxy" '
+            'ExecStart="/opt/product path/%%i/\\"payload\\"/bin/openai-responses-proxy" '
             "--internal-watchdog"
         ) in unit
 
@@ -133,7 +133,7 @@ class TestLinuxLifecycle:
 
     def test_systemd_unit_rejects_control_characters(self):
         ctx = platform_context()
-        ctx.executable = "/tmp/bin/openai-responses-proxy\nother"
+        ctx.executable = "/opt/bin/openai-responses-proxy\nother"
 
         with pytest.raises(errors.InstallError, match="control character"):
             linux.render_unit(ctx)

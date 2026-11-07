@@ -310,7 +310,7 @@ session = "quick"
 configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."
 measurement = "Ruff checks every Python carrier, native C901 complexity, and explicit public/special-method returns for product, tooling and Nox; real-tool probes verify admission."
-false_positive_cost = "Pytest calls tests and fixtures by name and fails a test that returns a value, so tests omit only the public-return rule ANN201 and retain special-method returns and type checking. Other applicability changes require review."
+false_positive_cost = "A rule that Ruff cannot satisfy for correct code, or whose risk another owner already enforces, is ignored singly with its reason beside it in ruff.toml; a per-file ignore names only a file class where a rule cannot apply, such as pytest's name-called tests. Other applicability changes require review."
 remediation = "Correct or simplify the owning implementation; change applicability only with a reviewed responsibility-map update."
 review_condition = "Reassess when Ruff adds a relevant stable rule family or repeated cohesive operations exceed the native complexity bound; review lower-bound findings semantically rather than forcing forwarding helpers."
 

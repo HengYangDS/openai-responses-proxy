@@ -223,7 +223,7 @@ class ProviderPortableRequestEdgeTests:
                         "call_id": "image-call",
                         "output": [
                             {"type": "input_text", "text": "before"},
-                            {"type": "input_image", "image_url": "/tmp/example.png"},
+                            {"type": "input_image", "image_url": "/srv/example.png"},
                             {"type": "input_text", "text": "after"},
                         ],
                     },

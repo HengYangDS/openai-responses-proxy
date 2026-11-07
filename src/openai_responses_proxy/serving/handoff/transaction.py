@@ -232,10 +232,8 @@ def abort(child: HandoffChild) -> None:
     _ignore_failure(lambda: child.send_message({"type": "abort"}))
     stopped = False
     for stop in (child.terminate_bounded, child.kill_bounded):
-        try:
+        with contextlib.suppress(Exception):
             stopped = stop(HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS)
-        except Exception:
-            continue
         if stopped:
             break
     if not stopped:
