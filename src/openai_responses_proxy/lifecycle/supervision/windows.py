@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
@@ -175,7 +176,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         if created.returncode:
             raise errors.InstallError(f"schtasks create failed (exit {created.returncode})")
     finally:
-        os.unlink(xml_path)
+        Path(xml_path).unlink()
     started = subprocess.run(
         ["schtasks", "/run", "/tn", ctx.service_id],
         capture_output=True,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import stat
 import threading
@@ -101,7 +100,7 @@ def append(
             line = _line(f"log_retention_discarded_oversized_bytes={discarded} {safe_message}")
         with path.open("a", encoding="utf-8") as handle:
             with suppress(OSError):
-                os.chmod(path, 0o600)
+                path.chmod(0o600)
             handle.write(line)
     if mirror is not None:
         with suppress(Exception):

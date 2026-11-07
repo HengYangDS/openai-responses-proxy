@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -343,7 +342,7 @@ def test_upgrade_rollback_restores_the_prior_user_command_target(tmp_path: Path,
     install_payload(ctx, "1.2.2", mocker=mocker)
     prior_target = Path(ctx.executable)
     command_path = Path(ctx.command)
-    assert os.path.samefile(command_path, prior_target)
+    assert command_path.samefile(prior_target)
 
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     transaction.commit_projection()

@@ -147,8 +147,8 @@ def project(command_path: Path, target: Path, previous: Snapshot | None = None) 
         if command_path.suffix.casefold() == ".cmd":
             temporary.write_bytes(windows_launcher(target))
         else:
-            os.symlink(target, temporary)
-        os.replace(temporary, command_path)
+            temporary.symlink_to(target)
+        temporary.replace(command_path)
     except OSError as exc:
         if previous is not None and previous_path != command_path and previous.state == "owned":
             _restore_snapshot(previous_path, Path(previous.target), previous)
@@ -268,10 +268,10 @@ def _restore_snapshot(command_path: Path, target: Path, previous: Snapshot) -> N
         if previous.kind == "launcher":
             temporary.write_bytes(windows_launcher(target))
         elif previous.kind == "symlink":
-            os.symlink(target, temporary)
+            temporary.symlink_to(target)
         else:
             raise errors.InstallError("command snapshot kind is invalid")
-        os.replace(temporary, command_path)
+        temporary.replace(command_path)
     except OSError as exc:
         raise errors.InstallError("native command restoration failed") from exc
     finally:

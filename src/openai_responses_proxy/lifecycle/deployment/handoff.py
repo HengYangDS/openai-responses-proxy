@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import time
 import urllib.error
 import urllib.request
@@ -82,8 +81,8 @@ def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_secon
 def expected_metadata(root: str) -> RuntimeSnapshot:
     """Read release, aggregate payload, receipt, and manifest identity."""
     try:
-        manifest_path = os.path.join(root, inventory.MANIFEST_FILENAME)
-        with open(manifest_path, encoding="utf-8") as handle:
+        manifest_path = Path(root) / inventory.MANIFEST_FILENAME
+        with manifest_path.open(encoding="utf-8") as handle:
             loaded: object = json.load(handle)
         if not isinstance(loaded, dict) or not all(isinstance(key, str) for key in loaded):
             raise TypeError("payload manifest must be an object with string keys")
@@ -91,7 +90,7 @@ def expected_metadata(root: str) -> RuntimeSnapshot:
         release = manifest["release"]
         serving_payload_sha256 = manifest["serving_payload_sha256"]
         release_receipt_sha256 = manifest["release_receipt_sha256"]
-        manifest_sha256 = digest.sha256_file(Path(manifest_path))
+        manifest_sha256 = digest.sha256_file(manifest_path)
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise errors.InstallError(
             "payload files are unavailable for a handoff transaction"

@@ -124,9 +124,7 @@ def _disposal_failure(relative: str, error: OSError) -> errors.InstallError:
 
 def _disposal_identity(root: Path, target: Path) -> tuple[tuple[int, int], ...]:
     """Bind a deletion retry to its captured file and every owned ancestor."""
-    ancestors = (
-        root / parent for parent in target.relative_to(root).parents if parent != Path(".")
-    )
+    ancestors = (root / parent for parent in target.relative_to(root).parents if parent != Path())
     identities = []
     for path in (root, *ancestors, target):
         metadata = path.lstat()

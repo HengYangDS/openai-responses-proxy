@@ -230,7 +230,7 @@ def _private_listener() -> _PackagedListener:
     launch a listener of the operator's installed product.
     """
     home = os.environ.get(runtime_config.HOME_ENV, "")
-    if not os.path.isabs(home):
+    if not Path(home).is_absolute():
         raise RuntimeError(
             "startup-to-ready requires the performance session's private installation"
         )

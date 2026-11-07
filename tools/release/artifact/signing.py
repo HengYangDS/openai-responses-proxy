@@ -32,7 +32,7 @@ def _signing_key(key: Path) -> Generator[Path]:
     ) as name:
         normalized = Path(name) / "key"
         normalized.write_bytes(content + b"\n")
-        os.chmod(normalized, 0o600)
+        normalized.chmod(0o600)
         yield normalized
 
 

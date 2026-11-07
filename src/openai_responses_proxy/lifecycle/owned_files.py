@@ -132,7 +132,7 @@ def write_bytes(
         _real_parent(target, root)
         if target.is_symlink() or (target.exists() and not target.is_file()):
             raise errors.InstallError(f"owned path changed type: {target.relative_to(root)}")
-        os.replace(temporary, target)
+        temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
 

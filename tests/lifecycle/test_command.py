@@ -209,7 +209,7 @@ def test_project_rejects_invalid_target_and_reports_native_failures(
     with pytest.raises(errors.InstallError, match="target is not a regular file"):
         command.project(command_path, linked_target)
 
-    def fail_projection(_target: Path, _link: Path) -> None:
+    def fail_projection(*_arguments: object) -> None:
         raise OSError("projection unavailable")
 
     monkeypatch.setattr(command.os, "symlink", fail_projection)

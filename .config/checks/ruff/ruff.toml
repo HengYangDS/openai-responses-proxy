@@ -50,6 +50,7 @@ select = [
   "PIE",
   "PLE",
   "PT",
+  "PTH",
   "PYI",
   "Q",
   "RET",
@@ -140,6 +141,19 @@ ignore = [
   # Executables resolve through PATH by design: Mise puts the locked tools on PATH and
   # the service managers live in platform directories; shutil.which repeats that lookup.
   "S607",
+  # Ruff marks the pathlib fix unsafe: no pathlib form makes a path absolute and removes ".."
+  # without resolving links, as the lexical install and process identities require.
+  "PTH100",
+  # On Python 3.12, Path.exists raises PermissionError under an unreadable directory, where
+  # os.path.exists returns False.
+  "PTH110",
+  # Ruff marks the fix unsafe: Path.expanduser raises when no home directory is known,
+  # where os.path.expanduser returns its input.
+  "PTH111",
+  # Ruff marks these fixes unsafe: Path.name and Path.parent normalize separators and dots,
+  # so they can differ from the exact os.path.basename and os.path.dirname strings.
+  "PTH119",
+  "PTH120",
 ]
 
 [lint.per-file-ignores]
