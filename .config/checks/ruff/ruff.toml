@@ -1,7 +1,7 @@
 target-version = "py312"
 line-length = 100
-# Pytest imports tests in importlib mode, and test modules import shared fixtures through the
-# implicit tests namespace, so no test directory is a regular package.
+# The test tree is an implicit namespace package, which exempts it from INP001: pytest imports
+# tests in importlib mode, and test modules import shared fixtures through that namespace.
 namespace-packages = ["tests"]
 
 [format]
@@ -151,8 +151,8 @@ ignore = [
   # Ruff reports every non-literal URL. Each URL is admitted with an http or https scheme
   # at its owner: the provider registry, loopback_url and the GitLab API base check.
   "S310",
-  # Ruff documents that it cannot tell validated arguments apart, so it reports every
-  # argument-list subprocess call; S602, S604 and S605 still forbid shell invocation.
+  # Ruff flags each subprocess call whose argument list is computed; every flagged call passes
+  # an argument list, never a shell string, built by its owner from validated values.
   "S603",
   # Executables resolve through PATH by design: Mise puts the locked tools on PATH and
   # the service managers live in platform directories; shutil.which repeats that lookup.
@@ -225,7 +225,8 @@ ignore = [
   "ANN201",
   # Pytest rewrites assert statements into its own failure reports.
   "S101",
-  # Tests arrange and observe the private state that product modules keep unexported.
+  # Tests change in the same commit as the private state they read, so the coupling cannot
+  # break silently.
   "SLF001",
   # A test's comparison literal is the expected value that the test specifies.
   "PLR2004",
