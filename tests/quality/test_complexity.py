@@ -6,7 +6,6 @@ import json
 import subprocess
 import sys
 import tomllib
-from pathlib import Path
 
 import pytest
 
@@ -23,19 +22,17 @@ from tests.quality.fixtures import ROOT
     ],
 )
 @pytest.mark.parametrize("excess", [False, True])
-def test_complexity_threshold_uses_native_admission_for_every_role(
-    path: str, excess: bool, tmp_path: Path
-) -> None:
+def test_complexity_threshold_uses_native_admission_for_every_role(path: str, excess: bool) -> None:
     config = ROOT / ".config/checks/ruff/ruff.toml"
     policy = tomllib.loads(config.read_text(encoding="utf-8"))
     limit = policy["lint"]["mccabe"]["max-complexity"]
     source = "\n".join(
         [
             '"""Isolated native complexity input."""',
-            "def choose(value: int) -> int:",
+            "def choose(value: str) -> int:",
             '    """Select one bounded test outcome."""',
             *[
-                f"    if value == {index}:\n        return {index}"
+                f'    if value == "{index}":\n        return {index}'
                 for index in range(limit - 1 + excess)
             ],
             "    return -1",
@@ -60,7 +57,7 @@ def test_complexity_threshold_uses_native_admission_for_every_role(
         text=True,
         capture_output=True,
         check=False,
-        cwd=tmp_path,
+        cwd=ROOT,
         timeout=30,
     )
     assert result.stderr == ""
