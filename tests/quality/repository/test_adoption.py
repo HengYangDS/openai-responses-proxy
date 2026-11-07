@@ -18,11 +18,8 @@ def test_publication_topology_has_only_declared_independent_peers() -> None:
         "publication"
     ]
 
-    assert set(publication) == {
-        "local_verification_command",
-        "local_installation_command",
-        "peers",
-    }
+    # ETHOS 0.2.0-beta.6 retired the local command fields: publish admits the proof Attestation.
+    assert set(publication) == {"peers"}
     assert publication["peers"] == [
         {
             "id": "gitlab",
