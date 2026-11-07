@@ -77,7 +77,7 @@ def test_reverse_recovery_preserves_selection_outside_its_transaction(
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["upgrade", "retained-rollback"])
 def test_controller_rollback_preserves_selection_outside_its_transaction(
-    tmp_path: Path, reverse: bool, *, mocker
+    tmp_path: Path, *, reverse: bool, mocker
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.2", mocker=mocker)

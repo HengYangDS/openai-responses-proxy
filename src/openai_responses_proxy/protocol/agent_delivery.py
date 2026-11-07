@@ -126,7 +126,7 @@ def prepare_request(raw: bytes, mode: DeliveryMode) -> PreparedRequest:
     choice = payload.get("tool_choice")
     if isinstance(choice, dict) and choice.get("namespace") == NATIVE_NAMESPACE:
         choice["namespace"] = PLAINTEXT_NAMESPACE
-    return PreparedRequest(_encode(payload), True)
+    return PreparedRequest(_encode(payload), active=True)
 
 
 def _encode(value: object) -> bytes:
@@ -195,7 +195,7 @@ def _restore_payload(payload: JsonObject, *, streaming: bool) -> bool:
     return changed
 
 
-def restore_response(raw: bytes, active: bool) -> bytes:
+def restore_response(raw: bytes, *, active: bool) -> bytes:
     """Restore a selected JSON response; preserve all content and call identities."""
     if not active:
         return raw
@@ -203,7 +203,7 @@ def restore_response(raw: bytes, active: bool) -> bytes:
     return _encode(payload) if _restore_payload(payload, streaming=False) else raw
 
 
-def restore_event(raw: bytes, active: bool) -> bytes:
+def restore_event(raw: bytes, *, active: bool) -> bytes:
     """Restore one complete SSE event while retaining its non-data fields."""
     if not active:
         return raw

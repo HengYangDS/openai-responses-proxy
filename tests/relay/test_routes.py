@@ -300,7 +300,7 @@ class ProviderRouteTests:
 
     @pytest.mark.parametrize("trickle", [False, True])
     def test_body_progress_cannot_extend_the_total_admission_deadline(
-        self, trickle: bool, capsys: pytest.CaptureFixture[str], *, mocker
+        self, *, trickle: bool, capsys: pytest.CaptureFixture[str], mocker
     ) -> None:
         settings = config.load({"OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT": "0.25"})
         mocker.patch.object(responses, "_SETTINGS", settings)

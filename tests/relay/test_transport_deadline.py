@@ -405,7 +405,7 @@ class TestTransportDeadline(InputTransportFixture):
     )
     @pytest.mark.parametrize("tls", [False, True], ids=["http", "https"])
     def test_progressing_http_framing_cannot_renew_the_deadline(
-        self, phase: str, tls: bool, tls_context, *, mocker
+        self, phase: str, *, tls: bool, tls_context, mocker
     ):
         upstream = ScriptedUpstream()
         release = threading.Event()

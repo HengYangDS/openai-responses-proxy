@@ -287,7 +287,7 @@ class TestMacosBackgroundContract:
 
     def test_competing_service_registrations_are_not_removed(self, *, mocker) -> None:
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
-        mocker.patch.object(macos, "_service", return_value=macos._Service(True, 73))
+        mocker.patch.object(macos, "_service", return_value=macos._Service(registered=True, pid=73))
         invoked = mocker.patch.object(macos.subprocess, "run")
         with (
             _temporary_context("log_dir") as ctx,

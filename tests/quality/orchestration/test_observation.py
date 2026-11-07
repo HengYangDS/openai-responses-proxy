@@ -36,6 +36,7 @@ def test_native_helper_supply_checks_the_supplied_wheel_before_install(
     tmp_path: Path,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
+    *,
     changed: bool,
 ) -> None:
     """The attempt selects the observer; this session only verifies its exact bytes."""

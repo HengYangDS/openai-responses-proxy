@@ -160,7 +160,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         telemetry.reset_for_test()
         cooldown.reset_for_test()
         mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])
-        started = admission.set_draining(True, lease_seconds=2)
+        started = admission.set_draining(enabled=True, lease_seconds=2)
         expired = proxy.runtime_status()
         assert started["draining"]
         assert not expired["draining"]

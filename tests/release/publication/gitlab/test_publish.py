@@ -42,6 +42,7 @@ def _assets(root: Path, version: str) -> None:
 def test_publication_creates_and_accepts_only_exact_existing_release(
     tmp_path: Path,
     mocker,
+    *,
     create_conflict: bool,
     link_field: str,
     corrupt_on_create: bool,

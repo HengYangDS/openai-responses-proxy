@@ -48,6 +48,7 @@ class ResilientProxyServer(ThreadingHTTPServer):
         server_address: tuple[str, int],
         request_handler_class: type[BaseHTTPRequestHandler],
         bindings: Bindings,
+        *,
         bind_and_activate: bool = True,
     ) -> None:
         """Bind immutable product dependencies to one listener instance."""
@@ -131,7 +132,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         """Route POST control requests or relay one upstream request."""
         if self.path == "/control/drain":
-            control.set_drain(self, True)
+            control.set_drain(self, enabled=True)
         elif self.path == "/control/handoff":
             control.prepare_handoff(self, self._bindings().control)
         else:
@@ -147,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         """Clear drain state or relay one upstream DELETE request."""
         if self.path == "/control/drain":
-            control.set_drain(self, False)
+            control.set_drain(self, enabled=False)
         else:
             responses.relay(self, "DELETE", self._bindings().providers)
 

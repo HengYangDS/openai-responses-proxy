@@ -85,7 +85,7 @@ class TestStreamDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("committed", [False, True])
     def test_typed_deadline_cannot_finish_a_buffered_terminal_event(
-        self, committed: bool, *, mocker
+        self, *, committed: bool, mocker
     ) -> None:
         mocker.patch.object(sse.time, "monotonic", return_value=100.0)
         content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'

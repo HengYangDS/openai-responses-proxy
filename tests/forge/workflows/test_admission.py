@@ -21,7 +21,7 @@ GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-do
     [("success", True), ("failure", False), ("cancelled", False), ("skipped", False)],
 )
 def test_branch_admission_rejects_any_incomplete_reusable_verification(
-    result: str, allowed: bool
+    result: str, *, allowed: bool
 ) -> None:
     """Keep one required branch check absent on release and fail closed on skipped proof."""
     path = ROOT / ".github/workflows/admission.yml"
@@ -189,7 +189,7 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
 
 
 @pytest.mark.parametrize("review", [True, False])
-def test_gitlab_workflow_selects_the_runner_for_its_trust_role(review: bool) -> None:
+def test_gitlab_workflow_selects_the_runner_for_its_trust_role(*, review: bool) -> None:
     """Schedule review jobs independently of the protected branch runner choice."""
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
     protected = "OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"

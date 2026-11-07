@@ -53,13 +53,13 @@ def send_status(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
     _write_json(handler, 200, bindings.runtime_status())
 
 
-def set_drain(handler: BaseHTTPRequestHandler, enabled: bool) -> None:
+def set_drain(handler: BaseHTTPRequestHandler, *, enabled: bool) -> None:
     """Toggle Responses admission for an authorized loopback controller."""
     if not admission.is_local_controller(handler.client_address[0], handler.headers):
         handler.send_error(403, "drain control is available only to a local native controller")
         return
     lease = handler.headers.get("X-OpenAI-Responses-Proxy-Drain-Lease-Seconds") if enabled else None
-    payload = admission.set_draining(enabled, lease_seconds=lease)
+    payload = admission.set_draining(enabled=enabled, lease_seconds=lease)
     # The toggle carries its lease in a header and never reads a request body,
     # so the connection cannot stay persistent over an unconsumed remainder.
     _write_json(handler, 200, payload, close=True)

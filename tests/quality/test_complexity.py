@@ -22,7 +22,9 @@ from tests.quality.fixtures import ROOT
     ],
 )
 @pytest.mark.parametrize("excess", [False, True])
-def test_complexity_threshold_uses_native_admission_for_every_role(path: str, excess: bool) -> None:
+def test_complexity_threshold_uses_native_admission_for_every_role(
+    path: str, *, excess: bool
+) -> None:
     config = ROOT / ".config/checks/ruff/ruff.toml"
     policy = tomllib.loads(config.read_text(encoding="utf-8"))
     limit = policy["lint"]["mccabe"]["max-complexity"]

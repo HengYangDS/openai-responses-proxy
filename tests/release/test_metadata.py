@@ -161,6 +161,7 @@ def test_release_train_admission_uses_exact_local_chronology(
     known: list[str],
     headings: list[str],
     current: str,
+    *,
     prepared: bool,
     diagnostic: str | None,
 ) -> None:

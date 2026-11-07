@@ -218,9 +218,9 @@ class TestTransportFailures(InputTransportFixture):
             b"{}",
             "https://upstream.test/v1/responses",
             {},
-            True,
-            b"{}",
-            PROVIDERS.profiles["dmxapi"],
+            is_responses=True,
+            attempt_body=b"{}",
+            profile=PROVIDERS.profiles["dmxapi"],
         )
         mocker.patch.object(upstream_exchange, "_transport_error", return_value="retry")
         mocker.patch.object(

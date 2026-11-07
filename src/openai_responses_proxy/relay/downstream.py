@@ -413,7 +413,7 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
     try:
         body = upstream_transport.read_body(response, exchange.deadline, MAX_RESPONSES_JSON_BYTES)
         payload = live_response.validate_json_response(body)
-        payload = agent_delivery.restore_response(payload, exchange.plaintext_agent_delivery)
+        payload = agent_delivery.restore_response(payload, active=exchange.plaintext_agent_delivery)
     except upstream_transport.ExchangeDeadlineError:
         deadline_exceeded(exchange)
         return

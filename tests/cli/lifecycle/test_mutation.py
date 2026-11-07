@@ -53,7 +53,7 @@ def test_install_delegates_exact_asset_trust_anchor_and_port(tmp_path: Path, *, 
 
 @pytest.mark.parametrize("json_output", [False, True])
 def test_unexpected_install_failure_has_a_bounded_public_result(
-    tmp_path: Path, json_output: bool, *, mocker
+    tmp_path: Path, *, json_output: bool, mocker
 ) -> None:
     mocker.patch.object(
         application.runtime_context, "create", return_value=install_context(tmp_path)
@@ -256,8 +256,8 @@ def test_rollback_to_the_current_release_reports_an_unchanged_terminal_state(
 @pytest.mark.parametrize("json_output", [False, True])
 def test_recover_projects_one_precise_invalid_state_contract(
     tmp_path: Path,
-    json_output: bool,
     *,
+    json_output: bool,
     mocker,
 ) -> None:
     ctx = install_context(tmp_path)

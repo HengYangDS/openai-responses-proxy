@@ -424,6 +424,7 @@ def test_release_runtime_refuses_invalid_projection_before_build(
 
 @pytest.mark.parametrize("missing", [False, True])
 def test_predecessor_acceptance_consumes_the_built_candidate_without_rebuilding(
+    *,
     missing: bool,
     tmp_path: Path,
     mocker: MockerFixture,

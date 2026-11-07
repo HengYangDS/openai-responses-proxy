@@ -211,6 +211,7 @@ def _classification(
     status_code: int,
     payload: bytes,
     disposition: str,
+    *,
     exact: bool,
     wire_failure: bool,
 ) -> str:
@@ -378,7 +379,9 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
     )
     disposition = "full" if wire_failure else portable
     exact = input_recovery.is_exact_validation_error(status_code, payload)
-    classification = _classification(status_code, payload, disposition, exact, wire_failure)
+    classification = _classification(
+        status_code, payload, disposition, exact=exact, wire_failure=wire_failure
+    )
     telemetry.record_upstream_classification(classification)
     if rate_limited:
         seconds = cooldown.retry_after_seconds(headers)

@@ -32,10 +32,10 @@ class AdmissionTests:
             0,
             1,
         )
-        assert admission.set_draining(True, lease_seconds=30)["draining"]
+        assert admission.set_draining(enabled=True, lease_seconds=30)["draining"]
         assert admission.admit_response() == ("draining", 1)
         assert admission.release_response() == 0
-        admission.set_draining(False)
+        admission.set_draining(enabled=False)
         assert admission.admit_response() == ("acquired", 1)
         assert admission.release_response() == 0
 
@@ -79,7 +79,7 @@ class AdmissionTests:
 
     def test_drain_lease_expiry_is_observable(self, *, mocker) -> None:
         mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])
-        admission.set_draining(True, lease_seconds=2)
+        admission.set_draining(enabled=True, lease_seconds=2)
         state = admission.snapshot()
         assert (state["draining"], state["drain_generation"], state["active_responses"]) == (
             False,

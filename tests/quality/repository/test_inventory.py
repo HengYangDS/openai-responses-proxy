@@ -61,7 +61,7 @@ class TestOwnedInventory:
     @pytest.mark.parametrize("state", ["untracked", "missing", "symlink"])
     @pytest.mark.parametrize("write", [False, True])
     def test_formatter_refuses_unowned_inputs_before_any_write(
-        self, suffix: str, state: str, write: bool, *, monkeypatch
+        self, suffix: str, state: str, *, write: bool, monkeypatch
     ) -> None:
         current = f"current{suffix}"
         selected = f"selected{suffix}"

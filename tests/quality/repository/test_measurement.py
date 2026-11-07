@@ -149,7 +149,7 @@ class TestStructuralMeasurement:
     )
     @pytest.mark.parametrize("excess", [False, True])
     def test_control_depth_boundary_is_enforced_for_every_role(
-        self, relative: str, excess: bool
+        self, relative: str, *, excess: bool
     ) -> None:
         policy = tomllib.loads(repository_audit.CONFIG.read_text(encoding="utf-8"))
         limit = policy["control_nesting"]["max_depth"]

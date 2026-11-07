@@ -60,7 +60,7 @@ def _drain_lease_remaining_locked() -> int | None:
     return max(0, int(_DRAIN_DEADLINE - time.monotonic() + 0.999))
 
 
-def set_draining(enabled: bool, *, lease_seconds: object | None = None) -> dict[str, object]:
+def set_draining(*, enabled: bool, lease_seconds: object | None = None) -> dict[str, object]:
     """Atomically change local Responses admission and return its snapshot."""
     global _DRAINING, _DRAIN_GENERATION, _DRAIN_DEADLINE
     with _RESPONSE_GATE_LOCK:

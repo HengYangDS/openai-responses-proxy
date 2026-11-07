@@ -28,7 +28,7 @@ class TestSuccessorHealthObservation:
             matching_health(54321, expected, handoff_state="idle"),
             matching_health(54321, expected, release="wrong-release"),
             matching_health(0, expected),
-            matching_health(True, expected),
+            matching_health(child_or_pid=True, expected=expected),
         )
 
         for health in cases:

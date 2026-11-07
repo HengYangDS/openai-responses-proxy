@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.mark.parametrize("credential", [False, True])
 @pytest.mark.parametrize("newline", [False, True])
 def test_public_signature_fingerprint_never_hides_a_credential(
-    tmp_path: Path, encoded: bool, credential: bool, newline: bool
+    tmp_path: Path, *, encoded: bool, credential: bool, newline: bool
 ) -> None:
     fingerprint = base64.b64encode(hashlib.sha256(b"public signing-key fixture").digest())
     status = (

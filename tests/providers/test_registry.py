@@ -346,7 +346,7 @@ class ProviderRegistryTests:
             "base_url = 'https://gateway.example/v1'\npolicy = 'frozen'\n"
         )
         mocker.patch.dict(sys.modules, {fake.__name__: fake})
-        mocker.patch.object(registry.sys, "frozen", True, create=True)
+        mocker.patch.object(registry.sys, "frozen", new=True, create=True)
         with tempfile.TemporaryDirectory() as directory:
             loaded = registry.load(_manifest(Path(directory), manifest))
         assert loaded.profiles["gateway"].wire_policy is fake

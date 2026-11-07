@@ -153,7 +153,7 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
 
 @pytest.mark.parametrize("valid", [False, True])
 def test_native_ty_enforces_the_declared_boundary_without_mutation(
-    tmp_path: Path, valid: bool
+    tmp_path: Path, *, valid: bool
 ) -> None:
     source = tmp_path / "probe.py"
     content = f"def answer() -> {'int' if valid else 'str'}:\n    return 42\n"

@@ -359,13 +359,29 @@ class _PooledRequest(http.client.HTTPConnection):
         reused = _POOL.acquire(address)
         if reused is not None:
             try:
-                self._send(reused, address, method, url, body, kept, encode_chunked=encode_chunked)
+                self._send(
+                    reused,
+                    address,
+                    method,
+                    url,
+                    body=body,
+                    headers=kept,
+                    encode_chunked=encode_chunked,
+                )
             except _SEND_RESETS:
                 if not isinstance(body, bytes | bytearray | memoryview | str | None):
                     raise
             else:
                 return
-        self._send(self._new(), address, method, url, body, kept, encode_chunked=encode_chunked)
+        self._send(
+            self._new(),
+            address,
+            method,
+            url,
+            body=body,
+            headers=kept,
+            encode_chunked=encode_chunked,
+        )
 
     def _send(
         self,
@@ -373,9 +389,9 @@ class _PooledRequest(http.client.HTTPConnection):
         address: connections.Address,
         method: str,
         url: str,
+        *,
         body: _ReadableBody | Iterable[Buffer] | Buffer | str | None,
         headers: Mapping[str, Buffer | str | int],
-        *,
         encode_chunked: bool,
     ) -> None:
         connection.renew(self._deadline, self.timeout)

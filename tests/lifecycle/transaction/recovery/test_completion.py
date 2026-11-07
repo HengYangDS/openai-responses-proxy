@@ -89,7 +89,7 @@ def test_recovery_retains_rollback_authority_until_supervision_is_bound(
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["upgrade", "retained-rollback"])
 def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
-    tmp_path: Path, reverse: bool, *, mocker
+    tmp_path: Path, *, reverse: bool, mocker
 ) -> None:
     ctx = install_context(tmp_path)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
@@ -132,7 +132,7 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
 @pytest.mark.parametrize("windows", [False, True], ids=["posix-link", "windows-launcher"])
 @pytest.mark.parametrize("phase", ["materialized", "activated"])
 def test_recovery_retries_command_restoration_after_selection_is_restored(
-    tmp_path: Path, reverse: bool, windows: bool, phase: str, *, mocker
+    tmp_path: Path, *, reverse: bool, windows: bool, phase: str, mocker
 ) -> None:
     ctx = install_context(tmp_path, windows=windows)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)

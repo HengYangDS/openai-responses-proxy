@@ -297,7 +297,9 @@ class TestDialogueRecovery:
         assert recovered["input"] == payload["input"]
         assert recovered["include"] == ["other"]
         assert not {"previous_response_id", "conversation", "prompt_cache_key"} & recovered.keys()
-        assert metrics == input_recovery.RecoveryMetrics(len(raw), len(recovery), 2, 0, True)
+        assert metrics == input_recovery.RecoveryMetrics(
+            len(raw), len(recovery), 2, 0, prompt_cache_key_removed=True
+        )
 
     @pytest.mark.parametrize(
         "recover",

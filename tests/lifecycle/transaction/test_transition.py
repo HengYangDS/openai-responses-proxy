@@ -355,7 +355,7 @@ def test_upgrade_rollback_restores_the_prior_user_command_target(tmp_path: Path,
 @pytest.mark.parametrize("upgrading", [False, True])
 @pytest.mark.parametrize("failure", ["integrity", "runtime-spec", "interrupted-prewarm"])
 def test_failed_commit_rolls_back_before_propagating(
-    tmp_path: Path, upgrading: bool, failure: str, *, mocker
+    tmp_path: Path, *, upgrading: bool, failure: str, mocker
 ) -> None:
     ctx = install_context(tmp_path)
     if upgrading:

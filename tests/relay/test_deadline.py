@@ -350,7 +350,7 @@ class TestExchangeDeadline(InputTransportFixture):
 
     @pytest.mark.parametrize("committed", [False, True])
     def test_late_stream_completion_cannot_commit_or_complete_an_expired_exchange(
-        self, committed: bool, *, mocker
+        self, *, committed: bool, mocker
     ) -> None:
         now = [100.0]
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.7)

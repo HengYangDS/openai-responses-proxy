@@ -50,6 +50,7 @@ def test_sessions_accept_built_artifacts_before_publication(
     machine: str,
     release_platform: str,
     tmp_path: Path,
+    *,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
     orchestration_session: Session,

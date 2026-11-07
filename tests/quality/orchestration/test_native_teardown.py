@@ -418,7 +418,7 @@ def test_native_teardown_recovers_pending_transaction_before_purge(tmp_path: Pat
 
 @pytest.mark.parametrize("wrapper_exit", [True, False, "denied"])
 def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
-    tmp_path: Path, mocker, wrapper_exit: bool | str
+    tmp_path: Path, mocker, *, wrapper_exit: bool | str
 ) -> None:
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
     wrapper = tmp_path / "wrapper"

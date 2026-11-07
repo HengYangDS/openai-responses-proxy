@@ -89,7 +89,7 @@ class TestHandoffControlHandler:
         remote = fake_handler({}, mocker=mocker)
         remote.client_address = ("example.invalid", 51234)
         set_draining = mocker.patch.object(runtime_state_module, "set_draining")
-        control.set_drain(remote, True)
+        control.set_drain(remote, enabled=True)
         set_draining.assert_not_called()
         remote.send_error.assert_called_once_with(
             403, "drain control is available only to a local native controller"
@@ -102,8 +102,8 @@ class TestHandoffControlHandler:
             "set_draining",
             return_value={"draining": True, "drain_generation": 1},
         )
-        control.set_drain(local, True)
-        set_draining.assert_called_once_with(True, lease_seconds="41")
+        control.set_drain(local, enabled=True)
+        set_draining.assert_called_once_with(enabled=True, lease_seconds="41")
         local.send_response.assert_called_once_with(200)
 
         reopened = fake_handler({}, mocker=mocker)
@@ -112,8 +112,8 @@ class TestHandoffControlHandler:
             "set_draining",
             return_value={"draining": False, "drain_generation": 2},
         )
-        control.set_drain(reopened, False)
-        set_draining.assert_called_once_with(False, lease_seconds=None)
+        control.set_drain(reopened, enabled=False)
+        set_draining.assert_called_once_with(enabled=False, lease_seconds=None)
 
     def test_status_control_serializes_the_bound_runtime_snapshot(self, *, mocker):
         fake_self = fake_handler({}, mocker=mocker)

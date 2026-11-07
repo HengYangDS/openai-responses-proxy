@@ -356,7 +356,7 @@ class ProductInterfaceContracts:
 
     @pytest.mark.parametrize("relative_roots", [False, True])
     def test_built_executable_reports_a_pristine_native_installation(
-        self, tmp_path: Path, relative_roots: bool, *, monkeypatch
+        self, tmp_path: Path, *, relative_roots: bool, monkeypatch
     ) -> None:
         """Require a real absent-installation report, not an accepted error exit."""
         executable = os.environ.get("OPENAI_RESPONSES_PROXY_NATIVE_EXECUTABLE")

@@ -138,7 +138,7 @@ class AgentDeliveryContracts:
             raw = b"data: " + _wire({"type": "response.output_item.done", "item": call}) + b"\n\n"
             restore = agent_delivery.restore_event
         with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
-            restore(raw, True)
+            restore(raw, active=True)
 
     def test_unselected_selectors_are_not_owned_by_plaintext_delivery(self) -> None:
         tools = _tools()
@@ -148,9 +148,9 @@ class AgentDeliveryContracts:
         request = _wire({"input": [item], "tools": tools})
         assert agent_delivery.prepare_request(request, "plaintext").body == request
         response = _wire({"status": "completed", "output": [item]})
-        assert agent_delivery.restore_response(response, True) == response
+        assert agent_delivery.restore_response(response, active=True) == response
         event = b"data: " + _wire({"type": "response.output_item.done", "item": item}) + b"\n\n"
-        assert agent_delivery.restore_event(event, True) == event
+        assert agent_delivery.restore_event(event, active=True) == event
 
     @pytest.mark.parametrize("metadata", [None, "message", [1]])
     def test_replay_metadata_must_match_the_native_argument_list(self, metadata: object) -> None:
@@ -186,14 +186,14 @@ class AgentDeliveryContracts:
                 + _wire({"type": event_type, "item": call})
                 + b"\r\n\r\n"
             )
-            result = agent_delivery.restore_event(wire, True)
+            result = agent_delivery.restore_event(wire, active=True)
             item = json.loads(result.split(b"data: ", 1)[1])["item"]
             assert item["namespace"] == "collaboration"
             assert item["encrypted_function_args"] == []
             assert item["arguments"] == arguments
             assert item["call_id"] == "call-1"
         terminal = agent_delivery.restore_response(
-            _wire({"status": "completed", "output": [call]}), True
+            _wire({"status": "completed", "output": [call]}), active=True
         )
         restored = json.loads(terminal)["output"][0]
         assert restored["arguments"] == arguments
@@ -203,7 +203,7 @@ class AgentDeliveryContracts:
     def test_every_message_tool_uses_the_same_plaintext_contract(self, name: str) -> None:
         call = _call()
         call["name"] = name
-        result = json.loads(agent_delivery.restore_response(_wire({"output": [call]}), True))
+        result = json.loads(agent_delivery.restore_response(_wire({"output": [call]}), active=True))
         assert result["output"][0]["encrypted_function_args"] == []
 
     def test_refuses_ciphertext_as_plaintext_and_never_relabels_existing_encrypted_args(
@@ -214,7 +214,7 @@ class AgentDeliveryContracts:
             {**_call(), "encrypted_function_args": ["message"]},
         ):
             with pytest.raises(ValueError, match="agent_delivery_plaintext_unproved"):
-                agent_delivery.restore_response(_wire({"output": [call]}), True)
+                agent_delivery.restore_response(_wire({"output": [call]}), active=True)
 
     def test_unrelated_response_content_and_native_policy_remain_exact(self) -> None:
         raw = _wire(
@@ -229,17 +229,17 @@ class AgentDeliveryContracts:
                 ]
             }
         )
-        assert agent_delivery.restore_response(raw, True) == raw
-        assert agent_delivery.restore_response(_wire({"output": [_call()]}), False) == _wire(
+        assert agent_delivery.restore_response(raw, active=True) == raw
+        assert agent_delivery.restore_response(_wire({"output": [_call()]}), active=False) == _wire(
             {"output": [_call()]}
         )
         for event in (b"event: ping\n\n", b"data: [DONE]\n\n"):
-            assert agent_delivery.restore_event(event, True) == event
+            assert agent_delivery.restore_event(event, active=True) == event
 
     def test_streaming_call_start_can_precede_argument_generation(self) -> None:
         call = {**_call(), "status": "in_progress", "arguments": ""}
         raw = _wire({"type": "response.output_item.added", "item": call})
-        event = agent_delivery.restore_event(b"data: " + raw + b"\n\n", True)
+        event = agent_delivery.restore_event(b"data: " + raw + b"\n\n", active=True)
         restored = json.loads(event.split(b"data: ", 1)[1])["item"]
         assert restored["namespace"] == "collaboration"
         assert restored["arguments"] == ""
@@ -252,7 +252,7 @@ class AgentDeliveryContracts:
         call = {**_call(), "status": "in_progress", "arguments": ""}
         response = {"status": "in_progress", "output": [call]}
         raw = b"data: " + _wire({"type": event_type, "response": response}) + b"\n\n"
-        restored = json.loads(agent_delivery.restore_event(raw, True).split(b"data: ", 1)[1])
+        restored = json.loads(agent_delivery.restore_event(raw, active=True).split(b"data: ", 1)[1])
         item = restored["response"]["output"][0]
         assert item["namespace"] == "collaboration"
         assert item["arguments"] == ""
@@ -287,7 +287,7 @@ class AgentDeliveryContracts:
             raw = b"data: " + _wire(payload) + b"\n\n"
             restore = agent_delivery.restore_event
         with pytest.raises(ValueError, match="agent_delivery_plaintext_unproved"):
-            restore(raw, True)
+            restore(raw, active=True)
 
     def test_replayed_native_plaintext_marker_has_a_declared_item_grammar(self) -> None:
         call = _call()
@@ -316,10 +316,10 @@ class AgentDeliveryContracts:
         call["input"] = call.pop("arguments")
         if context == "json":
             raw = _wire({"status": "completed", "output": [call]})
-            restored = json.loads(agent_delivery.restore_response(raw, True))["output"][0]
+            restored = json.loads(agent_delivery.restore_response(raw, active=True))["output"][0]
         else:
             raw = b"data: " + _wire({"type": "response.output_item.done", "item": call}) + b"\n\n"
-            event = agent_delivery.restore_event(raw, True)
+            event = agent_delivery.restore_event(raw, active=True)
             restored = json.loads(event.split(b"data: ", 1)[1])["item"]
         assert restored == {**call, "namespace": "collaboration"}
         replay = sanitize_responses_body(
@@ -345,7 +345,7 @@ class AgentDeliveryContracts:
         call = {**_call(message), "type": "custom_tool_call"}
         call["input"] = call.pop("arguments")
         with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
-            agent_delivery.restore_response(_wire({"output": [call]}), True)
+            agent_delivery.restore_response(_wire({"output": [call]}), active=True)
 
     def test_custom_call_start_keeps_function_metadata_absent(self) -> None:
         call = {
@@ -356,13 +356,15 @@ class AgentDeliveryContracts:
         }
         call.pop("arguments")
         event = b"data: " + _wire({"type": "response.output_item.added", "item": call}) + b"\n\n"
-        restored = json.loads(agent_delivery.restore_event(event, True).split(b"data: ", 1)[1])
+        restored = json.loads(
+            agent_delivery.restore_event(event, active=True).split(b"data: ", 1)[1]
+        )
         assert restored["item"] == {**call, "namespace": "collaboration"}
 
     @pytest.mark.parametrize("metadata", [[], ["message"]])
     @pytest.mark.parametrize("complete", [False, True])
     def test_custom_message_cannot_claim_function_encryption_metadata(
-        self, metadata: object, complete: bool
+        self, metadata: object, *, complete: bool
     ) -> None:
         call = {
             **_call(),
@@ -378,9 +380,9 @@ class AgentDeliveryContracts:
             raw = b"data: " + _wire({"type": "response.output_item.added", "item": call}) + b"\n\n"
             restore = agent_delivery.restore_event
         with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
-            restore(raw, True)
+            restore(raw, active=True)
 
     def test_custom_message_cannot_use_arguments_in_place_of_input(self) -> None:
         call = {**_call(), "type": "custom_tool_call", "input": ""}
         with pytest.raises(ValueError, match=r"^agent_delivery_plaintext_unproved$"):
-            agent_delivery.restore_response(_wire({"output": [call]}), True)
+            agent_delivery.restore_response(_wire({"output": [call]}), active=True)

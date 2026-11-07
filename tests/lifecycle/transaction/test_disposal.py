@@ -306,7 +306,7 @@ def test_purge_recovery_preserves_unowned_replacements(
 
 @pytest.mark.parametrize("restart", [False, True])
 def test_snapshot_failure_cleanup_remains_retryable(
-    tmp_path: Path, restart: bool, *, mocker
+    tmp_path: Path, *, restart: bool, mocker
 ) -> None:
     """An incomplete snapshot has no rollback authority and needs only disposal."""
     ctx = install_context(tmp_path)

@@ -333,7 +333,7 @@ def test_detach_handles_absence_snapshot_ownership_and_unlink_failure(
     command.project(command_path, target)
     real_unlink = Path.unlink
 
-    def fail_owned_unlink(self: Path, missing_ok: bool = False) -> None:
+    def fail_owned_unlink(self: Path, *, missing_ok: bool = False) -> None:
         if self == command_path:
             raise OSError("busy")
         real_unlink(self, missing_ok=missing_ok)
@@ -362,7 +362,7 @@ def test_restore_and_remove_cover_owned_absent_and_unlink_failure(
     command.project(command_path, target)
     real_unlink = Path.unlink
 
-    def fail_owned_unlink(self: Path, missing_ok: bool = False) -> None:
+    def fail_owned_unlink(self: Path, *, missing_ok: bool = False) -> None:
         if self == command_path:
             raise OSError("busy")
         real_unlink(self, missing_ok=missing_ok)

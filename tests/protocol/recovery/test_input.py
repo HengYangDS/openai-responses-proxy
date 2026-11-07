@@ -150,7 +150,9 @@ class TestInputDiagnostic:
             ),
         ],
     )
-    def test_diagnosis_consumes_request_projection(self, payload: object, portable: bool) -> None:
+    def test_diagnosis_consumes_request_projection(
+        self, payload: object, *, portable: bool
+    ) -> None:
         raw = _json(payload)
         projection = sanitize_responses_body(raw)
         assert (projection.body is not None) is portable, projection.reason

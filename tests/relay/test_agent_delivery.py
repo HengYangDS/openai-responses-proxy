@@ -17,7 +17,7 @@ from tests.relay.fixtures import running_proxy
 
 class AgentDeliveryRelayContracts:
     @pytest.mark.parametrize("stream", [False, True])
-    def test_terminal_empty_agent_call_never_commits_as_success(self, stream: bool) -> None:
+    def test_terminal_empty_agent_call_never_commits_as_success(self, *, stream: bool) -> None:
         call = {**_call(), "status": "in_progress", "arguments": ""}
         terminal = {"status": "completed", "output": [call]}
         if stream:
@@ -59,7 +59,7 @@ class AgentDeliveryRelayContracts:
     @pytest.mark.parametrize("stream", [False, True])
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
     def test_real_http_roundtrip_retains_arguments_and_call_identity(
-        self, stream: bool, call_type: str
+        self, *, stream: bool, call_type: str
     ) -> None:
         call = _call()
         call["type"] = call_type

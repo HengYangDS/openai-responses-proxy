@@ -94,12 +94,12 @@ def _service(ctx: runtime_spec.NativeServiceContext, domain: str) -> _Service:
         text=True,
     )
     if completed.returncode == _SERVICE_ABSENT:
-        return _Service(False, None)
+        return _Service(registered=False, pid=None)
     if completed.returncode:
         msg = f"launchctl print failed (exit {completed.returncode})"
         raise errors.InstallError(msg)
     match = _PID.search(completed.stdout)
-    return _Service(True, int(match.group("pid")) if match else None)
+    return _Service(registered=True, pid=int(match.group("pid")) if match else None)
 
 
 def _registered_service(
@@ -111,7 +111,7 @@ def _registered_service(
     ]
     if len(registered) > 1:
         raise errors.InstallError("launchd watchdog is registered in both user and GUI domains")
-    return registered[0] if registered else (domains[0], _Service(False, None))
+    return registered[0] if registered else (domains[0], _Service(registered=False, pid=None))
 
 
 def _require_success(completed: subprocess.CompletedProcess[str], operation: str) -> None:

@@ -118,7 +118,7 @@ def test_install_of_exact_active_artifact_preserves_every_projection(
     ],
 )
 def test_install_of_the_exact_artifact_restores_an_unsupervised_verified_installation(
-    tmp_path: Path, service: str, serving: bool, command_removed: bool, *, mocker
+    tmp_path: Path, service: str, *, serving: bool, command_removed: bool, mocker
 ) -> None:
     ctx, control_ctx, native, committed, runtime = _unsupervised_installation(
         tmp_path, service=service, serving=serving, mocker=mocker

@@ -373,7 +373,7 @@ def test_generation_cleanup_reports_exact_filesystem_failures(tmp_path: Path, *,
 
 @pytest.mark.parametrize("native_code", [None, 5, 32, True, "private"])
 def test_generation_removal_reports_native_code_without_private_paths(
-    tmp_path: Path, native_code: int | str | bool | None, *, mocker
+    tmp_path: Path, *, native_code: int | str | bool | None, mocker
 ) -> None:
     ctx = install_context(tmp_path)
     target = generation.path(ctx, "e" * 32)

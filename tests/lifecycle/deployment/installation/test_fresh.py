@@ -61,7 +61,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
     @pytest.mark.parametrize("stage", ["runtime-cleanup", "payload-rollback"])
     @pytest.mark.parametrize("public", [False, True])
     def test_fresh_failure_retains_initial_and_compensation_causes(
-        self, stage: str, public: bool, *, mocker
+        self, stage: str, *, public: bool, mocker
     ) -> None:
         payload = FakeTransaction(self.ctx)
         initial = (

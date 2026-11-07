@@ -43,7 +43,7 @@ def test_malformed_success_cannot_be_presented_as_completed(
     [(0, 42), (41, 0), (-1, 42), (41, -1), (41, 41), (True, 42), (41, True)],
 )
 def test_reload_rejects_invalid_process_transition(
-    old_pid: object, new_pid: object, as_json: bool, recovered: bool, *, mocker, capsys
+    old_pid: object, new_pid: object, *, as_json: bool, recovered: bool, mocker, capsys
 ) -> None:
     result = {"state": "reloaded", "old_pid": old_pid, "new_pid": new_pid}
     if recovered:
@@ -64,7 +64,7 @@ def test_reload_rejects_invalid_process_transition(
 @pytest.mark.parametrize("as_json", [False, True])
 @pytest.mark.parametrize("recovered", [False, True])
 def test_reload_accepts_distinct_positive_processes(
-    as_json: bool, recovered: bool, *, mocker, capsys
+    *, as_json: bool, recovered: bool, mocker, capsys
 ) -> None:
     result = {"state": "reloaded", "old_pid": 41, "new_pid": 42}
     if recovered:
@@ -83,7 +83,7 @@ def test_reload_accepts_distinct_positive_processes(
 
 
 @pytest.mark.parametrize("as_json", [False, True])
-def test_reload_reports_a_started_stopped_installation(as_json: bool, *, mocker, capsys) -> None:
+def test_reload_reports_a_started_stopped_installation(*, as_json: bool, mocker, capsys) -> None:
     result = {"state": "started", "new_pid": 42}
     mocker.patch.object(application, "dispatch", return_value=result)
 
@@ -112,7 +112,7 @@ def test_reload_reports_a_started_stopped_installation(as_json: bool, *, mocker,
     ],
 )
 def test_reload_rejects_an_unproved_start(
-    result: dict[str, object], as_json: bool, *, mocker, capsys
+    result: dict[str, object], *, as_json: bool, mocker, capsys
 ) -> None:
     mocker.patch.object(application, "dispatch", return_value=result)
 
@@ -130,7 +130,7 @@ def test_reload_rejects_an_unproved_start(
 @pytest.mark.parametrize("command", ["uninstall", "recover"])
 @pytest.mark.parametrize("stopped", [-1, True, 0.5])
 def test_cleanup_rejects_invalid_process_count(
-    command: str, stopped: object, as_json: bool, *, mocker, capsys
+    command: str, stopped: object, *, as_json: bool, mocker, capsys
 ) -> None:
     result = {"state": "purged", "stopped": stopped, "command_removed": True}
     if command == "recover":
@@ -151,7 +151,7 @@ def test_cleanup_rejects_invalid_process_count(
 @pytest.mark.parametrize("as_json", [False, True])
 @pytest.mark.parametrize("command", ["uninstall", "recover"])
 def test_cleanup_accepts_zero_processes_when_no_listener_remains(
-    command: str, as_json: bool, *, mocker, capsys
+    command: str, *, as_json: bool, mocker, capsys
 ) -> None:
     result = {"state": "purged", "stopped": 0, "command_removed": True}
     if command == "recover":

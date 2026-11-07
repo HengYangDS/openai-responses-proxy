@@ -173,7 +173,7 @@ def _gone(child: subprocess.Popen[bytes]) -> bool:
     [(None, "exited", False), (1, "exited", True), (1, "missing", True), (1, "running", False)],
 )
 def test_a_stand_in_is_gone_once_its_exit_is_observed(
-    returncode: int | None, observed: str, gone: bool, monkeypatch: pytest.MonkeyPatch
+    returncode: int | None, observed: str, *, gone: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # On Windows the launch handle that a test holds keeps an exited process's
     # object, so its PID can stay visible for a moment after the exit; only a

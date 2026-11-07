@@ -32,7 +32,7 @@ class TestPackageMetadata:
         ("requirement", "accepted"), [(">=3.12,<3.15", True), (">=3.12", False)]
     )
     def test_repository_audit_binds_python_support_to_its_matrix(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, requirement: str, accepted: bool
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, requirement: str, *, accepted: bool
     ) -> None:
         source = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         declared = tomllib.loads(source)["project"]["requires-python"]

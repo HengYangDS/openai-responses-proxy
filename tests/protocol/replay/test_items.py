@@ -26,7 +26,7 @@ def test_every_policy_item_is_diagnosed_as_recognized(item_type: str) -> None:
 @pytest.mark.parametrize("role", ["user", "assistant", "developer", "system"])
 @pytest.mark.parametrize("structured", [False, True])
 def test_easy_input_message_uses_the_standard_optional_discriminator(
-    role: str, structured: bool
+    role: str, *, structured: bool
 ) -> None:
     content = (
         [{"type": "output_text" if role == "assistant" else "input_text", "text": "value"}]
@@ -319,7 +319,7 @@ def test_custom_tool_output_cannot_claim_function_delivery_provenance() -> None:
 
 
 @pytest.mark.parametrize("standalone_first", [False, True])
-def test_standalone_and_paired_outputs_share_one_item_identity(standalone_first: bool) -> None:
+def test_standalone_and_paired_outputs_share_one_item_identity(*, standalone_first: bool) -> None:
     delivery = {
         "type": "function_call_output",
         "id": "delivery",

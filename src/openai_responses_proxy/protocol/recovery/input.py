@@ -131,7 +131,7 @@ def format_diagnostic(diagnostic: InputDiagnostic) -> str:
         "input_items_bucket": diagnostic.input_items_bucket,
         "item_types": _format_counts(diagnostic.item_types),
         "content_types": _format_counts(diagnostic.content_types),
-        **{key: _presence(getattr(diagnostic, key)) for key in _DIAGNOSTIC_FLAGS},
+        **{key: _presence(present=getattr(diagnostic, key)) for key in _DIAGNOSTIC_FLAGS},
         "first_incompatible_reason": diagnostic.first_incompatible_reason or "-",
         "shape_sha256": diagnostic.shape_sha256,
     }
@@ -222,14 +222,14 @@ def _shape(value: object, depth: int = 0) -> object:
     return (
         "dict",
         _size_bucket(known_fields),
-        _presence(len(value) > known_fields),
+        _presence(present=len(value) > known_fields),
         _bounded(entries),
     )
 
 
 def _bounded(entries: AbstractSet[object]) -> tuple[tuple[object, ...], str]:
     ordered = tuple(sorted(entries, key=repr))
-    return ordered[:_SHAPE_ENTRY_LIMIT], _presence(len(ordered) > _SHAPE_ENTRY_LIMIT)
+    return ordered[:_SHAPE_ENTRY_LIMIT], _presence(present=len(ordered) > _SHAPE_ENTRY_LIMIT)
 
 
 def _closed_label(value: object, known: frozenset[str]) -> str:
@@ -256,8 +256,8 @@ def _format_counts(values: dict[str, str]) -> str:
     return ",".join(f"{key}:{values[key]}" for key in sorted(values)) or "-"
 
 
-def _presence(value: bool) -> str:
-    return "present" if value else "absent"
+def _presence(*, present: bool) -> str:
+    return "present" if present else "absent"
 
 
 class _DiagnosticState:

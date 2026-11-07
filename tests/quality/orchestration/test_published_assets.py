@@ -84,6 +84,7 @@ def test_published_bundle_must_match_the_native_platform(
 
 @pytest.mark.parametrize("include_executable", [False, True])
 def test_published_bundle_materializes_only_the_admitted_inventory(
+    *,
     include_executable: bool,
     tmp_path: Path,
     mocker: MockerFixture,

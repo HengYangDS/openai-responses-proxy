@@ -116,7 +116,7 @@ def test_install_admission_failure_closes_the_prepared_transaction(
 
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_install_admission_failure_retains_failed_prepared_cleanup(
-    tmp_path: Path, unavailable: bool, *, mocker
+    tmp_path: Path, *, unavailable: bool, mocker
 ) -> None:
     ctx = install_context(tmp_path)
     payload = mocker.Mock()

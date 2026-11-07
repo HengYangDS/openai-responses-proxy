@@ -42,7 +42,7 @@ class TestRuntimeContext:
     ) -> None:
         invoked = tmp_path / "copied-proxy"
         invoked.write_text("fixture", encoding="utf-8")
-        frozen = mocker.patch.object(roles.sys, "frozen", True, create=True)
+        frozen = mocker.patch.object(roles.sys, "frozen", new=True, create=True)
         mocker.patch.object(roles.sys, "executable", str(invoked))
         assert roles.current_executable() == str(invoked.resolve())
         mocker.stop(frozen)

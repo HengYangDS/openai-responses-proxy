@@ -113,7 +113,9 @@ class TestMacosLifecycle:
             mocker.patch.object(
                 macos, "_carrier", return_value=(b"fixture", configured) if configured else None
             )
-            mocker.patch.object(macos, "_service", return_value=macos._Service(True, 41))
+            mocker.patch.object(
+                macos, "_service", return_value=macos._Service(registered=True, pid=41)
+            )
             capture = mocker.patch.object(
                 macos.process,
                 "capture_executable",
@@ -191,7 +193,10 @@ class TestMacosLifecycle:
             mocker.patch.object(
                 macos,
                 "_service",
-                side_effect=[macos._Service(False, None), macos._Service(True, 73)],
+                side_effect=[
+                    macos._Service(registered=False, pid=None),
+                    macos._Service(registered=True, pid=73),
+                ],
             )
             mocker.patch.object(macos.process, "wait_for_executable", return_value=None)
             mocker.patch.object(
@@ -210,8 +215,8 @@ class TestMacosLifecycle:
     @pytest.mark.parametrize(
         ("kickstart_stdout", "observed", "message"),
         [
-            ("not-a-pid", macos._Service(True, 73), "returned no watchdog pid"),
-            ("73\n", macos._Service(True, 74), "pid was not re-observed"),
+            ("not-a-pid", macos._Service(registered=True, pid=73), "returned no watchdog pid"),
+            ("73\n", macos._Service(registered=True, pid=74), "pid was not re-observed"),
         ],
     )
     def test_install_rejects_unproved_kickstart_result(
@@ -221,7 +226,7 @@ class TestMacosLifecycle:
             mocker.patch.object(
                 macos,
                 "_service",
-                side_effect=[macos._Service(False, None), observed],
+                side_effect=[macos._Service(registered=False, pid=None), observed],
             )
             mocker.patch.object(
                 macos.subprocess,

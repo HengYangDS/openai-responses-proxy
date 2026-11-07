@@ -32,7 +32,7 @@ pytestmark = [
 
 
 @pytest.mark.parametrize("oversized", [False, True])
-def test_frozen_body_admission_uses_the_persisted_budgets(oversized: bool) -> None:
+def test_frozen_body_admission_uses_the_persisted_budgets(*, oversized: bool) -> None:
     """Refuse incomplete or oversized input without leaking a native listener."""
     port = free_port()
     with ExitStack() as cleanup:
@@ -361,7 +361,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
 @pytest.mark.parametrize(
     "stream", [False, True], ids=["closed-before-headers", "ended-before-content"]
 )
-def test_frozen_listener_never_resends_a_request_the_upstream_received(stream: bool) -> None:
+def test_frozen_listener_never_resends_a_request_the_upstream_received(*, stream: bool) -> None:
     """A lost response returns one outcome-unknown failure instead of a second request.
 
     This is the regression of BLOCK bde945c5.
