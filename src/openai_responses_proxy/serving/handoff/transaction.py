@@ -509,7 +509,6 @@ def run_child(context: Context) -> int:
         _transition("finalizing")
         _transition("finalized")
         _write_control_message(output_stream, _control_message("finalized", child_expected))
-        serve_with_resume(server, context, initial_serving_thread=serving_thread)
     except Exception:
         if server is not None:
             if serving_thread is not None:
@@ -518,6 +517,9 @@ def run_child(context: Context) -> int:
             _ignore_failure(server.server_close)
         return 1
     else:
+        # The transaction is complete. The listener's serving life fails as the normal
+        # listener's does, outside the transaction's rollback.
+        serve_with_resume(server, context, initial_serving_thread=serving_thread)
         return 0
 
 

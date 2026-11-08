@@ -417,3 +417,24 @@ class TestHandoffChild:
         assert result == 1
         failed.shutdown.assert_called_once()
         failed.server_close.assert_called_once()
+
+        # After FINALIZE the transaction is complete: a failure in the listener's serving life
+        # propagates as it does for the normal listener, and the transaction's rollback does
+        # not run.
+        serving_failure = RuntimeError("serving life failed after finalize")
+        mocker.patch.object(handoff_module, "serve_with_resume", side_effect=serving_failure)
+        handoff_module.reset_session_to_idle()
+        raw = b"".join(
+            json.dumps(message, separators=(",", ":")).encode() + b"\n"
+            for message in (prepare, {"type": "commit"}, {"type": "finalize"})
+        )
+        finalized_server = cast("MockType", mocker.Mock())
+        finalized_server.server_address = ("127.0.0.1", 8792)
+        object.__setattr__(context, "server_factory", lambda _listener: finalized_server)
+        mocker.patch.object(sys, "stdin", mocker.Mock(buffer=io.BytesIO(raw)))
+        mocker.patch.object(sys, "stdout", mocker.Mock(buffer=io.BytesIO()))
+        with pytest.raises(RuntimeError) as raised:
+            handoff_module.run_child(context)
+        assert raised.value is serving_failure
+        finalized_server.shutdown.assert_not_called()
+        finalized_server.server_close.assert_not_called()
