@@ -67,6 +67,63 @@ def test_a_tool_in_an_untrusted_location_is_refused(tmp_path: Path, untrusted: s
     assert resolved is None
 
 
+def test_a_trusted_link_into_a_writable_directory_is_refused(tmp_path: Path) -> None:
+    writable = tmp_path / "home/user/bin"
+    target = _tool(writable, "systemctl")
+    trusted_bin = tmp_path / "usr/bin"
+    trusted_bin.mkdir(parents=True)
+    (trusted_bin / "systemctl").symlink_to(target)
+
+    resolved = system_tools.posix_tool(
+        "systemctl", directories=(trusted_bin,), trusted=lambda path: path != writable
+    )
+
+    assert resolved is None
+
+
+def test_a_link_into_a_trusted_directory_is_accepted(tmp_path: Path) -> None:
+    target = _tool(tmp_path / "run/current-system/sw/bin", "systemctl")
+    trusted_bin = tmp_path / "usr/bin"
+    trusted_bin.mkdir(parents=True)
+    link = trusted_bin / "systemctl"
+    link.symlink_to(target)
+
+    resolved = system_tools.posix_tool("systemctl", directories=(trusted_bin,), trusted=_trust_all)
+
+    assert resolved == str(link)
+
+
+def test_a_dangling_link_is_refused(tmp_path: Path) -> None:
+    trusted_bin = tmp_path / "usr/bin"
+    trusted_bin.mkdir(parents=True)
+    (trusted_bin / "systemctl").symlink_to(tmp_path / "absent/systemctl")
+
+    resolved = system_tools.posix_tool("systemctl", directories=(trusted_bin,), trusted=_trust_all)
+
+    assert resolved is None
+
+
+def test_every_checked_location_is_the_resolved_link_and_its_directory(tmp_path: Path) -> None:
+    target = _tool(tmp_path / "nix/store/abc-systemd/bin", "systemctl")
+    trusted_bin = tmp_path / "usr/bin"
+    trusted_bin.mkdir(parents=True)
+    (trusted_bin / "systemctl").symlink_to(target)
+    checked: list[Path] = []
+
+    def record(path: Path) -> bool:
+        checked.append(path)
+        return True
+
+    system_tools.posix_tool("systemctl", directories=(trusted_bin,), trusted=record)
+
+    assert checked == [
+        trusted_bin,
+        trusted_bin / "systemctl",
+        target.resolve(strict=True),
+        target.resolve(strict=True).parent,
+    ]
+
+
 def test_the_default_trust_check_refuses_a_group_or_world_writable_location(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:

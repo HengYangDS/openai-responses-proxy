@@ -50,17 +50,20 @@ def posix_tool(
 ) -> str | None:
     """Return the first trusted system executable of that name, or None when none is trusted.
 
-    A candidate counts only if it is an executable regular file and both it and its directory
-    are trusted, which by default means owned by root and not writable by group or others.
+    A candidate counts only if it is an executable regular file and its directory, the
+    candidate, the file it resolves to and that file's directory are all trusted, which by
+    default means owned by root and not writable by group or others. A system profile such as
+    NixOS's links its tools into another directory, which must be trusted as well.
     """
     for directory in directories:
         candidate = directory / name
-        if (
-            candidate.is_file()
-            and os.access(candidate, os.X_OK)
-            and trusted(directory)
-            and trusted(candidate)
-        ):
+        if not (candidate.is_file() and os.access(candidate, os.X_OK)):
+            continue
+        try:
+            target = candidate.resolve(strict=True)
+        except (OSError, RuntimeError):
+            continue
+        if all(trusted(path) for path in (directory, candidate, target, target.parent)):
             return str(candidate)
     return None
 
