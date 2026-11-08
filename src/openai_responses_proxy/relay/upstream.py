@@ -116,7 +116,7 @@ class _Resolver:
             key, lookup = self._queue.get()
             try:
                 lookup.addresses = socket.getaddrinfo(*key, 0, socket.SOCK_STREAM)
-            except BaseException as error:
+            except BaseException as error:  # noqa: BLE001 thread-handoff
                 lookup.error = error
             finally:
                 with self._lock:

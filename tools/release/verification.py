@@ -157,17 +157,17 @@ def reclaim(root: Path, contexts: Path) -> None:
         try:
             if records.status(ctx) is not None:
                 control.recover(ctx)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 teardown-collect
             failures.append(error)
         try:
             cleanup_runtime(ctx)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 teardown-collect
             failures.append(error)
         if len(failures) != failures_before:
             continue
         try:
             uninstall.uninstall_product(ctx, purge=True)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 teardown-collect
             failures.append(error)
     if failures:
         raise errors.InstallError(

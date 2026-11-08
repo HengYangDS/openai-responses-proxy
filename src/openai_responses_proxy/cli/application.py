@@ -409,7 +409,7 @@ def _execute(command: str, *, as_json: bool = False, **arguments: object) -> int
             next_command=error.next_command,
             code=error.code,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 command-outcome
         return _error("product command failed unexpectedly", as_json=as_json, code="internal_error")
     else:
         return result.exit_code

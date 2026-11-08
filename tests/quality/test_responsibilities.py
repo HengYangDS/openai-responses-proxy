@@ -44,6 +44,10 @@ def declarations() -> dict[str, dict[str, object]]:
             "configuration": ["policy.toml"],
             **dict.fromkeys(responsibilities.RATIONALE_FIELDS, "reviewed"),
         },
+        "catch_all_boundaries": {
+            "id": "command-outcome",
+            **dict.fromkeys(responsibilities.CATCH_ALL_BOUNDARY_FIELDS, "reviewed"),
+        },
     }
 
 
@@ -149,10 +153,10 @@ def test_each_role_declares_its_complete_lifecycle(
     assert f"responsibility_map_role_field_missing:source:{field}" in report["errors"]
 
 
-@pytest.mark.parametrize("collection", ["roles", "scopes", "concerns"])
+@pytest.mark.parametrize("collection", ["roles", "scopes", "concerns", "catch_all_boundaries"])
 @pytest.mark.parametrize("change", ["non-table", "empty-id", "duplicate"])
 def test_every_declaration_has_one_unique_identity(
-    collection: Literal["roles", "scopes", "concerns"],
+    collection: Literal["roles", "scopes", "concerns", "catch_all_boundaries"],
     change: Literal["non-table", "empty-id", "duplicate"],
     *,
     declarations: dict[str, dict[str, object]],
@@ -215,6 +219,25 @@ def test_concerns_have_live_owners_and_configuration(
 ) -> None:
     declarations["concerns"][field] = value
     assert not audit_document(policy_document, tmp_path, mocker)["ok"]
+
+
+@pytest.mark.parametrize("field", responsibilities.CATCH_ALL_BOUNDARY_FIELDS)
+def test_a_catch_all_boundary_declares_its_recovery(
+    field: str,
+    *,
+    declarations: dict[str, dict[str, object]],
+    policy_document: dict[str, object],
+    tmp_path: Path,
+    mocker: MockerFixture,
+) -> None:
+    declarations["catch_all_boundaries"][field] = " "
+
+    report = audit_document(policy_document, tmp_path, mocker)
+
+    assert (
+        f"responsibility_map_catch_all_boundary_field_missing:command-outcome:{field}"
+        in report["errors"]
+    )
 
 
 def test_unowned_carrier_is_visible(

@@ -350,7 +350,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         status_code, headers = error.code, error.headers
     except ExchangeDeadlineError:
         raise
-    except Exception as failure:
+    except Exception as failure:  # noqa: BLE001 upstream-outcome
         reason = (
             "response_too_large"
             if isinstance(failure, upstream_transport.ResponseSizeError)
@@ -495,7 +495,7 @@ def open_upstream(exchange: Exchange) -> UpstreamResponse | None:
                 return exchange.response if outcome == "accepted" else None
             except ExchangeDeadlineError:
                 raise
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 upstream-outcome
                 if _transport_error(exchange, error, attempt) == "retry":
                     continue
                 return None

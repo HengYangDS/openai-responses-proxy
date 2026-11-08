@@ -338,12 +338,12 @@ def commit(server: ThreadingHTTPServer, prepared: PreparedHandoff, context: Cont
         _expect_child_phase(child, child_expected, "finalized", timeout_seconds)
         _transition("finalized")
         _set_outcome("finalized")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 handoff-rollback
         context.log(f"event=handoff_commit_failed phase={phase} exception={exc.__class__.__name__}")
         try:
             abort(child)
             outcome = "rolled_back"
-        except Exception:
+        except Exception:  # noqa: BLE001 handoff-rollback
             outcome = "abort_unconfirmed"
         _set_outcome(outcome)
         if not accept_stopped:
@@ -509,7 +509,7 @@ def run_child(context: Context) -> int:
         _transition("finalizing")
         _transition("finalized")
         _write_control_message(output_stream, _control_message("finalized", child_expected))
-    except Exception:
+    except Exception:  # noqa: BLE001 handoff-rollback
         if server is not None:
             if serving_thread is not None:
                 _ignore_failure(server.shutdown)

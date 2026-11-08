@@ -351,7 +351,7 @@ def probe_health(
             raise HandoffError("handoff child health identity did not converge")
         try:
             health = _read_health(port, timeout_seconds=min(remaining, 1.0))
-        except Exception:
+        except Exception:  # noqa: BLE001 health-retry
             health = None
         if health is not None and all(
             health.get(field) == value for field, value in expected.items()

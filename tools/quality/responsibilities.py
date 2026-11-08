@@ -22,6 +22,9 @@ RATIONALE_FIELDS = (
     "review_condition",
 )
 
+# A catch-all boundary names the one recovery that lets a broad except clause stand.
+CATCH_ALL_BOUNDARY_FIELDS = ("description", "recovery")
+
 ROLE_GOVERNANCE_FIELDS = (
     "owner",
     "consumer",
@@ -96,6 +99,19 @@ def _declarations(value: object, *, field: str, errors: list[str]) -> dict[str, 
     return declarations
 
 
+def _catch_all_boundaries(value: object, *, errors: list[str]) -> dict[str, dict[str, object]]:
+    """Index the declared catch-all boundaries, each with its description and recovery."""
+    boundaries = _declarations(value, field="catch_all_boundaries", errors=errors)
+    for identifier, boundary in boundaries.items():
+        for field in CATCH_ALL_BOUNDARY_FIELDS:
+            text = boundary.get(field)
+            if not isinstance(text, str) or not text.strip():
+                errors.append(
+                    f"responsibility_map_catch_all_boundary_field_missing:{identifier}:{field}"
+                )
+    return boundaries
+
+
 class AuditReport(TypedDict):
     """Exact carrier assignments and diagnostics from the responsibility map."""
 
@@ -104,6 +120,7 @@ class AuditReport(TypedDict):
     roles: list[str]
     scopes: list[str]
     concerns: list[str]
+    catch_all_boundaries: list[str]
     assignments: dict[str, str]
 
 
@@ -175,6 +192,8 @@ def audit(root: Path = ROOT, policy_path: Path = MAP) -> AuditReport:
         )
         concerns[identifier] = concern
 
+    boundaries = _catch_all_boundaries(policy.get("catch_all_boundaries"), errors=errors)
+
     assignments: dict[str, str] = {}
     tracked = _tracked_paths(root)
     if not tracked:
@@ -194,6 +213,7 @@ def audit(root: Path = ROOT, policy_path: Path = MAP) -> AuditReport:
         "roles": sorted(roles),
         "scopes": sorted(scopes),
         "concerns": sorted(concerns),
+        "catch_all_boundaries": sorted(boundaries),
         "assignments": assignments,
     }
 

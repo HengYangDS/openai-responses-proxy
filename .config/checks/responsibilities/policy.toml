@@ -310,7 +310,7 @@ session = "quick"
 configuration = [".config/checks/ruff/ruff.toml"]
 risk_model = "Python correctness, import, modernization, security, performance, and maintainability defects escape review."
 measurement = "One ruff.toml selects every stable Ruff rule, including native C901 complexity, and checks every Python carrier. Four declarations exempt rules, each with its reason beside it: the global ignore list names each rule that applies nowhere, a per-file ignore names a rule for one file class or named module where it cannot apply, the namespace-packages declaration exempts the test tree from INP001, and the Google docstring convention leaves out the pydocstyle rules for other conventions' layouts and for choices it leaves open. Real-tool probes verify admission."
-false_positive_cost = "A rule that conflicts with the formatter, that Ruff cannot satisfy for correct code, or whose risk another owner already enforces is ignored singly, never by prefix family, with its reason beside it. A per-file ignore names one rule for a file class where it cannot apply, such as pytest's assertions in tests, for a module that owns a declared role: program output, a catch-all failure boundary, a deliberately deferred import or a runtime annotation reader; or for one module whose correct form Ruff flags, such as the YAML 1.2 workflow loader. Other applicability changes require review."
+false_positive_cost = "A rule that conflicts with the formatter, that Ruff cannot satisfy for correct code, or whose risk another owner already enforces is ignored singly, never by prefix family, with its reason beside it. A per-file ignore names one rule for a file class where it cannot apply, such as pytest's assertions in tests, for a module that owns a declared role: program output, a catch-all failure boundary, a deliberately deferred import or a runtime annotation reader; or for one module whose correct form Ruff flags, such as the YAML 1.2 workflow loader. The only inline suppression is a broad except clause's BLE001 marker, which names a catch-all boundary declared below with its recovery; a quality test refuses an unmarked or undeclared one. Other applicability changes require review."
 remediation = "Correct or simplify the owning implementation; change applicability only with a reviewed responsibility-map update."
 review_condition = "Reassess when Ruff adds a relevant stable rule family or repeated cohesive operations exceed the native complexity bound; review lower-bound findings semantically rather than forcing forwarding helpers."
 
@@ -612,3 +612,38 @@ measurement = "Classify every tracked or pending carrier exactly once and valida
 false_positive_cost = "A new carrier cannot enter the repository until its positive role is declared."
 remediation = "Assign the carrier to one existing semantic role or add one non-overlapping role with explicit responsibility."
 review_condition = "Reassess when repository responsibilities change."
+
+[[catch_all_boundaries]]
+id = "command-outcome"
+description = "The CLI's command boundary."
+recovery = "Any unexpected failure of a product command becomes one internal_error result without a traceback."
+
+[[catch_all_boundaries]]
+id = "upstream-outcome"
+description = "A relay step that reads or reopens an upstream exchange."
+recovery = "Any failure becomes one protocol outcome, a retry or a local error response, whose log carries only the secret-free exception label."
+
+[[catch_all_boundaries]]
+id = "stream-outcome"
+description = "A relay step that writes or projects a response stream downstream."
+recovery = "Any failure ends the stream or closes the connection, and its log carries only the secret-free exception label."
+
+[[catch_all_boundaries]]
+id = "thread-handoff"
+description = "The upstream resolver thread."
+recovery = "Any lookup failure is handed to the waiting request, which raises it again."
+
+[[catch_all_boundaries]]
+id = "handoff-rollback"
+description = "A listener handoff transaction and its abort."
+recovery = "Any failure before FINALIZE rolls the transaction back, and the parent logs the failure's class."
+
+[[catch_all_boundaries]]
+id = "health-retry"
+description = "The successor health probe."
+recovery = "Any failed observation is retried until the probe's deadline, as the runtime-upgrade specification requires."
+
+[[catch_all_boundaries]]
+id = "teardown-collect"
+description = "Native test teardown."
+recovery = "Any reclaim failure is collected and reported as one preserved-scratch error that carries the first failure as its cause."

@@ -266,7 +266,7 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
     except DownstreamDeadlineError:
         exchange.handler.close_connection = True
         exchange.log("downstream_write_deadline")
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 stream-outcome
         exchange.log(
             "stream_handler_exception",
             f"exception={operational_log.safe_exception_label(error)} ",
@@ -358,7 +358,7 @@ def relay_readonly_body(
                 break
         _arm_write_timeout(handler, deadline, previous_timeout)
         handler.wfile.write(b"0\r\n\r\n")
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 stream-outcome
         handler.close_connection = True
         log_failure(operational_log.safe_exception_label(error))
     finally:
@@ -441,7 +441,7 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
     except (TypeError, ValueError):
         _invalid_responses_success(exchange, "invalid_terminal_json")
         return
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 stream-outcome
         _invalid_responses_success(exchange, operational_log.safe_exception_label(error))
         return
     finally:

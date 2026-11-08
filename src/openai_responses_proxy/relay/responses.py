@@ -180,7 +180,7 @@ def _relay_catalog(
     deadline = time.monotonic() + _SETTINGS.catalog_timeout
     try:
         response = upstream_exchange.open_readonly(upstream_url, "GET", headers, deadline=deadline)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 upstream-outcome
         expired = isinstance(error, ExchangeDeadlineError) or time.monotonic() >= deadline
         code = "catalog_deadline_exceeded" if expired else "catalog_transport_error"
         telemetry.record_failure(code)

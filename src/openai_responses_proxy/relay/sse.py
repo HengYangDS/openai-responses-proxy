@@ -183,7 +183,7 @@ def _read_one_stream(
                 upstream_detail = "deadline"
                 break
             chunk = b""
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 stream-outcome
             upstream_error = error
             chunk = b""
         search_start = max(0, len(buffer) - 3)
@@ -293,7 +293,7 @@ def relay(
         attempts_started += 1
         try:
             reopened = reopen(deadline)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 upstream-outcome
             if (
                 isinstance(error, upstream_transport.ExchangeDeadlineError)
                 or time.monotonic() >= deadline

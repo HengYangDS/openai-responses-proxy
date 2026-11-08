@@ -62,7 +62,7 @@ def retry(exchange: Exchange) -> bool:
         return True
     except ExchangeDeadlineError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 upstream-outcome
         reject(
             exchange,
             fingerprint,

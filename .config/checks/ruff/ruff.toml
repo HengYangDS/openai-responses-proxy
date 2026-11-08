@@ -77,22 +77,12 @@ ignore = [
 [lint.per-file-ignores]
 # PyInstaller loads its hook files by path from this hooks directory; it is not a package.
 "tools/release/hooks/*" = ["INP001"]
-# The CLI writes the program's output, its service roles import their modules only after
-# runtime activation, and its command boundary reports any failure without a traceback.
-"src/openai_responses_proxy/cli/application.py" = ["T201", "PLC0415", "BLE001"]
-# Relay and stream boundaries turn any upstream failure into a protocol-level outcome and log
-# only its secret-free exception label.
-"src/openai_responses_proxy/relay/downstream.py" = ["BLE001"]
-"src/openai_responses_proxy/relay/exchange.py" = ["BLE001"]
-"src/openai_responses_proxy/relay/responses.py" = ["BLE001"]
-"src/openai_responses_proxy/relay/sse.py" = ["BLE001"]
-"src/openai_responses_proxy/relay/wire_recovery.py" = ["BLE001"]
-# The resolver thread hands any lookup failure to the waiting request, which re-raises it.
-"src/openai_responses_proxy/relay/upstream.py" = ["BLE001"]
-# Handoff transactions roll back on any failure, and the successor health probe retries any
-# failed observation until its deadline, as the runtime-upgrade specification requires.
-"src/openai_responses_proxy/serving/handoff/protocol.py" = ["BLE001"]
-"src/openai_responses_proxy/serving/handoff/transaction.py" = ["BLE001"]
+# The CLI writes the program's output, and its service roles import their modules only after
+# runtime activation.
+"src/openai_responses_proxy/cli/application.py" = ["T201", "PLC0415"]
+# No module ignores BLE001. Each broad except clause carries "# noqa: BLE001 <role>", naming
+# a catch-all boundary that the responsibility map declares with its recovery, and
+# tests/quality/test_catch_all_boundaries.py refuses any other.
 # Platform adapters import at first use, so an incomplete installation reports the product's
 # assembly error; a test exercises that import failure.
 "src/openai_responses_proxy/lifecycle/supervision/native_service.py" = ["PLC0415"]
@@ -113,9 +103,6 @@ ignore = [
 "tools/release/artifact/__main__.py" = ["T201"]
 "tools/release/artifact/bundle.py" = ["T201"]
 "tools/release/publication/__main__.py" = ["T201"]
-# Native test teardown turns any reclaim failure into one reported "scratch preserved" error
-# that carries the first failure as its cause.
-"tools/release/verification.py" = ["BLE001"]
 # These modules write their program's output, and Cyclopts reads tag_signature's command
 # annotations at run time. Each also starts a development tool, for the reason below.
 "tools/quality/governance.py" = ["T201", "S607"]
@@ -128,6 +115,7 @@ ignore = [
 # design.
 "tests/forge/workflows/test_admission.py" = ["S607"]
 "tests/quality/fixtures.py" = ["S607"]
+"tests/quality/test_catch_all_boundaries.py" = ["S607"]
 "tests/quality/orchestration/test_governance.py" = ["S607"]
 "tests/quality/orchestration/test_sessions.py" = ["S607"]
 "tests/quality/orchestration/test_workflows.py" = ["S607"]
