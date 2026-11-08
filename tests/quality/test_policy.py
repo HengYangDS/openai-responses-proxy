@@ -116,13 +116,9 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     assert "`.config/quality/policy/` owns quality policy" not in governance
 
     ruff = tomllib.loads((ROOT / ".config/checks/ruff/ruff.toml").read_text(encoding="utf-8"))
-    selected = ruff["lint"]["select"]
-    assert len(selected) == len(set(selected))
-    assert {"F", "I", "N", "PT", "UP", "B", "RET", "PERF", "RUF"} <= set(selected)
-    assert {"ANN201", "ANN204"} <= set(selected)
-    assert "ANN" not in selected
-    assert any(rule == "S" or rule.startswith("S") for rule in selected)
-    assert "D" in selected
+    assert ruff["lint"]["select"] == ["ALL"]
+    assert "preview" not in ruff
+    assert "preview" not in ruff["lint"]
     single_rule = re.compile(r"[A-Z]+[0-9]+")
     assert all(single_rule.fullmatch(rule) for rule in ruff["lint"]["ignore"])
     assert all(
@@ -136,7 +132,6 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         "D101",
         "D102",
         "D103",
-        "ANN201",
         "S101",
         "SLF001",
         "PLR2004",

@@ -95,11 +95,11 @@ def test_complexity_threshold_uses_native_admission_for_every_role(
             ),
             {"ANN204"},
         ),
-        ("tests/probe.py", "def answer():\n    return 42\n", {"D100"}),
+        ("tests/probe.py", "def answer():\n    return 42\n", {"D100", "ANN201"}),
         (
             "tests/probe.py",
             'def answer():\n    """Return the answer"""\n    return 42\n',
-            {"D100", "D415"},
+            {"D100", "D415", "ANN201"},
         ),
         (
             "tools/probe.py",
