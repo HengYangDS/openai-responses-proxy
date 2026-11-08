@@ -44,3 +44,11 @@ def test_canonical_documents_are_reachable_from_the_documentation_index() -> Non
                     pending.append(target)
     missing = documents - reached
     assert not missing, sorted(path.relative_to(ROOT).as_posix() for path in missing)
+
+
+def test_the_threat_model_names_the_trusted_tool_owner_for_signature_verification() -> None:
+    text = (ROOT / "docs/architecture/threat-model.md").read_text(encoding="utf-8")
+    [row] = [line for line in text.splitlines() if "Signature verification" in line]
+    assert "PATH" not in row
+    assert "lifecycle/system_tools.py" in row
+    assert "release principal" in row

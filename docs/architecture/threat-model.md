@@ -75,11 +75,11 @@ Each residual risk needs another process of the same user, or a change to the
 user's own files, which already grants the attacker that user's privileges.
 They stay low until that assumption changes.
 
-| Residual risk                                                                                             | Revisit when                                              |
-| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Signature verification resolves `ssh-keygen` from `PATH` and does not pin the release principal.          | The trust anchor may hold more than one principal.        |
-| A crafted journal and command snapshot in the data root can make `recover` relink an absolute path.       | Product state may be written by another account.          |
-| `recover` reads the listener's `/healthz` without the process check that `status` performs.               | Another account may bind the product port.                |
-| The lifecycle lock and state directory use the default `umask`; macOS `watchdog.stderr.log` is unbounded. | A shared host or a long-running watchdog failure appears. |
-| Request headers have no read timeout, and Windows binds with `SO_REUSEADDR`.                              | The listener is exposed beyond the loopback interface.    |
-| The GitLab release publisher accepts an `http://` API base for its token.                                 | The internal GitLab Forge offers HTTPS.                   |
+| Residual risk                                                                                                     | Revisit when                                              |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Signature verification does not pin the release principal; `lifecycle/system_tools.py` supplies its `ssh-keygen`. | The trust anchor may hold more than one principal.        |
+| A crafted journal and command snapshot in the data root can make `recover` relink an absolute path.               | Product state may be written by another account.          |
+| `recover` reads the listener's `/healthz` without the process check that `status` performs.                       | Another account may bind the product port.                |
+| The lifecycle lock and state directory use the default `umask`; macOS `watchdog.stderr.log` is unbounded.         | A shared host or a long-running watchdog failure appears. |
+| Request headers have no read timeout, and Windows binds with `SO_REUSEADDR`.                                      | The listener is exposed beyond the loopback interface.    |
+| The GitLab release publisher accepts an `http://` API base for its token.                                         | The internal GitLab Forge offers HTTPS.                   |
