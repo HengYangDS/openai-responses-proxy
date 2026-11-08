@@ -84,6 +84,14 @@ def test_frozen_body_admission_uses_the_persisted_budgets(*, oversized: bool) ->
 
 
 @pytest.mark.parametrize(
+    "message",
+    [
+        "invalid request body: Invalid 'input': value did not match any expected variant",
+        "Input is too long",
+        "media inputs exceed the remaining encoded media budget after processing",
+    ],
+)
+@pytest.mark.parametrize(
     "required",
     [
         pytest.param(
@@ -116,7 +124,7 @@ def test_frozen_body_admission_uses_the_persisted_budgets(*, oversized: bool) ->
     ],
 )
 def test_frozen_input_recovery_preserves_required_current_turn(
-    required: dict[str, object],
+    required: dict[str, object], message: str
 ) -> None:
     """Exercise exact input-validation recovery through a frozen loopback listener."""
     port = free_port()
@@ -132,10 +140,7 @@ def test_frozen_input_recovery_preserves_required_current_turn(
         upstream.start()
         error = {
             "error": {
-                "message": (
-                    "invalid request body: Invalid 'input': "
-                    "value did not match any expected variant"
-                ),
+                "message": message,
                 "type": "invalid_request_error",
                 "param": "",
                 "code": "validation_error",
@@ -162,7 +167,12 @@ def test_frozen_input_recovery_preserves_required_current_turn(
         initial = json.loads(upstream.received[0])["input"]
         recovered = json.loads(upstream.received[1])["input"]
         assert initial == payload["input"]
-        assert recovered == ([required] if required["type"] == "message" else [current, required])
+        expected = (
+            [required]
+            if required["type"] == "message" and message.startswith("invalid request body:")
+            else [current, required]
+        )
+        assert recovered == expected
         assert len(upstream.received[1]) < len(upstream.received[0])
         assert wait_until(
             lambda: http_json(port, "/healthz", timeout=0.5)[1]["active_responses"] == 0,

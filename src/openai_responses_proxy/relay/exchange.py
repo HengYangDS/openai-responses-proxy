@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import ssl
 import time
 import urllib.error
@@ -115,6 +114,7 @@ class Exchange:
     dialogue_metrics: execution_recovery.RecoveryMetrics | None = None
     used_input_variant_dialogue: bool = False
     input_variant_metrics: input_recovery.RecoveryMetrics | None = None
+    used_capacity_recovery: bool = False
     response: UpstreamResponse | None = None
     input_dependencies: item_policy.InputDependencies = field(
         default_factory=item_policy.InputDependencies
@@ -168,6 +168,10 @@ class Exchange:
 
     def accepted_recovery(self) -> None:
         """Record the response-failure recovery strategy accepted upstream."""
+        if self.used_capacity_recovery:
+            telemetry.record_counter("input_capacity_recovery_accepted")
+            self.log("input_capacity_recovery_accepted")
+            return
         if (
             not self.used_input_variant_dialogue
             and self.used_response_failed_dialogue
@@ -209,38 +213,6 @@ class Exchange:
         telemetry.record_counter("input_variant_dialogue_recovery_exhausted")
         telemetry.record_failure("input_variant_dialogue_recovery_exhausted")
         self.log("input_variant_dialogue_recovery_exhausted", detail)
-
-
-def _classification(
-    status_code: int,
-    payload: bytes,
-    disposition: str,
-    *,
-    exact: bool,
-    wire_failure: bool,
-) -> str:
-    if status_code == HTTPStatus.BAD_REQUEST:
-        try:
-            document = json.loads(payload)
-        except (TypeError, ValueError, RecursionError):
-            document = None
-        error = document.get("error") if isinstance(document, dict) else None
-        if (
-            isinstance(error, dict)
-            and error.get("type") == "invalid_request_error"
-            and error.get("code") == "invalid_encrypted_content"
-        ):
-            return "provider_bound_encrypted_content"
-    lower = payload.lower()
-    blocked = all(map(lower.__contains__, (b'"code":"invalid_prompt"', b"request blocked")))
-    special = {
-        (True, 400, "", False): "input_variant_validation_error",
-        (False, 400, "full", False): "response_failed",
-        (False, 400, "full", True): "blocked_invalid_prompt",
-    }.get((exact, status_code, disposition, blocked))
-    if wire_failure:
-        return "wire_policy_failure"
-    return special or "_".join(filter(None, (f"http_{status_code}", disposition)))
 
 
 def _recover_input_variant(exchange: Exchange) -> bool:
@@ -325,6 +297,27 @@ def _recover_response_failed(exchange: Exchange, status_code: int, disposition: 
     return True
 
 
+def _recover_capacity(exchange: Exchange) -> bool:
+    """Admit one smaller historical projection without altering active media."""
+    compact, metrics = execution_recovery.compact_request(
+        exchange.attempt_body,
+        RESPONSE_FAILED_COMPACTION_BUDGET,
+        input_dependencies=exchange.input_dependencies,
+    )
+    if compact is None or metrics is None:
+        exchange.log("input_capacity_recovery_declined", "reason=required_input_retained ")
+        return False
+    exchange.used_capacity_recovery = True
+    exchange.attempt_body = compact
+    telemetry.record_counter("input_capacity_recovery_attempts")
+    exchange.log(
+        "input_capacity_recovery",
+        f"bytes={metrics['original_bytes']}->{metrics['compact_bytes']} "
+        f"removed_inputs={metrics['removed_inputs']} retained_inputs={metrics['retained_inputs']} ",
+    )
+    return True
+
+
 def _exhaust_response_failed(exchange: Exchange) -> None:
     telemetry.record_counter("response_failed_recovery_exhausted")
     telemetry.record_failure("response_failed_recovery_exhausted")
@@ -383,7 +376,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
     )
     disposition = "full" if wire_failure else portable
     exact = input_recovery.is_exact_validation_error(status_code, payload)
-    classification = _classification(
+    classification = telemetry.classify_upstream_failure(
         status_code, payload, disposition, exact=exact, wire_failure=wire_failure
     )
     telemetry.record_upstream_classification(classification)
@@ -394,6 +387,18 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         )
         telemetry.record_counter("provider_rate_limits")
         exchange.log("provider_rate_limit", f"cooldown_seconds={seconds} ")
+    if exchange.used_capacity_recovery:
+        telemetry.record_counter("input_capacity_recovery_rejected")
+        telemetry.record_failure("input_capacity_recovery_rejected")
+        exchange.log("input_capacity_recovery_rejected", f"upstream_status={status_code} ")
+        downstream.relay_error(exchange.handler, status_code, headers, payload)
+        return "terminal"
+    if exchange.is_responses and portable == "capacity":
+        if _recover_capacity(exchange):
+            return "retry"
+        telemetry.record_failure("input_capacity_recovery_declined")
+        downstream.relay_error(exchange.handler, status_code, headers, payload)
+        return "terminal"
     if exchange.used_input_variant_dialogue:
         exchange.input_variant_exhausted(f"upstream_status={status_code} ")
         downstream.relay_error(exchange.handler, status_code, headers, payload)
@@ -441,15 +446,22 @@ def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
             exchange.input_variant_exhausted(detail)
         downstream.outcome_unknown(exchange, attempt + 1, "response_not_received", detail)
         return "terminal"
-    if exchange.used_input_variant_dialogue:
-        exchange.input_variant_exhausted(f"{operational_log.safe_exception_context(error)} ")
+    if exchange.used_capacity_recovery or exchange.used_input_variant_dialogue:
+        kind = "capacity" if exchange.used_capacity_recovery else "input-variant"
+        code = f"{kind.replace('-', '_')}_recovery_transport_error"
+        if exchange.used_capacity_recovery:
+            code = f"input_{code}"
+        if exchange.used_capacity_recovery:
+            telemetry.record_failure(code)
+        else:
+            exchange.input_variant_exhausted(f"{operational_log.safe_exception_context(error)} ")
         downstream.send_payload(
             exchange.handler,
             502,
             live_response.error_payload(
-                "Upstream input-variant recovery transport failed; retry the turn",
+                f"Upstream {kind} recovery transport failed; retry the turn",
                 "upstream_unavailable",
-                "input_variant_recovery_transport_error",
+                code,
             ),
         )
         return "terminal"

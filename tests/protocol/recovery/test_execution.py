@@ -179,6 +179,38 @@ class ResponseFailedContracts:
         )
         assert execution_recovery.retry_disposition(400, prose_only) == ""
 
+    def test_capacity_recovery_requires_exact_structured_admission(
+        self, subtests: pytest.Subtests
+    ) -> None:
+        error = {
+            "type": "invalid_request_error",
+            "code": "validation_error",
+            "param": "",
+            "message": "Input is too long",
+        }
+        assert (
+            execution_recovery.retry_disposition(400, json.dumps({"error": error}).encode())
+            == "capacity"
+        )
+        cases = [
+            (413, error),
+            (400, {**error, "type": "provider_error"}),
+            (400, {**error, "code": "ordinary_error"}),
+            (400, {**error, "param": "input"}),
+            (400, {**error, "message": "Documentation: Input is too long"}),
+            (400, {**error, "message": "Input is too long (request id: contains spaces)"}),
+            (400, {**error, "detail": "unproved field"}),
+            (400, {key: value for key, value in error.items() if key != "param"}),
+        ]
+        for status, candidate in cases:
+            with subtests.test(status=status, candidate=candidate):
+                assert (
+                    execution_recovery.retry_disposition(
+                        status, json.dumps({"error": candidate}).encode()
+                    )
+                    == ""
+                )
+
     def test_retry_disposition_refuses_parser_depth_exhaustion(self) -> None:
         payload = b'{"error":' + b"[" * 100_000 + b"0"
 

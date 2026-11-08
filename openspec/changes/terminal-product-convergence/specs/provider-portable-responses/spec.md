@@ -1,5 +1,19 @@
 ## ADDED Requirements
 
+### Requirement: Upstream capacity rejection permits only safe shrinking recovery
+
+Exact upstream capacity rejections SHALL permit one strictly smaller, dependency-safe historical compaction. Required current-turn content SHALL remain unchanged. Unsafe or rejected recovery SHALL retain the upstream error without further retry.
+
+#### Scenario: Historical input consumes upstream capacity
+
+- **WHEN** HTTP 400 carries exactly `type=invalid_request_error`, `code=validation_error`, an empty parameter, and `Input is too long` or `media inputs exceed the remaining encoded media budget after processing`, optionally followed only by its request ID
+- **THEN** one smaller dependency-safe projection may be attempted, preserving current images, instructions and content; content-free diagnostics report the outcome.
+
+#### Scenario: The active turn alone exceeds capacity
+
+- **WHEN** the same-turn media or required input leaves no safe reduction
+- **THEN** the exact upstream rejection reaches the client after one attempt, without removing images or consulting client history.
+
 ### Requirement: Responses semantics have one classification and projection authority
 
 Request admission, replay diagnosis, relationship validation, Provider-portable

@@ -9,6 +9,7 @@ tool call/output relationships.
 from __future__ import annotations
 
 import json
+import re
 from http import HTTPStatus
 
 from openai_responses_proxy.protocol import response
@@ -22,6 +23,10 @@ type RecoveryMetrics = dict[str, int | bool]
 type Recovery = tuple[bytes | None, RecoveryMetrics | None]
 
 COMPACTION_RATIO_DENOMINATOR = 2
+_CAPACITY_MESSAGE = re.compile(
+    r"(?:Input is too long|media inputs exceed the remaining encoded media budget after processing)"
+    r"(?: \(request id: [A-Za-z0-9._:-]{1,128}\))?"
+)
 
 
 def _request(raw: bytes, minimum_items: int = 1) -> Request | None:
@@ -63,9 +68,18 @@ def retry_disposition(code: int, err_body: bytes) -> str:
         return ""
     error_type = error.get("type")
     error_code = error.get("code")
+    message = error.get("message")
+    if (
+        set(error) == {"type", "code", "param", "message"}
+        and error_type == "invalid_request_error"
+        and error_code == "validation_error"
+        and error.get("param") == ""
+        and isinstance(message, str)
+        and _CAPACITY_MESSAGE.fullmatch(message)
+    ):
+        return "capacity"
     if error_code == "response_failed" and isinstance(error_type, str) and error_type:
         return "full"
-    message = error.get("message")
     if (
         error_code == "invalid_prompt"
         and error_type == "invalid_request_error"

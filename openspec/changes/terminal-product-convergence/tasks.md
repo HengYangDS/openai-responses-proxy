@@ -160,6 +160,9 @@ This checklist retains the original task identities and completion states.
 - [x] 14.14 Report outdated supervision and rebind the installed release's definition; verify native status, doctor and reload contracts.
 - [x] 14.15 Restore same-artifact supervision and refuse rollback without a serving runtime; verify full gates, signed release and released three-platform journeys. Released in v5.0.5.
 
+- [x] 14.16 Recover exact upstream text and media budget rejections with strictly smaller, dependency-safe historical compaction; verify current-turn media preservation and terminal refusal when no safe reduction exists.
+- [ ] 14.17 Qualify the budget recovery in the signed installed release and original affected conversation with early native compaction; verify image capability, repeated continuation and preserved client state.
+
 ## Workflow follow-up
 
 - Archive this Change through ETHOS after tracked obligations and review are complete.

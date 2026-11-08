@@ -8,6 +8,15 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.10] - 2026-11-08
+
+### Fixed
+
+- Recover exact upstream input-length and encoded-media-budget rejections with
+  one smaller historical projection when required current input permits it.
+  Preserve current user and tool images, instructions and tool dependencies.
+  Relay an unsafe or rejected recovery without further retry.
+
 ### Changed
 
 - Bundle `filelock` 4.2.8 and `cyclopts` 5.3.3. Since 4.2.4, a nested acquire

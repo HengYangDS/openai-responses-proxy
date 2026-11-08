@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import time
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 from typing import Protocol
 
@@ -55,6 +57,9 @@ _COUNTERS = {
     "input_variant_dialogue_recovery_attempts": 0,
     "input_variant_dialogue_recovery_accepted": 0,
     "input_variant_dialogue_recovery_exhausted": 0,
+    "input_capacity_recovery_attempts": 0,
+    "input_capacity_recovery_accepted": 0,
+    "input_capacity_recovery_rejected": 0,
     "encrypted_replayed_reasoning_items_stripped": 0,
     "encrypted_replay_content_blocks_stripped": 0,
     "invalid_responses_success_bodies": 0,
@@ -73,6 +78,39 @@ def record_counter(name: str, amount: int = 1) -> None:
     """Record one secret-free runtime counter."""
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + max(0, amount)
+
+
+def classify_upstream_failure(
+    status_code: int,
+    payload: bytes,
+    disposition: str,
+    *,
+    exact: bool,
+    wire_failure: bool,
+) -> str:
+    """Project an upstream failure into a bounded, secret-free telemetry label."""
+    if status_code == HTTPStatus.BAD_REQUEST:
+        try:
+            document = json.loads(payload)
+        except (TypeError, ValueError, RecursionError):
+            document = None
+        error = document.get("error") if isinstance(document, dict) else None
+        if (
+            isinstance(error, dict)
+            and error.get("type") == "invalid_request_error"
+            and error.get("code") == "invalid_encrypted_content"
+        ):
+            return "provider_bound_encrypted_content"
+    lower = payload.lower()
+    blocked = all(map(lower.__contains__, (b'"code":"invalid_prompt"', b"request blocked")))
+    special = {
+        (True, 400, "", False): "input_variant_validation_error",
+        (False, 400, "full", False): "response_failed",
+        (False, 400, "full", True): "blocked_invalid_prompt",
+    }.get((exact, status_code, disposition, blocked))
+    if wire_failure:
+        return "wire_policy_failure"
+    return special or "_".join(filter(None, (f"http_{status_code}", disposition)))
 
 
 def record_upstream_classification(name: str) -> None:
