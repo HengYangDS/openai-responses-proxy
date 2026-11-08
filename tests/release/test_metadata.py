@@ -495,7 +495,7 @@ def test_cli_release_transition_admission(
 
 
 @pytest.mark.parametrize("releases", [[("1.2.3", "invalid")], []])
-def test_pending_release_requires_an_actual_date(releases) -> None:
+def test_pending_release_requires_an_actual_date(releases: list[tuple[str, str]]) -> None:
     with pytest.raises(ValueError, match="no valid release date"):
         metadata.check_pending_release_date("1.2.3", releases)
 

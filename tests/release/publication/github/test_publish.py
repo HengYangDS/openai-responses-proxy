@@ -145,7 +145,7 @@ def test_publish_owns_download_validation_creation_and_byte_parity(
     create = mocker.patch.object(publish, "_create_release")
     mocker.patch.object(publish, "_download_release_assets", return_value=downloaded)
 
-    def execute():
+    def execute() -> str:
         return publish.publish(
             repository="team/proxy",
             tag="v1.2.3",
@@ -224,7 +224,7 @@ def test_release_validation_preserves_the_active_environment(
 
 @pytest.mark.parametrize("pages", [None, [None], [[None]], [[{"tag_name": "v1.2.3"}], []]])
 def test_release_inventory_reads_all_pages_and_requires_records(
-    pages, mocker: MockerFixture
+    pages: list[object] | None, mocker: MockerFixture
 ) -> None:
     mocker.patch.object(publish.hosted, "executable", return_value="gh")
     api = mocker.patch.object(publish.hosted, "api_json", return_value=pages)
@@ -238,7 +238,9 @@ def test_release_inventory_reads_all_pages_and_requires_records(
 
 
 @pytest.mark.parametrize("value", [None, {1: "invalid"}, {"sha": "a" * 40}])
-def test_identity_api_requires_string_keyed_objects(value, mocker: MockerFixture) -> None:
+def test_identity_api_requires_string_keyed_objects(
+    value: dict[object, object] | None, mocker: MockerFixture
+) -> None:
     mocker.patch.object(publish.hosted, "api_json", return_value=value)
     if value == {"sha": "a" * 40}:
         assert publish._api_mapping(("gh", "api")) == value
@@ -267,7 +269,7 @@ def test_remote_identity_reads_both_exact_annotated_objects(mocker: MockerFixtur
 
 @pytest.mark.parametrize("failure", [OSError("missing"), ValueError("invalid")])
 def test_asset_validation_preserves_bounded_error(
-    tmp_path: Path, failure, mocker: MockerFixture
+    tmp_path: Path, failure: Exception, mocker: MockerFixture
 ) -> None:
     mocker.patch.object(publish.assembly, "verify", side_effect=failure)
     with pytest.raises(publish.GitHubPublishError, match="assets are invalid"):
@@ -306,7 +308,9 @@ def test_release_creation_and_download_have_explicit_asset_scope(
 
 
 @pytest.mark.parametrize("failure", [OSError("offline"), subprocess.CalledProcessError(1, ["git"])])
-def test_transport_failures_are_translated_once(failure, mocker: MockerFixture) -> None:
+def test_transport_failures_are_translated_once(
+    failure: OSError | subprocess.CalledProcessError, mocker: MockerFixture
+) -> None:
     run = mocker.patch.object(publish.subprocess, "run", side_effect=failure)
     with pytest.raises(publish.GitHubPublishError, match="publication unavailable"):
         publish._run(("gh", "release"), "publication unavailable")

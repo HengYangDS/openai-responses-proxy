@@ -228,7 +228,7 @@ class TestPerformanceEvidence:
 
     @pytest.mark.parametrize("values", [[0.1, float("nan")], [0.1, float("inf")], [-0.1, 0.1]])
     def test_rejects_non_finite_or_negative_measurements(
-        self, values, tmp_path: Path, mocker: MockerFixture
+        self, values: list[float], tmp_path: Path, mocker: MockerFixture
     ) -> None:
         benchmark = mocker.Mock()
         benchmark.get_unit.return_value = "second"

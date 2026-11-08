@@ -194,7 +194,7 @@ def test_invalid_control_is_reported_instead_of_crashing(
 
 
 @pytest.fixture
-def projection_root(tmp_path: Path):
+def projection_root(tmp_path: Path) -> Path:
     (tmp_path / "owner.py").write_text('VALUE="x"\nALIAS=VALUE\nIGNORED=call()\nleft=right=1\n')
     (tmp_path / "target.toml").write_text('[project]\nname="x"\n[project.scripts]\nx="main"\n')
     return tmp_path
@@ -276,7 +276,7 @@ def projection_root(tmp_path: Path):
     ],
 )
 def test_projection_checks_follow_the_declared_owner(
-    projection_root, checks, error: str | None
+    projection_root: Path, checks: object, error: str | None
 ) -> None:
     errors = checker._projection_errors(
         root=projection_root, identifier="x", owner="owner.py", checks=checks

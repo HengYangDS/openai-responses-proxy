@@ -77,7 +77,7 @@ def test_native_report_checks_referenced_evidence_bytes(
     ],
 )
 def test_native_report_refuses_unproved_or_wrong_subjects(
-    tmp_path: Path, mocker: MockerFixture, result
+    tmp_path: Path, mocker: MockerFixture, result: subprocess.CompletedProcess[str]
 ) -> None:
     mocker.patch.object(observation.subprocess, "run", return_value=result)
     with pytest.raises(observation.ObservationError):
@@ -88,7 +88,7 @@ def test_native_report_refuses_unproved_or_wrong_subjects(
     "failure", [FileNotFoundError("missing"), subprocess.TimeoutExpired([], 30)]
 )
 def test_native_report_has_no_replacement_or_retry(
-    tmp_path: Path, mocker: MockerFixture, failure
+    tmp_path: Path, mocker: MockerFixture, failure: OSError | subprocess.TimeoutExpired
 ) -> None:
     run = mocker.patch.object(observation.subprocess, "run", side_effect=failure)
     with pytest.raises(observation.ObservationError):

@@ -35,7 +35,7 @@ class GitLabObservationContracts:
         fixture: tuple[
             dict[str, object], list[dict[str, object]], dict[str, object], dict[str, bytes]
         ],
-    ):
+    ) -> dict[str, object]:
         pipeline, jobs, release, assets = fixture
         return gitlab.normalize(
             repository="group/repo",

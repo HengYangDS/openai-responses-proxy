@@ -59,7 +59,9 @@ def release_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable
     return git
 
 
-def test_historical_checkout_ignores_descendant_and_sibling_tags(release_history) -> None:
+def test_historical_checkout_ignores_descendant_and_sibling_tags(
+    release_history: Callable[..., str],
+) -> None:
     """A later publication must not invalidate a retained historical checkout."""
     assert release_history("tag", "--list") == "v0.9.0\nv1.0.0\nv2.0.0\nv9.0.0"
     assert metadata.known_release_versions() == ["1.0.0", "0.9.0"]
@@ -68,7 +70,9 @@ def test_historical_checkout_ignores_descendant_and_sibling_tags(release_history
     metadata.check_active_release_train("1.0.0", releases)
 
 
-def test_historical_checkout_still_rejects_a_missing_product_tag(release_history) -> None:
+def test_historical_checkout_still_rejects_a_missing_product_tag(
+    release_history: Callable[..., str],
+) -> None:
     """History scoping does not excuse a dated release whose tag is absent."""
     release_history("tag", "--delete", "v1.0.0")
     with pytest.raises(
@@ -78,7 +82,7 @@ def test_historical_checkout_still_rejects_a_missing_product_tag(release_history
 
 
 def test_release_preparation_rejects_a_retained_nonancestor_tag(
-    release_history, monkeypatch: pytest.MonkeyPatch
+    release_history: Callable[..., str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Preparation cannot reuse an existing tag outside the selected history."""
     assert "v2.0.0" in release_history("tag", "--list")

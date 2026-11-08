@@ -309,7 +309,7 @@ def test_credential_kind_selects_one_exact_gitlab_header(
     ],
 )
 def test_http_failure_preserves_status_and_closes_response(
-    status: int, error_type, mocker: MockerFixture
+    status: int, error_type: type[Exception], mocker: MockerFixture
 ) -> None:
     stream = io.BytesIO(b"provider unavailable")
     error = urllib.error.HTTPError(
@@ -359,7 +359,7 @@ def test_transport_failure_does_not_become_resource_absence(mocker: MockerFixtur
     "content",
     [b"", b"a" * 3000, b'{"message":{"reason":"invalid"}}', b'"failure"', b'{"message":""}'],
 )
-def test_provider_diagnostic_is_bounded_for_each_payload_shape(content) -> None:
+def test_provider_diagnostic_is_bounded_for_each_payload_shape(content: bytes) -> None:
     error = urllib.error.HTTPError(
         "https://gitlab.example/api", 500, "failed", Message(), io.BytesIO(content)
     )
@@ -377,7 +377,7 @@ def test_unreadable_error_body_has_no_secondary_failure(mocker: MockerFixture) -
 
 
 @pytest.mark.parametrize("existing", [None, {"assets": None}, {"assets": {"links": [1]}}])
-def test_existing_release_requires_complete_link_objects(existing) -> None:
+def test_existing_release_requires_complete_link_objects(existing: object) -> None:
     expected = {"tag_name": "v1.2.3", "name": "release", "description": "notes"}
     with pytest.raises(publish.GitLabPublishError, match="immutable identity"):
         publish._require_matching_release(

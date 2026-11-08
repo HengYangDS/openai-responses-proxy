@@ -139,8 +139,8 @@ def test_governance_reader_detects_contradicted_public_contract(
 ) -> None:
     original = Path.read_text
 
-    def read(path, *args, **kwargs):
-        content = original(path, *args, **kwargs)
+    def read(path: Path, encoding: str | None = None, errors: str | None = None) -> str:
+        content = original(path, encoding, errors)
         if path == ROOT / carrier:
             return content.replace(before, after) if before else content + after
         return content

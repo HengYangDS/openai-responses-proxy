@@ -62,10 +62,10 @@ def test_controller_cleanup_stops_independent_children_after_failure(
             assert registered.read_bytes() == b'{"pid":'
         else:
 
-            def deny_first(identity, **kwargs):
-                if identity.pid == children[0].pid:
+            def deny_first(owned: process.OwnedProcess, *, timeout_seconds: float = 5.0) -> bool:
+                if owned.pid == children[0].pid:
                     raise error
-                return original_terminate(identity, **kwargs)
+                return original_terminate(owned, timeout_seconds=timeout_seconds)
 
             monkeypatch.setattr(process, "terminate_owned_process", deny_first)
             with pytest.raises(errors.InstallError) as raised:

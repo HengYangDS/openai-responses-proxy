@@ -65,7 +65,7 @@ class GitHubObservationContracts:
             dict[str, object],
             dict[str, bytes],
         ],
-    ):
+    ) -> dict[str, object]:
         runs, jobs, release, assets = fixture
         return github.normalize(
             repository="owner/repo",

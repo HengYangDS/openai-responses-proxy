@@ -60,7 +60,7 @@ def test_verify_binds_the_exact_anchor_and_tag(tmp_path: Path, mocker: MockerFix
     [OSError("missing"), subprocess.CalledProcessError(1, ["git"], stderr="denied")],
 )
 def test_verify_translates_one_bounded_failure(
-    tmp_path: Path, failure, mocker: MockerFixture
+    tmp_path: Path, failure: OSError | subprocess.CalledProcessError, mocker: MockerFixture
 ) -> None:
     """Report one bounded refusal instead of leaking the transport error."""
     anchor = tmp_path / "allowed-signers"

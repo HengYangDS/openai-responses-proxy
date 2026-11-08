@@ -156,7 +156,7 @@ def test_manifest_requires_one_complete_object(manifest: bytes) -> None:
     ("field", "value"), [("version", 1), ("platform", None), ("files", {"../outside": "0" * 64})]
 )
 def test_manifest_requires_portable_typed_inventory(
-    field: Literal["version", "platform", "files"], value
+    field: Literal["version", "platform", "files"], value: object
 ) -> None:
     platform = assets.RELEASE_PLATFORMS[0]
     files = release_bundle((platform,))
@@ -195,7 +195,7 @@ def test_archive_members_are_bound_to_portable_manifest(
 
 
 @pytest.mark.parametrize("platforms", [(), ("linux-x86_64", "linux-x86_64")])
-def test_platform_inventory_has_one_nonempty_identity(platforms) -> None:
+def test_platform_inventory_has_one_nonempty_identity(platforms: tuple[str, ...]) -> None:
     with pytest.raises(assets.AssetError, match="unique and nonempty"):
         assets.release_asset_names("1.2.3", platforms)
     with pytest.raises(assets.AssetError, match="unique and nonempty"):

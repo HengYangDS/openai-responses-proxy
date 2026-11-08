@@ -49,7 +49,7 @@ def test_policy_cannot_weaken_the_declared_boundary(
         "owner",
         "unknown",
     ],
-    value,
+    value: object,
     mocker: MockerFixture,
 ) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
@@ -62,7 +62,7 @@ def test_policy_cannot_weaken_the_declared_boundary(
 
 
 @pytest.mark.parametrize("value", [None, {1: "invalid"}])
-def test_report_objects_require_string_keys(value) -> None:
+def test_report_objects_require_string_keys(value: object) -> None:
     with pytest.raises(ValueError, match="must be an object"):
         branch_coverage._object_mapping(value, label="measured report")
 
@@ -105,7 +105,7 @@ def test_malformed_package_counts_are_not_coverage_evidence() -> None:
 
 @pytest.mark.parametrize("source", [None, [1], ["tools"]])
 def test_cli_requires_native_source_inventory_and_returns_measured_success(
-    source, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
+    source: list[object] | None, mocker: MockerFixture, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = branch_coverage.ROOT / ".config/checks/coverage/policy.toml"
     coverage = mocker.patch.object(branch_coverage, "Coverage").return_value

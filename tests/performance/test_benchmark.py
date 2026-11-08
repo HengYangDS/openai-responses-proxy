@@ -12,6 +12,7 @@ from openai_responses_proxy.relay import operational_log
 from tools.performance import benchmark
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from pytest_mock import MockerFixture
@@ -69,7 +70,7 @@ def test_pyperf_registrations_execute_the_declared_workloads(
 ) -> None:
     recorded = {}
 
-    def execute(name, function, *arguments) -> None:
+    def execute[*Ts](name: str, function: Callable[[*Ts], object], *arguments: *Ts) -> None:
         recorded[name] = function(*arguments)
 
     runner = mocker.Mock()

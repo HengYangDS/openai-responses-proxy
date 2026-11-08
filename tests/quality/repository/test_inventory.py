@@ -106,8 +106,12 @@ class TestOwnedInventory:
             monkeypatch.setattr(governance, "ROOT", root)
             original_run = subprocess.run
 
-            def inventory(command, **kwargs):
-                completed = original_run(command, **kwargs)
+            def inventory(
+                command: tuple[str, ...], *, cwd: Path, check: bool, capture_output: bool
+            ) -> subprocess.CompletedProcess[bytes]:
+                completed = original_run(
+                    command, cwd=cwd, check=check, capture_output=capture_output
+                )
                 tag = b"? " if "-t" in command else b""
                 return subprocess.CompletedProcess(
                     command,

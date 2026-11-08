@@ -144,7 +144,7 @@ def test_package_python_bounds_require_an_ordered_contiguous_matrix(
     ],
 )
 def test_release_runtime_refuses_invalid_images_before_output_mutation(
-    tmp_path: Path, invalid
+    tmp_path: Path, invalid: str
 ) -> None:
     versions = tmp_path / "versions"
     release = tmp_path / "release"
