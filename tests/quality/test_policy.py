@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import tomllib
+from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -135,18 +136,12 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         "S101",
         "SLF001",
         "PLR2004",
-        "S607",
     ]
     assert per_file["tools/release/hooks/*"] == ["INP001"]
-    assert per_file["tools/**"] == per_file["noxfile.py"] == ["S607"]
-    named = {
-        path
-        for path in per_file
-        if not any(char in path for char in "*?[") and path != "noxfile.py"
-    }
+    named = {path for path in per_file if not any(char in path for char in "*?[")}
     assert named
     assert all((ROOT / path).is_file() for path in named)
-    assert set(per_file) == {"tests/**", "tools/**", "tools/release/hooks/*", "noxfile.py", *named}
+    assert set(per_file) == {"tests/**", "tools/release/hooks/*", *named}
     assert ruff["namespace-packages"] == ["tests"]
 
     rationale = {
@@ -165,6 +160,39 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         assert all(
             isinstance(policy.get(field), str) and policy[field].strip() for field in rationale
         ), relative
+
+
+def test_partial_path_exemption_names_exactly_the_files_that_need_it() -> None:
+    ruff = tomllib.loads((ROOT / ".config/checks/ruff/ruff.toml").read_text(encoding="utf-8"))
+    exempt = {path for path, rules in ruff["lint"]["per-file-ignores"].items() if "S607" in rules}
+    assert not any(char in path for path in exempt for char in "*?[")
+    result = subprocess.run(
+        (
+            "ruff",
+            "check",
+            "--config",
+            str(ROOT / ".config/checks/ruff/ruff.toml"),
+            "--config",
+            "lint.per-file-ignores = {}",
+            "--select",
+            "S607",
+            "--no-cache",
+            "--output-format",
+            "json",
+            ".",
+        ),
+        cwd=ROOT,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    flagged = {
+        PurePath(finding["filename"]).relative_to(ROOT).as_posix()
+        for finding in json.loads(result.stdout)
+    }
+    assert flagged == exempt
 
 
 @pytest.mark.parametrize("valid", [False, True])

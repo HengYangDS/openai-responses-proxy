@@ -101,7 +101,6 @@ ignore = [
 # These modules write their program's output, and Cyclopts reads their command annotations
 # at run time.
 "tools/performance/verify.py" = ["T201", "TC003"]
-"tools/release/tag_signature.py" = ["T201", "TC003"]
 # GitHub reads workflows as YAML 1.2, where the on key is a string; this SafeLoader subclass
 # only drops the YAML 1.1 booleans that yaml.safe_load would apply to that key.
 "tests/forge/workflows/fixtures.py" = ["S506"]
@@ -110,20 +109,47 @@ ignore = [
 # Each of these modules writes its program's output.
 "tools/forge/audit.py" = ["T201"]
 "tools/quality/branch_coverage.py" = ["T201"]
-"tools/quality/governance.py" = ["T201"]
 "tools/quality/hard_coding.py" = ["T201"]
-"tools/quality/repository/__main__.py" = ["T201"]
-"tools/quality/responsibilities.py" = ["T201"]
 "tools/release/artifact/__main__.py" = ["T201"]
 "tools/release/artifact/bundle.py" = ["T201"]
-"tools/release/metadata.py" = ["T201"]
 "tools/release/publication/__main__.py" = ["T201"]
 # Native test teardown turns any reclaim failure into one reported "scratch preserved" error
 # that carries the first failure as its cause.
 "tools/release/verification.py" = ["BLE001"]
-# Repository tooling, Nox and tests find the Mise-managed tools through PATH by design.
-"tools/**" = ["S607"]
-"noxfile.py" = ["S607"]
+# These modules write their program's output, and Cyclopts reads tag_signature's command
+# annotations at run time. Each also starts a development tool, for the reason below.
+"tools/quality/governance.py" = ["T201", "S607"]
+"tools/quality/repository/__main__.py" = ["T201", "S607"]
+"tools/quality/responsibilities.py" = ["T201", "S607"]
+"tools/release/metadata.py" = ["T201", "S607"]
+"tools/release/tag_signature.py" = ["T201", "TC003", "S607"]
+# S607: these repository tools and tests run on maintainer and CI hosts and resolve Git,
+# OpenSSH, the Mise tools and the other development tools they start from that host's PATH by
+# design.
+"tests/forge/workflows/test_admission.py" = ["S607"]
+"tests/quality/fixtures.py" = ["S607"]
+"tests/quality/orchestration/test_governance.py" = ["S607"]
+"tests/quality/orchestration/test_sessions.py" = ["S607"]
+"tests/quality/orchestration/test_workflows.py" = ["S607"]
+"tests/quality/secrets/test_scanning.py" = ["S607"]
+"tests/quality/test_complexity.py" = ["S607"]
+"tests/quality/test_documentation.py" = ["S607"]
+"tests/quality/test_policy.py" = ["S607"]
+"tests/relay/test_transport_deadline.py" = ["S607"]
+"tests/release/artifact/test_assembly.py" = ["S607"]
+"tests/release/artifact/test_signing.py" = ["S607"]
+"tests/release/fixtures.py" = ["S607"]
+"tests/release/history/test_provenance.py" = ["S607"]
+"tests/release/lifecycle/test_boundaries.py" = ["S607"]
+"tests/release/publication/github/test_publish.py" = ["S607"]
+"tests/release/publication/gitlab/test_publish.py" = ["S607"]
+"tests/release/publication/test_git.py" = ["S607"]
+"tools/ci/project.py" = ["S607"]
+"tools/governance/observation.py" = ["S607"]
+"tools/quality/python.py" = ["S607"]
+"tools/quality/repository/names.py" = ["S607"]
+"tools/quality/text_layout.py" = ["S607"]
+"tools/release/publication/github/observe.py" = ["S607"]
 "tests/**" = [
   # Tests expose no product or repository interface: pytest collects their behavior-named
   # classes, functions and methods. Module docstrings and existing prose are still checked.
@@ -137,6 +163,4 @@ ignore = [
   "SLF001",
   # A test's comparison literal is the expected value that the test specifies.
   "PLR2004",
-  # Tests find the Mise-managed tools through PATH by design.
-  "S607",
 ]
