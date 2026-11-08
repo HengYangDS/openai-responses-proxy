@@ -111,15 +111,15 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
         "journal": records.journal_path(ctx),
     }[interruption]
 
-    def interrupted_unlink(path: Path, *args, **kwargs) -> None:
+    def interrupted_unlink(path: Path, *, missing_ok: bool = False) -> None:
         if interruption == "journal" and path == interrupted:
             raise PermissionError("interrupted transaction cleanup")
-        unlink(path, *args, **kwargs)
+        unlink(path, missing_ok=missing_ok)
         if path == interrupted:
             raise PermissionError("interrupted payload removal")
 
-    def interrupted_rmdir(path: Path, *args, **kwargs) -> None:
-        rmdir(path, *args, **kwargs)
+    def interrupted_rmdir(path: Path) -> None:
+        rmdir(path)
         if interruption == "root" and path == interrupted:
             raise PermissionError("interrupted root removal")
 

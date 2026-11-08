@@ -16,6 +16,8 @@ from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
 
 if TYPE_CHECKING:
+    import subprocess
+
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -150,7 +152,7 @@ class TestWindowsLifecycle:
         ],
     )
     def test_task_query_failure_preserves_unknown_state(
-        self, failure, *, mocker: MockerFixture
+        self, failure: Exception, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(windows.subprocess, "run", side_effect=failure)
         with pytest.raises(errors.InstallError, match="task state is unproved"):
@@ -176,7 +178,9 @@ class TestWindowsLifecycle:
 
         imported = []
 
-        def run(arguments, **_kwargs: object):
+        def run(
+            arguments: list[str], **_kwargs: object
+        ) -> subprocess.CompletedProcess[str | bytes]:
             if arguments[:2] == [SCHTASKS, "/create"]:
                 imported.append(Path(arguments[-1]).read_bytes())
             if arguments[:2] == [SCHTASKS, "/query"]:
@@ -334,9 +338,9 @@ class TestWindowsLifecycle:
     def test_install_requires_started_task_and_exact_successor(
         self,
         *,
-        started,
+        started: subprocess.CompletedProcess[str | bytes],
         configured: Literal["expected", "other"],
-        successor,
+        successor: object | None,
         message: Literal[
             "run failed",
             "task executable is unproved",

@@ -188,7 +188,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             def __exit__(self, *_args: object) -> bool:
                 return False
 
-            def read(self):
+            def read(self) -> bytes:
                 return self.payload
 
         open_request = mocker.patch.object(

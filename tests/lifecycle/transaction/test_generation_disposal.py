@@ -38,8 +38,8 @@ def test_terminal_recovery_finishes_partially_removed_generation(
     discarded = oldest if outcome == "finalized" else transaction
     unlink = Path.unlink
 
-    def interrupt_disposal(path: Path, *args, **kwargs) -> None:
-        unlink(path, *args, **kwargs)
+    def interrupt_disposal(path: Path, *, missing_ok: bool = False) -> None:
+        unlink(path, missing_ok=missing_ok)
         if path == Path(discarded.context.executable):
             raise PermissionError("interrupted generation disposal")
 
@@ -147,10 +147,12 @@ def test_failed_materialization_disposes_only_predeclared_candidate_bytes(
     executable = Path(transaction.context.executable)
     manifest = Path(transaction.context.payload_dir, inventory.MANIFEST_FILENAME)
 
-    def interrupt_write(target: Path, content: bytes, **kwargs) -> None:
+    def interrupt_write(
+        target: Path, content: bytes, *, mode: int = 0o644, root: Path | None = None
+    ) -> None:
         if interruption == "manifest" and target == manifest:
             raise OSError("interrupted manifest write")
-        write(target, content, **kwargs)
+        write(target, content, mode=mode, root=root)
         if interruption == "runtime" and target == executable:
             raise OSError("interrupted runtime write")
 

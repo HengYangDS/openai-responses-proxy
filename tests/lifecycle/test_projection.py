@@ -239,12 +239,12 @@ class TestPayloadProjection:
         original_unlink = Path.unlink
         attempts = []
 
-        def unlink(path: Path, *args, **kwargs) -> None:
+        def unlink(path: Path, *, missing_ok: bool = False) -> None:
             if path == target:
                 attempts.append(path)
                 if len(attempts) == 1:
                     raise failure
-            original_unlink(path, *args, **kwargs)
+            original_unlink(path, missing_ok=missing_ok)
 
         mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
         sleep = mocker.patch("time.sleep")
@@ -356,11 +356,11 @@ class TestPayloadProjection:
         original_unlink = Path.unlink
         attempted = []
 
-        def unlink(path: Path, *args, **kwargs) -> None:
+        def unlink(path: Path, *, missing_ok: bool = False) -> None:
             attempted.append(path.name)
             if attempted != [first.name, first.name]:
                 raise failure
-            original_unlink(path, *args, **kwargs)
+            original_unlink(path, missing_ok=missing_ok)
 
         mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
         mocker.patch("time.monotonic", side_effect=[0.0, 0.0, 0.0, 5.0])
@@ -387,7 +387,7 @@ class TestPayloadProjection:
         expected = payload_digest.sha256_file(target)
         original_read = payload_projection.owned_files.read_bytes
 
-        def replace_before_read(path: Path, **kwargs) -> bytes:
+        def replace_before_read(path: Path, *, root: Path, label: str) -> bytes:
             if replacement == "identity":
                 path.rename(directory / "captured.dll")
                 path.write_bytes(b"payload")
@@ -395,7 +395,7 @@ class TestPayloadProjection:
                 directory.rename(root / "captured")
                 directory.mkdir()
                 path.hardlink_to(root / "captured" / path.name)
-            return original_read(path, **kwargs)
+            return original_read(path, root=root, label=label)
 
         mocker.patch.object(payload_projection.owned_files, "read_bytes", replace_before_read)
         unlink = mocker.spy(Path, "unlink")
@@ -418,11 +418,11 @@ class TestPayloadProjection:
         original_unlink = Path.unlink
         attempts = []
 
-        def unlink(path: Path, *args, **kwargs) -> None:
+        def unlink(path: Path, *, missing_ok: bool = False) -> None:
             attempts.append(path)
             if len(attempts) == 1:
                 raise failure
-            original_unlink(path, *args, **kwargs)
+            original_unlink(path, missing_ok=missing_ok)
 
         mocker.patch.object(Path, "unlink", side_effect=unlink, autospec=True)
         times = [0.0, 5.0] if exhausted_at == "retry-entry" else [0.0, 0.0, 5.0]

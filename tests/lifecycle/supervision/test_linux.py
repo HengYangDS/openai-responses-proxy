@@ -16,6 +16,8 @@ from tests.lifecycle.supervision.fixtures import set_file as _set_file
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
 
 if TYPE_CHECKING:
+    import subprocess
+
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -32,7 +34,11 @@ class TestLinuxLifecycle:
         ids=("unreachable-manager", "failed-observation", "missing-properties"),
     )
     def test_service_absence_requires_a_successful_manager_observation(
-        self, observation, tmp_path: Path, *, mocker: MockerFixture
+        self,
+        observation: subprocess.CompletedProcess[str | bytes],
+        tmp_path: Path,
+        *,
+        mocker: MockerFixture,
     ) -> None:
         ctx = platform_context()
         ctx.user_home = str(tmp_path)
@@ -80,7 +86,12 @@ class TestLinuxLifecycle:
         ids=("no-command", "running", "degraded", "no-bus", "failed-query", "empty-state"),
     )
     def test_install_requires_a_successful_manager_query(
-        self, executable: str | None, observation, *, available: bool, mocker: MockerFixture
+        self,
+        executable: str | None,
+        observation: subprocess.CompletedProcess[str | bytes] | None,
+        *,
+        available: bool,
+        mocker: MockerFixture,
     ) -> None:
         ctx = platform_context()
         mocker.patch.object(linux.system_tools, "posix_tool", return_value=executable)

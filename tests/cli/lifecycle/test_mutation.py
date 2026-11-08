@@ -397,10 +397,10 @@ def test_public_recovery_reconstructs_context_after_interrupted_purge(
     unlink = Path.unlink
     interrupted = Path(ctx.executable) if interruption == "payload" else records.journal_path(ctx)
 
-    def fail(path: Path, *args, **kwargs) -> None:
+    def fail(path: Path, *, missing_ok: bool = False) -> None:
         if path == interrupted:
             raise PermissionError("interrupted purge")
-        unlink(path, *args, **kwargs)
+        unlink(path, missing_ok=missing_ok)
 
     failure = mocker.patch.object(Path, "unlink", fail)
     code, _stdout, stderr = invoke("uninstall", "--purge", "--json")

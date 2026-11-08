@@ -23,8 +23,12 @@ from tests.lifecycle.fixtures import retained_rollback
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
-def install_successor(ctx, *, mocker: MockerFixture):
+
+def install_successor(
+    ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture
+) -> tuple[payload_transaction.PayloadTransaction, payload_transaction.PayloadTransaction]:
     """Install two immutable generations and retain the first as predecessor."""
     first = install_payload(ctx, "1.2.2", mocker=mocker)
     second = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)

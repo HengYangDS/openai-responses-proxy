@@ -31,7 +31,7 @@ class TestTermination:
     def test_unproved_termination_preserves_safe_failure_phase(
         self,
         phase: Literal["capture", "generation", "status", "signal", "wait"],
-        failure,
+        failure: Exception,
         reason: Literal["access denied", "invalid native observation", "OS error 5"],
         *,
         mocker: MockerFixture,

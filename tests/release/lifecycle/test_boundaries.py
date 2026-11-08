@@ -83,9 +83,9 @@ class TestSignedNativeLifecycle:
             close_succeeded = []
             native_denials = []
 
-            def observe_unlink(path: Path, *args, **kwargs) -> None:
+            def observe_unlink(path: Path, *, missing_ok: bool = False) -> None:
                 try:
-                    original_unlink(path, *args, **kwargs)
+                    original_unlink(path, missing_ok=missing_ok)
                 except OSError as error:
                     if path == target:
                         native_denials.append(getattr(error, "winerror", None))

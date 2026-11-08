@@ -19,6 +19,8 @@ from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentF
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+    from openai_responses_proxy.lifecycle import runtime_spec
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     def test_current_upgrade_rebinds_control_after_successor_handoff(
@@ -72,7 +74,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
         mocker.patch.object(apply.handoff, "resume_responses", return_value=True)
 
-        def terminate(ctx, *, timeout_seconds) -> int:
+        def terminate(ctx: runtime_spec.NativeServiceContext, *, timeout_seconds: float) -> int:
             del timeout_seconds
             events.extend((("candidate-exit", 222), ("candidate-exit", 333)))
             service.running_contexts.discard(ctx.executable)

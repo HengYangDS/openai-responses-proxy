@@ -121,10 +121,10 @@ def test_recovery_finishes_interrupted_terminal_cleanup(
         if interruption == "root" and path == root:
             raise PermissionError("interrupted terminal cleanup")
 
-    def interrupt_journal(path: Path, *args, **kwargs) -> None:
+    def interrupt_journal(path: Path, *, missing_ok: bool = False) -> None:
         if interruption == "journal" and path == records.journal_path(ctx):
             raise PermissionError("interrupted terminal cleanup")
-        unlink(path, *args, **kwargs)
+        unlink(path, missing_ok=missing_ok)
         if interruption == "snapshot" and path == root / "rollback" / command.SNAPSHOT_FILENAME:
             raise PermissionError("interrupted terminal cleanup")
 
@@ -175,8 +175,8 @@ def test_purge_recovery_uses_its_inventory_in_a_fresh_process(
     executable = Path(ctx.executable)
     unlink = Path.unlink
 
-    def interrupt(path: Path, *args, **kwargs) -> None:
-        unlink(path, *args, **kwargs)
+    def interrupt(path: Path, *, missing_ok: bool = False) -> None:
+        unlink(path, missing_ok=missing_ok)
         if path == executable:
             raise PermissionError("interrupted payload disposal")
 

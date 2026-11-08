@@ -24,6 +24,8 @@ from tests.lifecycle.transaction.fixtures import recovery_runtime
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+    from openai_responses_proxy.lifecycle import context as runtime_context
+
 
 def test_recovery_finalization_selects_the_displaced_predecessor(
     tmp_path: Path, *, mocker: MockerFixture
@@ -223,10 +225,37 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
     expected_target = Path(successor.context.executable).resolve()
     original_write = records.write_journal
 
-    def interrupt_activated_journal(*args, **kwargs):
-        if kwargs.get("state") == "activated":
+    def interrupt_activated_journal(
+        ctx: runtime_context.RuntimeContext,
+        *,
+        transaction_id: str,
+        version: str,
+        receipt_sha256: str,
+        state: str,
+        fresh: bool,
+        previous_generation: str | None = None,
+        previous_predecessor: str | None = None,
+        phase: str | None = None,
+        reason: str | None = None,
+        files: dict[str, str] | None = None,
+        snapshot_sha256: str | None = None,
+    ) -> None:
+        if state == "activated":
             raise errors.InstallError("activation journal interrupted")
-        return original_write(*args, **kwargs)
+        original_write(
+            ctx,
+            transaction_id=transaction_id,
+            version=version,
+            receipt_sha256=receipt_sha256,
+            state=state,
+            fresh=fresh,
+            previous_generation=previous_generation,
+            previous_predecessor=previous_predecessor,
+            phase=phase,
+            reason=reason,
+            files=files,
+            snapshot_sha256=snapshot_sha256,
+        )
 
     mocker.patch.object(
         records,

@@ -17,10 +17,12 @@ from openai_responses_proxy.lifecycle.supervision import watchdog
 from tests.lifecycle.fixtures import assert_private_log_mode
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from pytest_mock import MockerFixture
 
 
-def load_watchdog():
+def load_watchdog() -> ModuleType:
     """Load a fresh watchdog module so tests cannot share mutable globals."""
     return importlib.reload(watchdog)
 

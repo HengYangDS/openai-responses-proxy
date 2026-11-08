@@ -18,7 +18,12 @@ from tests.lifecycle.supervision.fixtures import temporary_context as _temporary
 from tests.lifecycle.supervision.macos.fixtures import service as _service
 
 if TYPE_CHECKING:
+    import subprocess
+    from collections.abc import Callable
+
     from pytest_mock import MockerFixture
+
+    from openai_responses_proxy.lifecycle import runtime_spec
 
 
 class TestMacosBackgroundContract:
@@ -88,7 +93,9 @@ class TestMacosBackgroundContract:
             changed = b"new external carrier content"
             reads = iter([_completed(stdout="registered"), _completed(returncode=113)])
 
-            def native_operation(arguments, **_kwargs: object):
+            def native_operation(
+                arguments: list[str], **_kwargs: object
+            ) -> subprocess.CompletedProcess[str | bytes]:
                 if arguments[1] == "bootout":
                     carrier.write_bytes(changed)
                     return _completed()
@@ -113,7 +120,9 @@ class TestMacosBackgroundContract:
         assert payload["LimitLoadToSessionType"] == ["Aqua", "Background"]
 
     @pytest.mark.parametrize("sessions", [None, "Background", ["Aqua", "Background"]])
-    def test_carrier_accepts_each_released_session_declaration(self, *, sessions) -> None:
+    def test_carrier_accepts_each_released_session_declaration(
+        self, *, sessions: str | list[str] | None
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
             if sessions is None:
@@ -146,7 +155,9 @@ class TestMacosBackgroundContract:
     @pytest.mark.parametrize(
         "sessions", ["Aqua", ["Background"], ["Aqua", "Background", "LoginWindow"]]
     )
-    def test_carrier_rejects_an_unreleased_session_declaration(self, *, sessions) -> None:
+    def test_carrier_rejects_an_unreleased_session_declaration(
+        self, *, sessions: str | list[str]
+    ) -> None:
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
             payload["LimitLoadToSessionType"] = sessions
@@ -327,7 +338,11 @@ class TestMacosBackgroundContract:
 
     @pytest.mark.parametrize("operation", [macos.install, macos.uninstall])
     def test_carrier_symlink_preserves_its_foreign_target(
-        self, tmp_path: Path, *, operation, mocker: MockerFixture
+        self,
+        tmp_path: Path,
+        *,
+        operation: Callable[[runtime_spec.NativeServiceContext], None],
+        mocker: MockerFixture,
     ) -> None:
         foreign = tmp_path / "foreign.plist"
         content = b"foreign launch agent"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Self
+from typing import cast
 
 import pytest
 
@@ -20,14 +21,19 @@ from tests.lifecycle.fixtures import install_payload
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 
-def _stopped_installation(root: Path, *, mocker: MockerFixture):
+def _stopped_installation(
+    root: Path, *, mocker: MockerFixture
+) -> tuple[runtime_context.RuntimeContext, runtime_context.RuntimeContext, MockType]:
     """Install one verified payload whose owned supervisor and listener are stopped."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
     control_ctx = generation.control_context(ctx)
-    native = mocker.patch.object(control, "adapter").return_value
+    native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = "installed"
     native.configured_executable.return_value = control_ctx.executable
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
@@ -41,12 +47,14 @@ def _stopped_installation(root: Path, *, mocker: MockerFixture):
     return ctx, control_ctx, native
 
 
-def _serving_installation(root: Path, *, service: str, mocker: MockerFixture):
+def _serving_installation(
+    root: Path, *, service: str, mocker: MockerFixture
+) -> tuple[runtime_context.RuntimeContext, runtime_context.RuntimeContext, MockType]:
     """Install one verified payload whose listener serves under the observed supervisor."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
     control_ctx = generation.control_context(ctx)
-    native = mocker.patch.object(control, "adapter").return_value
+    native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = service
     native.configured_executable.return_value = control_ctx.executable
     mocker.patch.object(control, "read_runtime", return_value={"pid": 7})

@@ -113,7 +113,7 @@ class TestMacosLifecycle:
         self,
         *,
         configured: str | None,
-        captured,
+        captured: macos.process.OwnedProcess | None,
         message: Literal["executable is unproved", "process identity is unproved"],
         mocker: MockerFixture,
     ) -> None:
@@ -235,7 +235,7 @@ class TestMacosLifecycle:
         self,
         *,
         kickstart_stdout: Literal["not-a-pid", "73\n"],
-        observed,
+        observed: macos._Service,
         message: Literal["returned no watchdog pid", "pid was not re-observed"],
         mocker: MockerFixture,
     ) -> None:
