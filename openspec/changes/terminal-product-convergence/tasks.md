@@ -161,7 +161,7 @@ This checklist retains the original task identities and completion states.
 - [x] 14.15 Restore same-artifact supervision and refuse rollback without a serving runtime; verify full gates, signed release and released three-platform journeys. Released in v5.0.5.
 
 - [x] 14.16 Recover exact upstream text and media budget rejections with strictly smaller, dependency-safe historical compaction; verify current-turn media preservation and terminal refusal when no safe reduction exists.
-- [ ] 14.17 Qualify the budget recovery in the signed installed release and original affected conversation with early native compaction; verify image capability, repeated continuation and preserved client state.
+- [x] 14.17 Qualify the budget recovery in the signed installed release and original affected conversation with early native compaction; verify image capability, repeated continuation and preserved client state. Evidence: v5.1.10, six installed recovery cases and the original two-page image journey.
 
 ## Workflow follow-up
 
