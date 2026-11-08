@@ -206,8 +206,19 @@ def _relay_catalog(
         except BaseException:
             response.close()
             raise
+
+    def log_body_failure(exception: str) -> None:
+        operational_log.log(
+            f"req={request_id} event=catalog_body_failed provider={profile.name} "
+            f"exception={exception} path={operational_log.safe_request_path(handler.path)}"
+        )
+
     downstream.relay_readonly_body(
-        handler, response, deadline=deadline, max_bytes=_SETTINGS.catalog_max_bytes
+        handler,
+        response,
+        deadline=deadline,
+        max_bytes=_SETTINGS.catalog_max_bytes,
+        log_failure=log_body_failure,
     )
 
 

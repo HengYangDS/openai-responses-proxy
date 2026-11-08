@@ -84,6 +84,25 @@ class TestTransportFailures(InputTransportFixture):
         assert handler.statuses == [502]
         assert b"catalog_transport_error" in handler.output()
 
+    def test_catalog_body_failure_after_headers_logs_only_its_exception_label(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        admission.reset_for_test()
+        telemetry.reset_for_test()
+        handler = MemoryHandler(path="/dmxapi/v1/models?token=private-query")
+        upstream = DirectResponse(b'{"data":[', RuntimeError("private-body-detail"))
+        mocker.patch.object(upstream_exchange, "open_readonly", return_value=upstream)
+        log = mocker.patch.object(responses.operational_log, "log")
+
+        responses.relay(handler, "GET", PROVIDERS)
+
+        assert handler.statuses == [200]
+        assert handler.close_connection is True
+        [line] = [call.args[0] for call in log.call_args_list]
+        assert "event=catalog_body_failed provider=dmxapi exception=RuntimeError " in line
+        assert line.endswith("path=/dmxapi/v1/models")
+        assert "private" not in line
+
     def test_direct_relay_covers_retry_and_fallback_transport_failure(
         self, *, mocker: MockerFixture
     ) -> None:

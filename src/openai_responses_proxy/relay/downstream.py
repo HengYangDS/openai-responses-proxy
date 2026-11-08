@@ -19,6 +19,7 @@ from openai_responses_proxy.relay import upstream as upstream_transport
 
 if TYPE_CHECKING:
     import io
+    from collections.abc import Callable
     from collections.abc import Generator
     from http.server import BaseHTTPRequestHandler
 
@@ -314,9 +315,18 @@ def send_catalog_failure(
 
 
 def relay_readonly_body(
-    handler: BaseHTTPRequestHandler, response: UpstreamResponse, *, deadline: float, max_bytes: int
+    handler: BaseHTTPRequestHandler,
+    response: UpstreamResponse,
+    *,
+    deadline: float,
+    max_bytes: int,
+    log_failure: Callable[[str], None],
 ) -> None:
-    """Relay catalog success or error once within its shared time and byte limits."""
+    """Relay catalog success or error once within its shared time and byte limits.
+
+    Once the headers are sent, a failure can only close the connection; ``log_failure``
+    receives the failure's secret-free exception label.
+    """
     previous_timeout = handler.connection.gettimeout()
     native = response.fp if isinstance(response, urllib.error.HTTPError) else response
     remaining_bytes = max_bytes
@@ -348,8 +358,9 @@ def relay_readonly_body(
                 break
         _arm_write_timeout(handler, deadline, previous_timeout)
         handler.wfile.write(b"0\r\n\r\n")
-    except Exception:
+    except Exception as error:
         handler.close_connection = True
+        log_failure(operational_log.safe_exception_label(error))
     finally:
         try:
             response.close()
