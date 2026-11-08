@@ -241,7 +241,9 @@ def test_named_distinct_deliveries_share_projection_diagnosis_and_recovery(call_
     "replacement",
     [{"id": "first"}, {"id": ""}, {"id": None}, {"name": "other"}, {"name": None}],
 )
-def test_repeated_outputs_need_distinct_identity_and_matching_name(replacement) -> None:
+def test_repeated_outputs_need_distinct_identity_and_matching_name(
+    replacement: dict[str, str | None],
+) -> None:
     items = [
         {"type": "custom_tool_call", "call_id": "job", "name": "run", "input": "{}"},
         {"type": "custom_tool_call_output", "call_id": "job", "id": "first", "output": "A"},

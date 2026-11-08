@@ -9,6 +9,7 @@ import shlex
 import socket
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -31,6 +32,9 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
+
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
 
 
 class TestRealSubprocessHandoffIntegration(SubprocessFixture):
@@ -138,7 +142,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         started = threading.Event()
         release = threading.Event()
 
-        def long_response(handler) -> None:
+        def long_response(handler: BaseHTTPRequestHandler) -> None:
             started.set()
             release.wait(timeout=10)
             payload = b'{"id":"finished-late","status":"completed"}'
@@ -211,7 +215,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         started = threading.Event()
         never_release = threading.Event()
 
-        def never_finishes(handler) -> None:
+        def never_finishes(handler: BaseHTTPRequestHandler) -> None:
             started.set()
             never_release.wait(timeout=6)  # bounded so the test itself cannot hang
             handler.send_response(200)

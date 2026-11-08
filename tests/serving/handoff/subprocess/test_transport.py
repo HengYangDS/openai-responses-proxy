@@ -8,6 +8,7 @@ import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Literal
 
 import pytest
@@ -24,6 +25,9 @@ pytestmark = [
     pytest.mark.native_distribution,
 ]
 
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
+
 
 class TestRealSubprocessHandoffIntegration(SubprocessFixture):
     @pytest.mark.parametrize("call_type", ["function_call", "custom_tool_call"])
@@ -34,7 +38,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         self._cleanups.callback(upstream.close)
         completed = b'data: {"type":"response.completed"}\n\n'
 
-        def send(handler) -> None:
+        def send(handler: BaseHTTPRequestHandler) -> None:
             handler.send_response(200)
             handler.send_header("Content-Type", "text/event-stream")
             handler.send_header("Content-Length", str(len(completed)))
@@ -110,7 +114,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
             completed = completed.split(b'data: {"type":"response.completed"}')[0]
             completed += b'data: {"type":\n\n'
 
-        def send(handler) -> None:
+        def send(handler: BaseHTTPRequestHandler) -> None:
             payload = failed if len(upstream.received) == 1 else completed
             handler.send_response(200)
             handler.send_header("Content-Type", "text/event-stream")

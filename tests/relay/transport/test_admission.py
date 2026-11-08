@@ -105,7 +105,9 @@ class TestProxyTransport(LoopbackTransportFixture):
         [{"Origin": "https://example.invalid"}, {"Host": "example.invalid"}],
         ids=["browser-origin", "rebound-host"],
     )
-    def test_lifecycle_control_refuses_requests_a_browser_page_can_send(self, headers) -> None:
+    def test_lifecycle_control_refuses_requests_a_browser_page_can_send(
+        self, headers: dict[str, str]
+    ) -> None:
         with running_proxy([]) as (port, _received):
             for method, path in (
                 ("POST", "/control/drain"),

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
+from openai_responses_proxy.serving.handoff.protocol import HANDOFF_STARTUP_TIMEOUT_SECONDS
 from tests.serving.handoff.fixtures import HandoffFixture
 from tests.serving.handoff.fixtures import child_message
 from tests.serving.handoff.fixtures import entrypoint_module
@@ -21,7 +22,11 @@ from tests.serving.handoff.fixtures import matching_health
 from tests.serving.handoff.fixtures import wait_until
 
 if TYPE_CHECKING:
+    import socket
+    from collections.abc import Mapping
+
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -37,16 +42,24 @@ class TestParentHandoffStateMachine(HandoffFixture):
     def test_handoff_context_cannot_mutate_request_admission(self) -> None:
         assert not hasattr(self.context, "set_draining")
 
-    def committed(self, *after_ready, health=None, mocker: MockerFixture, **kwargs):
-        expected = kwargs.pop("expected", expected_metadata())
-        child = kwargs.pop("child", fake_child(mocker=mocker))
-        server = kwargs.pop("server", fake_server(mocker=mocker))
+    def committed(
+        self,
+        *after_ready: object,
+        health: dict[str, object] | None = None,
+        expected: dict[str, object] | None = None,
+        child: MockType | None = None,
+        timeout_seconds: float,
+        mocker: MockerFixture,
+    ) -> tuple[str, MockType, MockType, dict[str, object]]:
+        expected = expected or expected_metadata()
+        child = child or fake_child(mocker=mocker)
+        server = fake_server(mocker=mocker)
         child.recv_message.side_effect = [
             child_message("ready", child, expected),
             *after_ready,
         ]
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, self.context, **kwargs)
+        prepared = self.p.prepare(server, expected, self.context, timeout_seconds=timeout_seconds)
         del health
         outcome = self.p.commit(server, prepared, self.context)
         return outcome, server, child, expected
@@ -104,7 +117,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         order = []
         server.shutdown.side_effect = lambda: order.append("shutdown")
 
-        def send_message(message) -> None:
+        def send_message(message: dict[str, object]) -> None:
             order.append(f"send:{message.get('type')}")
 
         child.send_message.side_effect = send_message
@@ -134,7 +147,15 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child = fake_child(mocker=mocker)
         child.recv_message.side_effect = [child_message("ready", child, expected)]
 
-        def slow_spawn(*_args: object, **_kwargs: object):
+        def slow_spawn(
+            listener: socket.socket,
+            expected: Mapping[str, object],
+            context: handoff_protocol_module.ChildProcessContext,
+            *,
+            is_windows: bool | None = None,
+            startup_timeout_seconds: float = HANDOFF_STARTUP_TIMEOUT_SECONDS,
+        ) -> MockType:
+            del listener, expected, context, is_windows, startup_timeout_seconds
             release_spawn.wait(timeout=5)
             return child
 

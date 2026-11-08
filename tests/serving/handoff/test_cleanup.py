@@ -42,8 +42,9 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("stop before runtime effects")
         allocated = []
 
-        def stop(candidate, **_kwargs: object) -> Never:
-            allocated.append(candidate)
+        def stop(root: Path, *, release: str, port: int, upstream_url: str) -> Never:
+            del release, port, upstream_url
+            allocated.append(root)
             raise failure
 
         mocker.patch.object(subprocess_fixtures, "write_installed_payload", side_effect=stop)
@@ -64,7 +65,8 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("payload initialization failed")
         mocker.patch.object(tempfile, "tempdir", str(tmp_path))
 
-        def fail_initialization(root, **_kwargs: object) -> Never:
+        def fail_initialization(root: Path, *, release: str, port: int, upstream_url: str) -> Never:
+            del release, port, upstream_url
             roots.append(root)
             if partial_payload:
                 payload = root / "payload"
@@ -102,7 +104,10 @@ class TestHandoffCleanup(SubprocessFixture):
         service.status.side_effect = lambda _ctx: events.append("service-status") or "absent"
         mocker.patch.object(native_service, "adapter", return_value=service)
 
-        def inventory(_proxy_script: object):
+        def inventory(
+            expected_path: str, *, roles: set[str] | frozenset[str] | None = None
+        ) -> list[int]:
+            del expected_path, roles
             events.append("inventory")
             return [123] if events.count("inventory") == 1 else []
 
@@ -223,7 +228,7 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
     monkeypatch.setenv("OPENAI_RESPONSES_PROXY_EXECUTABLE", str(source))
     observed = []
 
-    def prewarm(ctx) -> None:
+    def prewarm(ctx: runtime_context.RuntimeContext) -> None:
         observed.append(ctx)
         rows = contexts.read_bytes().splitlines()
         assert len(rows) == 1, "complete cleanup custody must precede native execution"

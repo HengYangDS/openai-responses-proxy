@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 from typing import Literal
+from typing import Protocol
 
 import pytest
 
@@ -15,12 +16,29 @@ from openai_responses_proxy.protocol.replay import projection
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from openai_responses_proxy.protocol.replay import items as item_policy
+
+
+class Recover(Protocol):
+    """One bounded recovery of a raw request within a byte budget."""
+
+    def __call__(
+        self,
+        raw: bytes,
+        budget: int,
+        *,
+        input_dependencies: item_policy.InputDependencies | None = None,
+    ) -> tuple[bytes | None, object]:
+        """Return the recovered request, if any, and its metrics."""
+
 
 def _json(value: object) -> bytes:
     return json.dumps(value, separators=(",", ":")).encode()
 
 
-def _recover(payload: Mapping[str, object], budget: int):
+def _recover(
+    payload: Mapping[str, object], budget: int
+) -> tuple[bytes, bytes | None, input_recovery.RecoveryMetrics | None]:
     raw = _json(payload)
     recovery, metrics = input_recovery.build_recovery(raw, budget if budget > 0 else len(raw))
     return raw, recovery, metrics
@@ -39,7 +57,7 @@ class TestDialogueRecovery:
     )
     @pytest.mark.parametrize("explicit_type", [False, True])
     def test_every_recovery_preserves_latest_instruction_roles(
-        self, recover, *, explicit_type: bool
+        self, recover: Recover, *, explicit_type: bool
     ) -> None:
         instruction_type = {"type": "message"} if explicit_type else {}
         system = {**instruction_type, "role": "system", "content": "current system policy"}
@@ -81,7 +99,7 @@ class TestDialogueRecovery:
             execution_recovery.recover_dialogue,
         ],
     )
-    def test_recovery_cannot_shrink_by_discarding_instruction_roles(self, recover) -> None:
+    def test_recovery_cannot_shrink_by_discarding_instruction_roles(self, recover: Recover) -> None:
         raw = _json(
             {
                 "store": False,
@@ -103,7 +121,7 @@ class TestDialogueRecovery:
     )
     def test_refuses_to_orphan_a_delayed_current_tool_delivery(
         self,
-        recover,
+        recover: Recover,
         kind: Literal["function_call", "custom_tool_call"],
         argument: Literal["arguments", "input"],
     ) -> None:
@@ -191,7 +209,7 @@ class TestDialogueRecovery:
         "recover", [input_recovery.build_recovery, execution_recovery.compact_request]
     )
     def test_projection_provenance_preserves_plaintext_delegation_before_the_user(
-        self, recover
+        self, recover: Recover
     ) -> None:
         task = {
             "type": "agent_message",
@@ -322,7 +340,7 @@ class TestDialogueRecovery:
         "recover",
         [input_recovery.build_recovery, execution_recovery.recover_dialogue],
     )
-    def test_latest_role_messages_keep_original_relative_order(self, recover) -> None:
+    def test_latest_role_messages_keep_original_relative_order(self, recover: Recover) -> None:
         cases = (
             (
                 [

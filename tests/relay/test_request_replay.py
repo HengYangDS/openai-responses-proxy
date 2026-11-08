@@ -222,7 +222,7 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
 
     @pytest.mark.parametrize("attempt", [0, upstream_exchange._MAX_ATTEMPTS - 1])
     def test_an_outcome_unknown_failure_is_terminal_at_every_attempt(
-        self, attempt, *, mocker: MockerFixture
+        self, attempt: int, *, mocker: MockerFixture
     ) -> None:
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         handler = MemoryHandler(b'{"input":"current"}')

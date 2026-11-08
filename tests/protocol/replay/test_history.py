@@ -46,7 +46,9 @@ class ProviderPortableHistoryTests:
         assert rewrite.sanitize_responses_body(result.body).body == result.body
 
     @pytest.mark.parametrize("ciphertext", [None, "", 1, {"nested": "value"}])
-    def test_rejects_invalid_encrypted_agent_payload_without_empty_task(self, ciphertext) -> None:
+    def test_rejects_invalid_encrypted_agent_payload_without_empty_task(
+        self, ciphertext: object
+    ) -> None:
         message = {
             "type": "agent_message",
             "author": "/root",

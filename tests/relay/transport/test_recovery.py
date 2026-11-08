@@ -38,7 +38,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         self,
         path: Literal["/aihubmix/v1/responses", "/dmxapi/v1/responses"],
         status: int,
-        error_body,
+        error_body: bytes,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         body = b'{"stream":false,"input":[{"type":"message","role":"user","content":"hello"}]}'

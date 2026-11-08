@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 from typing import TYPE_CHECKING
+from typing import cast
 
 import pytest
 
@@ -22,7 +23,10 @@ from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import handoff_module
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
 
 class TestHandoffChild:
@@ -42,7 +46,7 @@ class TestHandoffChild:
             self.p.popen_kwargs(None, is_windows=False)
 
     def test_child_constructor_requires_both_control_pipes(self, *, mocker: MockerFixture) -> None:
-        def reject_pipes(pipes) -> None:
+        def reject_pipes(pipes: tuple[MockType | None, MockType | None]) -> None:
             process = mocker.Mock(stdin=pipes[0], stdout=pipes[1])
             with pytest.raises(self.p.HandoffError, match="pipes are unavailable"):
                 self.p.HandoffChild(process)
@@ -68,7 +72,7 @@ class TestHandoffChild:
     def test_child_reader_projects_timeout_and_malformed_messages(
         self, *, mocker: MockerFixture
     ) -> None:
-        def reject(case) -> None:
+        def reject(case: tuple[bytes, str]) -> None:
             raw, message = case
             process = mocker.Mock(stdin=io.BytesIO(), stdout=io.BytesIO(raw))
             child = self.p.HandoffChild(process)
@@ -118,7 +122,9 @@ class TestHandoffChild:
     def test_bounded_child_shutdown_handles_already_exited_success_and_timeout(
         self, *, mocker: MockerFixture
     ) -> None:
-        def verify(case) -> None:
+        def verify(
+            case: tuple[str, int | None, list[None] | None, Exception | None, bool],
+        ) -> None:
             method, poll_result, poll_effect, wait, expected = case
             process = mocker.Mock(stdin=mocker.Mock(), stdout=mocker.Mock())
             process.poll.return_value = poll_result
@@ -278,7 +284,7 @@ class TestHandoffChild:
         ctor.assert_called_once_with(fileno=37)
 
     def test_listener_reconstruction_rejects_invalid_platform_payloads(self) -> None:
-        def reject(message) -> None:
+        def reject(message: Mapping[str, object]) -> None:
             with pytest.raises(self.p.HandoffError):
                 self.p.listener_from_prepare(message)
 
@@ -297,7 +303,7 @@ class TestHandoffChild:
         self.p.write_control_message(target, {"type": "commit"})
         assert self.p.read_control_message(io.BytesIO(target.getvalue())) == {"type": "commit"}
 
-        def reject(case) -> None:
+        def reject(case: tuple[bytes, type[Exception]]) -> None:
             raw, error = case
             with pytest.raises(error):
                 self.p.read_control_message(io.BytesIO(raw))
@@ -330,7 +336,11 @@ class TestHandoffChild:
             "listener_fd": 37,
         }
 
-        def run(*commands, valid_prepare=True, server=None):
+        def run(
+            *commands: Mapping[str, object],
+            valid_prepare: bool = True,
+            server: MockType | None = None,
+        ) -> tuple[int, MockType, list[dict[str, object]]]:
             handoff_module.reset_session_to_idle()
             first = prepare if valid_prepare else {**prepare, "protocol_version": 1}
             raw = b"".join(
@@ -339,7 +349,7 @@ class TestHandoffChild:
             )
             fake_stdin = mocker.Mock(buffer=io.BytesIO(raw))
             fake_stdout = mocker.Mock(buffer=io.BytesIO())
-            fake_server = server or mocker.Mock()
+            fake_server = server or cast("MockType", mocker.Mock())
             fake_server.server_address = ("127.0.0.1", 8792)
             object.__setattr__(context, "server_factory", lambda _listener: fake_server)
             mocker.patch.object(sys, "stdin", fake_stdin)

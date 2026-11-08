@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from pathlib import Path
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -39,6 +40,9 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
+
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
 
 
 def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -> None:
@@ -145,7 +149,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         normal_started = threading.Barrier(4)
         release = threading.Event()
 
-        def held_stream(handler) -> None:
+        def held_stream(handler: BaseHTTPRequestHandler) -> None:
             stream_started.set()
             release.wait(timeout=60)
             payload = (
@@ -158,7 +162,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             handler.end_headers()
             handler.wfile.write(payload)
 
-        def held_response(handler) -> None:
+        def held_response(handler: BaseHTTPRequestHandler) -> None:
             normal_started.wait(timeout=20)
             release.wait(timeout=60)
             payload = b'{"id":"held","status":"completed"}'
@@ -322,7 +326,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         traffic_bodies: list[bytes] = []
         traffic_failures: list[str] = []
 
-        def held_during_rollback(handler) -> None:
+        def held_during_rollback(handler: BaseHTTPRequestHandler) -> None:
             rollback_hold_started.set()
             rollback_release.wait(timeout=60)
             payload = b'{"id":"rollback-held","status":"completed"}'

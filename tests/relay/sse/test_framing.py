@@ -129,7 +129,7 @@ class TestSseFraming(InputTransportFixture):
 
     @pytest.mark.parametrize("failure", [BrokenPipeError, ConnectionResetError, RuntimeError])
     def test_downstream_failure_releases_owned_upstream_without_reconnect(
-        self, failure, *, mocker: MockerFixture
+        self, failure: type[Exception], *, mocker: MockerFixture
     ) -> None:
         upstream = DirectResponse(b'data: {"type":"response.completed"}\n\n')
         close = mocker.spy(upstream, "close")

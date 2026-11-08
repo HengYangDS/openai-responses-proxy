@@ -10,6 +10,7 @@ import time
 import urllib.error
 from contextlib import ExitStack
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -29,6 +30,9 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
+
+if TYPE_CHECKING:
+    from http.server import BaseHTTPRequestHandler
 
 
 @pytest.mark.parametrize("oversized", [False, True])
@@ -111,7 +115,9 @@ def test_frozen_body_admission_uses_the_persisted_budgets(*, oversized: bool) ->
         ),
     ],
 )
-def test_frozen_input_recovery_preserves_required_current_turn(required) -> None:
+def test_frozen_input_recovery_preserves_required_current_turn(
+    required: dict[str, object],
+) -> None:
     """Exercise exact input-validation recovery through a frozen loopback listener."""
     port = free_port()
     with ExitStack() as cleanup:
@@ -187,7 +193,7 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: 
     release = threading.Event()
     content = b'data: {"type":"response.output_text.delta","delta":"keep"}\n\n'
 
-    def delayed(handler) -> None:
+    def delayed(handler: BaseHTTPRequestHandler) -> None:
         if phase == "slow-framing":
             handler.connection.sendall(b"HTTP/1.1 200 OK\r\nX-Progress: ")
             for _ in range(20):
@@ -284,7 +290,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
     release = threading.Event()
     started = threading.Event()
 
-    def first(handler) -> None:
+    def first(handler: BaseHTTPRequestHandler) -> None:
         failed = (
             b'data: {"type":"response.failed","response":{"output":[],'
             b'"error":{"code":"server_error"}}}\n\n'
@@ -295,7 +301,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
         handler.end_headers()
         handler.wfile.write(failed)
 
-    def second(handler) -> None:
+    def second(handler: BaseHTTPRequestHandler) -> None:
         started.set()
         release.wait(timeout=5)
         handler.send_response(200)
@@ -367,7 +373,7 @@ def test_frozen_listener_never_resends_a_request_the_upstream_received(*, stream
     This is the regression of BLOCK bde945c5.
     """
 
-    def lose_response(handler) -> None:
+    def lose_response(handler: BaseHTTPRequestHandler) -> None:
         if stream:
             created = b'data: {"type":"response.created"}\n\n'
             handler.send_response(200)
@@ -430,7 +436,7 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
     ).encode()
     peers: list[int] = []
 
-    def keep(handler) -> None:
+    def keep(handler: BaseHTTPRequestHandler) -> None:
         peers.append(handler.client_address[1])
         handler.wfile.write(
             b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
@@ -438,7 +444,7 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
         )
         handler.close_connection = False
 
-    def lose(handler) -> None:
+    def lose(handler: BaseHTTPRequestHandler) -> None:
         peers.append(handler.client_address[1])
         handler.close_connection = True
 
@@ -456,7 +462,7 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
         cleanup.callback(terminate_process, child)
         upstream.start()
 
-        def call(text: str):
+        def call(text: str) -> tuple[int, dict[str, object]]:
             return http_json(
                 port, "/dmxapi/v1/responses", method="POST", body={"input": text}, timeout=5
             )

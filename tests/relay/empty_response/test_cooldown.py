@@ -75,7 +75,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
         assert not cooldown.has_failure_for_test("stale")
         assert cooldown.has_failure_for_test("other")
 
-        def remember(index):
+        def remember(index: int) -> float:
             key = f"key-{index}"
             self._remember_failure(key, now=200.0 + index / 10_000)
             return self._cooldown_remaining(key, now=200.0)

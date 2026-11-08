@@ -41,7 +41,7 @@ class RuntimeLoggingTests:
     )
     def test_stream_events_correlate_outcomes_without_payloads(
         self,
-        raw,
+        raw: bytes | OSError,
         event: Literal["sse_terminal", "sse_end_without_terminal"],
         detail: Literal["terminal=response.completed", "exception=OSError"],
         tmp_path: Path,

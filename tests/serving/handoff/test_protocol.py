@@ -76,7 +76,7 @@ class TestProtocolContract:
     def test_a_prepared_or_committing_handoff_keeps_request_admission_open(
         self,
     ) -> None:
-        def assert_accepting(state) -> None:
+        def assert_accepting(state: str) -> None:
             handoff_module._HANDOFF_SESSION["state"] = state
             try:
                 status = self.p.runtime_status()
