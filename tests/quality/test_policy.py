@@ -120,13 +120,11 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
     assert ruff["lint"]["select"] == ["ALL"]
     assert "preview" not in ruff
     assert "preview" not in ruff["lint"]
-    single_rule = re.compile(r"[A-Z]+[0-9]+")
-    assert all(single_rule.fullmatch(rule) for rule in ruff["lint"]["ignore"])
-    assert all(
-        single_rule.fullmatch(rule)
-        for rules in ruff["lint"]["per-file-ignores"].values()
-        for rule in rules
-    )
+    exempt = {
+        *ruff["lint"]["ignore"],
+        *(rule for rules in ruff["lint"]["per-file-ignores"].values() for rule in rules),
+    }
+    assert _prefix_selectors(exempt) == set()
     assert ruff["lint"]["pydocstyle"] == {"convention": "google"}
     per_file = ruff["lint"]["per-file-ignores"]
     assert per_file["tests/**"] == [
@@ -160,6 +158,35 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         assert all(
             isinstance(policy.get(field), str) and policy[field].strip() for field in rationale
         ), relative
+
+
+def _ruff_rule_codes() -> frozenset[str]:
+    """Return every exact rule code that the locked Ruff defines."""
+    result = subprocess.run(
+        ("ruff", "rule", "--all", "--output-format", "json"),
+        cwd=ROOT,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    )
+    rules: object = json.loads(result.stdout)
+    assert isinstance(rules, list)
+    codes = {rule.get("code") for rule in rules if isinstance(rule, dict)}
+    return frozenset(code for code in codes if isinstance(code, str) and code)
+
+
+def _prefix_selectors(codes: set[str]) -> set[str]:
+    """Return each exemption that names a prefix family instead of one exact rule."""
+    return codes - _ruff_rule_codes()
+
+
+@pytest.mark.parametrize(("code", "family"), [("PLR09", True), ("D1", True), ("PLR0911", False)])
+def test_an_exemption_names_one_exact_rule_never_a_prefix_family(
+    code: str, *, family: bool
+) -> None:
+    assert (_prefix_selectors({code}) == {code}) is family
 
 
 def test_partial_path_exemption_names_exactly_the_files_that_need_it() -> None:
