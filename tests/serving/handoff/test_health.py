@@ -109,6 +109,29 @@ class TestParentHealthProbe:
             == current
         )
 
+    def test_probe_health_accepts_observability_fields_beside_the_exact_identity(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        expected = expected_metadata()
+        child = fake_child(mocker=mocker)
+        identity = matching_health(child, expected)
+        observed = {
+            **identity,
+            "uptime_seconds": 12.5,
+            "active_responses": 0,
+            "active_handlers": 1,
+            "counters": {},
+            "upstream_classifications": {},
+            "last_failure": None,
+        }
+        mocker.patch.object(handoff_protocol_module, "_read_health", return_value=observed)
+        mocker.patch.object(handoff_protocol_module.time, "sleep")
+
+        assert (
+            handoff_protocol_module.probe_health(8791, timeout_seconds=1, expected=identity)
+            == observed
+        )
+
     def test_probe_health_retries_failed_observations_until_exact_identity(
         self, *, mocker: MockerFixture
     ) -> None:

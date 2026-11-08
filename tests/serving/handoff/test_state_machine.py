@@ -18,7 +18,6 @@ from tests.serving.handoff.fixtures import fake_child
 from tests.serving.handoff.fixtures import fake_server
 from tests.serving.handoff.fixtures import handoff_module
 from tests.serving.handoff.fixtures import handoff_outcome_ready
-from tests.serving.handoff.fixtures import matching_health
 from tests.serving.handoff.fixtures import wait_until
 
 if TYPE_CHECKING:
@@ -45,7 +44,6 @@ class TestParentHandoffStateMachine(HandoffFixture):
     def committed(
         self,
         *after_ready: object,
-        health: dict[str, object] | None = None,
         expected: dict[str, object] | None = None,
         child: MockType | None = None,
         timeout_seconds: float,
@@ -60,7 +58,6 @@ class TestParentHandoffStateMachine(HandoffFixture):
         ]
         mocker.patch.object(self.p, "spawn_child", return_value=child)
         prepared = self.p.prepare(server, expected, self.context, timeout_seconds=timeout_seconds)
-        del health
         outcome = self.p.commit(server, prepared, self.context)
         return outcome, server, child, expected
 
@@ -367,30 +364,6 @@ class TestParentHandoffStateMachine(HandoffFixture):
                     )
                     assert outcome == "rolled_back"
                     child.terminate_bounded.assert_called_once()
-
-    def test_health_identity_allows_observability_fields(self, *, mocker: MockerFixture) -> None:
-        expected = expected_metadata()
-        child = fake_child(mocker=mocker)
-        health = {
-            **matching_health(child, expected),
-            "uptime_seconds": 12.5,
-            "active_responses": 0,
-            "active_handlers": 1,
-            "counters": {},
-            "upstream_classifications": {},
-            "last_failure": None,
-        }
-        outcome, _, child, _ = self.committed(
-            child_message("serving", child, expected),
-            child_message("finalized", child, expected),
-            child=child,
-            expected=expected,
-            health=health,
-            timeout_seconds=1,
-            mocker=mocker,
-        )
-        assert outcome == "finalized"
-        child.terminate_bounded.assert_not_called()
 
     def test_abort_falls_back_to_kill_when_terminate_does_not_exit_child_in_time(
         self, *, mocker: MockerFixture
