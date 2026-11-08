@@ -100,6 +100,7 @@ def _task_xml(ctx: runtime_spec.NativeServiceContext) -> str | None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
             stdin=subprocess.DEVNULL,
             timeout=5.0,
         )
@@ -181,6 +182,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         if created.returncode:
             raise errors.InstallError(f"schtasks create failed (exit {created.returncode})")
@@ -191,6 +193,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if started.returncode:
         raise errors.InstallError(f"schtasks run failed (exit {started.returncode})")
@@ -233,6 +236,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if deleted.returncode:
         if status(ctx) != "absent":

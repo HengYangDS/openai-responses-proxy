@@ -19,6 +19,7 @@ def test_canonical_documents_are_reachable_from_the_documentation_index() -> Non
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
         timeout=30,
     )

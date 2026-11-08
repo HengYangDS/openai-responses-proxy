@@ -336,6 +336,7 @@ def test_commit_trust_presence_precedes_supply_commands(
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="locale",
         check=False,
         timeout=10,
     )

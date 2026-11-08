@@ -52,6 +52,7 @@ def _macos_service_projection() -> tuple[
             capture_output=True,
             check=True,
             text=True,
+            encoding="locale",
         )
         labels.update(
             f"{domain}/{match.group('label')}"
@@ -66,6 +67,7 @@ def _macos_service_projection() -> tuple[
             capture_output=True,
             check=True,
             text=True,
+            encoding="locale",
         )
         overrides.update(
             (f"{domain}/{match.group('label')}", str(match.group("state")))
@@ -105,6 +107,7 @@ def run_command(
         [str(executable), *arguments],
         env=environment,
         text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=COMMAND_TIMEOUT_SECONDS,
         check=False,
@@ -235,6 +238,7 @@ def legacy_published_bundle(asset: Path, anchor: Path, work: Path) -> tuple[Path
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=60,
     )
     archive.unlink()
@@ -297,6 +301,7 @@ def stop_native_supervision(
                 check=True,
                 capture_output=True,
                 text=True,
+                encoding="locale",
                 stdin=subprocess.DEVNULL,
                 timeout=30,
             )
@@ -311,6 +316,7 @@ def stop_native_supervision(
             check=True,
             capture_output=True,
             text=True,
+            encoding="locale",
             stdin=subprocess.DEVNULL,
             timeout=30,
         )

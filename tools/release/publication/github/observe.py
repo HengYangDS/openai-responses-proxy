@@ -65,6 +65,7 @@ def published_predecessor(*, repository: str, version: str, root: Path = ROOT) -
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if result.returncode == 0:
             return tag

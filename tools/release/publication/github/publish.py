@@ -260,6 +260,8 @@ def _run(command: Sequence[str], unavailable: str, *, cwd: Path | None = None) -
 
 def _output(command: Sequence[str]) -> str:
     try:
-        return subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip()
+        return subprocess.run(
+            command, check=True, capture_output=True, text=True, encoding="utf-8"
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as error:
         raise GitHubPublishError("GitHub release Git identity is unavailable") from error

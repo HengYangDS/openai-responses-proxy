@@ -388,6 +388,7 @@ class ProductInterfaceContracts:
                     command_search_path=tmp_path / "empty-path",
                 ),
                 text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
             )
@@ -417,6 +418,7 @@ class ProductInterfaceContracts:
                     command_search_path=root,
                 ),
                 text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
             )
@@ -446,6 +448,7 @@ class ProductInterfaceContracts:
                         cwd=home,
                         env=environment,
                         text=True,
+                        encoding="utf-8",
                         capture_output=True,
                         check=False,
                     )
@@ -468,6 +471,7 @@ class ProductInterfaceContracts:
                         cwd=home,
                         env=environment,
                         text=True,
+                        encoding="utf-8",
                         capture_output=True,
                         check=False,
                     )
@@ -483,6 +487,7 @@ class ProductInterfaceContracts:
                         cwd=home,
                         env=environment,
                         text=True,
+                        encoding="utf-8",
                         capture_output=True,
                         check=False,
                     )

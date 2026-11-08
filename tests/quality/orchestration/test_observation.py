@@ -240,6 +240,7 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=45,
         )
         assert "ResourceWarning" not in result.stderr

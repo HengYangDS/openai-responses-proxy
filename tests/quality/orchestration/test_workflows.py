@@ -46,6 +46,7 @@ def test_native_developer_uv_uses_only_the_repository_configuration(
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
         timeout=30,
     )
@@ -58,6 +59,7 @@ def test_native_developer_uv_uses_only_the_repository_configuration(
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
         timeout=30,
     )
@@ -139,6 +141,7 @@ def test_native_workflow_task_keeps_both_original_integrations(
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
         timeout=30,
     )

@@ -352,6 +352,7 @@ def _assert_native_formatter_preserves_inputs(
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
             timeout=30,
         )
@@ -392,6 +393,7 @@ def test_editor_indentation_matches_original_formatter(suffix: str, source: str)
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
             timeout=30,
         )

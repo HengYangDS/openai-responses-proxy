@@ -72,6 +72,7 @@ def _domains() -> tuple[str, ...]:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if completed.returncode:
         raise errors.NativeServiceUnavailableError(
@@ -93,6 +94,7 @@ def _service(ctx: runtime_spec.NativeServiceContext, domain: str) -> _Service:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if completed.returncode == _SERVICE_ABSENT:
         return _Service(registered=False, pid=None)
@@ -243,6 +245,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         _require_success(bootout, "bootout")
     if generation is not None and not process.wait_for_exit(generation):
@@ -265,6 +268,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     _require_success(bootstrap, "bootstrap")
     kickstart = subprocess.run(
@@ -272,6 +276,7 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     _require_success(kickstart, "kickstart")
     try:
@@ -321,6 +326,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         _require_success(bootout, "bootout")
     if generation is not None and not process.wait_for_exit(generation):

@@ -48,6 +48,7 @@ def read(root: Path, *command: str) -> dict[str, object]:
             stdin=subprocess.DEVNULL,
             timeout=30,
             text=True,
+            encoding="utf-8",
             capture_output=True,
             check=False,
         )

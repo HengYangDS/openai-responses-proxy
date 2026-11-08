@@ -41,6 +41,7 @@ def release_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable
             stderr=subprocess.PIPE,
             timeout=15,
             text=True,
+            encoding="utf-8",
         ).strip()
 
     git("init", "--initial-branch=main")

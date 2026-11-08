@@ -282,6 +282,7 @@ def _api_pages(endpoint: str) -> list[object]:
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         pages = list(map(json.loads, filter(str.strip, completed.stdout.splitlines())))
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:

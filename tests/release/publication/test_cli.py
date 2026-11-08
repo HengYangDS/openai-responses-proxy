@@ -90,6 +90,7 @@ class PublicationProofCliContracts:
             capture_output=True,
             check=False,
             text=True,
+            encoding="utf-8",
             env={"PATH": "/usr/bin:/bin", "SECRET_TOKEN": "do-not-print"},
         )
         assert completed.returncode == 2

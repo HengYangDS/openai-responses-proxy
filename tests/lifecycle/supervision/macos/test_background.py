@@ -283,6 +283,7 @@ class TestMacosBackgroundContract:
                 capture_output=True,
                 check=False,
                 text=True,
+                encoding="locale",
             )
         assert not home.exists()
 
@@ -321,6 +322,7 @@ class TestMacosBackgroundContract:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
 
     def test_competing_service_registrations_are_not_removed(

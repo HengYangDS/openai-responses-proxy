@@ -38,6 +38,7 @@ def source_manifest(root: Path) -> dict[str, str]:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
         env={name: value for name, value in os.environ.items() if not name.startswith("GIT_")},
     )

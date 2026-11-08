@@ -41,6 +41,7 @@ def run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
         cwd=cwd,
         env=isolated_config_environment(),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         check=False,
     )

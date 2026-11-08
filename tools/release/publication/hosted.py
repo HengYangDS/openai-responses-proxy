@@ -28,7 +28,9 @@ def api_json(
 ) -> object:
     """Run one read-only Forge CLI request and decode its JSON response."""
     try:
-        completed = subprocess.run(command, check=True, capture_output=True, text=True)
+        completed = subprocess.run(
+            command, check=True, capture_output=True, text=True, encoding="utf-8"
+        )
         return json.loads(completed.stdout)
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
         raise error_type(unavailable) from error

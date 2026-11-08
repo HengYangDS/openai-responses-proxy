@@ -122,6 +122,7 @@ class TestLinuxLifecycle:
                 capture_output=True,
                 check=False,
                 text=True,
+                encoding="locale",
             )
 
     def test_native_service_contract_never_persists_python_or_source_paths(self) -> None:

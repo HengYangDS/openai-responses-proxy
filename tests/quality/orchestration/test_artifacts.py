@@ -76,7 +76,7 @@ def test_installed_product_probe_distinguishes_environment_from_source_checkout(
     session = mocker.Mock()
     session.chdir.side_effect = chdir
     session.run.side_effect = lambda *args, **_kwargs: subprocess.run(
-        [str(python), *args[1:]], check=True, capture_output=True, text=True
+        [str(python), *args[1:]], check=True, capture_output=True, text=True, encoding="utf-8"
     )
     mocker.patch.object(nox_configuration, "ROOT", checkout)
 

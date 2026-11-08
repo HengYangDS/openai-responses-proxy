@@ -48,6 +48,7 @@ def _user_systemctl() -> str | None:
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     return systemctl if result.returncode == 0 and result.stdout.strip() else None
 
@@ -110,6 +111,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> 
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if enabled.returncode != 0:
         raise errors.InstallError(f"systemctl enable failed (exit {enabled.returncode})")
@@ -118,6 +120,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> 
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     if restarted.returncode != 0:
         raise errors.InstallError(f"systemctl restart failed (exit {restarted.returncode})")
@@ -126,6 +129,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> 
         capture_output=True,
         check=False,
         text=True,
+        encoding="locale",
     )
     try:
         watchdog_pid = int(observed.stdout.strip()) if observed.returncode == 0 else 0
@@ -169,6 +173,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         if disabled.returncode and registered:
             raise errors.InstallError(f"systemctl disable failed (exit {disabled.returncode})")
@@ -178,6 +183,7 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         if reloaded.returncode:
             raise errors.InstallError("systemctl daemon-reload failed after unit removal")
@@ -212,6 +218,7 @@ def status(ctx: runtime_spec.NativeServiceContext) -> str:
             capture_output=True,
             check=False,
             text=True,
+            encoding="locale",
         )
         properties = dict(
             line.split("=", 1) for line in observed.stdout.splitlines() if "=" in line

@@ -123,6 +123,7 @@ ignore = [
 "tests/quality/test_complexity.py" = ["S607"]
 "tests/quality/test_documentation.py" = ["S607"]
 "tests/quality/test_policy.py" = ["S607"]
+"tests/quality/test_subprocess_text.py" = ["S607"]
 "tests/relay/test_transport_deadline.py" = ["S607"]
 "tests/release/artifact/test_assembly.py" = ["S607"]
 "tests/release/artifact/test_signing.py" = ["S607"]

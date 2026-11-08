@@ -144,6 +144,7 @@ def test_native_reporting_closes_mapped_database_even_if_export_fails(
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert measurement.returncode == 0, measurement.stderr
@@ -162,6 +163,7 @@ def test_native_reporting_closes_mapped_database_even_if_export_fails(
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert "ResourceWarning" not in result.stderr
@@ -212,6 +214,7 @@ class TestCoverageContracts:
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         result = subprocess.run(
             [sys.executable, "-m", "coverage", "json", "--rcfile", str(config), "-o", "-"],
@@ -220,6 +223,7 @@ class TestCoverageContracts:
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         files = {Path(name): detail for name, detail in json.loads(result.stdout)["files"].items()}
         assert set(files) == {

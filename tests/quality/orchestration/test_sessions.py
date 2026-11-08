@@ -30,6 +30,7 @@ def test_nox_console_discovers_the_repository_sessions_without_pythonpath() -> N
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     sessions = {item["session"] for item in json.loads(result.stdout)}

@@ -168,6 +168,7 @@ def _ruff_rule_codes() -> frozenset[str]:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=60,
         check=True,
     )
@@ -212,6 +213,7 @@ def test_partial_path_exemption_names_exactly_the_files_that_need_it() -> None:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=60,
         check=False,
     )
@@ -249,6 +251,7 @@ def test_native_ty_enforces_the_declared_boundary_without_mutation(
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
         check=False,
     )
