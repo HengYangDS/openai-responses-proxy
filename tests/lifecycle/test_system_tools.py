@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,6 +16,14 @@ if TYPE_CHECKING:
     import ctypes
 
     from pytest_mock import MockerFixture
+
+
+# posix_tool serves only the Linux and macOS adapters. Its contract rests on POSIX execute bits,
+# root ownership and symbolic links, which Windows does not provide the same way: os.access
+# does not check an execute bit there, and Path.stat reports no owner.
+POSIX_EXECUTION = pytest.mark.skipif(os.name == "nt", reason="POSIX execute bits")
+POSIX_LINKS = pytest.mark.skipif(os.name == "nt", reason="POSIX symbolic links")
+POSIX_OWNERSHIP = pytest.mark.skipif(os.name == "nt", reason="POSIX file ownership")
 
 
 def _tool(directory: Path, name: str) -> Path:
@@ -28,6 +38,7 @@ def _trust_all(_path: Path) -> bool:
     return True
 
 
+@POSIX_EXECUTION
 def test_a_nixos_system_profile_tool_is_found_after_the_usual_directories(
     tmp_path: Path,
 ) -> None:
@@ -42,6 +53,7 @@ def test_a_nixos_system_profile_tool_is_found_after_the_usual_directories(
     assert resolved == str(profile)
 
 
+@POSIX_EXECUTION
 def test_the_first_trusted_directory_wins(tmp_path: Path) -> None:
     first = _tool(tmp_path / "usr/bin", "ssh-keygen")
     _tool(tmp_path / "run/current-system/sw/bin", "ssh-keygen")
@@ -55,6 +67,7 @@ def test_the_first_trusted_directory_wins(tmp_path: Path) -> None:
     assert resolved == str(first)
 
 
+@POSIX_EXECUTION
 @pytest.mark.parametrize("untrusted", ["directory", "file"])
 def test_a_tool_in_an_untrusted_location_is_refused(tmp_path: Path, untrusted: str) -> None:
     tool = _tool(tmp_path / "usr/bin", "systemctl")
@@ -67,6 +80,7 @@ def test_a_tool_in_an_untrusted_location_is_refused(tmp_path: Path, untrusted: s
     assert resolved is None
 
 
+@POSIX_LINKS
 def test_a_trusted_link_into_a_writable_directory_is_refused(tmp_path: Path) -> None:
     writable = tmp_path / "home/user/bin"
     target = _tool(writable, "systemctl")
@@ -81,6 +95,7 @@ def test_a_trusted_link_into_a_writable_directory_is_refused(tmp_path: Path) -> 
     assert resolved is None
 
 
+@POSIX_LINKS
 def test_a_link_into_a_trusted_directory_is_accepted(tmp_path: Path) -> None:
     target = _tool(tmp_path / "run/current-system/sw/bin", "systemctl")
     trusted_bin = tmp_path / "usr/bin"
@@ -93,6 +108,7 @@ def test_a_link_into_a_trusted_directory_is_accepted(tmp_path: Path) -> None:
     assert resolved == str(link)
 
 
+@POSIX_LINKS
 def test_a_dangling_link_is_refused(tmp_path: Path) -> None:
     trusted_bin = tmp_path / "usr/bin"
     trusted_bin.mkdir(parents=True)
@@ -103,6 +119,7 @@ def test_a_dangling_link_is_refused(tmp_path: Path) -> None:
     assert resolved is None
 
 
+@POSIX_LINKS
 def test_every_checked_location_is_the_resolved_link_and_its_directory(tmp_path: Path) -> None:
     target = _tool(tmp_path / "nix/store/abc-systemd/bin", "systemctl")
     trusted_bin = tmp_path / "usr/bin"
@@ -124,6 +141,7 @@ def test_every_checked_location_is_the_resolved_link_and_its_directory(tmp_path:
     ]
 
 
+@POSIX_OWNERSHIP
 def test_the_default_trust_check_refuses_a_group_or_world_writable_location(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
@@ -135,6 +153,7 @@ def test_the_default_trust_check_refuses_a_group_or_world_writable_location(
         assert system_tools._root_owned_and_closed(tool.parent) is trusted
 
 
+@POSIX_OWNERSHIP
 def test_the_default_trust_check_refuses_a_location_root_does_not_own(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
@@ -144,6 +163,7 @@ def test_the_default_trust_check_refuses_a_location_root_does_not_own(
     assert system_tools._root_owned_and_closed(tool.parent) is False
 
 
+@POSIX_EXECUTION
 def test_a_missing_or_non_executable_candidate_is_skipped(tmp_path: Path) -> None:
     directory = tmp_path / "usr/bin"
     directory.mkdir(parents=True)
@@ -155,6 +175,7 @@ def test_a_missing_or_non_executable_candidate_is_skipped(tmp_path: Path) -> Non
     assert system_tools.posix_tool("absent", directories=(directory,), trusted=_trust_all) is None
 
 
+@POSIX_EXECUTION
 def test_resolution_never_consults_the_callers_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -170,7 +191,9 @@ def test_resolution_never_consults_the_callers_path(
 
 def test_the_trusted_directories_are_fixed_system_locations() -> None:
     expected = ("/usr/bin", "/bin", "/usr/sbin", "/sbin", "/run/current-system/sw/bin")
-    assert tuple(map(str, system_tools.TRUSTED_POSIX_DIRECTORIES)) == expected
+    directories = system_tools.TRUSTED_POSIX_DIRECTORIES
+    assert all(isinstance(directory, PurePosixPath) for directory in directories)
+    assert tuple(directory.as_posix() for directory in directories) == expected
 
 
 def test_posix_ssh_keygen_fails_closed_when_no_trusted_copy_exists(

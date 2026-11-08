@@ -12,6 +12,8 @@ import ctypes
 import os
 import stat
 from pathlib import Path
+from pathlib import PurePath
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 from typing import cast
 
@@ -22,13 +24,14 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 # POSIX system tools live in these directories; NixOS links its system profile's tools from
-# /run/current-system/sw/bin. No directory comes from the environment.
+# /run/current-system/sw/bin. No directory comes from the environment. They are POSIX paths on
+# every host; only the Linux and macOS adapters resolve tools from them.
 TRUSTED_POSIX_DIRECTORIES = (
-    Path("/usr/bin"),
-    Path("/bin"),
-    Path("/usr/sbin"),
-    Path("/sbin"),
-    Path("/run/current-system/sw/bin"),
+    PurePosixPath("/usr/bin"),
+    PurePosixPath("/bin"),
+    PurePosixPath("/usr/sbin"),
+    PurePosixPath("/sbin"),
+    PurePosixPath("/run/current-system/sw/bin"),
 )
 _UNSAFE_WRITERS = stat.S_IWGRP | stat.S_IWOTH
 
@@ -45,7 +48,7 @@ def _root_owned_and_closed(path: Path) -> bool:
 def posix_tool(
     name: str,
     *,
-    directories: Iterable[Path] = TRUSTED_POSIX_DIRECTORIES,
+    directories: Iterable[PurePath] = TRUSTED_POSIX_DIRECTORIES,
     trusted: Callable[[Path], bool] = _root_owned_and_closed,
 ) -> str | None:
     """Return the first trusted system executable of that name, or None when none is trusted.
@@ -55,7 +58,8 @@ def posix_tool(
     default means owned by root and not writable by group or others. A system profile such as
     NixOS's links its tools into another directory, which must be trusted as well.
     """
-    for directory in directories:
+    for declared in directories:
+        directory = Path(declared)
         candidate = directory / name
         if not (candidate.is_file() and os.access(candidate, os.X_OK)):
             continue
