@@ -37,7 +37,7 @@ def test_controller_cleanup_stops_independent_children_after_failure(
     error = errors.InstallError("first owned generation exit is unproved")
     with ExitStack() as cleanup:
         children = []
-        owned = {}
+        owned_processes = {}
         for _ in range(2):
             child = subprocess.Popen(command, stdin=subprocess.DEVNULL)
             cleanup.callback(child.wait, timeout=10)
@@ -45,7 +45,7 @@ def test_controller_cleanup_stops_independent_children_after_failure(
             children.append(child)
             identity = capture_generation(child.pid, sys.executable)
             assert identity is not None
-            owned[identity.pid] = identity
+            owned_processes[identity.pid] = identity
         expected_exit = children[1].pid
         if failure == "registration":
             registered.write_bytes(b'{"pid":')
@@ -54,7 +54,7 @@ def test_controller_cleanup_stops_independent_children_after_failure(
                 try:
                     json.loads(registered.read_text())
                 finally:
-                    test_cleanup._stop_controller(children[0], owned, root, contexts)
+                    test_cleanup._stop_controller(children[0], owned_processes, root, contexts)
 
             with pytest.raises(json.JSONDecodeError):
                 observe_registration()
@@ -69,8 +69,8 @@ def test_controller_cleanup_stops_independent_children_after_failure(
 
             monkeypatch.setattr(process, "terminate_owned_process", deny_first)
             with pytest.raises(errors.InstallError) as raised:
-                test_cleanup._stop_controller(children[0], owned, root, contexts)
+                test_cleanup._stop_controller(children[0], owned_processes, root, contexts)
             assert raised.value.__cause__ is error
             assert preserved.read_bytes() == b"preserved while any owned exit is unproved"
             assert contexts.is_file()
-        assert not process.owned_process_alive(owned[expected_exit])
+        assert not process.owned_process_alive(owned_processes[expected_exit])

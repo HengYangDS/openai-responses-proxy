@@ -33,11 +33,11 @@ class TestHandoffCleanup(SubprocessFixture):
     def test_detached_fixture_stays_beneath_the_surviving_executor_root(
         self, *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
     ) -> None:
-        root = tmp_path / "owned"
-        root.mkdir()
+        executor_root = tmp_path / "owned"
+        executor_root.mkdir()
         contexts = tmp_path / "contexts.jsonl"
         contexts.touch()
-        monkeypatch.setenv(verification._TEST_ROOT, str(root))
+        monkeypatch.setenv(verification._TEST_ROOT, str(executor_root))
         monkeypatch.setenv(verification._CONTEXTS, str(contexts))
         failure = RuntimeError("stop before runtime effects")
         allocated = []
@@ -53,7 +53,7 @@ class TestHandoffCleanup(SubprocessFixture):
 
         assert raised.value is failure
         assert len(allocated) == 1
-        assert allocated[0].is_relative_to(root)
+        assert allocated[0].is_relative_to(executor_root)
         assert not allocated[0].exists()
         assert contexts.read_bytes() == b""
 

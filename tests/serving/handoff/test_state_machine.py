@@ -142,10 +142,10 @@ class TestParentHandoffStateMachine(HandoffFixture):
 
     def test_simultaneous_handoff_is_rejected(self, *, mocker: MockerFixture) -> None:
         server = fake_server(mocker=mocker)
-        expected = expected_metadata()
+        metadata = expected_metadata()
         release_spawn = threading.Event()
         child = fake_child(mocker=mocker)
-        child.recv_message.side_effect = [child_message("ready", child, expected)]
+        child.recv_message.side_effect = [child_message("ready", child, metadata)]
 
         def slow_spawn(
             listener: socket.socket,
@@ -163,14 +163,14 @@ class TestParentHandoffStateMachine(HandoffFixture):
 
         def second_attempt() -> None:
             try:
-                self.p.prepare(server, expected, self.context, timeout_seconds=5)
+                self.p.prepare(server, metadata, self.context, timeout_seconds=5)
             except self.p.HandoffError as exc:
                 errors.append(exc)
 
         mocker.patch.object(self.p, "spawn_child", side_effect=slow_spawn)
         first = threading.Thread(
             target=self.p.prepare,
-            args=(server, expected, self.context),
+            args=(server, metadata, self.context),
             kwargs={"timeout_seconds": 5},
         )
         first.start()

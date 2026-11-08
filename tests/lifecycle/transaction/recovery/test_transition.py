@@ -226,7 +226,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
     original_write = records.write_journal
 
     def interrupt_activated_journal(
-        ctx: runtime_context.RuntimeContext,
+        journal_ctx: runtime_context.RuntimeContext,
         *,
         transaction_id: str,
         version: str,
@@ -243,7 +243,7 @@ def test_recovery_finishes_activation_when_command_precedes_phase_journal(
         if state == "activated":
             raise errors.InstallError("activation journal interrupted")
         original_write(
-            ctx,
+            journal_ctx,
             transaction_id=transaction_id,
             version=version,
             receipt_sha256=receipt_sha256,

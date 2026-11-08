@@ -379,8 +379,8 @@ class TestPayloadProjection:
         self, tmp_path: Path, replacement: str, *, mocker: MockerFixture
     ) -> None:
         """Equal replacement bytes cannot inherit the captured file authority."""
-        root = tmp_path / "payload"
-        directory = root / "bin"
+        payload_root = tmp_path / "payload"
+        directory = payload_root / "bin"
         directory.mkdir(parents=True)
         target = directory / "owned.dll"
         target.write_bytes(b"payload")
@@ -392,16 +392,16 @@ class TestPayloadProjection:
                 path.rename(directory / "captured.dll")
                 path.write_bytes(b"payload")
             else:
-                directory.rename(root / "captured")
+                directory.rename(payload_root / "captured")
                 directory.mkdir()
-                path.hardlink_to(root / "captured" / path.name)
+                path.hardlink_to(payload_root / "captured" / path.name)
             return original_read(path, root=root, label=label)
 
         mocker.patch.object(payload_projection.owned_files, "read_bytes", replace_before_read)
         unlink = mocker.spy(Path, "unlink")
 
         with pytest.raises(errors.InstallError, match="identity changed"):
-            payload_projection.purge_owned_files(root, {"bin/owned.dll": expected})
+            payload_projection.purge_owned_files(payload_root, {"bin/owned.dll": expected})
 
         unlink.assert_not_called()
         assert target.read_bytes() == b"payload"
