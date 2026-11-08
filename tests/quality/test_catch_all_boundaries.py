@@ -40,21 +40,30 @@ def _reraises(handler: ast.ExceptHandler) -> bool:
     return any(isinstance(node, ast.Raise) for node in ast.walk(handler))
 
 
-def unmarked_catch_alls(source: str, filename: str, roles: frozenset[str]) -> list[str]:
-    """Return each broad handler that neither raises again nor carries a declared marker."""
+def handler_markers(source: str, filename: str) -> list[tuple[int, str | None]]:
+    """Return each broad, non-raising handler's line and the boundary role its marker names."""
     comments = {
         token.start[0]: token.string
         for token in tokenize.generate_tokens(io.StringIO(source).readline)
         if token.type == tokenize.COMMENT
     }
-    gaps = []
+    markers = []
     for node in ast.walk(ast.parse(source, filename=filename)):
         if not isinstance(node, ast.ExceptHandler) or not _broad(node.type) or _reraises(node):
             continue
         marker = MARKER.search(comments.get(node.lineno, ""))
-        if marker is None or marker["role"] not in roles:
-            gaps.append(f"{filename}:{node.lineno}")
-    return gaps
+        role = marker.group("role") if marker is not None else None
+        markers.append((node.lineno, role if isinstance(role, str) else None))
+    return markers
+
+
+def unmarked_catch_alls(source: str, filename: str, roles: frozenset[str]) -> list[str]:
+    """Return each broad handler that neither raises again nor carries a declared marker."""
+    return [
+        f"{filename}:{line}"
+        for line, role in handler_markers(source, filename)
+        if role is None or role not in roles
+    ]
 
 
 def _tracked_python() -> list[str]:
@@ -82,11 +91,11 @@ def test_every_catch_all_sits_at_a_declared_boundary() -> None:
 
 
 def test_every_declared_boundary_role_is_used() -> None:
-    used = set()
-    for relative in _tracked_python():
-        for line in (ROOT / relative).read_text(encoding="utf-8").splitlines():
-            if (marker := MARKER.search(line)) is not None:
-                used.add(marker["role"])
+    used = {
+        role
+        for relative in _tracked_python()
+        for _line, role in handler_markers((ROOT / relative).read_text(encoding="utf-8"), relative)
+    }
     assert used == _boundary_roles()
 
 
