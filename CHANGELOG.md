@@ -8,6 +8,13 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- Bundle `filelock` 4.2.9, whose fix makes its read-write locks reject a
+  non-boolean `blocking` argument; the proxy uses only `FileLock`. Build the
+  Linux release assets on the current `python:3.14.10-bookworm` image digest,
+  and take mise-action 5.2.7, which retries transient download failures.
+
 ## [5.1.10] - 2026-11-08
 
 ### Fixed

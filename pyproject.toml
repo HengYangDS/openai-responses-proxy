@@ -12,7 +12,7 @@ license = "MIT"
 dependencies = [
   "certifi==2026.10.23",
   "cyclopts==5.3.3",
-  "filelock==4.2.8",
+  "filelock==4.2.9",
   "psutil==7.2.2",
   "rich==15.0.0",
 ]
@@ -22,7 +22,7 @@ openai-responses-proxy = "openai_responses_proxy.cli.application:main"
 
 [dependency-groups]
 quality = [
-  "coverage==7.17.1",
+  "coverage==7.17.2",
   "deptry==0.25.1",
   "hatchling==1.33.0",
   "nox==2026.10.20",
@@ -33,8 +33,8 @@ quality = [
   "pytest-reportlog==1.0.0",
   "pytest-subtests==0.15.0",
   "pyyaml==6.0.3",
-  "ruff==0.17.3",
-  "ty==0.0.97",
+  "ruff==0.17.4",
+  "ty==0.0.99",
   "vulture==2.16",
 ]
 release = ["pyinstaller==6.22.3"]
