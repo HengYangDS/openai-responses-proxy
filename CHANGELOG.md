@@ -14,6 +14,9 @@ publication authority.
   non-boolean `blocking` argument; the proxy uses only `FileLock`. Build the
   Linux release assets on the current `python:3.14.10-bookworm` image digest,
   and take mise-action 5.2.7, which retries transient download failures.
+- Bundle Cyclopts 5.4.0. Its fixes concern combined short flags in meta apps,
+  argument files and completion generation, none of which the proxy's CLI
+  uses; help and usage text are unchanged.
 
 ## [5.1.10] - 2026-11-08
 

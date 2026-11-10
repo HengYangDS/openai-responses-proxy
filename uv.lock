@@ -147,7 +147,7 @@ wheels = [
 
 [[package]]
 name = "cyclopts"
-version = "5.3.3"
+version = "5.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -155,9 +155,9 @@ dependencies = [
     { name = "rich" },
     { name = "rich-rst" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/af/8254627de20f769193afde3b4fdffd0f3b5c5c0e8a756b6088b6e308ec2c/cyclopts-5.3.3.tar.gz", hash = "sha256:86182ba223839686d52178c2b6151b28de8fe9d02cb64d290fbc86341a4a5b76", size = 255373, upload-time = "2026-11-02T16:01:51.559Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/ea/b4237c7955b11d529ac29fa5b55ce744c6e09514753725337c270aa4ae43/cyclopts-5.4.0.tar.gz", hash = "sha256:a853c9394fde3e3ec0a1b50c7e20b64bb49dfd71baef5f24eceb7bb397171a41", size = 257584, upload-time = "2026-11-08T14:37:40.844Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/03/a5b9e6fe5420461af7166e0d9f3b120e42383b14bc84edec9d696439b51d/cyclopts-5.3.3-py3-none-any.whl", hash = "sha256:b16ae3619f9447f6b7e42834586e2def254b940ce0b39f82eaf3cfee788a924f", size = 298068, upload-time = "2026-11-02T16:01:49.463Z" },
+    { url = "https://files.pythonhosted.org/packages/16/7b/0e423f10ac1d19c7405301874caf7c2b76a977dc9901dd8da70707b0187f/cyclopts-5.4.0-py3-none-any.whl", hash = "sha256:29a4639849e9161f64bce7904c787b85f6a8accfb08cd675ad70b7753af57e81", size = 300383, upload-time = "2026-11-08T14:37:39.152Z" },
 ]
 
 [[package]]
@@ -344,7 +344,7 @@ release = [
 [package.metadata]
 requires-dist = [
     { name = "certifi", specifier = "==2026.10.23" },
-    { name = "cyclopts", specifier = "==5.3.3" },
+    { name = "cyclopts", specifier = "==5.4.0" },
     { name = "filelock", specifier = "==4.2.9" },
     { name = "psutil", specifier = "==7.2.2" },
     { name = "rich", specifier = "==15.0.0" },
@@ -357,7 +357,7 @@ quality = [
     { name = "hatchling", specifier = "==1.33.0" },
     { name = "nox", specifier = "==2026.10.20" },
     { name = "pyflakes", specifier = "==4.1.0" },
-    { name = "pyperf", specifier = "==2.10.0" },
+    { name = "pyperf", specifier = "==2.11.0" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "pytest-mock", specifier = "==3.17.0" },
     { name = "pytest-reportlog", specifier = "==1.0.0" },
@@ -502,14 +502,14 @@ wheels = [
 
 [[package]]
 name = "pyperf"
-version = "2.10.0"
+version = "2.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "psutil" },
+    { name = "psutil", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/16/91/39ca77aa58f13e8c65d747ac7e06584b55acabfa98987fb8d546bc24860d/pyperf-2.10.0.tar.gz", hash = "sha256:dd93ccfda79214725293e95f1fa6e00cb4a64adcf1326039486d4e1f91caaa62", size = 227609, upload-time = "2026-02-07T11:35:14.693Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/8e/3edccdd1debc4ff534ebb37fd36a2201f3ec58adc333a77b924eddcaec73/pyperf-2.11.0.tar.gz", hash = "sha256:e53813a2d97dc5a89760cf660dbd1b6a142558fcb6d32b3529c8a6b2d03dbdf8", size = 236570, upload-time = "2026-11-08T14:42:15.599Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/26/f7bd5e37c254c2671f4dfff316d123eba13663bdfee941a01b09ab02d72d/pyperf-2.10.0-py3-none-any.whl", hash = "sha256:79196bc4a11e3c926dd4c6b14c80136c6b37f884fe913cbc57037f37636e9841", size = 144430, upload-time = "2026-02-07T11:35:12.636Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/bf/5d947464c2f47408b8ba259ee2bba58cb042404db368efb5a3080e801cb7/pyperf-2.11.0-py3-none-any.whl", hash = "sha256:11c0034bb29a79796417a6e5a7852ff4814a33cce24aeb6d268676c3a52dfda6", size = 149147, upload-time = "2026-11-08T14:42:13.988Z" },
 ]
 
 [[package]]

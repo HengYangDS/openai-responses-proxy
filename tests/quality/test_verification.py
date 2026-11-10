@@ -450,7 +450,8 @@ class TestVerificationContracts:
         """Performance must be measured explicitly, not inferred from functional tests."""
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         quality = metadata["dependency-groups"]["quality"]
-        assert "pyperf==2.10.0" in quality
+        # pyproject.toml owns the version; the test checks only that pyperf is an exact pin.
+        assert any(requirement.startswith("pyperf==") for requirement in quality)
         assert (ROOT / ".config/checks/performance/policy.toml").is_file()
         assert (ROOT / "tools/performance/benchmark.py").is_file()
         assert (ROOT / "tools/performance/memory.py").is_file()

@@ -29,7 +29,7 @@ cue = "0.17.1"
 
 [vars]
 # The digest-pinned Renovate release that validates and inspects the dependency proposal policy.
-renovate_image = "ghcr.io/renovatebot/renovate:44.215.0@sha256:10b921ce64cac11667849e7c1c4f0c4996d641f88b949652e69a324622538f7a"
+renovate_image = "ghcr.io/renovatebot/renovate:44.222.5@sha256:8a4c49ef19bb71bedf4eaa4d1087a31a1793bd53de41478753d2d648e53eed19"
 
 [env]
 UV_PROJECT_ENVIRONMENT = "{{config_root}}/.venv"
