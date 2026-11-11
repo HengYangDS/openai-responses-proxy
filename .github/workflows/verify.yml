@@ -75,7 +75,7 @@ jobs:
           version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
-          version: 2026.11.5
+          version: 2026.11.6
           install: true
           cache: true
       - name: Install and audit locked Node repository tools
@@ -272,7 +272,7 @@ jobs:
           version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
-          version: 2026.11.5
+          version: 2026.11.6
           install: true
           cache: true
       - name: Install and audit locked Node repository tools
@@ -311,7 +311,7 @@ jobs:
           version-file: .config/mise/uv.toml
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
-          version: 2026.11.5
+          version: 2026.11.6
           install: true
           cache: true
       - name: Verify lint, format, types, structure, docstrings, and product branch coverage

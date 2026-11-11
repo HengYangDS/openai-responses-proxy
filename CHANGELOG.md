@@ -10,10 +10,12 @@ publication authority.
 
 ### Changed
 
-- Bundle `filelock` 4.2.9, whose fix makes its read-write locks reject a
-  non-boolean `blocking` argument; the proxy uses only `FileLock`. Build the
-  Linux release assets on the current `python:3.14.10-bookworm` image digest,
-  and take mise-action 5.2.7, which retries transient download failures.
+- Bundle `filelock` 4.2.10. Its fixes make read-write locks reject a
+  non-boolean `blocking` argument, and make a contended lock raise `Timeout`
+  once the elapsed time reaches the timeout; the proxy uses only a `FileLock`
+  with a zero timeout. Build the Linux release assets on the current
+  `python:3.14.10-bookworm` image digest, and take mise-action 5.2.7, which
+  retries transient download failures.
 - Bundle Cyclopts 5.4.0. Its fixes concern combined short flags in meta apps,
   argument files and completion generation, none of which the proxy's CLI
   uses; help and usage text are unchanged.
