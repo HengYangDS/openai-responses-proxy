@@ -2,7 +2,7 @@
   "name": "openai-responses-proxy-repository-tools",
   "private": true,
   "devDependencies": {
-    "@fission-ai/openspec": "1.16.1",
+    "@fission-ai/openspec": "2.0.0",
     "prettier": "3.9.10"
   }
 }

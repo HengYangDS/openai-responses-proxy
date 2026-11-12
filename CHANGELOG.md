@@ -19,6 +19,9 @@ publication authority.
 - Bundle Cyclopts 5.4.0. Its fixes concern combined short flags in meta apps,
   argument files and completion generation, none of which the proxy's CLI
   uses; help and usage text are unchanged.
+- Bundle `markdown-it-py` 4.3.0, which Rich carries. It fixes two
+  quadratic-time parsing paths that crafted Markdown could stall; the proxy
+  renders no Markdown.
 
 ## [5.1.10] - 2026-11-08
 
