@@ -44,6 +44,26 @@ def _rules(policy: Mapping[str, object], key: str) -> list[Mapping[str, object]]
     return [_mapping(rule) for rule in _sequence(policy[key])]
 
 
+_AGE_ROUTES = frozenset({"extends", "stabilityDays", "internalChecksFilter"})
+
+
+def _declared_ages(node: object, path: str = "") -> list[str]:
+    """Every place in the policy that declares a release age, or can add or disable one."""
+    if isinstance(node, dict):
+        found: list[str] = []
+        for key, value in node.items():
+            # A preset can bring an age of its own, the legacy stabilityDays is one, and
+            # internalChecksFilter decides whether the age holds anything.
+            if str(key).startswith("minimumReleaseAge") or key in _AGE_ROUTES:
+                found.append(f"{path}/{key}")
+            else:
+                found += _declared_ages(value, f"{path}/{key}")
+        return found
+    if isinstance(node, list):
+        return [age for item in node for age in _declared_ages(item, f"{path}[]")]
+    return []
+
+
 def _python_pattern(pattern: str) -> re.Pattern[str]:
     """Compile one Renovate pattern, whose named groups use JavaScript syntax."""
     return re.compile(re.sub(r"\(\?<(?![=!])", "(?P<", pattern))
@@ -139,14 +159,21 @@ def test_uv_required_version_is_read_with_the_uv_group() -> None:
 def test_release_age_vulnerability_and_automerge_admission() -> None:
     policy = _policy()
     rules = _rules(policy, "packageRules")
-    assert policy["minimumReleaseAge"] == "3 days"
+    # The owner's setting of 2026-11-13: the release age is one value in hours that a later
+    # change edits in one place. These assertions read where an age is declared and in which
+    # unit, never how long it is; only the security-fix rule names an age of its own, zero.
+    assert re.fullmatch(r"(0|[1-9]\d*) hours", str(policy["minimumReleaseAge"]))
     assert policy["minimumReleaseAgeBehaviour"] == "timestamp-required"
-    managers = [(_strings(rule.get("matchManagers", [])), rule) for rule in rules]
-    assert [
-        rule for names, rule in managers if "npm" in names and "minimumReleaseAge" in rule
-    ] == []
+    assert sorted(_declared_ages(policy)) == [
+        "/internalChecksFilter",
+        "/minimumReleaseAge",
+        "/minimumReleaseAgeBehaviour",
+        "/vulnerabilityAlerts/minimumReleaseAge",
+    ]
+    # Without the strict filter Renovate proposes a release that is still inside the age.
+    assert policy["internalChecksFilter"] == "strict"
     vulnerability = _mapping(policy["vulnerabilityAlerts"])
-    assert vulnerability["minimumReleaseAge"] == "0 days"
+    assert vulnerability["minimumReleaseAge"] == "0 hours"
     # Without their own concurrency limits, security fixes skip the proposal queue, as
     # Renovate does by default.
     assert not {"prConcurrentLimit", "branchConcurrentLimit"} & vulnerability.keys()

@@ -121,10 +121,26 @@ signed object.
 
 ### Requirement: Dependency updates follow release age and kind
 
-Ordinary npm updates SHALL wait the policy's release age; hash-locked,
-checksum-locked and digest-pinned inputs MAY move at release. Only minor and
-patch updates of stable dependencies MAY merge automatically; toolchains,
-Actions, images, pre-1.0 and major versions SHALL need deliberate admission.
+The policy SHALL declare one release age, in hours, for every source; only a
+security fix skips it. Only minor and patch updates of stable dependencies MAY
+merge automatically; toolchains, Actions, images, pre-1.0 and major versions
+SHALL need deliberate admission.
+
+#### Scenario: The release age changes
+
+- **WHEN** the release age is raised or lowered
+- **THEN** one value of the policy changes, written as a whole number of hours,
+  and every source follows it
+- **AND** repository tests SHALL fail while another rule declares an age of its
+  own, or while a security fix does not skip the age.
+
+#### Scenario: A release is younger than the release age
+
+- **WHEN** the release age is above zero and the newest stable release of a
+  locked input is younger than it, and no advisory names the locked release
+- **THEN** the policy holds it and a refresh keeps the locked release
+- **AND** a release whose registry publishes no time stays held until its
+  publisher's release record shows its age.
 
 #### Scenario: A security fix is published
 

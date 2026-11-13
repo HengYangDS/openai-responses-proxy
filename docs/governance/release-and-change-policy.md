@@ -141,9 +141,10 @@ GitLab peer's images. The generated Forge workflows are projections, so neither
 Forge's native updater owns proposals, and the repository has no Dependabot or
 Forge-discovered Renovate configuration.
 
-- npm updates wait three days, which cover npm's unpublish window. Hash-locked
-  Python packages, checksum-locked tools, and digest-pinned Actions and images
-  move at release.
+- The policy declares the repository's release age once, in hours, for every
+  source. It is zero today, so a stable release may be taken at publication,
+  and one value raises it. Above zero, a registry that publishes no release
+  time leaves its release held until the publisher's release record dates it.
 - A security fix skips the release age and the proposal queue. It still needs
   signatures, the current-commit tests and Change admission.
 - Python packages and npm tools form separate groups. uv moves with its required

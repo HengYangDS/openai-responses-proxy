@@ -3,7 +3,8 @@
   "description": [
     "The one dependency proposal policy of this repository. A maintenance run computes candidates against one selected Forge, and the other Forge receives the same signed object through publication, so no Forge-native updater owns proposals.",
     "Inputs are the authored manifests, locks and CUE declarations; generated Forge workflows are projections, not inputs.",
-    "The content stays strict JSON, so repository tests read it with the standard library."
+    "The content stays strict JSON, so repository tests read it with the standard library.",
+    "minimumReleaseAge at the root is the repository's release age, declared once and in hours, for every source: zero takes a stable release at publication, and one value raises it. No rule declares an age of its own except the security-fix rule, which is always zero. Above zero, a release whose registry publishes no time stays held."
   ],
   "enabledManagers": ["pep621", "npm", "mise", "custom.regex"],
   "includePaths": [
@@ -27,7 +28,7 @@
   "semanticCommitType": "build",
   "semanticCommitScope": "toolchain",
   "ignoreUnstable": true,
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "0 hours",
   "minimumReleaseAgeBehaviour": "timestamp-required",
   "internalChecksFilter": "strict",
   "prCreation": "immediate",
@@ -35,7 +36,7 @@
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "description": "A security fix skips the release age and, natively, the proposal quota and queue; it still needs signatures, current-commit tests and Change admission.",
-    "minimumReleaseAge": "0 days",
+    "minimumReleaseAge": "0 hours",
     "groupName": null,
     "automerge": false,
     "vulnerabilityFixStrategy": "highest"
@@ -45,17 +46,6 @@
   "automergeStrategy": "fast-forward",
   "platformAutomerge": false,
   "packageRules": [
-    {
-      "description": "Hash-locked Python packages and checksum-locked tools move at release; npm keeps three days, which cover its unpublish window.",
-      "matchManagers": ["pep621", "mise"],
-      "minimumReleaseAge": "0 days"
-    },
-    {
-      "description": "Digest-pinned Actions and images move at release; their current stable release still needs its own admission evidence.",
-      "matchManagers": ["custom.regex"],
-      "matchDatasources": ["github-tags", "github-releases", "docker"],
-      "minimumReleaseAge": "0 days"
-    },
     {
       "description": "CUE owns the supported Python range, 3.12 to 3.14, so no proposal edits requires-python.",
       "matchManagers": ["pep621"],
