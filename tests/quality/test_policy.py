@@ -257,8 +257,10 @@ def test_native_ty_enforces_the_declared_boundary_without_mutation(
     )
     assert result.stderr == ""
     assert result.returncode == int(not valid)
+    # ty 0.0.102 split `invalid-return-type` into focused rules; a returned value of the wrong
+    # type is `invalid-explicit-return`.
     assert {entry["check_name"] for entry in json.loads(result.stdout)} == (
-        set() if valid else {"invalid-return-type"}
+        set() if valid else {"invalid-explicit-return"}
     )
     assert source.read_text(encoding="utf-8") == content
 
