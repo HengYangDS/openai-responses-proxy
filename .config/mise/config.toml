@@ -13,7 +13,7 @@ node = "26.13.1"
 python = "3.14.10"
 
 # Dependency management
-uv = "0.13.7"
+uv = "0.13.8"
 
 # Specification and CI modeling
 cue = "0.17.1"
@@ -29,7 +29,7 @@ cue = "0.17.1"
 
 [vars]
 # The digest-pinned Renovate release that validates and inspects the dependency proposal policy.
-renovate_image = "ghcr.io/renovatebot/renovate:44.226.2@sha256:c30c21d917b25cee1103fe8585bbc67bdb0a8792067237eae8d6734e83b4d485"
+renovate_image = "ghcr.io/renovatebot/renovate:44.239.0@sha256:56c9cd93b1baf92ebcc121cdd5cffa46daeeb09e23460cf1c363627a6e5334a6"
 
 [env]
 UV_PROJECT_ENVIRONMENT = "{{config_root}}/.venv"

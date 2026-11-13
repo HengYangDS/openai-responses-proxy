@@ -73,9 +73,9 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
         with:
-          version: 2026.11.6
+          version: 2026.11.8
           install: true
           cache: true
       - name: Install and audit locked Node repository tools
@@ -270,9 +270,9 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
         with:
-          version: 2026.11.6
+          version: 2026.11.8
           install: true
           cache: true
       - name: Install and audit locked Node repository tools
@@ -309,9 +309,9 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
         with:
-          version: 2026.11.6
+          version: 2026.11.8
           install: true
           cache: true
       - name: Verify lint, format, types, structure, docstrings, and product branch coverage

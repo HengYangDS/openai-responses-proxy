@@ -18,9 +18,15 @@ publication authority.
   with a zero timeout. Build the Linux release assets on the current
   `python:3.14.10-bookworm` image digest, and take mise-action 5.2.7, which
   retries transient download failures.
-- Bundle Cyclopts 5.4.0. Its fixes concern combined short flags in meta apps,
-  argument files and completion generation, none of which the proxy's CLI
-  uses; help and usage text are unchanged.
+- Bundle Cyclopts 5.4.2. Its fixes since 5.3.3 concern combined short flags in
+  meta apps, argument files, completion generation and the error text of
+  limited-choice groups, none of which the proxy's CLI uses. It also reports a
+  numeric overflow during conversion as a conversion error; the proxy rejects
+  an out-of-range or non-numeric `--port` with the same message and exit status
+  as before. Help and usage text are unchanged.
+- Run the developer tools and CI jobs on uv 0.13.8 with its GitLab images, the
+  GitLab Mise 2026.11.8 image and mise-action 5.2.8. The release assets do not
+  contain them.
 - Bundle `markdown-it-py` 4.3.0, which Rich carries. It fixes two
   quadratic-time parsing paths that crafted Markdown could stall; the proxy
   renders no Markdown.

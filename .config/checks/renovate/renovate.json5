@@ -21,7 +21,7 @@
   ],
   "baseBranchPatterns": ["dev"],
   "branchPrefix": "proposal/dependencies/",
-  "dependencyDashboard": false,
+  "dependencyDashboard": { "enabled": false },
   "prConcurrentLimit": 1,
   "branchConcurrentLimit": 1,
   "semanticCommits": "enabled",

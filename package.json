@@ -3,6 +3,6 @@
   "private": true,
   "devDependencies": {
     "@fission-ai/openspec": "2.0.0",
-    "prettier": "3.9.10"
+    "prettier": "3.10.1"
   }
 }
