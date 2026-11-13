@@ -9,7 +9,7 @@ use_versions_host = false
 
 [tools]
 # Language runtimes
-node = "26.13.0"
+node = "26.13.1"
 python = "3.14.10"
 
 # Dependency management

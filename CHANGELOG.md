@@ -10,6 +10,8 @@ publication authority.
 
 ### Changed
 
+- Run the developer tools and CI jobs on Node 26.13.1, the security release
+  of 2026-11-10. The release assets do not contain Node.
 - Bundle `filelock` 4.2.10. Its fixes make read-write locks reject a
   non-boolean `blocking` argument, and make a contended lock raise `Timeout`
   once the elapsed time reaches the timeout; the proxy uses only a `FileLock`
