@@ -142,9 +142,13 @@ Forge's native updater owns proposals, and the repository has no Dependabot or
 Forge-discovered Renovate configuration.
 
 - The policy declares the repository's release age once, in hours, for every
-  source. It is zero today, so a stable release may be taken at publication,
-  and one value raises it. Above zero, a registry that publishes no release
-  time leaves its release held until the publisher's release record dates it.
+  update it proposes. It is zero today, so a stable release may be taken at
+  publication, and one value raises it. Above zero, Renovate adds its default
+  buffer of 30 minutes, and a registry that publishes no release time, such as
+  GitHub's container registry, leaves its releases held: a refresh takes one
+  after reading its age from the publisher's release record.
+- Packages that only a lock pins, as dependencies of declared ones, get no
+  proposal. A lock refresh moves them and applies the declared age itself.
 - A security fix skips the release age and the proposal queue. It still needs
   signatures, the current-commit tests and Change admission.
 - Python packages and npm tools form separate groups. uv moves with its required

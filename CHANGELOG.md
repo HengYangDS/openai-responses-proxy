@@ -8,6 +8,12 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject a `--port` value that overflows a number, such as `1.0e999`, as a
+  usage error with exit status 2. It ended the command with a Python traceback
+  and exit status 1. The fix comes with Cyclopts 5.4.2.
+
 ### Changed
 
 - Run the developer tools and CI jobs on Node 26.13.1, the security release
@@ -16,17 +22,13 @@ publication authority.
   non-boolean `blocking` argument, and make a contended lock raise `Timeout`
   once the elapsed time reaches the timeout; the proxy uses only a `FileLock`
   with a zero timeout. Build the Linux release assets on the current
-  `python:3.14.10-bookworm` image digest, and take mise-action 5.2.7, which
-  retries transient download failures.
-- Bundle Cyclopts 5.4.2. Its fixes since 5.3.3 concern combined short flags in
-  meta apps, argument files, completion generation and the error text of
-  limited-choice groups, none of which the proxy's CLI uses. It also reports a
-  numeric overflow during conversion as a conversion error; the proxy rejects
-  an out-of-range or non-numeric `--port` with the same message and exit status
-  as before. Help and usage text are unchanged.
+  `python:3.14.10-bookworm` image digest.
+- Bundle Cyclopts 5.4.2. The other changes since 5.3.3 concern meta apps,
+  argument files, completion generation, limited-choice groups and types that
+  the proxy's CLI does not use; help and usage text are unchanged.
 - Run the developer tools and CI jobs on uv 0.13.8 with its GitLab images, the
-  GitLab Mise 2026.11.8 image and mise-action 5.2.8. The release assets do not
-  contain them.
+  GitLab Mise 2026.11.8 image and mise-action 5.2.8, which retries transient
+  download failures. The release assets do not contain them.
 - Bundle `markdown-it-py` 4.3.0, which Rich carries. It fixes two
   quadratic-time parsing paths that crafted Markdown could stall; the proxy
   renders no Markdown.

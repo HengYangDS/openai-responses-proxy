@@ -121,26 +121,35 @@ signed object.
 
 ### Requirement: Dependency updates follow release age and kind
 
-The policy SHALL declare one release age, in hours, for every source; only a
-security fix skips it. Only minor and patch updates of stable dependencies MAY
-merge automatically; toolchains, Actions, images, pre-1.0 and major versions
-SHALL need deliberate admission.
+The policy SHALL declare one release age, in hours, for every update it
+proposes; only a security fix skips it. Only minor and patch updates of stable
+dependencies MAY merge automatically; toolchains, Actions, images, pre-1.0 and
+major versions SHALL need deliberate admission.
 
 #### Scenario: The release age changes
 
 - **WHEN** the release age is raised or lowered
 - **THEN** one value of the policy changes, written as a whole number of hours,
-  and every source follows it
-- **AND** repository tests SHALL fail while another rule declares an age of its
-  own, or while a security fix does not skip the age.
+  and every proposed update follows it
+- **AND** repository tests SHALL fail while another rule, a preset, a schedule
+  or a package manager's own setting holds or admits releases by another rule
+- **AND** they SHALL fail while the security rule is disabled, scheduled, or
+  without its advisory source.
 
 #### Scenario: A release is younger than the release age
 
 - **WHEN** the release age is above zero and the newest stable release of a
-  locked input is younger than it, and no advisory names the locked release
-- **THEN** the policy holds it and a refresh keeps the locked release
-- **AND** a release whose registry publishes no time stays held until its
-  publisher's release record shows its age.
+  pinned input is younger than it, and no advisory names the pinned release
+- **THEN** the policy proposes the newest release that has passed the age, or
+  none
+- **AND** a release whose registry publishes no time stays held, so a refresh
+  that takes it first reads its age from the publisher's release record.
+
+#### Scenario: A package is locked only as a transitive dependency
+
+- **WHEN** a package is pinned only by a lock, as a dependency of a declared one
+- **THEN** the policy proposes no update for it, and a lock refresh moves it
+- **AND** that refresh SHALL apply the declared release age itself.
 
 #### Scenario: A security fix is published
 

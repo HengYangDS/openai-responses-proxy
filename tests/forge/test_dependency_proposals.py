@@ -21,13 +21,17 @@ POLICY = ROOT / ".config/checks/renovate/renovate.json5"
 DISCOVERED = (
     "renovate.json",
     "renovate.json5",
+    "renovate.jsonc",
     ".renovaterc",
     ".renovaterc.json",
     ".renovaterc.json5",
+    ".renovaterc.jsonc",
     ".github/renovate.json",
     ".github/renovate.json5",
+    ".github/renovate.jsonc",
     ".gitlab/renovate.json",
     ".gitlab/renovate.json5",
+    ".gitlab/renovate.jsonc",
     ".github/dependabot.yml",
     ".github/dependabot.yaml",
 )
@@ -44,7 +48,18 @@ def _rules(policy: Mapping[str, object], key: str) -> list[Mapping[str, object]]
     return [_mapping(rule) for rule in _sequence(policy[key])]
 
 
-_AGE_ROUTES = frozenset({"extends", "stabilityDays", "internalChecksFilter"})
+_AGE_ROUTES = frozenset(
+    {
+        "extends",
+        "globalExtends",
+        "stabilityDays",
+        "internalChecksFilter",
+        "schedule",
+        "minimumConfidence",
+        "dependencyDashboardApproval",
+        "lockFileMaintenance",
+    }
+)
 
 
 def _declared_ages(node: object, path: str = "") -> list[str]:
@@ -52,8 +67,10 @@ def _declared_ages(node: object, path: str = "") -> list[str]:
     if isinstance(node, dict):
         found: list[str] = []
         for key, value in node.items():
-            # A preset can bring an age of its own, the legacy stabilityDays is one, and
-            # internalChecksFilter decides whether the age holds anything.
+            # A preset can bring an age of its own, the legacy stabilityDays is one,
+            # internalChecksFilter decides whether the age holds anything, and a schedule, a
+            # confidence floor, a dashboard approval or lock maintenance would hold or move
+            # releases by another rule than the age.
             if str(key).startswith("minimumReleaseAge") or key in _AGE_ROUTES:
                 found.append(f"{path}/{key}")
             else:
@@ -174,6 +191,20 @@ def test_release_age_vulnerability_and_automerge_admission() -> None:
     assert policy["internalChecksFilter"] == "strict"
     vulnerability = _mapping(policy["vulnerabilityAlerts"])
     assert vulnerability["minimumReleaseAge"] == "0 hours"
+    # The security rule skips the age only while it can run: on GitLab it needs the OSV
+    # alerts, and a disabled rule or one with its own schedule proposes nothing in time.
+    assert policy["osvVulnerabilityAlerts"] is True
+    assert vulnerability.keys() == {
+        "description",
+        "minimumReleaseAge",
+        "groupName",
+        "automerge",
+        "vulnerabilityFixStrategy",
+    }
+    # The package managers have age settings of their own; one of them would hold a lock
+    # refresh that the policy does not see.
+    assert "exclude-newer" not in (ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8")
+    assert "min-release-age" not in (ROOT / ".config/npm/npmrc").read_text(encoding="utf-8")
     # Without their own concurrency limits, security fixes skip the proposal queue, as
     # Renovate does by default.
     assert not {"prConcurrentLimit", "branchConcurrentLimit"} & vulnerability.keys()

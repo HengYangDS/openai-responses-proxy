@@ -4,7 +4,7 @@
     "The one dependency proposal policy of this repository. A maintenance run computes candidates against one selected Forge, and the other Forge receives the same signed object through publication, so no Forge-native updater owns proposals.",
     "Inputs are the authored manifests, locks and CUE declarations; generated Forge workflows are projections, not inputs.",
     "The content stays strict JSON, so repository tests read it with the standard library.",
-    "minimumReleaseAge at the root is the repository's release age, declared once and in hours, for every source: zero takes a stable release at publication, and one value raises it. No rule declares an age of its own except the security-fix rule, which is always zero. Above zero, a release whose registry publishes no time stays held."
+    "minimumReleaseAge at the root is the repository's release age, declared once and in hours, for every update this policy proposes: zero takes a stable release at publication, and one value raises it. No rule declares an age of its own except the security-fix rule, which is always zero. Above zero, Renovate adds its default 30-minute buffer and a release whose registry publishes no time stays held. Packages that only a lock pins get no proposal; a lock refresh applies the age itself."
   ],
   "enabledManagers": ["pep621", "npm", "mise", "custom.regex"],
   "includePaths": [

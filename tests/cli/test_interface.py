@@ -263,6 +263,10 @@ class ProductInterfaceContracts:
         cases = (
             ("status", "--port", "0"),
             ("status", "--port", "65536"),
+            # A decimal that overflows a float reached the conversion as an unhandled
+            # OverflowError until Cyclopts 5.4.2: a traceback and exit status 1.
+            ("status", "--port", "1.0e999"),
+            ("status", "--port", "-1.5e400"),
             ("reload", "--timeout-seconds", "0"),
             ("reload", "--timeout-seconds", "-1"),
         )
