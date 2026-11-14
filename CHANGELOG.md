@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.12] - 2026-11-14
+
 ### Changed
 
 - Name a stream's ending in the log: `terminal=error` with the event's code,
