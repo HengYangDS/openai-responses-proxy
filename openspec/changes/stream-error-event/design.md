@@ -20,8 +20,8 @@ only truthful signal is to break the connection.
 - Changing the event's bytes or translating it into `response.failed`.
 - Making a client stop resending. Codex 0.169.0 ignores the event (see Risks), and a translation into
   `response.failed` would not help it either: it resends after a failure whose code it does not know.
-- Other spellings of the event: a code nested under `error` ends the stream and is logged as `unknown`; an event
-  that is named `error` only in its `event:` line, with data of no type, stays an event like any other.
+- Another spelling of the event: one that is named `error` only in its `event:` line, with data of no type,
+  stays an event like any other.
 
 ## Decisions
 
@@ -40,6 +40,10 @@ existing terminal handling already avoids.
 The `error` event's `code` appears in the log only when it is a token of lowercase letters, digits and
 underscores, at most 64 characters; anything else is `unknown`. The message, which can quote request content,
 never appears. Telemetry records the failure class `stream_error`.
+
+The code is read beside the event's type, where the Responses reference puts it, and otherwise in an `error`
+member, where Codex 0.169.0's reader looks for it. A code beside the type that is not a token is `unknown`; the
+nested one is not a second chance for it.
 
 This is wider than `failure_diagnostic`, which names three known codes of `response.failed`. A provider's `error`
 codes are an open vocabulary, and a closed list would name almost none of them on a third-party route, which is

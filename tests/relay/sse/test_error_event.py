@@ -40,6 +40,12 @@ def _error_event(code: object = "validation_error") -> bytes:
     return b"data: " + json.dumps(payload).encode() + b"\n\n"
 
 
+def _stream(result: sse.RelayResult) -> sse.StreamResult:
+    stream = result["result"]
+    assert stream is not None
+    return stream
+
+
 def _chunked(*events: bytes) -> bytes:
     return b"".join(b"%X\r\n%s\r\n" % (len(event), event) for event in events)
 
@@ -89,8 +95,8 @@ class TestStreamErrorEvent:
         assert result["attempts"] == 1
         assert not result["outcome_unknown"]
         assert not result["pre_content_exhausted"]
-        assert result["result"]["terminal"] == "error"
-        assert result["result"]["error"] is None
+        assert _stream(result)["terminal"] == "error"
+        assert _stream(result)["error"] is None
         fields = _log_fields(log_path, "sse_terminal")
         assert fields["terminal"] == "error"
         assert fields["code"] == "validation_error"
@@ -125,7 +131,7 @@ class TestStreamErrorEvent:
         )
 
         assert handler.output() == _chunked(_CREATED, error) + _FINAL_CHUNK
-        assert result["result"]["terminal"] == "error"
+        assert _stream(result)["terminal"] == "error"
         assert _log_fields(log_path, "sse_terminal")["events"] == "2"
 
     def test_an_error_event_without_its_blank_line_ends_the_stream(self, log_path: Path) -> None:
@@ -136,7 +142,7 @@ class TestStreamErrorEvent:
 
         assert handler.output() == _chunked(_DELTA, unfinished) + _FINAL_CHUNK
         assert not getattr(handler, "close_connection", False)
-        assert result["result"]["terminal"] == "error"
+        assert _stream(result)["terminal"] == "error"
         assert _log_fields(log_path, "sse_terminal")["code"] == "validation_error"
 
     def test_an_error_event_ends_a_plaintext_agent_delivery(self, log_path: Path) -> None:
@@ -152,7 +158,7 @@ class TestStreamErrorEvent:
         )
 
         assert handler.output() == _chunked(_CREATED, _IN_PROGRESS, error) + _FINAL_CHUNK
-        assert result["result"]["terminal"] == "error"
+        assert _stream(result)["terminal"] == "error"
         assert _log_fields(log_path, "sse_terminal")["code"] == "validation_error"
 
     def test_a_reopened_stream_can_end_with_an_error_event(
@@ -177,7 +183,7 @@ class TestStreamErrorEvent:
         reopen.assert_called_once()
         assert result["attempts"] == 2
         assert handler.output() == _chunked(_CREATED, error) + _FINAL_CHUNK
-        assert result["result"]["terminal"] == "error"
+        assert _stream(result)["terminal"] == "error"
         assert _log_fields(log_path, "sse_terminal")["code"] == "validation_error"
 
     @pytest.mark.parametrize(
@@ -203,6 +209,41 @@ class TestStreamErrorEvent:
         )
 
         assert _log_fields(log_path, "sse_terminal")["code"] == "unknown"
+        assert "leaked" not in log_path.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize(
+        ("event", "logged"),
+        [
+            (
+                {"type": "error", "error": {"code": "context_length_exceeded"}},
+                "context_length_exceeded",
+            ),
+            ({"type": "error", "code": "beside_type", "error": {"code": "nested"}}, "beside_type"),
+            ({"type": "error", "code": 7, "error": {"code": "nested"}}, "unknown"),
+            ({"type": "error", "error": {"code": "Private Prose", "message": "leaked"}}, "unknown"),
+            ({"type": "error", "error": "leaked prose"}, "unknown"),
+            ({"type": "error", "error": ["nested"]}, "unknown"),
+        ],
+        ids=[
+            "nested",
+            "beside the type first",
+            "a wrong type hides nothing",
+            "prose",
+            "text",
+            "list",
+        ],
+    )
+    def test_a_code_is_read_beside_the_type_or_under_error(
+        self, event: dict[str, object], logged: str, log_path: Path
+    ) -> None:
+        raw = b"data: " + json.dumps(event).encode() + b"\n\n"
+        handler = MemoryHandler()
+
+        result = sse.relay(handler, DirectResponse(raw), "/dmxapi/v1/responses", 17)
+
+        assert handler.output() == _chunked(raw) + _FINAL_CHUNK
+        assert _stream(result)["terminal"] == "error"
+        assert _log_fields(log_path, "sse_terminal")["code"] == logged
         assert "leaked" not in log_path.read_text(encoding="utf-8")
 
     def test_a_longest_code_token_is_logged(self, log_path: Path) -> None:
@@ -263,7 +304,7 @@ class TestStreamErrorEvent:
 
         result = sse.relay(handler, DirectResponse(b"".join(events)), "/dmxapi/v1/responses", 10)
 
-        assert result["result"]["terminal"] is None
+        assert _stream(result)["terminal"] is None
         fields = _log_fields(log_path, "sse_end_without_terminal")
         assert fields["last"] == last
         assert fields["events"] == str(len(events))

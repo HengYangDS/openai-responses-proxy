@@ -91,8 +91,17 @@ def failure_diagnostic(error: object) -> tuple[str, str]:
 
 
 def stream_error_code(event: object) -> str:
-    """Return a top-level stream error event's code as a bounded token, never its message."""
-    code = event.get("code") if isinstance(event, dict) else None
+    """Return a stream error event's code as a bounded token, never its message.
+
+    The Responses reference puts the code beside the event's type; some streams nest it in an
+    `error` member, which is where Codex reads it. The code beside the type comes first.
+    """
+    if not isinstance(event, dict):
+        return "unknown"
+    code = event.get("code")
+    nested = event.get("error")
+    if code is None and isinstance(nested, dict):
+        code = nested.get("code")
     return code if isinstance(code, str) and _CODE_TOKEN.fullmatch(code) else "unknown"
 
 

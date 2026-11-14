@@ -39,5 +39,4 @@ a stream are the same as before; what changes is that the HTTP body ends instead
 Not addressed: what a client does with an `error` event. Codex 0.169.0 does not read it: against a scripted
 upstream it sent the request six times with either ending, and only its message changed, from "error decoding
 response body" to "stream closed before response.completed". Also out of scope: retrying after an `error` event,
-an `error` whose code is nested under `error`, an event named `error` only in its `event:` line, and what the
-three other terminal events do.
+an event named `error` only in its `event:` line, and what the three other terminal events do.
