@@ -37,12 +37,6 @@ def resolve_upstream(
     return None if resolved is None else (resolved[0].name, resolved[1], resolved[2])
 
 
-def _admit(exchange: upstream_exchange.Exchange) -> None:
-    """Count one Responses request; no other route is counted."""
-    if exchange.is_responses:
-        exchange.log("responses_admitted", f"active={admission.admit_response()} ")
-
-
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
     """Reject one Responses request while its provider policy is cooling down."""
     if not exchange.is_responses:
@@ -321,7 +315,7 @@ def relay(
     )
     if _cooldown_active(exchange):
         return
-    _admit(exchange)
+    exchange.log("responses_admitted", f"active={admission.admit_response()} ")
     try:
         with downstream.write_deadline(handler, exchange.deadline):
             response = upstream_exchange.open_upstream(exchange)

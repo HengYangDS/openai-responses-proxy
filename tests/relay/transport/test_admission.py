@@ -9,7 +9,6 @@ import urllib.request
 
 import pytest
 
-from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
@@ -131,6 +130,3 @@ class TestProxyTransport(LoopbackTransportFixture):
             with request(port, body) as response:
                 assert response.read() == success
             assert len(received) == 1
-
-        health = proxy.runtime_status()
-        assert (health["accepting"], health["draining"]) == (True, False)

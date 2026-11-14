@@ -62,8 +62,8 @@ def send_status(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
 def _bounded_lease_seconds(value: object) -> float:
     """Bound the lease of a handed-off listener; an unreadable value takes the default."""
     if isinstance(value, (str, Buffer, SupportsInt, SupportsIndex)):
-        with suppress(TypeError, ValueError):
-            return min(_MAX_LEASE_SECONDS, max(_MIN_LEASE_SECONDS, int(value)))
+        with suppress(TypeError, ValueError, OverflowError):
+            return float(min(_MAX_LEASE_SECONDS, max(_MIN_LEASE_SECONDS, int(value))))
     return handoff.HANDOFF_DEFAULT_LEASE_SECONDS
 
 

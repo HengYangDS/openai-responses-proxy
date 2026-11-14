@@ -6,7 +6,7 @@ the listener to close its own admission, so `relay/admission.py` held a drain la
 and a lease, `serving/control.py` exposed it at `/control/drain`, and `relay/responses.py` answered
 `503 proxy_draining` while it was set.
 
-Both handoff capabilities first shipped in 4.0.6, before the product took its current name at 5.0.0. Releases
+Both handoff capabilities have shipped since 3.1.16, before the product took its current name at 5.0.0. Releases
 5.0.0 to 5.1.12 advertise both. The proposal states why the second transition goes.
 
 ## Goals / Non-Goals
@@ -47,7 +47,10 @@ its own route, and such a listener is not valid for a transition.
 
 Before its payload rollback, a failed handoff required the captured predecessor to own the listener and to admit
 requests, after a `DELETE /control/drain`. The request is gone and the proof stays: `handoff.predecessor_serves`
-reads health once. Without that proof the outcome is unknown and the transaction is preserved, as before.
+reads health once. It also requires an idle handoff session, the condition under which the failure resolver calls
+a handoff rolled back: an interrupt can leave the resolver while a handoff is still in flight, and that handoff
+may yet commit its successor. Without the proof the outcome is unknown and the transaction is preserved, as
+before.
 
 ### One owner closes a refused transaction
 
@@ -70,7 +73,8 @@ route. No special refusal is kept: a route that is named only to be refused is s
   back to replacement. → Accepted: no release under this name lacks it, and the failure leaves the current
   listener serving.
 - The journeys from the published predecessor cannot run on a development host without touching its service.
-  → They run in the proof and in hosted CI on three platforms before the lane lands.
+  → They run in the proof and in hosted CI on three platforms before the lane lands. A journey starts from the
+  newest release below `VERSION`, so the lane carries the release preparation: its journeys start from 5.1.12.
 
 ## Migration Plan
 

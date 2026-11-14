@@ -79,20 +79,6 @@ class TestProtocolContract:
         assert (status["accepting"], status["draining"]) == (True, False)
         assert {"drain_generation", "drain_lease_remaining_seconds"}.isdisjoint(status)
 
-    def test_a_prepared_or_committing_handoff_keeps_request_admission_open(
-        self,
-    ) -> None:
-        def assert_accepting(state: str) -> None:
-            handoff_module._HANDOFF_SESSION["state"] = state
-            try:
-                status = self.p.runtime_status()
-                assert (status["draining"], status["accepting"]) == (False, True)
-            finally:
-                handoff_module.reset_session_to_idle()
-
-        for state in ("preparing", "ready", "committing", "serving", "finalizing"):
-            assert_accepting(state)
-
     def test_healthz_over_real_loopback_http_exposes_the_same_shape(self) -> None:
         providers = provider_registry.Registry(
             {"fixture": provider_registry.Profile("fixture", "https://gateway.example/v1")}

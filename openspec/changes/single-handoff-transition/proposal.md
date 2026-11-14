@@ -46,10 +46,9 @@ Code: `lifecycle/deployment` (`apply`, `handoff`, `strategy`), `lifecycle/instal
 
 Handoff protocol 2 does not change. An upgrade from 5.1.12 and a rollback to it hand off as before.
 
-Evidence: the unit tests and the local proof cover the refusals and the failure paths. The retained-predecessor
-journeys on macOS, Linux and Windows, which run in the proof and in hosted CI, cover the upgrade from the
-published predecessor and the rollback to it under load. Acceptance on the operator host is the installed
-upgrade and the rollback.
+Evidence: the unit tests and the local proof cover the refusals and the failure paths. The journeys from the
+published 5.1.12 on macOS, Linux and Windows, which run in the proof and in hosted CI, cover the upgrade and the
+rollback to it under load. Acceptance on the operator host is the installed upgrade and the rollback.
 
 Not addressed: the readers of an installation without a generation selector, which task 5.8 of
 `terminal-product-convergence` still owns.

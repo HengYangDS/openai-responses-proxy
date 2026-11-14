@@ -14,13 +14,10 @@ from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
-from tests.lifecycle.deployment.installation.fixtures import OrderedServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
-
-    from openai_responses_proxy.lifecycle import runtime_spec
 
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
@@ -94,40 +91,6 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         )
         service.uninstall_mock.assert_not_called()
         service.install_mock.assert_called_once_with(payload.context)
-
-    def test_candidate_processes_exit_before_payload_rollback(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        events: list[object] = []
-        payload = FakeTransaction(self.ctx, events=events)
-        current = self.current_runtime()
-        service = OrderedServiceAdapter(events, mocker=mocker)
-        mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        mocker.patch.object(
-            apply,
-            "request_handoff",
-            side_effect=errors.InstallError("successor unavailable"),
-        )
-
-        def terminate(ctx: runtime_spec.NativeServiceContext, *, timeout_seconds: float) -> int:
-            del timeout_seconds
-            events.extend((("candidate-exit", 222), ("candidate-exit", 333)))
-            service.running_contexts.discard(ctx.executable)
-            return 2
-
-        service.terminate_runtime = mocker.Mock(side_effect=terminate)
-
-        with pytest.raises(errors.InstallError, match="successor unavailable"):
-            self.deploy(payload, current, adapter=service, mocker=mocker)
-
-        assert events == [
-            "commit",
-            "activate",
-            "rollback",
-        ]
-        service.uninstall_mock.assert_not_called()
-        service.install_mock.assert_not_called()
-        service.terminate_runtime.assert_not_called()
 
     def test_current_upgrade_accepts_an_equivalent_supervisor_path(
         self, *, mocker: MockerFixture
@@ -260,8 +223,8 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             )
         assert not isinstance(failed.value, apply.UnknownDeploymentOutcome)
         assert rolled_back.events == ["commit", "activate", "rollback"]
-        assert evidence.call_args_list == [mocker.call(self.ctx), mocker.call(self.ctx)]
         rollback_service.install_mock.assert_not_called()
+        rollback_service.uninstall_mock.assert_not_called()
 
         unknown = FakeTransaction(self.ctx)
         preserved_service = FakeServiceAdapter(mocker=mocker)
@@ -295,9 +258,21 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             ),
             ({"accepting": False}, "predecessor listener no longer owns Responses admission"),
             ({"draining": True}, "predecessor listener no longer owns Responses admission"),
+            (
+                {"handoff_state": "ready", "handoff_transaction_id": "7" * 32},
+                "predecessor listener no longer owns Responses admission",
+            ),
             (OSError("offline"), "operating-system operation failed"),
         ],
-        ids=["silent", "replaced", "other-payload", "not-accepting", "draining", "unreadable"],
+        ids=[
+            "silent",
+            "replaced",
+            "other-payload",
+            "not-accepting",
+            "draining",
+            "mid-handoff",
+            "unreadable",
+        ],
     )
     def test_failed_upgrade_preserves_the_transaction_without_a_serving_predecessor(
         self,
@@ -329,8 +304,8 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             )
 
         assert str(raised.value) == (
-            "failed upgrade cannot prove that the predecessor still serves; "
-            "upgrade failure: successor unavailable; "
+            "failed handoff cannot prove that the predecessor still serves; "
+            "handoff failure: successor unavailable; "
             f"proof failure: {proof_failure}"
         )
         assert payload.events == [

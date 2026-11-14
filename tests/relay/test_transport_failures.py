@@ -229,10 +229,6 @@ class TestTransportFailures(InputTransportFixture):
     ) -> None:
         handler = MemoryHandler(path="/dmxapi/v1/models")
         exchange = mocker.Mock(handler=handler, is_responses=False)
-        counted = mocker.patch.object(responses.admission, "admit_response")
-        responses._admit(exchange)
-        counted.assert_not_called()
-        exchange.log.assert_not_called()
         assert not responses._cooldown_active(exchange)
 
     def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(

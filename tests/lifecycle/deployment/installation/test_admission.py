@@ -150,3 +150,46 @@ def test_install_admission_failure_retains_failed_prepared_cleanup(
     assert raised.value.code == initial.code
     assert raised.value.next_command == initial.next_command
     payload.rollback_if_prepared.assert_called_once_with()
+
+
+def test_refused_rollback_reports_a_failed_cleanup_with_its_refusal(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
+    """A rollback names both failures when the transaction it opened cannot be closed."""
+    payload = mocker.Mock()
+    payload.rollback_if_prepared.side_effect = errors.InstallError(
+        "payload generation removal failed (OS error 32)"
+    )
+    mocker.patch.object(apply.transaction, "begin_rollback_transaction", return_value=payload)
+    mocker.patch.object(
+        apply, "install", side_effect=errors.InstallError("installed runtime is incompatible")
+    )
+
+    with pytest.raises(errors.InstallError) as raised:
+        apply.rollback(
+            install_context(tmp_path),
+            mocker.Mock(),
+            adapter=FakeServiceAdapter(mocker=mocker),
+            runtime_reader=lambda _ctx: {"pid": 321},
+        )
+
+    assert str(raised.value) == (
+        "rollback failed: installed runtime is incompatible; "
+        "prepared payload cleanup failed: payload generation removal failed (OS error 32)"
+    )
+
+
+def test_an_interrupted_transition_still_closes_its_prepared_transaction(
+    *, mocker: MockerFixture
+) -> None:
+    """An interrupt before any projection closes the transaction and stays an interrupt."""
+    payload = mocker.Mock()
+    payload.rollback_if_prepared.return_value = True
+
+    def interrupted() -> None:
+        with apply.closing_prepared(payload, "installation"):
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        interrupted()
+    payload.rollback_if_prepared.assert_called_once_with()

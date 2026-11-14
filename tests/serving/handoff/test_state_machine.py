@@ -82,9 +82,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert prepared["child"] is child
         assert self.p._HANDOFF_SESSION["child_pid"] == child.runtime_pid
 
-    def test_prepare_then_commit_finalizes_and_never_reopens_admission_itself(
-        self, *, mocker: MockerFixture
-    ) -> None:
+    def test_prepare_then_commit_finalizes(self, *, mocker: MockerFixture) -> None:
         child = fake_child(mocker=mocker)
         expected = expected_metadata()
         outcome, server, _, _ = self.committed(
@@ -102,9 +100,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         assert self.p._HANDOFF_SESSION.get("outcome") == "finalized"
         assert handoff_outcome_ready().is_set()
 
-    def test_parent_stops_accepting_before_child_serves_without_closing_admission(
-        self, *, mocker: MockerFixture
-    ) -> None:
+    def test_parent_stops_accepting_before_child_serves(self, *, mocker: MockerFixture) -> None:
         server = fake_server(mocker=mocker)
         child = fake_child(mocker=mocker)
         expected = expected_metadata()

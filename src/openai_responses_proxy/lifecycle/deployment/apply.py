@@ -275,8 +275,8 @@ def _upgrade(
                 )
             except BaseException as proof_error:
                 unknown = UnknownDeploymentOutcome(
-                    "failed upgrade cannot prove that the predecessor still serves; "
-                    f"upgrade failure: {errors.failure_summary(upgrade_error)}; "
+                    "failed handoff cannot prove that the predecessor still serves; "
+                    f"handoff failure: {errors.failure_summary(upgrade_error)}; "
                     f"proof failure: {errors.failure_summary(proof_error)}"
                 )
                 payload.preserve_for_recovery(str(unknown))

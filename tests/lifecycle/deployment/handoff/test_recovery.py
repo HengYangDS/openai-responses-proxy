@@ -64,6 +64,8 @@ class TestControllerHandoffWiring(HandoffFixture):
             idle_runtime(serving_payload_sha256="c" * 64),
             idle_runtime(accepting=False),
             idle_runtime(draining=True),
+            idle_runtime(handoff_state="preparing", handoff_transaction_id="7" * 32),
+            idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32),
         ):
             with subtests.test(runtime=runtime):
                 assert not serves(runtime)

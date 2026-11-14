@@ -15,7 +15,7 @@ def _available_transaction(state: object, transaction_id: object) -> bool:
     return isinstance(transaction_id, str) and bool(transaction_id)
 
 
-def deployment_strategy_identity_is_valid(runtime: handoff.RuntimeSnapshot | None) -> bool:
+def _identity_is_valid(runtime: handoff.RuntimeSnapshot | None) -> bool:
     """Return whether runtime identity permits a lifecycle transition."""
     if not isinstance(runtime, dict):
         return False
@@ -48,7 +48,7 @@ def deployment_strategy_identity_is_valid(runtime: handoff.RuntimeSnapshot | Non
 
 def runtime_supports_handoff(runtime: handoff.RuntimeSnapshot | None) -> bool:
     """Return whether a live runtime has a valid identity and both handoff capabilities."""
-    if not deployment_strategy_identity_is_valid(runtime) or not isinstance(runtime, dict):
+    if not _identity_is_valid(runtime) or not isinstance(runtime, dict):
         return False
     capabilities = runtime.get("handoff_capabilities")
     return (

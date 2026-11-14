@@ -34,7 +34,8 @@ before a projection, a service definition or a process changes.
 
 - **WHEN** an upgrade or rollback handoff fails before its successor commits
 - **THEN** the payload is rolled back only after health proves that the
-  captured predecessor still owns the listener and admits requests
+  captured predecessor still owns the listener, has no handoff in flight and
+  admits requests
 - **AND** without that proof the transaction is preserved for recovery as an
   unknown outcome
 - **AND** the controller sends the predecessor no request that changes its

@@ -112,6 +112,8 @@ class TestHandoffControlHandler:
             ({"lease_seconds": 0}, 1),
             ({"lease_seconds": 41}, 41),
             ({"lease_seconds": "9999"}, 900),
+            ({"lease_seconds": float("inf")}, 30),
+            ({"lease_seconds": float("nan")}, 30),
         ):
             with subtests.test(lease=lease):
                 handler = fake_handler({**expected_metadata(), **lease}, mocker=mocker)

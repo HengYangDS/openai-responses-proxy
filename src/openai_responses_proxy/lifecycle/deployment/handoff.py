@@ -78,14 +78,9 @@ def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_secon
     return max(1.0, timeout_seconds, ctx.upstream_timeout)
 
 
-def _control_reply(
-    request: urllib.request.Request,
-    *,
-    timeout_seconds: float,
-    accepted: int,
-    label: str,
-) -> object:
-    """Read one bounded JSON reply from the loopback control plane, or raise one public error."""
+def _handoff_reply(request: urllib.request.Request, *, timeout_seconds: float) -> object:
+    """Read the bounded JSON reply of an accepted handoff request, or raise one public error."""
+    label = "handoff control"
     try:
         with loopback.open_request(request, timeout_seconds=timeout_seconds) as response:
             status = response.status
@@ -96,7 +91,7 @@ def _control_reply(
         raise errors.InstallError(f"{label} returned HTTP {code}") from exc
     except (OSError, urllib.error.URLError, ValueError) as exc:
         raise errors.InstallError(f"{label} is unavailable") from exc
-    if status != accepted:
+    if status != HTTPStatus.ACCEPTED:
         raise errors.InstallError(f"{label} returned HTTP {status}")
     if len(raw) > _MAX_BODY_BYTES:
         raise errors.InstallError(f"{label} response is too large")
@@ -170,11 +165,8 @@ def post_ready(
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         method="POST",
     )
-    loaded_response = _control_reply(
-        request,
-        timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS,
-        accepted=HTTPStatus.ACCEPTED,
-        label="handoff control",
+    loaded_response = _handoff_reply(
+        request, timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS
     )
     if not isinstance(loaded_response, dict) or not all(
         isinstance(key, str) for key in loaded_response
@@ -205,14 +197,14 @@ def predecessor_serves(
     source_runtime: RuntimeSnapshot,
     runtime_reader: RuntimeReader,
 ) -> bool:
-    """Return whether the captured predecessor still owns the listener and admits requests."""
+    """Return whether the captured predecessor owns the listener, idle and admitting requests.
+
+    A handoff that is still in flight may yet commit its successor, so it proves nothing.
+    """
     runtime = runtime_reader(ctx)
-    return (
-        _runtime_is_captured_source(source_listener, runtime, source_runtime)
-        and runtime is not None
-        and runtime.get("accepting") is True
-        and runtime.get("draining") is False
-    )
+    return _runtime_is_captured_source(
+        source_listener, runtime, source_runtime
+    ) and _old_runtime_resumed(runtime, source_runtime)
 
 
 def request(

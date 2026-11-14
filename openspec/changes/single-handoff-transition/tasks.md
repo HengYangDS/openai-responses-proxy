@@ -9,7 +9,8 @@
 - [x] 1.3 Keep `accepting: true` and `draining: false` in health as protocol 2 constants and drop the drain
       generation and lease fields; tests read the real health and status shape.
 - [x] 1.4 Roll a failed handoff back only on read-only proof that the captured predecessor still serves; tests
-      cover a predecessor that is gone, replaced, not accepting and draining, each preserving the transaction.
+      cover a predecessor that is gone, replaced, not accepting, draining and mid-handoff, each preserving the
+      transaction.
 - [x] 1.5 Close the transaction of a rollback that is refused before any projection, through the owner that
       `install` uses; a test with a real transaction shows no journal, an unchanged selector and an unchanged
       installed record.
@@ -17,6 +18,6 @@
 ## 2. Verification
 
 - [ ] 2.1 `mise run check` passes on the lane head.
-- [ ] 2.2 The hosted graph passes at the proposal head, with the retained-predecessor journeys on macOS, Linux and
-      Windows.
+- [ ] 2.2 The hosted graph passes at the proposal head, with the journeys from the published 5.1.12 on macOS, Linux
+      and Windows; the head carries the next `VERSION`, or the journeys would start from 5.1.11.
 - [ ] 2.3 Each finding of a fresh-context review of the lane is fixed on the lane head or answered in the design.
