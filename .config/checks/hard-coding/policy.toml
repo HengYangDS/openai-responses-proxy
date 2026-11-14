@@ -162,7 +162,7 @@ kind = "domain-constant"
 owner = "src/openai_responses_proxy/serving/server.py"
 invariant = "Every loopback control route is explicit and remains separate from relayed Provider traffic."
 surfaces = ["network-control-route"]
-rationale = "Health, drain, and handoff are product-owned control routes rather than Provider catalog entries."
+rationale = "Health and handoff are product-owned control routes rather than Provider catalog entries."
 projections = ["docs/", "src/openai_responses_proxy/serving/", "tests/serving/"]
 
 [[controls]]

@@ -1,28 +1,19 @@
-"""Concurrent admission, drain leases and health through real loopback hops."""
+"""Concurrent admission, control routes and health through real loopback hops."""
 
 from __future__ import annotations
 
 import http.client
 import json
 import threading
-import urllib.error
 import urllib.request
-from typing import TYPE_CHECKING
-from typing import cast
 
 import pytest
 
-from openai_responses_proxy.relay import admission
-from openai_responses_proxy.relay import cooldown
-from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
-
-if TYPE_CHECKING:
-    from pytest_mock import MockerFixture
 
 
 class TestProxyTransport(LoopbackTransportFixture):
@@ -109,129 +100,37 @@ class TestProxyTransport(LoopbackTransportFixture):
         self, headers: dict[str, str]
     ) -> None:
         with running_proxy([]) as (port, _received):
-            for method, path in (
-                ("POST", "/control/drain"),
-                ("DELETE", "/control/drain"),
-                ("POST", "/control/handoff"),
-            ):
-                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-                try:
-                    connection.request(method, path, headers=headers)
-                    response = connection.getresponse()
-                    response.read()
-                finally:
-                    connection.close()
-                assert response.status == 403, (method, path)
-            assert not proxy.runtime_status()["draining"]
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            try:
+                connection.request("POST", "/control/handoff", headers=headers)
+                response = connection.getresponse()
+                response.read()
+            finally:
+                connection.close()
+            assert response.status == 403
 
-    def test_loopback_drain_rejects_new_responses_and_can_be_reopened(self) -> None:
+    @pytest.mark.parametrize("method", ["POST", "DELETE"])
+    def test_drain_path_is_an_unrouted_path_and_leaves_admission_open(self, method: str) -> None:
         success = b'{"id":"resp_served","status":"completed"}'
         body = json.dumps({"stream": False, "input": []}).encode()
         with running_proxy([(200, success)]) as (port, received):
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            drain = urllib.request.Request(
-                f"http://127.0.0.1:{port}/control/drain",
-                method="POST",
-            )
-            with opener.open(drain) as response:
-                snapshot = json.loads(response.read())
-            assert snapshot["draining"]
-            assert snapshot["active_responses"] == 0
+            replies = []
+            for path in ("/control/drain", "/control/unrouted"):
+                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                try:
+                    connection.request(method, path)
+                    response = connection.getresponse()
+                    replies.append((response.status, json.loads(response.read())))
+                finally:
+                    connection.close()
+            assert replies[0] == replies[1]
+            status, payload = replies[0]
+            assert status == 404
+            assert payload["error"]["code"] == "provider_route_not_found"
 
-            with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body)
-            with raised.value:
-                assert raised.value.code == 503
-                assert raised.value.headers["Retry-After"] == "1"
-                payload = json.loads(raised.value.read())
-            assert payload["error"]["code"] == "proxy_draining"
-            assert received == []
-
-            reopen = urllib.request.Request(
-                f"http://127.0.0.1:{port}/control/drain",
-                method="DELETE",
-            )
-            with opener.open(reopen) as response:
-                assert not json.loads(response.read())["draining"]
             with request(port, body) as response:
                 assert response.read() == success
+            assert len(received) == 1
 
-        status = proxy.runtime_status()
-        counters = cast("dict[str, int]", status["counters"])
-        assert counters["responses_rejected_while_draining"] == 1
-        assert not status["draining"]
-
-    def test_drain_lease_expires_without_a_controller_rollback_request(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        admission.reset_for_test()
-        telemetry.reset_for_test()
-        cooldown.reset_for_test()
-        mocker.patch.object(admission.time, "monotonic", side_effect=[10.0, 10.0, 12.1, 12.1, 12.1])
-        started = admission.set_draining(enabled=True, lease_seconds=2)
-        expired = proxy.runtime_status()
-        assert started["draining"]
-        assert not expired["draining"]
-        assert expired["drain_lease_remaining_seconds"] is None
-        counters = cast("dict[str, int]", expired["counters"])
-        assert counters["drain_leases_expired"] == 1
-
-    def test_drain_closes_admission_while_an_existing_response_finishes(self) -> None:
-        success = b'{"id":"resp_served","status":"completed"}'
-        body = json.dumps({"stream": False, "input": []}).encode()
-        started = threading.Event()
-        release = threading.Event()
-        worker_result = {}
-
-        scripted = {
-            "status": 200,
-            "content_type": "application/json",
-            "chunks": [success],
-            "started_event": started,
-            "release_event": release,
-        }
-        with running_proxy([scripted]) as (port, received):
-
-            def request_in_flight() -> None:
-                try:
-                    with request(port, body) as response:
-                        worker_result["body"] = response.read()
-                except (OSError, http.client.HTTPException) as exc:  # asserted below
-                    worker_result["error"] = exc
-
-            worker = threading.Thread(target=request_in_flight)
-            worker.start()
-            try:
-                assert started.wait(timeout=2), (
-                    "upstream never received the first Responses request"
-                )
-
-                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-                drain = urllib.request.Request(
-                    f"http://127.0.0.1:{port}/control/drain",
-                    method="POST",
-                )
-                with opener.open(drain) as response:
-                    snapshot = json.loads(response.read())
-                assert snapshot["draining"]
-                assert snapshot["active_responses"] == 1
-
-                with pytest.raises(urllib.error.HTTPError) as raised:
-                    request(port, body)
-                with raised.value:
-                    assert raised.value.code == 503
-                    assert json.loads(raised.value.read())["error"]["code"] == "proxy_draining"
-                assert json.loads(received[0]) == {**json.loads(body), "store": False}
-
-                release.set()
-                worker.join(timeout=3)
-                assert not worker.is_alive(), "in-flight request did not complete after drain"
-                assert "error" not in worker_result
-                assert worker_result["body"] == success
-
-                with opener.open(f"http://127.0.0.1:{port}/healthz") as response:
-                    drained = json.loads(response.read())
-                assert drained["draining"]
-                assert drained["active_responses"] == 0
-            finally:
-                release.set()
+        health = proxy.runtime_status()
+        assert (health["accepting"], health["draining"]) == (True, False)

@@ -10,6 +10,14 @@ publication authority.
 
 ### Changed
 
+- **Breaking:** upgrade, rollback and reload replace a running listener only by
+  handoff. A runtime that does not advertise both handoff capabilities is
+  refused before any change with "installed runtime is incompatible; remove it
+  before installing this release"; `reload` accepted one capability before.
+  Every release from 5.0.0 on advertises both.
+- A handoff that fails before its successor commits is rolled back after the
+  controller reads from health that the predecessor still serves; it no longer
+  sends the predecessor a request first.
 - **Breaking:** an installation written by 5.0.6 or earlier is refused instead
   of read with defaults. A native runtime configuration without the body,
   catalog and SSE budget fields, a macOS launch agent without the Aqua and
@@ -17,8 +25,20 @@ publication authority.
   each fail with their reason and change nothing. Remove such an installation
   with the release that wrote it, then install this release.
 
+### Fixed
+
+- A rollback that was refused before any change left a prepared transaction
+  behind, and every later command asked for `recover`. The refusal now closes
+  the transaction that it opened.
+
 ### Removed
 
+- **Breaking:** the control routes `POST` and `DELETE /control/drain`, the
+  local response `503 proxy_draining`, the `status` counters
+  `responses_rejected_while_draining` and `drain_leases_expired`, and the
+  health fields `drain_generation` and `drain_lease_remaining_seconds`. Health
+  keeps `accepting: true` and `draining: false`. A lifecycle transition never
+  closes admission.
 - The README section "Migrate from 4.x". The `[5.0.0]` entry records that
   migration: uninstall the earlier product with its own command, then install
   this one.

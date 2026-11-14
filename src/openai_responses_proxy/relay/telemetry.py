@@ -37,8 +37,6 @@ _METRICS_LOCK = threading.Lock()
 _COUNTERS = {
     "responses_received": 0,
     "responses_completed": 0,
-    "responses_rejected_while_draining": 0,
-    "drain_leases_expired": 0,
     "provider_rate_limits": 0,
     "provider_rate_limit_cooldown_hits": 0,
     "provider_unavailable_cooldown_hits": 0,

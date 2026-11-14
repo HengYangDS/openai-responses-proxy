@@ -84,7 +84,7 @@ class ResilientProxyServer(ThreadingHTTPServer):
         request: object,
         client_address: object,
     ) -> None:
-        """Track one request handler within the drain-admission boundary."""
+        """Count one request handler while it runs."""
         admission.begin_handler()
         try:
             super().process_request_thread(
@@ -132,10 +132,8 @@ class Handler(BaseHTTPRequestHandler):
         del args, kwargs
 
     def do_POST(self) -> None:
-        """Route POST control requests or relay one upstream request."""
-        if self.path == "/control/drain":
-            control.set_drain(self, enabled=True)
-        elif self.path == "/control/handoff":
+        """Route the handoff control request or relay one upstream request."""
+        if self.path == "/control/handoff":
             control.prepare_handoff(self, self._bindings().control)
         else:
             responses.relay(self, "POST", self._bindings().providers)
@@ -148,11 +146,8 @@ class Handler(BaseHTTPRequestHandler):
             responses.relay(self, "GET", self._bindings().providers)
 
     def do_DELETE(self) -> None:
-        """Clear drain state or relay one upstream DELETE request."""
-        if self.path == "/control/drain":
-            control.set_drain(self, enabled=False)
-        else:
-            responses.relay(self, "DELETE", self._bindings().providers)
+        """Relay one upstream DELETE request."""
+        responses.relay(self, "DELETE", self._bindings().providers)
 
     def do_PATCH(self) -> None:
         """Relay one upstream PATCH request."""

@@ -9,14 +9,21 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import generation
+from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
 from tests.lifecycle.deployment.installation.fixtures import retained_identity
+from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import install_payload
+from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import retained_rollback
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -108,12 +115,6 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         source = process.OwnedProcess(111, self.ctx.executable, 1.0)
         mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
         mocker.patch.object(process, "capture_executable", return_value=source)
-        drain = mocker.patch.object(apply.handoff, "drain_responses")
-        replace = mocker.patch.object(
-            apply,
-            "_replace_native_generation",
-            return_value=runtime,
-        )
         request = mocker.patch.object(apply, "request_handoff", return_value=runtime)
         control = generation.context(self.ctx, "c" * 32)
         mocker.patch.object(generation, "control_context", return_value=control)
@@ -131,54 +132,52 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             "to_release": "1.2.2",
             "runtime": runtime,
         }
-        drain.assert_not_called()
-        replace.assert_not_called()
         request.assert_called_once()
         service.install_mock.assert_called_once_with(control)
 
-    def test_explicit_rollback_replaces_a_runtime_without_handoff_capability(
-        self, *, mocker: MockerFixture
+    @pytest.mark.parametrize(
+        "capability",
+        [
+            handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
+            handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
+        ],
+    )
+    def test_explicit_rollback_refuses_a_runtime_without_both_handoff_capabilities(
+        self, capability: str, *, mocker: MockerFixture
     ) -> None:
-        """A reverse transition keeps the newest control supervisor authoritative."""
+        """A verified runtime that cannot hand off is refused before any change."""
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
             predecessor=retained_identity("1.2.2"),
             successor=retained_identity("1.2.3"),
         )
         payload = FakeTransaction(self.ctx)
-        current = self.current_runtime(
-            release="1.2.3",
-            handoff_capabilities=["repeatable"],
-        )
-        runtime = self.successor(release="1.2.2")
+        current = self.current_runtime(release="1.2.3", handoff_capabilities=[capability])
         service = FakeServiceAdapter(mocker=mocker)
-        source = process.OwnedProcess(111, self.ctx.executable, 1.0)
         mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
-        mocker.patch.object(process, "capture_executable", return_value=source)
-        terminate = mocker.patch.object(process, "terminate_owned_process", return_value=True)
-        drain = mocker.patch.object(apply.handoff, "drain_responses")
-        mocker.patch.object(apply, "wait_for_serving_runtime", return_value=runtime)
         request = mocker.patch.object(apply, "request_handoff")
-        control = generation.context(self.ctx, "c" * 32)
-        mocker.patch.object(generation, "control_context", return_value=control)
-
-        result = apply.rollback(
-            self.ctx,
-            retained,
-            adapter=service,
-            runtime_reader=lambda _ctx: current,
+        control_request = mocker.patch.object(
+            apply.handoff.loopback, "open_request", side_effect=AssertionError("control request")
         )
+        terminate = mocker.patch.object(process, "terminate_owned_process")
 
-        assert result == {
-            "state": "rolled_back",
-            "from_release": "1.2.3",
-            "to_release": "1.2.2",
-            "runtime": runtime,
-        }
-        drain.assert_called_once()
-        terminate.assert_called_once_with(source, timeout_seconds=30)
+        with pytest.raises(errors.InstallError) as refused:
+            apply.rollback(
+                self.ctx,
+                retained,
+                adapter=service,
+                runtime_reader=lambda _ctx: current,
+            )
+
+        assert str(refused.value) == (
+            "installed runtime is incompatible; remove it before installing this release"
+        )
+        assert payload.events == ["close_prepared"]
+        service.install_mock.assert_not_called()
+        service.uninstall_mock.assert_not_called()
         request.assert_not_called()
-        service.install_mock.assert_called_once_with(control)
+        control_request.assert_not_called()
+        terminate.assert_not_called()
 
     def test_explicit_rollback_requires_an_upgrade_result(self, *, mocker: MockerFixture) -> None:
         retained = payload_rollback.RetainedRollback(
@@ -204,3 +203,29 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                 adapter=FakeServiceAdapter(mocker=mocker),
                 runtime_reader=lambda _ctx: {"pid": 321},
             )
+
+
+def test_refused_rollback_leaves_no_transaction(tmp_path: Path, *, mocker: MockerFixture) -> None:
+    """A rollback refused before any projection closes the transaction it opened."""
+    ctx = install_context(tmp_path)
+    install_payload(ctx, "1.2.2", mocker=mocker)
+    successor = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
+    successor.commit_projection()
+    successor.activate()
+    successor.finalize({"pid": 2})
+    retained = retained_rollback(ctx)
+    selection = generation.read(ctx)
+    installed = records.read_installed(ctx)
+    assert records.status(ctx) is None
+
+    with pytest.raises(errors.InstallError, match="installed runtime is incompatible"):
+        apply.rollback(
+            ctx,
+            retained,
+            adapter=FakeServiceAdapter(mocker=mocker),
+            runtime_reader=lambda _ctx: {"pid": 321},
+        )
+
+    assert records.status(ctx) is None
+    assert generation.read(ctx) == selection
+    assert records.read_installed(ctx) == installed

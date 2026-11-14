@@ -11,6 +11,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import OrderedServiceAdapter
@@ -23,6 +24,41 @@ if TYPE_CHECKING:
 
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
+    @pytest.mark.parametrize(
+        "capabilities",
+        [
+            [handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY],
+            [handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY],
+            [],
+            None,
+        ],
+    )
+    def test_upgrade_refuses_a_runtime_without_both_handoff_capabilities(
+        self, capabilities: list[str] | None, *, mocker: MockerFixture
+    ) -> None:
+        """A verified runtime that cannot hand off is refused before any change."""
+        payload = FakeTransaction(self.ctx)
+        current = self.current_runtime(handoff_capabilities=capabilities)
+        service = FakeServiceAdapter(mocker=mocker)
+        request = mocker.patch.object(apply, "request_handoff")
+        control_request = mocker.patch.object(
+            apply.handoff.loopback, "open_request", side_effect=AssertionError("control request")
+        )
+        terminate = mocker.patch.object(process, "terminate_owned_process")
+
+        with pytest.raises(errors.InstallError) as refused:
+            self.deploy(payload, current, adapter=service, mocker=mocker)
+
+        assert str(refused.value) == (
+            "installed runtime is incompatible; remove it before installing this release"
+        )
+        assert payload.events == []
+        service.install_mock.assert_not_called()
+        service.uninstall_mock.assert_not_called()
+        request.assert_not_called()
+        control_request.assert_not_called()
+        terminate.assert_not_called()
+
     def test_current_upgrade_rebinds_control_after_successor_handoff(
         self, *, mocker: MockerFixture
     ) -> None:
@@ -72,7 +108,6 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             "request_handoff",
             side_effect=errors.InstallError("successor unavailable"),
         )
-        mocker.patch.object(apply.handoff, "resume_responses", return_value=True)
 
         def terminate(ctx: runtime_spec.NativeServiceContext, *, timeout_seconds: float) -> int:
             del timeout_seconds
@@ -184,49 +219,97 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service.install_mock.assert_called_once_with(payload.context)
         service.uninstall_mock.assert_not_called()
 
+    def test_activation_failure_rolls_back_before_any_handoff(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        payload = FakeTransaction(self.ctx)
+        current = self.current_runtime()
+        mocker.patch.object(
+            payload, "activate", side_effect=errors.InstallError("activation failed")
+        )
+        evidence = mocker.Mock(return_value=current)
+        request = mocker.patch.object(apply, "request_handoff")
+
+        with pytest.raises(errors.InstallError, match="activation failed"):
+            self.deploy(payload, current, runtime_reader=evidence, mocker=mocker)
+
+        assert payload.events == ["commit", "rollback"]
+        evidence.assert_called_once_with(self.ctx)
+        request.assert_not_called()
+
     def test_upgrade_failure_rolls_back_or_preserves_unknown_outcome(
         self, *, mocker: MockerFixture
     ) -> None:
         current = self.current_runtime()
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
+        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
 
         rolled_back = FakeTransaction(self.ctx)
         rollback_service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(
             apply, "request_handoff", side_effect=errors.InstallError("handoff failed")
         )
-        resume = mocker.patch.object(apply.handoff, "resume_responses")
-        with pytest.raises(errors.InstallError, match="handoff failed"):
-            self.deploy(rolled_back, current, adapter=rollback_service, mocker=mocker)
+        evidence = mocker.Mock(return_value=current)
+        with pytest.raises(errors.InstallError, match="handoff failed") as failed:
+            self.deploy(
+                rolled_back,
+                current,
+                adapter=rollback_service,
+                runtime_reader=evidence,
+                mocker=mocker,
+            )
+        assert not isinstance(failed.value, apply.UnknownDeploymentOutcome)
         assert rolled_back.events == ["commit", "activate", "rollback"]
-        resume.assert_called_once_with(
-            self.ctx,
-            source_listener=process.OwnedProcess(111, self.ctx.executable, 1.0),
-            source_runtime=current,
-            runtime_reader=mocker.ANY,
-        )
+        assert evidence.call_args_list == [mocker.call(self.ctx), mocker.call(self.ctx)]
         rollback_service.install_mock.assert_not_called()
 
         unknown = FakeTransaction(self.ctx)
         preserved_service = FakeServiceAdapter(mocker=mocker)
-        resume.reset_mock()
+        evidence.reset_mock()
         mocker.patch.object(
             apply,
             "request_handoff",
             side_effect=apply.UnknownDeploymentOutcome("outcome unknown"),
         )
         with pytest.raises(apply.UnknownDeploymentOutcome, match="outcome unknown"):
-            self.deploy(unknown, current, adapter=preserved_service, mocker=mocker)
+            self.deploy(
+                unknown,
+                current,
+                adapter=preserved_service,
+                runtime_reader=evidence,
+                mocker=mocker,
+            )
         assert unknown.events == ["commit", "activate", ("preserve", "outcome unknown")]
-        resume.assert_not_called()
+        evidence.assert_called_once_with(self.ctx)
         preserved_service.install_mock.assert_not_called()
+        control_request.assert_not_called()
 
-    def test_upgrade_preserves_a_predecessor_that_cannot_reopen_admission(
-        self, *, mocker: MockerFixture
+    @pytest.mark.parametrize(
+        ("evidence", "proof_failure"),
+        [
+            (None, "predecessor listener no longer owns Responses admission"),
+            ({"pid": 222}, "predecessor listener no longer owns Responses admission"),
+            (
+                {"serving_payload_sha256": "9" * 64},
+                "predecessor listener no longer owns Responses admission",
+            ),
+            ({"accepting": False}, "predecessor listener no longer owns Responses admission"),
+            ({"draining": True}, "predecessor listener no longer owns Responses admission"),
+            (OSError("offline"), "operating-system operation failed"),
+        ],
+        ids=["silent", "replaced", "other-payload", "not-accepting", "draining", "unreadable"],
+    )
+    def test_failed_upgrade_preserves_the_transaction_without_a_serving_predecessor(
+        self,
+        evidence: dict[str, object] | OSError | None,
+        proof_failure: str,
+        *,
+        mocker: MockerFixture,
     ) -> None:
-        """A restored supervisor is not a successful rollback until admission reopens."""
+        """The payload rolls back only on proof that the captured predecessor still serves."""
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
+        observed = {**current, **evidence} if isinstance(evidence, dict) else evidence
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
         mocker.patch.object(
@@ -234,22 +317,21 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             "request_handoff",
             side_effect=errors.InstallError("successor unavailable"),
         )
-        mocker.patch.object(
-            apply.handoff,
-            "resume_responses",
-            side_effect=errors.InstallError("drain release is unavailable"),
-        )
+        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
 
-        with pytest.raises(
-            apply.UnknownDeploymentOutcome,
-            match="could not restore predecessor admission",
-        ) as raised:
-            self.deploy(payload, current, adapter=service, mocker=mocker)
+        with pytest.raises(apply.UnknownDeploymentOutcome) as raised:
+            self.deploy(
+                payload,
+                current,
+                adapter=service,
+                runtime_reader=mocker.Mock(side_effect=[current, observed]),
+                mocker=mocker,
+            )
 
         assert str(raised.value) == (
-            "native supervisor rollback could not restore predecessor admission; "
+            "failed upgrade cannot prove that the predecessor still serves; "
             "upgrade failure: successor unavailable; "
-            "admission recovery failure: drain release is unavailable"
+            f"proof failure: {proof_failure}"
         )
         assert payload.events == [
             "commit",
@@ -259,3 +341,5 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                 str(raised.value),
             ),
         ]
+        control_request.assert_not_called()
+        service.install_mock.assert_not_called()

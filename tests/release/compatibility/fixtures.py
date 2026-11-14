@@ -51,27 +51,26 @@ def _assert_same_runtime_identity(
     assert observed_runtime.get("accepting") is True
 
 
-def _wait_for_upgrade_drain(
+def _wait_for_successor_admission(
     future: Future[dict[str, object]],
     ctx: runtime_context.RuntimeContext,
     *,
     predecessor_pid: int,
-    predecessor_release: str,
+    successor_release: str,
     timeout_seconds: float,
 ) -> bool:
-    """Release held requests after materialization reaches native drain."""
+    """Release held requests once the handed-off successor admits new ones."""
 
-    def draining_or_finished() -> bool:
+    def admitting_or_finished() -> bool:
         runtime = lifecycle_control.read_runtime(ctx)
         return (
             isinstance(runtime, dict)
-            and runtime.get("pid") == predecessor_pid
-            and runtime.get("release") == predecessor_release
-            and runtime.get("accepting") is False
-            and runtime.get("draining") is True
+            and runtime.get("pid") != predecessor_pid
+            and runtime.get("release") == successor_release
+            and runtime.get("accepting") is True
         ) or future.done()
 
-    reached = wait_until(draining_or_finished, timeout_seconds)
+    reached = wait_until(admitting_or_finished, timeout_seconds)
     if future.done():
         future.result()
     return reached

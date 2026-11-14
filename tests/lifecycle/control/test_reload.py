@@ -16,8 +16,10 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import identity
+from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
+from tests.serving.handoff.fixtures import idle_runtime
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -278,6 +280,33 @@ def test_reload_refuses_incompatible_listener_without_mutation(
         control.reload(ctx)
     terminate_owned.assert_not_called()
     terminate_executable.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "capability",
+    [
+        handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
+        handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
+    ],
+)
+def test_reload_refuses_a_runtime_without_both_handoff_capabilities(
+    tmp_path: Path, capability: str, *, mocker: MockerFixture
+) -> None:
+    ctx = install_context(tmp_path)
+    Path(ctx.install_dir).mkdir(parents=True)
+    mocker.patch.object(
+        control, "read_runtime", return_value=idle_runtime(handoff_capabilities=[capability])
+    )
+    native = mocker.patch.object(control, "adapter").return_value
+    request = mocker.patch.object(control.handoff, "request")
+    terminate_owned = mocker.patch.object(process, "terminate_owned_process")
+
+    with pytest.raises(errors.InstallError, match="not healthy enough to reload"):
+        control.reload(ctx)
+
+    request.assert_not_called()
+    native.install.assert_not_called()
+    terminate_owned.assert_not_called()
 
 
 def test_reload_starts_a_stopped_installation_through_its_native_supervisor(

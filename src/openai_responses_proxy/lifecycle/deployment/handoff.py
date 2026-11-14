@@ -10,7 +10,6 @@ transaction commits a different admitted transaction.
 from __future__ import annotations
 
 import json
-import math
 import time
 import urllib.error
 import urllib.request
@@ -199,86 +198,21 @@ def post_ready(
     return response_payload
 
 
-def drain_responses(
-    ctx: runtime_context.RuntimeContext,
-    *,
-    source_listener: process.OwnedProcess,
-    source_runtime: RuntimeSnapshot,
-    runtime_reader: RuntimeReader,
-    timeout_seconds: float,
-) -> None:
-    """Close predecessor admission and wait for its accepted Responses to finish."""
-    if not _runtime_is_captured_source(source_listener, runtime_reader(ctx), source_runtime):
-        raise errors.InstallError(
-            f"captured proxy listener generation {source_listener.pid} is no longer active"
-        )
-    request = urllib.request.Request(
-        runtime_config.loopback_url(ctx.port, "/control/drain"),
-        headers={
-            "Accept": "application/json",
-            "X-OpenAI-Responses-Proxy-Drain-Lease-Seconds": str(
-                max(1, math.ceil(timeout_seconds + _TRANSPORT_MARGIN_SECONDS))
-            ),
-        },
-        method="POST",
-    )
-    acknowledged = _control_reply(
-        request,
-        timeout_seconds=min(timeout_seconds, 5.0) + _TRANSPORT_MARGIN_SECONDS,
-        accepted=HTTPStatus.OK,
-        label="drain control",
-    )
-    if not isinstance(acknowledged, dict) or acknowledged.get("draining") is not True:
-        raise errors.InstallError("drain control did not close Responses admission")
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        runtime = runtime_reader(ctx)
-        if (
-            not _runtime_is_captured_source(source_listener, runtime, source_runtime)
-            or runtime is None
-        ):
-            raise errors.InstallError("predecessor changed while draining active Responses")
-        if (
-            runtime.get("draining") is True
-            and runtime.get("accepting") is False
-            and runtime.get("active_responses") == 0
-            and runtime.get("active_handlers") == 1
-        ):
-            return
-        time.sleep(0.1)
-    raise errors.InstallError(
-        f"predecessor did not drain active Responses within {timeout_seconds:g}s"
-    )
-
-
-def resume_responses(
+def predecessor_serves(
     ctx: runtime_context.RuntimeContext,
     *,
     source_listener: process.OwnedProcess,
     source_runtime: RuntimeSnapshot,
     runtime_reader: RuntimeReader,
 ) -> bool:
-    """Reopen admission on the exact predecessor that survived a failed replacement."""
+    """Return whether the captured predecessor still owns the listener and admits requests."""
     runtime = runtime_reader(ctx)
-    if not _runtime_is_captured_source(source_listener, runtime, source_runtime):
-        return False
-    request = urllib.request.Request(
-        runtime_config.loopback_url(ctx.port, "/control/drain"),
-        headers={"Accept": "application/json"},
-        method="DELETE",
+    return (
+        _runtime_is_captured_source(source_listener, runtime, source_runtime)
+        and runtime is not None
+        and runtime.get("accepting") is True
+        and runtime.get("draining") is False
     )
-    resumed = _control_reply(
-        request,
-        timeout_seconds=_TRANSPORT_MARGIN_SECONDS,
-        accepted=HTTPStatus.OK,
-        label="drain release",
-    )
-    if not isinstance(resumed, dict) or resumed.get("draining") is not False:
-        raise errors.InstallError("drain release did not reopen Responses admission")
-    runtime = runtime_reader(ctx)
-    if not _runtime_is_captured_source(source_listener, runtime, source_runtime) or runtime is None:
-        return False
-    return runtime.get("accepting") is True and runtime.get("draining") is False
 
 
 def request(

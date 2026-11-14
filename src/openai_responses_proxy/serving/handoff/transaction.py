@@ -2,8 +2,8 @@
 
 This module owns the process-local transaction, listener transfer, parent/child
 control channel, and bounded rollback semantics. The proxy entrypoint supplies
-its drain gate, server construction, runtime identity, and logging primitives
-through :class:`Context`.
+its admission counts, server construction, runtime identity, and logging
+primitives through :class:`Context`.
 """
 
 from __future__ import annotations
@@ -85,7 +85,6 @@ class Context:
     payload_manifest_sha256: Callable[[], str | None]
     committed_payload: Callable[[], identity.LoadedPayloadIdentity | None]
     response_gate_lock: threading.Lock
-    draining: Callable[[], bool]
     active_responses: Callable[[], int]
     active_handlers: Callable[[], int]
     log: Callable[[str], None]
@@ -149,10 +148,12 @@ def runtime_identity(context: Context) -> dict[str, object]:
     """Return secret-free process and transaction identity for health proofs."""
     with _HANDOFF_LOCK, context.response_gate_lock:
         state = str(_HANDOFF_SESSION.get("state", "idle"))
-        accepting = not context.draining()
         return {
             "pid": os.getpid(),
             "handoff_protocol_version": HANDOFF_PROTOCOL_VERSION,
+            # Protocol 2 names both fields; this release never closes admission.
+            "accepting": True,
+            "draining": False,
             "handoff_capabilities": [
                 SELECTED_GENERATION_HANDOFF_CAPABILITY,
                 ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
@@ -160,7 +161,6 @@ def runtime_identity(context: Context) -> dict[str, object]:
             "handoff_transaction_id": _HANDOFF_SESSION.get("transaction_id"),
             "handoff_state": state,
             "payload_manifest_sha256": context.payload_manifest_sha256(),
-            "accepting": accepting,
             "active_handlers": context.active_handlers(),
         }
 
@@ -362,16 +362,14 @@ def _serve_until_stopped(
         initial_serving_thread.join()
 
 
-def _wait_for_handoff_outcome(context: Context) -> tuple[object, object]:
+def _wait_for_handoff_outcome() -> tuple[object, object]:
     with _HANDOFF_LOCK:
         state = str(_HANDOFF_SESSION.get("state", "idle"))
         outcome = _HANDOFF_SESSION.get("outcome")
         outcome_ready = _HANDOFF_SESSION.get("outcome_ready")
         raw_timeout = _HANDOFF_SESSION.get("timeout_seconds", 1.0)
     if outcome is None and state == "idle":
-        with context.response_gate_lock:
-            if not context.draining():
-                return outcome, None
+        return outcome, None
     timeout = float(raw_timeout) if isinstance(raw_timeout, (int, float)) else 1.0
     if isinstance(outcome_ready, threading.Event) and not outcome_ready.is_set():
         outcome_ready.wait(timeout=max(1.0, timeout * 3 + HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS))
@@ -400,7 +398,7 @@ def serve_with_resume(
     """Serve until ordinary stop, finalized replacement, or a resumable rollback."""
     _serve_until_stopped(server, initial_serving_thread)
     while True:
-        outcome, deadline = _wait_for_handoff_outcome(context)
+        outcome, deadline = _wait_for_handoff_outcome()
         if outcome != "rolled_back":
             break
         reset_session_to_idle()

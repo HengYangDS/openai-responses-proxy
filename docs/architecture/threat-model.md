@@ -45,16 +45,16 @@ discards.
 
 ## Threats and controls
 
-| Threat                                                                   | Control                                                                                                                                       | Evidence                                                                            |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| An upstream redirect sends the client's credential to another host.      | The upstream openers refuse every redirect; the client receives the redirect response unfollowed.                                             | `tests/relay/transport/test_upstream_redirects.py`                                  |
-| Request input selects an arbitrary upstream host or path.                | Exact Provider routes resolve against the registry; scheme, host and encoded path segments are rejected.                                      | `tests/providers/test_registry.py`, `tests/relay/test_routes.py`                    |
-| A web page drains admission or starts a handoff, also via DNS rebinding. | Drain and handoff accept only a loopback client whose `Host` is a loopback address and that sends no `Origin`.                                | `tests/relay/transport/test_admission.py`, `tests/relay/test_admission.py`          |
-| A local process stalls a handoff envelope to hold a control handler.     | The handoff envelope is read within 32 KiB and five seconds; a stalled body gets HTTP 408 and its connection closes.                          | `tests/serving/handoff/test_control.py`, `subprocess/test_transition.py`            |
-| A web page relays requests through the listener.                         | The listener holds no ambient credential, so a page can only send requests that carry no user credential; browsers block reading the replies. | `relay/downstream.py` header forwarding                                             |
-| Credentials or content reach logs.                                       | Logs carry request ids, sizes, statuses and fixed codes; credential-like values are redacted and log files are mode `0600`.                   | `tests/runtime/test_bounded_log.py`, `tests/relay/test_operational_log.py`          |
-| A tampered or downgraded release is installed.                           | Signed checksums, manifest and per-member hashes are verified before extraction; a downgrade or same-version reinstall is refused.            | `tests/lifecycle/test_artifact.py`, `tests/lifecycle/transaction/test_admission.py` |
-| An interrupted transaction deletes unrelated files.                      | Recovery deletes only exact regular files whose hash and inode it re-checks; journal paths are relative and schema-checked.                   | `tests/lifecycle/transaction/test_disposal.py`                                      |
+| Threat                                                               | Control                                                                                                                                       | Evidence                                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| An upstream redirect sends the client's credential to another host.  | The upstream openers refuse every redirect; the client receives the redirect response unfollowed.                                             | `tests/relay/transport/test_upstream_redirects.py`                                  |
+| Request input selects an arbitrary upstream host or path.            | Exact Provider routes resolve against the registry; scheme, host and encoded path segments are rejected.                                      | `tests/providers/test_registry.py`, `tests/relay/test_routes.py`                    |
+| A web page starts a handoff, also via DNS rebinding.                 | Handoff accepts only a loopback client whose `Host` is a loopback address and that sends no `Origin`; no route closes admission.              | `tests/relay/transport/test_admission.py`, `tests/relay/test_admission.py`          |
+| A local process stalls a handoff envelope to hold a control handler. | The handoff envelope is read within 32 KiB and five seconds; a stalled body gets HTTP 408 and its connection closes.                          | `tests/serving/handoff/test_control.py`, `subprocess/test_transition.py`            |
+| A web page relays requests through the listener.                     | The listener holds no ambient credential, so a page can only send requests that carry no user credential; browsers block reading the replies. | `relay/downstream.py` header forwarding                                             |
+| Credentials or content reach logs.                                   | Logs carry request ids, sizes, statuses and fixed codes; credential-like values are redacted and log files are mode `0600`.                   | `tests/runtime/test_bounded_log.py`, `tests/relay/test_operational_log.py`          |
+| A tampered or downgraded release is installed.                       | Signed checksums, manifest and per-member hashes are verified before extraction; a downgrade or same-version reinstall is refused.            | `tests/lifecycle/test_artifact.py`, `tests/lifecycle/transaction/test_admission.py` |
+| An interrupted transaction deletes unrelated files.                  | Recovery deletes only exact regular files whose hash and inode it re-checks; journal paths are relative and schema-checked.                   | `tests/lifecycle/transaction/test_disposal.py`                                      |
 
 ## Severity and closure
 
@@ -67,7 +67,7 @@ The review on 2026-10-23 found one high-severity gap and one medium gap.
 - **Medium, closed:** drain and handoff checked only the client address. A web
   page could post a drain from the user's browser and refuse new Responses
   turns for the 30-second lease, repeatedly. Control now requires a loopback
-  `Host` and no `Origin`.
+  `Host` and no `Origin`, and the drain route has since been removed.
 
 ## Residual risks
 

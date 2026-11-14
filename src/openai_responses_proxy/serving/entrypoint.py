@@ -136,7 +136,6 @@ def _handoff_context() -> handoff.Context:
             identity.selected_payload_executable(executable)
         ),
         response_gate_lock=admission.response_gate_lock(),
-        draining=admission.is_draining,
         active_responses=admission.active_responses,
         active_handlers=admission.active_handlers,
         log=operational_log.log,

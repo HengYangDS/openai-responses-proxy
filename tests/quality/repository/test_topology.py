@@ -110,7 +110,7 @@ def test_serving_tests_follow_runtime_and_deployment_ownership() -> None:
     assert (tests / "serving/handoff/test_state_machine.py").is_file()
     assert all(
         (tests / f"lifecycle/deployment/handoff/test_{owner}.py").is_file()
-        for owner in ("admission", "request", "drain", "recovery", "reload")
+        for owner in ("admission", "request", "recovery", "reload")
     )
 
 

@@ -27,7 +27,7 @@ from tests.lifecycle.fixtures import retained_rollback
 from tests.release import fixtures as native_release
 from tests.release.compatibility.fixtures import _assert_same_runtime_identity
 from tests.release.compatibility.fixtures import _required_path
-from tests.release.compatibility.fixtures import _wait_for_upgrade_drain
+from tests.release.compatibility.fixtures import _wait_for_successor_admission
 from tests.release.compatibility.fixtures import admitted_predecessor
 from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
@@ -203,11 +203,11 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             "60",
             "--json",
         )
-        assert _wait_for_upgrade_drain(
+        assert _wait_for_successor_admission(
             upgrade_future,
             ctx,
             predecessor_pid=previous_pid,
-            predecessor_release=previous_version,
+            successor_release=current_version,
             timeout_seconds=native_release.COMMAND_TIMEOUT_SECONDS,
         )
         release.set()
@@ -247,10 +247,6 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
             handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
         ]
-        candidate_counters = after_runtime.get("counters")
-        assert isinstance(candidate_counters, dict)
-        drain_rejections_before = candidate_counters.get("responses_rejected_while_draining")
-        assert type(drain_rejections_before) is int
         _assert_same_runtime_identity(upgraded, after)
         assert candidate_pid != previous_pid
         assert (
@@ -426,11 +422,6 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert (
             predecessor_runtime.get("serving_payload_sha256")
             == published_predecessor.serving_payload_sha256
-        )
-        predecessor_counters = predecessor_runtime.get("counters")
-        assert isinstance(predecessor_counters, dict)
-        assert (
-            predecessor_counters.get("responses_rejected_while_draining") == drain_rejections_before
         )
         assert after_rollback["rollback"] == {
             "state": "available",

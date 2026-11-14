@@ -39,6 +39,38 @@ class TestControllerHandoffWiring(HandoffFixture):
             assert not handoff._old_runtime_resumed(runtime, old)
         assert handoff._old_runtime_resumed(old, old)
 
+    def test_predecessor_serves_only_as_the_captured_generation_with_open_admission(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
+        """The proof reads runtime evidence and sends no control request."""
+        ctx = install_context(Path(self.tempdir.name))
+        source = process.OwnedProcess(999, ctx.executable, 0.5)
+        alive = mocker.patch.object(process, "owned_process_alive", return_value=True)
+        control_request = mocker.patch.object(handoff.loopback, "open_request")
+
+        def serves(runtime: dict[str, object] | None) -> bool:
+            return handoff.predecessor_serves(
+                ctx,
+                source_listener=source,
+                source_runtime=idle_runtime(),
+                runtime_reader=lambda _ctx: runtime,
+            )
+
+        assert serves(idle_runtime())
+        for runtime in (
+            None,
+            idle_runtime(pid=1000),
+            idle_runtime(release="1.0.25"),
+            idle_runtime(serving_payload_sha256="c" * 64),
+            idle_runtime(accepting=False),
+            idle_runtime(draining=True),
+        ):
+            with subtests.test(runtime=runtime):
+                assert not serves(runtime)
+        alive.return_value = False
+        assert not serves(idle_runtime())
+        control_request.assert_not_called()
+
     def test_failure_resolver_classifies_finalized_rolled_back_and_unknown_states(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:

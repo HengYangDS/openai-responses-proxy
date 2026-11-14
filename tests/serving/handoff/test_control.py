@@ -16,7 +16,6 @@ from tests.serving.handoff.fixtures import entrypoint_module
 from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import fake_handler
 from tests.serving.handoff.fixtures import handoff_module
-from tests.serving.handoff.fixtures import runtime_state_module
 
 if TYPE_CHECKING:
     import pytest
@@ -96,37 +95,28 @@ class TestHandoffControlHandler:
         control.prepare_handoff(fake_self, self.bindings)
         fake_self.send_response.assert_called_once_with(409)
 
-    def test_drain_control_enforces_loopback_and_projects_the_lease(
-        self, *, mocker: MockerFixture
+    def test_handler_bounds_the_predecessor_lease(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
-        remote = fake_handler({}, mocker=mocker)
-        remote.client_address = ("example.invalid", 51234)
-        set_draining = mocker.patch.object(runtime_state_module, "set_draining")
-        control.set_drain(remote, enabled=True)
-        set_draining.assert_not_called()
-        remote.send_error.assert_called_once_with(
-            403, "drain control is available only to a local native controller"
+        mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)
+        prepare = mocker.patch.object(
+            handoff_module,
+            "prepare",
+            side_effect=handoff_module.HandoffError("child failed"),
         )
-
-        local = fake_handler({}, mocker=mocker)
-        local.headers["X-OpenAI-Responses-Proxy-Drain-Lease-Seconds"] = "41"
-        set_draining = mocker.patch.object(
-            runtime_state_module,
-            "set_draining",
-            return_value={"draining": True, "drain_generation": 1},
-        )
-        control.set_drain(local, enabled=True)
-        set_draining.assert_called_once_with(enabled=True, lease_seconds="41")
-        local.send_response.assert_called_once_with(200)
-
-        reopened = fake_handler({}, mocker=mocker)
-        set_draining = mocker.patch.object(
-            runtime_state_module,
-            "set_draining",
-            return_value={"draining": False, "drain_generation": 2},
-        )
-        control.set_drain(reopened, enabled=False)
-        set_draining.assert_called_once_with(enabled=False, lease_seconds=None)
+        for lease, expected in (
+            ({}, 30),
+            ({"lease_seconds": None}, 30),
+            ({"lease_seconds": "invalid"}, 30),
+            ({"lease_seconds": [41]}, 30),
+            ({"lease_seconds": 0}, 1),
+            ({"lease_seconds": 41}, 41),
+            ({"lease_seconds": "9999"}, 900),
+        ):
+            with subtests.test(lease=lease):
+                handler = fake_handler({**expected_metadata(), **lease}, mocker=mocker)
+                control.prepare_handoff(handler, self.bindings)
+                assert prepare.call_args.kwargs["lease_seconds"] == expected
 
     def test_status_control_serializes_the_bound_runtime_snapshot(
         self, *, mocker: MockerFixture

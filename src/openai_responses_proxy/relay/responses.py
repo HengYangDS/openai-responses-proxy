@@ -37,27 +37,10 @@ def resolve_upstream(
     return None if resolved is None else (resolved[0].name, resolved[1], resolved[2])
 
 
-def _admit(exchange: upstream_exchange.Exchange) -> bool:
-    if not exchange.is_responses:
-        return True
-    verdict, active_now = admission.admit_response()
-    if verdict == "draining":
-        telemetry.record_counter("responses_rejected_while_draining")
-        telemetry.record_failure("draining")
-        downstream.send_payload(
-            exchange.handler,
-            503,
-            replay_response.error_payload(
-                "Proxy is draining active Responses; retry the turn shortly",
-                "server_busy",
-                "proxy_draining",
-            ),
-            retry_after="1",
-        )
-        exchange.log("responses_rejected_while_draining")
-        return False
-    exchange.log("responses_admitted", f"active={active_now} ")
-    return True
+def _admit(exchange: upstream_exchange.Exchange) -> None:
+    """Count one Responses request; no other route is counted."""
+    if exchange.is_responses:
+        exchange.log("responses_admitted", f"active={admission.admit_response()} ")
 
 
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
@@ -336,8 +319,9 @@ def relay(
         plaintext_agent_delivery=prepared.active,
         input_dependencies=projection.input_dependencies,
     )
-    if _cooldown_active(exchange) or not _admit(exchange):
+    if _cooldown_active(exchange):
         return
+    _admit(exchange)
     try:
         with downstream.write_deadline(handler, exchange.deadline):
             response = upstream_exchange.open_upstream(exchange)

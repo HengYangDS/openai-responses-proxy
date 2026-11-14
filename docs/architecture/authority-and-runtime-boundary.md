@@ -319,7 +319,7 @@ stateDiagram-v2
     Prepared --> Closed: recover before mutation
     Prepared --> RolledBack: cancel
     Materialized --> RolledBack: candidate failure
-    Activated --> RolledBack: predecessor admission restored
+    Activated --> RolledBack: predecessor proved serving
     Finalized --> [*]
     RolledBack --> [*]
     Closed --> [*]

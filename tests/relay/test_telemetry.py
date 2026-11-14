@@ -26,7 +26,7 @@ class TelemetryTests:
             release="1.2.3",
             serving_payload_sha256=None,
             release_receipt_sha256=None,
-            admission={"active_responses": 1, "draining": False},
+            admission={"active_responses": 1},
             runtime_identity={"pid": 42},
         )
         counters = cast("dict[str, int]", status["counters"])

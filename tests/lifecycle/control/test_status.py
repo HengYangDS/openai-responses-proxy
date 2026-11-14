@@ -17,6 +17,7 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import digest as payload_digest
+from openai_responses_proxy.serving import entrypoint
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.fixtures import begin_transaction
@@ -307,24 +308,17 @@ def test_control_status_includes_secret_free_runtime_when_listener_is_available(
         committed = identity.committed_payload(Path(generation.selected_context(ctx).executable))
         assert committed is not None
         runtime = {
+            **entrypoint.runtime_status(),
             "pid": 1,
             **committed.handoff(),
             "payload_manifest_sha256": committed.manifest_sha256,
-            "uptime_seconds": 12,
-            "active_responses": 0,
-            "counters": {},
-            "upstream_classifications": {},
-            "last_failure": None,
-            "handoff_protocol_version": 2,
-            "handoff_state": "idle",
-            "handoff_transaction_id": None,
-            "accepting": True,
-            "draining": False,
         }
         mocker.patch.object(control, "read_runtime", return_value=runtime)
         mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[1])
         evidence = control.status(ctx)
         assert evidence["runtime"] == runtime
+        assert (runtime["accepting"], runtime["draining"]) == (True, False)
+        assert {"drain_generation", "drain_lease_remaining_seconds"}.isdisjoint(runtime)
         assert "authorization" not in json.dumps(evidence).lower()
 
 

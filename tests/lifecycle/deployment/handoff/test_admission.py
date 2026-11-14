@@ -75,91 +75,45 @@ class TestControllerHandoffWiring(HandoffFixture):
         tcp_attribution.assert_not_called()
         stale_identity_read.assert_not_called()
 
-    def test_runtime_supports_handoff_requires_a_complete_available_identity(
+    def test_runtime_supports_handoff_requires_a_valid_identity_and_both_capabilities(
         self, subtests: pytest.Subtests
     ) -> None:
+        selected = handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY
+        preserving = handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY
+        finalized = idle_runtime(
+            handoff_state="finalized",
+            handoff_transaction_id="txn-previous-finalized",
+        )
         incomplete = idle_runtime()
         incomplete.pop("serving_payload_sha256")
         cases: list[tuple[dict[str, object] | None, bool]] = [
-            (idle_runtime(handoff_capabilities=["selected-generation-handoff"]), True),
-            (
-                idle_runtime(
-                    handoff_state="finalized",
-                    handoff_transaction_id="txn-previous-finalized",
-                    handoff_capabilities=["selected-generation-handoff"],
-                ),
-                True,
-            ),
+            (idle_runtime(), True),
+            (idle_runtime(handoff_capabilities=[preserving, selected]), True),
+            (finalized, True),
         ]
         unsupported: list[dict[str, object] | None] = [
+            idle_runtime(handoff_capabilities=[selected]),
+            idle_runtime(handoff_capabilities=[preserving]),
+            idle_runtime(handoff_capabilities=[]),
+            idle_runtime(handoff_capabilities=None),
+            idle_runtime(handoff_capabilities=[selected, preserving, 2]),
+            {**finalized, "handoff_capabilities": [selected]},
+            {**finalized, "serving_payload_sha256": None},
             {"handoff_protocol_version": 1},
             {"handoff_protocol_version": 2},
             incomplete,
             idle_runtime(accepting=False),
             idle_runtime(draining=True),
             idle_runtime(handoff_state="ready"),
-            idle_runtime(handoff_capabilities=["repeatable"]),
+            idle_runtime(handoff_state="finalized"),
             {},
             None,
             {"release": "1.0.24"},
-            idle_runtime(
-                handoff_state="finalized",
-                handoff_transaction_id="txn-legacy-finalized",
-                handoff_capabilities=None,
-            ),
         ]
         cases.extend((runtime, False) for runtime in unsupported)
         for runtime, supported in cases:
             with subtests.test(runtime=runtime, supported=supported):
                 assert strategy.runtime_supports_handoff(runtime) is supported
-
-    def test_deployment_strategy_requires_complete_identity_and_explicit_repeatability(
-        self, subtests: pytest.Subtests
-    ) -> None:
-        finalized = idle_runtime(
-            handoff_state="finalized",
-            handoff_transaction_id="txn-previous-finalized",
-        )
-        cases = (
-            (
-                idle_runtime(
-                    handoff_capabilities=[
-                        handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
-                        handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
-                    ]
-                ),
-                "handoff",
-            ),
-            (
-                {
-                    **finalized,
-                    "handoff_capabilities": [
-                        handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY,
-                        handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY,
-                    ],
-                },
-                "handoff",
-            ),
-            (
-                idle_runtime(
-                    handoff_capabilities=[
-                        handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY
-                    ]
-                ),
-                "native_generation",
-            ),
-            (
-                {**finalized, "handoff_capabilities": ["repeatable"]},
-                "native_generation",
-            ),
-            ({**finalized, "handoff_capabilities": None}, "native_generation"),
-            ({**finalized, "serving_payload_sha256": None}, "unsupported"),
-            ({**finalized, "accepting": False}, "unsupported"),
-        )
-
-        for runtime, expected in cases:
-            with subtests.test(runtime=runtime):
-                assert strategy.deployment_strategy(runtime) == expected
 
     def test_expected_metadata_reads_and_validates_each_release_identity(
         self, *, mocker: MockerFixture

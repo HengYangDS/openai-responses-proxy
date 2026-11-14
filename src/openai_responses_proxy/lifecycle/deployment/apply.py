@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from typing import Protocol
 
@@ -19,6 +20,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from collections.abc import Mapping
 
 
@@ -55,6 +57,34 @@ class UnknownDeploymentOutcome(errors.InstallError):
     """The deployment controller cannot prove whether the successor committed."""
 
 
+@contextmanager
+def closing_prepared(payload: transaction.PayloadTransaction, operation: str) -> Iterator[None]:
+    """Close a transaction that its transition refuses before any projection.
+
+    A cleanup that fails is reported together with the refusal, under the refusal's type.
+    """
+    try:
+        yield
+    except BaseException as failure:
+        try:
+            payload.rollback_if_prepared()
+        except BaseException as cleanup_error:
+            message = (
+                f"{operation} failed: {errors.failure_summary(failure)}; "
+                f"prepared payload cleanup failed: {errors.failure_summary(cleanup_error)}"
+            )
+            combined = (
+                type(failure)(message)
+                if isinstance(failure, errors.InstallError)
+                else errors.InstallError(message)
+            )
+            if isinstance(failure, errors.ProductError):
+                combined.code = failure.code
+                combined.next_command = failure.next_command
+            raise combined from cleanup_error
+        raise
+
+
 def install(
     ctx: runtime_context.RuntimeContext,
     payload: transaction.PayloadTransaction,
@@ -77,8 +107,7 @@ def install(
     pid = current.get("pid")
     if type(pid) is not int:
         raise errors.InstallError("installed runtime identity is not verified")
-    selected = strategy.deployment_strategy(current)
-    if selected == "unsupported":
+    if not strategy.runtime_supports_handoff(current):
         raise errors.InstallError(
             "installed runtime is incompatible; remove it before installing this release"
         )
@@ -97,7 +126,6 @@ def install(
         adapter=adapter,
         current=current,
         source_listener=source_listener,
-        native_generation=selected == "native_generation",
         runtime_reader=runtime_reader,
         timeout_seconds=timeout_seconds,
     )
@@ -115,13 +143,14 @@ def rollback(
     if runtime_reader(ctx) is None:
         raise errors.InstallError("rollback requires a verified running successor")
     payload = transaction.begin_rollback_transaction(ctx, retained)
-    result = install(
-        ctx,
-        payload,
-        adapter=adapter,
-        runtime_reader=runtime_reader,
-        timeout_seconds=timeout_seconds,
-    )
+    with closing_prepared(payload, "rollback"):
+        result = install(
+            ctx,
+            payload,
+            adapter=adapter,
+            runtime_reader=runtime_reader,
+            timeout_seconds=timeout_seconds,
+        )
     if result.get("state") != "upgraded":
         raise errors.InstallError("rollback requires a verified running successor")
     return {
@@ -197,48 +226,26 @@ def _upgrade(
     adapter: ServiceAdapter,
     current: dict[str, object],
     source_listener: process.OwnedProcess,
-    native_generation: bool,
     runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
 ) -> dict[str, object]:
     payload.commit_projection()
     candidate = payload.context
-    admission_may_be_closed = False
+    handoff_attempted = False
     successor_committed = False
     try:
-        if native_generation:
-            admission_may_be_closed = True
-            handoff.drain_responses(
-                candidate,
-                source_listener=source_listener,
-                source_runtime=current,
-                runtime_reader=runtime_reader,
-                timeout_seconds=timeout_seconds,
-            )
         payload.activate()
-        admission_may_be_closed = True
-        runtime = (
-            _replace_native_generation(
-                candidate,
-                payload.expected,
-                adapter=adapter,
-                source_listener=source_listener,
-                runtime_reader=runtime_reader,
-                timeout_seconds=timeout_seconds,
-            )
-            if native_generation
-            else request_handoff(
-                candidate,
-                payload.expected,
-                current=current,
-                source_listener=source_listener,
-                runtime_reader=runtime_reader,
-                timeout_seconds=timeout_seconds,
-            )
+        handoff_attempted = True
+        runtime = request_handoff(
+            candidate,
+            payload.expected,
+            current=current,
+            source_listener=source_listener,
+            runtime_reader=runtime_reader,
+            timeout_seconds=timeout_seconds,
         )
         successor_committed = True
-        if not native_generation:
-            bind_control_supervisor(adapter, generation.control_context(ctx))
+        bind_control_supervisor(adapter, generation.control_context(ctx))
     except UnknownDeploymentOutcome as exc:
         payload.preserve_for_recovery(str(exc))
         raise
@@ -258,22 +265,22 @@ def _upgrade(
                 "successor committed but native supervisor rebind failed; "
                 "transaction preserved for recovery"
             ) from upgrade_error
-        if admission_may_be_closed:
+        if handoff_attempted:
             try:
-                _resume_predecessor_admission(
+                _require_serving_predecessor(
                     ctx,
                     source_listener=source_listener,
                     source_runtime=current,
                     runtime_reader=runtime_reader,
                 )
-            except BaseException as restore_error:
+            except BaseException as proof_error:
                 unknown = UnknownDeploymentOutcome(
-                    "native supervisor rollback could not restore predecessor admission; "
+                    "failed upgrade cannot prove that the predecessor still serves; "
                     f"upgrade failure: {errors.failure_summary(upgrade_error)}; "
-                    f"admission recovery failure: {errors.failure_summary(restore_error)}"
+                    f"proof failure: {errors.failure_summary(proof_error)}"
                 )
                 payload.preserve_for_recovery(str(unknown))
-                raise unknown from restore_error
+                raise unknown from proof_error
         payload.rollback()
         raise
     payload.finalize(runtime)
@@ -293,15 +300,15 @@ def bind_control_supervisor(
         raise errors.InstallError("native supervisor did not bind the lifecycle control executable")
 
 
-def _resume_predecessor_admission(
+def _require_serving_predecessor(
     ctx: runtime_context.RuntimeContext,
     *,
     source_listener: process.OwnedProcess,
     source_runtime: dict[str, object],
     runtime_reader: handoff.RuntimeReader,
 ) -> None:
-    """Reopen the predecessor's admission, or raise when it no longer owns the listener."""
-    if not handoff.resume_responses(
+    """Raise unless runtime evidence proves that the captured predecessor still serves."""
+    if not handoff.predecessor_serves(
         ctx,
         source_listener=source_listener,
         source_runtime=source_runtime,
@@ -342,41 +349,6 @@ def discard_runtime(
         raise UnknownDeploymentOutcome(
             "candidate runtime cleanup is unconfirmed; transaction preserved for recovery"
         ) from cleanup_error
-
-
-def _replace_native_generation(
-    ctx: runtime_context.RuntimeContext,
-    expected: Mapping[str, object],
-    *,
-    adapter: ServiceAdapter,
-    source_listener: process.OwnedProcess,
-    runtime_reader: handoff.RuntimeReader,
-    timeout_seconds: float,
-) -> dict[str, object]:
-    """Cross the exact predecessor exit barrier and prove its successor."""
-    try:
-        source_exited = process.terminate_owned_process(
-            source_listener, timeout_seconds=timeout_seconds
-        )
-    except errors.InstallError as error:
-        raise UnknownDeploymentOutcome(
-            f"native generation replacement outcome is unconfirmed; {errors.failure_summary(error)}"
-        ) from error
-    if not source_exited:
-        raise UnknownDeploymentOutcome("native generation replacement outcome is unconfirmed")
-    try:
-        bind_control_supervisor(adapter, generation.control_context(ctx))
-        return wait_for_serving_runtime(
-            ctx,
-            expected,
-            runtime_reader=runtime_reader,
-            timeout_seconds=timeout_seconds,
-            old_pid=source_listener.pid,
-        )
-    except BaseException as startup_error:
-        raise UnknownDeploymentOutcome(
-            "native successor startup is unconfirmed after predecessor exit"
-        ) from startup_error
 
 
 def _successor_runtime(result: Mapping[str, object]) -> dict[str, object]:
@@ -437,7 +409,6 @@ def wait_for_serving_runtime(
     *,
     runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float,
-    old_pid: int | None = None,
 ) -> dict[str, object]:
     """Wait for one accepting listener with the exact release identity."""
     deadline = time.monotonic() + timeout_seconds
@@ -461,7 +432,6 @@ def wait_for_serving_runtime(
                     process.verified_proxy_listener_pids(ctx) == [pid]
                     or runtime_process is not None
                 )
-                and pid != old_pid
                 and _runtime_matches(runtime, expected)
             ):
                 return runtime

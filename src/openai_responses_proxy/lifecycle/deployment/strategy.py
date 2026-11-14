@@ -1,14 +1,10 @@
-"""Deployment strategy selection from a live runtime's identity and handoff capabilities."""
+"""Handoff admission of a live runtime from its identity and handoff capabilities."""
 
 from __future__ import annotations
-
-from typing import Literal
 
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
-
-type DeploymentStrategy = Literal["handoff", "native_generation", "unsupported"]
 
 
 def _available_transaction(state: object, transaction_id: object) -> bool:
@@ -17,33 +13,6 @@ def _available_transaction(state: object, transaction_id: object) -> bool:
     if state != "finalized":
         return False
     return isinstance(transaction_id, str) and bool(transaction_id)
-
-
-def runtime_supports_selected_generation_handoff(
-    runtime: handoff.RuntimeSnapshot | None,
-) -> bool:
-    """Return whether a runtime can launch the selected payload generation."""
-    if not isinstance(runtime, dict):
-        return False
-    capabilities = runtime.get("handoff_capabilities")
-    return (
-        isinstance(capabilities, list)
-        and all(isinstance(capability, str) for capability in capabilities)
-        and handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY in capabilities
-    )
-
-
-def runtime_supports_admission_preserving_handoff(
-    runtime: handoff.RuntimeSnapshot | None,
-) -> bool:
-    """Return whether selected-generation handoff keeps admission open."""
-    if not runtime_supports_selected_generation_handoff(runtime) or not isinstance(runtime, dict):
-        return False
-    capabilities = runtime["handoff_capabilities"]
-    return (
-        isinstance(capabilities, list)
-        and handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY in capabilities
-    )
 
 
 def deployment_strategy_identity_is_valid(runtime: handoff.RuntimeSnapshot | None) -> bool:
@@ -77,19 +46,14 @@ def deployment_strategy_identity_is_valid(runtime: handoff.RuntimeSnapshot | Non
     )
 
 
-def deployment_strategy(runtime: handoff.RuntimeSnapshot | None) -> DeploymentStrategy:
-    """Select the safe deployment transition proved by runtime capabilities."""
-    if not deployment_strategy_identity_is_valid(runtime):
-        return "unsupported"
-    if runtime_supports_admission_preserving_handoff(runtime):
-        return "handoff"
-    return "native_generation"
-
-
 def runtime_supports_handoff(runtime: handoff.RuntimeSnapshot | None) -> bool:
-    """Return whether a live runtime explicitly supports selected-generation handoff."""
-    if not isinstance(runtime, dict):
+    """Return whether a live runtime has a valid identity and both handoff capabilities."""
+    if not deployment_strategy_identity_is_valid(runtime) or not isinstance(runtime, dict):
         return False
-    return deployment_strategy_identity_is_valid(
-        runtime
-    ) and runtime_supports_selected_generation_handoff(runtime)
+    capabilities = runtime.get("handoff_capabilities")
+    return (
+        isinstance(capabilities, list)
+        and all(isinstance(capability, str) for capability in capabilities)
+        and handoff_transaction.SELECTED_GENERATION_HANDOFF_CAPABILITY in capabilities
+        and handoff_transaction.ADMISSION_PRESERVING_HANDOFF_CAPABILITY in capabilities
+    )

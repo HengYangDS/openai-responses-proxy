@@ -1,17 +1,21 @@
 """Loopback lifecycle HTTP projections for OpenAI Responses Proxy.
 
-This module owns only the HTTP representation of runtime status, drain control,
-and protocol-v2 handoff preparation.  The handoff state machine remains owned by
-``handoff`` and process composition remains owned by the executable entrypoint.
+This module owns only the HTTP representation of runtime status and protocol-v2
+handoff preparation.  The handoff state machine remains owned by ``handoff`` and
+process composition remains owned by the executable entrypoint.
 """
 
 from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Buffer
+from contextlib import suppress
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING
+from typing import SupportsIndex
+from typing import SupportsInt
 from typing import cast
 
 from openai_responses_proxy.relay import admission
@@ -23,6 +27,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from http.server import BaseHTTPRequestHandler
     from http.server import ThreadingHTTPServer
+
+_MIN_LEASE_SECONDS = 1
+_MAX_LEASE_SECONDS = 900
 
 
 @dataclass(frozen=True)
@@ -37,15 +44,11 @@ def _write_json(
     handler: BaseHTTPRequestHandler,
     status: int,
     payload: Mapping[str, object],
-    *,
-    close: bool = False,
 ) -> None:
     raw = json.dumps(payload, separators=(",", ":")).encode()
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Cache-Control", "no-store")
-    if close:
-        handler.send_header("Connection", "close")
     handler.send_header("Content-Length", str(len(raw)))
     handler.end_headers()
     handler.wfile.write(raw)
@@ -56,16 +59,12 @@ def send_status(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
     _write_json(handler, 200, bindings.runtime_status())
 
 
-def set_drain(handler: BaseHTTPRequestHandler, *, enabled: bool) -> None:
-    """Toggle Responses admission for an authorized loopback controller."""
-    if not admission.is_local_controller(handler.client_address[0], handler.headers):
-        handler.send_error(403, "drain control is available only to a local native controller")
-        return
-    lease = handler.headers.get("X-OpenAI-Responses-Proxy-Drain-Lease-Seconds") if enabled else None
-    payload = admission.set_draining(enabled=enabled, lease_seconds=lease)
-    # The toggle carries its lease in a header and never reads a request body,
-    # so the connection cannot stay persistent over an unconsumed remainder.
-    _write_json(handler, 200, payload, close=True)
+def _bounded_lease_seconds(value: object) -> float:
+    """Bound the lease of a handed-off listener; an unreadable value takes the default."""
+    if isinstance(value, (str, Buffer, SupportsInt, SupportsIndex)):
+        with suppress(TypeError, ValueError):
+            return min(_MAX_LEASE_SECONDS, max(_MIN_LEASE_SECONDS, int(value)))
+    return handoff.HANDOFF_DEFAULT_LEASE_SECONDS
 
 
 def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
@@ -127,7 +126,7 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
         return
     try:
         timeout_seconds = min(120.0, max(0.1, float(request.get("timeout_seconds", 30.0))))
-        lease_seconds = admission.bounded_drain_lease_seconds(request.get("lease_seconds"))
+        lease_seconds = _bounded_lease_seconds(request.get("lease_seconds"))
         server = cast("ThreadingHTTPServer", handler.server)
         prepared = handoff.prepare(
             server,

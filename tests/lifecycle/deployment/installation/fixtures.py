@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from openai_responses_proxy.lifecycle import context as runtime_context
     from openai_responses_proxy.lifecycle import runtime_spec
+    from openai_responses_proxy.lifecycle.deployment import handoff
     from openai_responses_proxy.lifecycle.transaction import execution as transaction
 
 
@@ -58,6 +59,10 @@ class FakeTransaction:
 
     def rollback(self) -> None:
         self.events.append("rollback")
+
+    def rollback_if_prepared(self) -> bool:
+        self.events.append("close_prepared")
+        return True
 
     def preserve_for_recovery(self, reason: str) -> None:
         self.events.append(("preserve", reason))
@@ -232,6 +237,7 @@ class ReleasedDeploymentFixture:
         current: dict[str, object] | None,
         *,
         adapter: FakeServiceAdapter | None = None,
+        runtime_reader: handoff.RuntimeReader | None = None,
         timeout_seconds: float = 30,
         mocker: MockerFixture,
     ) -> dict[str, object]:
@@ -244,6 +250,6 @@ class ReleasedDeploymentFixture:
             self.ctx,
             as_transaction(payload),
             adapter=adapter or FakeServiceAdapter(mocker=mocker),
-            runtime_reader=lambda _ctx: current,
+            runtime_reader=runtime_reader or (lambda _ctx: current),
             timeout_seconds=timeout_seconds,
         )

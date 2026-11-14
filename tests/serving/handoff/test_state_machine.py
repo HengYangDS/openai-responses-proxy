@@ -38,9 +38,6 @@ class TestParentHandoffStateMachine(HandoffFixture):
         self.context.log("fixture-event")
         assert self.log_events == ["fixture-event"]
 
-    def test_handoff_context_cannot_mutate_request_admission(self) -> None:
-        assert not hasattr(self.context, "set_draining")
-
     def committed(
         self,
         *after_ready: object,

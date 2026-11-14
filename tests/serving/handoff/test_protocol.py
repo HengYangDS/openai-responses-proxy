@@ -73,6 +73,12 @@ class TestProtocolContract:
         )
         assert status["handoff_state"] in (None, "idle")
 
+    def test_runtime_status_reports_open_admission_without_admission_drain_state(self) -> None:
+        """Protocol 2 names both admission fields; this release never closes admission."""
+        status = self.p.runtime_status()
+        assert (status["accepting"], status["draining"]) == (True, False)
+        assert {"drain_generation", "drain_lease_remaining_seconds"}.isdisjoint(status)
+
     def test_a_prepared_or_committing_handoff_keeps_request_admission_open(
         self,
     ) -> None:
@@ -105,8 +111,11 @@ class TestProtocolContract:
                 "handoff_capabilities",
                 "payload_manifest_sha256",
                 "accepting",
+                "draining",
             )
             assert set(required).difference(payload) == set()
+            assert (payload["accepting"], payload["draining"]) == (True, False)
+            assert {"drain_generation", "drain_lease_remaining_seconds"}.isdisjoint(payload)
         finally:
             proxy.shutdown()
             proxy.server_close()

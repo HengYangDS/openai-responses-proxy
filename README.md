@@ -234,14 +234,14 @@ idempotent across interruption, and the
 transaction owns temporary bootstrap evidence, selector reconciliation,
 cleanup, and recovery until it closes. `status` therefore reports rollback as
 `deferred` while a transaction is active instead of treating its intermediate
-state as an independent rollback authority. Upgrade and rollback use the same
-capability-qualified handoff. A runtime that advertises
-`admission-preserving-handoff` transfers listener ownership while continuing to
-admit new requests and lets already accepted requests finish. The previous
-listener keeps serving them until they end or reach the configured upstream
-timeout, at most 900 seconds, and the command returns after it exits. Draining is used
-only for the bounded native-generation replacement of an older runtime that
-cannot preserve admission.
+state as an independent rollback authority. Upgrade, rollback and reload use
+the same handoff, and no other transition exists: the running listener
+transfers listener ownership while continuing to admit new requests and lets
+already accepted requests finish. The previous listener keeps serving them
+until they end or reach the configured upstream timeout, at most 900 seconds,
+and the command returns after it exits. A runtime that does not advertise both
+`selected-generation-handoff` and `admission-preserving-handoff` is refused
+before any change; remove it with its own release, then install this one.
 
 Expected failures are concise and actionable. Human mode does not emit a
 traceback, warning dump, serialized object, credential, request body, or private
@@ -323,10 +323,10 @@ fragments, and unrelated endpoints are rejected before remote I/O. Provider
 origins come from the product manifest or the explicit installed upstream;
 headers, bodies, and query parameters cannot select another host. The proxy
 never follows an upstream redirect: the client receives the redirect response
-itself, and its credential is sent only to the selected upstream. Lifecycle
-control requests (`/control/drain`, `/control/handoff`) are accepted only from
+itself, and its credential is sent only to the selected upstream. The
+lifecycle control request (`/control/handoff`) is accepted only from
 a loopback client whose `Host` is a loopback address and that sends no
-`Origin`, so a web page cannot drain the listener. The
+`Origin`, so a web page cannot start a handoff. The
 [threat model](docs/architecture/threat-model.md) lists the remaining
 accepted risks.
 
@@ -364,7 +364,8 @@ successful terminator. Valid events and live ciphertext keep their bytes.
 - installed release, payload integrity, and command discoverability;
 - native service and exact listener identity;
 - transaction state;
-- accepting and draining state;
+- the handoff state, with `accepting` true and `draining` false, the two
+  constants that handoff protocol 2 names;
 - bounded reliability counters and classified failures.
 
 It does not report prompts, tokens, headers, request bodies, upstream payloads,
@@ -376,7 +377,7 @@ or conversation content.
 | ---------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
 | Replay or encrypted-item rejection | `openai-responses-proxy doctor`                | Confirm local payload and listener integrity before changing the client route |
 | Error after provider switch        | Check the client control plane                 | A direct provider URL bypasses proxy portability                              |
-| Local `503`                        | `openai-responses-proxy status --json`         | Distinguish empty/truncated upstream output from local lifecycle failure      |
+| Local `503`                        | `openai-responses-proxy status --json`         | Read the failure class: empty or truncated upstream output, or its cooldown   |
 | Local or upstream `429`            | Inspect `Retry-After` and provider state       | Cooldown is provider-scoped; the proxy does not impose a global request queue |
 | Route change not observed          | Reload the client through its normal lifecycle | The proxy does not restart or mutate clients                                  |
 

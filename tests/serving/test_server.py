@@ -38,27 +38,26 @@ def test_server_routes_each_method_to_one_owner(
     handler.server = mocker.Mock(
         bindings=server.Bindings(control=bindings, providers=providers, server_version="dmx/test")
     )
-    drain = mocker.patch.object(control, "set_drain")
     handoff = mocker.patch.object(control, "prepare_handoff")
     status = mocker.patch.object(control, "send_status")
     relay = mocker.patch.object(responses, "relay")
-    for method, path, owner, arguments, keywords in (
-        ("do_POST", "/control/drain", drain, (), {"enabled": True}),
-        ("do_POST", "/control/handoff", handoff, (bindings,), {}),
-        ("do_POST", "/v1/responses", relay, ("POST", providers), {}),
-        ("do_GET", "/healthz", status, (bindings,), {}),
-        ("do_GET", "/v1/responses", relay, ("GET", providers), {}),
-        ("do_DELETE", "/control/drain", drain, (), {"enabled": False}),
-        ("do_DELETE", "/v1/responses/resp", relay, ("DELETE", providers), {}),
-        ("do_PATCH", "/v1/responses/resp", relay, ("PATCH", providers), {}),
-        ("do_PUT", "/v1/responses", relay, ("PUT", providers), {}),
+    for method, path, owner, arguments in (
+        ("do_POST", "/control/handoff", handoff, (bindings,)),
+        ("do_POST", "/control/drain", relay, ("POST", providers)),
+        ("do_POST", "/v1/responses", relay, ("POST", providers)),
+        ("do_GET", "/healthz", status, (bindings,)),
+        ("do_GET", "/v1/responses", relay, ("GET", providers)),
+        ("do_DELETE", "/control/drain", relay, ("DELETE", providers)),
+        ("do_DELETE", "/v1/responses/resp", relay, ("DELETE", providers)),
+        ("do_PATCH", "/v1/responses/resp", relay, ("PATCH", providers)),
+        ("do_PUT", "/v1/responses", relay, ("PUT", providers)),
     ):
         with subtests.test(method=method, path=path):
-            for candidate in (drain, handoff, status, relay):
+            for candidate in (handoff, status, relay):
                 candidate.reset_mock()
             handler.path = path
             getattr(handler, method)()
-            owner.assert_called_once_with(handler, *arguments, **keywords)
+            owner.assert_called_once_with(handler, *arguments)
 
 
 def test_server_hardening_and_handoff_listener_adoption(*, mocker: MockerFixture) -> None:
