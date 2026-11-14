@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [5.1.11] - 2026-11-14
+
 ### Fixed
 
 - Reject a `--port` value that overflows a number, such as `1.0e999`, as a
@@ -32,7 +34,7 @@ publication authority.
   `python:3.14.10-bookworm` image digest.
 - Bundle Cyclopts 5.4.2. The other changes since 5.3.3 concern meta apps,
   argument files, completion generation, limited-choice groups and types that
-  the proxy's CLI does not use; help and usage text are unchanged.
+  the proxy's CLI does not use; they change no help or usage text.
 - Run the developer tools and CI jobs on uv 0.13.8 with its GitLab images, the
   GitLab Mise 2026.11.8 image and mise-action 5.2.8, which retries transient
   download failures. The release assets do not contain them.
