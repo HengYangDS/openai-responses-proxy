@@ -20,7 +20,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from collections.abc import Mapping
 
 
@@ -58,7 +58,7 @@ class UnknownDeploymentOutcome(errors.InstallError):
 
 
 @contextmanager
-def closing_prepared(payload: transaction.PayloadTransaction, operation: str) -> Iterator[None]:
+def closing_prepared(payload: transaction.PayloadTransaction, operation: str) -> Generator[None]:
     """Close a transaction that its transition refuses before any projection.
 
     A cleanup that fails is reported together with the refusal, under the refusal's type.
