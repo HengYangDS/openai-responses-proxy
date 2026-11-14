@@ -353,13 +353,15 @@ def relay(
         else:
             telemetry.record_failure(f"stream_{detail}")
     safe_path = operational_log.safe_request_path(path)
+    # An upstream's word stands last in its line: the log's redaction of a credential-shaped
+    # word also takes the word after it.
     if result["terminal"] is not None:
         code = (
-            f"code={result.get('error_code', 'unknown')} " if result["terminal"] == "error" else ""
+            f" code={result.get('error_code', 'unknown')}" if result["terminal"] == "error" else ""
         )
         operational_log.log(
-            f"req={request_id} event=sse_terminal terminal={result['terminal']} {code}"
-            f"events={result['events']} path={safe_path}"
+            f"req={request_id} event=sse_terminal terminal={result['terminal']} "
+            f"events={result['events']} path={safe_path}{code}"
         )
     else:
         detail = result["detail"]
@@ -368,8 +370,8 @@ def relay(
             f"req={request_id} event=sse_end_without_terminal detail={detail} "
             f"exception={operational_log.safe_exception_label(error) if error else 'none'} "
             f"reason={result.get('failure_code', 'unknown')} "
-            f"last={result.get('last_event_type', 'none')} "
-            f"events={result['events']} path={safe_path}"
+            f"events={result['events']} path={safe_path} "
+            f"last={result.get('last_event_type', 'none')}"
         )
     return {
         "pre_content_exhausted": pre_content_exhausted,
