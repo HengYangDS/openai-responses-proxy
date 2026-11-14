@@ -459,8 +459,8 @@ unselected domain rather than treating both domains as independent services.
 A capability-qualified handoff transfers the listener without changing request
 admission: the predecessor stops accepting only when the successor is ready to
 serve, while already accepted handlers finish on the predecessor. Upgrade and
-rollback share this transition. The lifecycle uses draining only for the
-bounded legacy native-generation replacement path; handoff state is never
+rollback share this transition, and it is the only one: a runtime that cannot
+hand off is refused. The listener has no admission drain; handoff state is never
 presented as admission state.
 
 Environment variables remain the portable non-interactive Provider-secret

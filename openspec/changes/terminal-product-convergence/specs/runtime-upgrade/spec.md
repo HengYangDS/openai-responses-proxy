@@ -119,10 +119,8 @@ SHALL wait for that completion.
 
 ### Requirement: Capable handoff preserves request admission
 
-A runtime-to-runtime handoff that advertises the admission-preserving capability
-SHALL transfer listener ownership without changing the request-admission state.
-Draining is reserved for the legacy native-generation replacement path whose
-current runtime cannot perform that handoff.
+A runtime-to-runtime handoff SHALL transfer listener ownership without changing
+the request-admission state.
 
 #### Scenario: A capable runtime is upgraded or rolled back under load
 
@@ -130,15 +128,7 @@ current runtime cannot perform that handoff.
   admission-preserving handoff capabilities
 - **THEN** upgrade or rollback uses that handoff while new requests continue to
   be admitted and already accepted requests reach terminal responses
-- **AND** no request is rejected with `proxy_draining` during the transition.
-
-#### Scenario: A legacy runtime cannot preserve admission
-
-- **WHEN** the verified current runtime lacks the admission-preserving handoff
-  capability
-- **THEN** lifecycle selects the bounded native-generation replacement path
-- **AND** health and command output expose the actual admission state without
-  claiming an admission-preserving transition.
+- **AND** no request is refused because of the transition.
 
 ### Requirement: Legacy lifecycle state has no implicit compatibility authority
 
@@ -298,17 +288,16 @@ verify.
 
 ### Requirement: Lifecycle control admits only a local native controller
 
-Drain and handoff control SHALL accept a request only from a loopback client
-whose `Host` names a loopback address and that carries no `Origin`. A web page,
-including one that reaches the listener through DNS rebinding, SHALL NOT change
-Responses admission or start a handoff.
+Handoff control SHALL accept a request only from a loopback client whose `Host`
+names a loopback address and that carries no `Origin`. A web page, including
+one that reaches the listener through DNS rebinding, SHALL NOT start a handoff.
 
 #### Scenario: A web page posts a lifecycle control request
 
 - **WHEN** a control request carries an `Origin` header or a `Host` that is not
   a loopback address
 - **THEN** the proxy refuses it with HTTP 403
-- **AND** Responses admission and handoff state remain unchanged.
+- **AND** handoff state remains unchanged.
 
 ### Requirement: Handoff control receipt is bounded
 
@@ -509,7 +498,7 @@ The rollback command SHALL require one syntactically valid target release.
 - **WHEN** this requirement is evaluated for implementation or acceptance
 - **THEN** If
   the verified installed active release already equals that target, rollback SHALL
-  succeed as an idempotent no-op without draining, starting a transaction, changing
+  succeed as an idempotent no-op without starting a handoff or a transaction, changing
   the generation selection, or rewriting the command. Otherwise the target SHALL
   equal the immutable predecessor bound to the current finalized successor.
   Rollback SHALL verify both selected payload identities, current installed state,
@@ -525,7 +514,7 @@ The rollback command SHALL require one syntactically valid target release.
 
 - **WHEN** rollback names the exact installed active release
 - **THEN** it reports an unchanged terminal state
-- **AND** performs no drain, handoff, transaction, selection, command, service,
+- **AND** performs no handoff, transaction, selection, command, service,
   listener, or payload mutation.
 
 #### Scenario: Exact predecessor rollback succeeds
@@ -547,7 +536,7 @@ The rollback command SHALL require one syntactically valid target release.
 
 - **WHEN** rollback names neither the installed active release nor the verified
   retained predecessor
-- **THEN** it fails before drain or mutation
+- **THEN** it fails before any handoff or mutation
 - **AND** preserves the selected payload, command, listener, service, retained
   predecessor, and transaction state.
 
