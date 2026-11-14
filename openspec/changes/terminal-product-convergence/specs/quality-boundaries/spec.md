@@ -2,50 +2,45 @@
 
 ### Requirement: Logical and physical topology are one positive model
 
-The repository SHALL positively declare the semantic owner, role, allowed
-dependency direction, public entrypoint, generated status, and retirement
-condition for every tracked source, test, tool, configuration, specification,
-documentation, workflow, schema, and root carrier. Physical packages and paths
-SHALL mirror that model. Undeclared and multiply owned entities SHALL fail
-admission without a historical forbidden-name list.
+The repository SHALL positively declare one role for every tracked path. Each
+role SHALL state its owner, consumer, source of truth, change condition,
+dependency direction, and retirement condition. A path that no role declares
+and a path that more than one role matches SHALL fail admission without a
+historical forbidden-name list.
 
 #### Scenario: A repository entity is added or moved
 
 - **WHEN** repository quality evaluates the candidate tree
-- **THEN** the entity resolves to exactly one declared semantic owner
-- **AND** its imports, consumers, location, and name conform to the owner's
-  dependency direction and vocabulary.
+- **THEN** the entity resolves to exactly one declared role
+- **AND** its file name conforms to its carrier's name grammar
+- **AND** Python imports conform to the declared package architecture.
 
-#### Scenario: A flat suffix family or catch-all owner exists
+#### Scenario: A role is declared without its lifecycle
 
-- **WHEN** files are distinguished by Provider, platform, action, or vague role
-  suffixes instead of a semantic package boundary
-- **THEN** convergence absorbs, precisely renames, splits, or deletes the owner
-- **AND** no wrapper, alias, re-export, or forwarding compatibility path remains.
+- **WHEN** a role lacks its owner, consumer, source of truth, change condition,
+  dependency direction, or retirement condition
+- **THEN** the responsibility map fails with the role and the missing field.
 
 ### Requirement: Quality rules are complete, rational, and singly owned
 
-Every applicable engineering concern SHALL have one mature tool or
-product-semantic owner. Each blocking policy SHALL state scope, protected risk,
-measurement, false-positive cost, remediation, and review condition. Warnings,
-blanket ignores, permanent baselines, duplicate thresholds, and unexplained
-disabled rules SHALL fail admission.
+Every quality concern that the responsibility map declares SHALL have one
+identity, one owner, one scope, one session and its configuration files, and
+SHALL state its risk model, measurement, false-positive cost, remediation, and
+review condition. Warnings of tests, Nox sessions and type checks SHALL fail
+admission, and a lint exemption SHALL name one exact rule.
 
 #### Scenario: The responsibility map is checked for completeness
 
-- **WHEN** maintainers assess the applicable engineering concerns
-- **THEN** the map covers formatting, import, correctness, modernization, naming,
-  documentation, typing, exception, logging, security, dependency, architecture,
-  dead-code, test, prose, configuration, link, workflow, secret, license,
-  vulnerability, coverage, complexity, performance, commit, and release
-- **AND** each concern has exactly one mature tool or product-semantic owner.
+- **WHEN** the responsibility map is validated
+- **THEN** each declared concern has a unique identity and exactly one owner
+- **AND** a concern that lacks a rationale field, names an unknown scope, or
+  names a configuration file that does not exist fails with its identity.
 
 #### Scenario: A quality rule is reviewed
 
 - **WHEN** maintainers inspect the responsibility map and native tool configuration
-- **THEN** the rule has one authority and a proportionate evidence model
-- **AND** custom code exists only where no mature tool can express the required
-  repository or product semantic.
+- **THEN** the map names the rule's owner, session, scope and configuration
+- **AND** a lint exemption that names a prefix family instead of one rule fails.
 
 #### Scenario: A numeric threshold is proposed
 

@@ -531,6 +531,60 @@ old hooks, orphaned runtimes, temporary services, caches, and generated residue
 are removed once exact ownership and lack of consumers are proved. Deletion is a
 first-class task, not deferred housekeeping.
 
+### Close on the installed product
+
+The Change closes on the tasks that change or prove the installed product. Its
+owner approved the cut on 2026-11-13: 82 of 115 tasks were complete, and most
+of the 33 open ones concerned repository quality, supply, CI and cleanup that
+a shared base now owns or that a product in maintenance does not need. Seven
+stay: 4.7, 5.8, 10.2, 12.5 and the closing acceptance 13.5 to 13.7. Twenty-six
+leave with a named destination, and none is dropped silently. A delta statement
+that depended on a leaving task is narrowed to what the repository does, or
+leaves with it. Task 3.7 is new: the review of the cut found option values that
+the command line converted to other values.
+
+| Task | Subject                                   | Destination                                                                    |
+| ---- | ----------------------------------------- | ------------------------------------------------------------------------------ |
+| 6.6  | Carrier audit for one owner per meaning   | ETHOS's repository structure rule; nothing further here                        |
+| 6.7  | Unused dependencies and dead code         | ETHOS's shared hygiene reports; removals follow them                           |
+| 7.4  | A mature tool for every concern           | ETHOS's shared base for secrets, vulnerabilities, hygiene and workflow checks  |
+| 7.7  | Warnings fatal in every consumer          | Not pursued in maintenance; fatal today in tests, Nox sessions and type checks |
+| 7.10 | Proof that each control takes effect      | ETHOS's shared base for the reach of each obligation                           |
+| 7.11 | Responsibility map against real coverage  | Duplicate checkers leave with the shared base; the map stays here              |
+| 8.2  | Clean Work Lane proof                     | Not pursued in maintenance; every lane start runs the locked bootstrap         |
+| 8.3  | No ambient state in success paths         | Not pursued in maintenance; ETHOS states the environment of proof gates        |
+| 8.4  | Audit of direct dependencies              | The recurring supply refresh of the repository's owner                         |
+| 8.7  | SBOM, licence and provenance outputs      | ETHOS's shared release operation                                               |
+| 8.8  | PyInstaller against its alternatives      | Dropped in maintenance; reopened by a measured defect                          |
+| 9.1  | One CI graph in CUE                       | ETHOS's shared CI template                                                     |
+| 9.3  | Evidence on every integration path        | ETHOS's shared CI template                                                     |
+| 9.4  | Independent jobs without duplicate runs   | ETHOS's shared CI template                                                     |
+| 9.5  | Evidence reuse across runs                | ETHOS's shared CI template and its gate-reuse design                           |
+| 9.9  | Both projections for the exact candidate  | Merged into 13.6                                                               |
+| 11.2 | Documented commands on the released build | Merged into 13.7                                                               |
+| 11.3 | Document normalisation                    | Delivered by the shared formatting and layout base; nothing further planned    |
+| 11.5 | Each configuration field at its owner     | ETHOS's shared base and its repository structure rule                          |
+| 11.7 | One public vocabulary                     | Not pursued in maintenance; reopened by a stale term that a user meets         |
+| 12.1 | Benchmarks and budgets                    | The declared budgets are 4.7's measure; cross-platform benchmarks are dropped  |
+| 12.2 | Hot-path profiling                        | Dropped unless 4.7 misses a budget                                             |
+| 13.1 | Deletion of superseded entities           | The product part merged into 5.8; duplicate checkers leave with the base       |
+| 13.2 | Orphaned host residue                     | Continuous housekeeping of the repository's owner                              |
+| 13.3 | Proposal and lane retirement              | Each lane's closeout                                                           |
+| 13.4 | Failed tags, drafts and Forge records     | The repository's history rebuild, which its owner schedules                    |
+
+A destination in ETHOS is this repository's reading of that base; each is
+checked when the shared work opens, and a task that the base does not take
+returns here as a new Change, not as a reopened line.
+
+The Change closes when 13.5 to 13.7 pass, including one exit test per Provider
+route on the released executable. Two obligations continue after it under their
+own owners: CI moves to a released ETHOS once that release can trust commits in
+CI, and the repository's history is rebuilt when its owner schedules it.
+
+One known deviation from the single vocabulary remains: two Forge secret names
+keep the former product name. A secret cannot be renamed without its value, so
+they take the current name when their values are next set.
+
 ## Risks / Trade-offs
 
 ### Bounded live-validation diagnosis

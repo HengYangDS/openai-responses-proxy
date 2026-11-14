@@ -75,17 +75,25 @@ or fallback SHALL reinterpret it independently.
 
 ### Requirement: Provider extension is adapter-only
 
-A new upstream Provider SHALL be admitted through one manifest entry, one narrow
-wire adapter, one policy declaration, and the common conformance suite. Generic
-HTTP admission, Responses semantics, lifecycle, CLI, and client configuration
-SHALL NOT branch on Provider names.
+A new upstream Provider SHALL be admitted through one manifest entry and, only
+where its wire differs, one policy module that the entry declares. Generic HTTP
+admission, Responses semantics, lifecycle, CLI, and client configuration SHALL
+NOT branch on Provider names.
 
 #### Scenario: A Provider is added
 
-- **WHEN** its endpoint and wire differences are declared
-- **THEN** the common conformance suite proves request, stream, non-stream,
-  error, retry, cooldown, and redaction behavior
+- **WHEN** its endpoint is declared in the manifest
+- **THEN** its route serves through the existing Responses path and forwards
+  the same portable body as every other route
 - **AND** no existing generic product module requires Provider-specific code.
+
+#### Scenario: A Provider needs its own wire policy
+
+- **WHEN** a Provider's wire differs from the portable form
+- **THEN** one policy module inside the declared package and one manifest
+  declaration carry the difference
+- **AND** a policy that is missing, incomplete or outside that package fails
+  the manifest load without leaving a loaded module behind.
 
 ### Requirement: HTTP request framing precedes Responses interpretation
 

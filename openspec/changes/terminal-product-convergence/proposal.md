@@ -38,8 +38,8 @@ consumer, and evidence that it contributes to the terminal product.
 - Make the locked development environment reproducible per Work Lane, share
   only content-addressed caches, and upgrade every direct tool and dependency
   to its verified current stable release without creating a second toolchain.
-- Make CUE the semantic owner of one CI graph and derive GitHub and GitLab
-  projections with explicit trigger, reuse, runner, and platform-proof rules.
+- Make CUE the owner of both Forge CI definitions and check the GitHub and
+  GitLab files as its projections.
 - Enforce SemVer, signed commits and tags, immutable assets, SBOM, provenance,
   checksums, Changelog continuity, exact installed-runtime evidence, and
   independent verification on both Forges.
@@ -58,20 +58,19 @@ None.
 
 ### Modified Capabilities
 
-- `ci-diagnostics`: Make verification, development bootstrap, native platform
-  evidence, and both Forge projections one reproducible graph.
-- `evidence-layout`: Retain only revision-bound evidence with a current
-  acceptance or recovery consumer.
+- `ci-diagnostics`: Make verification, development bootstrap and native platform
+  evidence reproducible, with both Forge files as checked projections.
 - `process-ownership`: Make every native process, service, child, and teardown
   exact, bounded, and leak-free.
 - `product-interface`: Make the public CLI, result model, lifecycle symmetry,
   diagnostics, and optional composition boundary natural and complete.
 - `provider-portable-responses`: Converge request grammar, replay handling,
   provider adaptation, transport, and recovery without client-control coupling.
-- `quality-boundaries`: Positively declare the full repository topology and one
-  strict, rational, warning-free quality authority.
-- `release-governance`: Define developer and maintainer integration, one CI
-  model, SemVer publication, dual-Forge projection, and terminal branch cleanup.
+- `quality-boundaries`: Positively declare a role for every tracked path, and
+  give each declared quality concern one owner and a stated rationale.
+- `release-governance`: Define developer and maintainer integration, checked CI
+  projections, SemVer publication, dual-Forge projection, and terminal branch
+  cleanup.
 - `repository-organization`: Make logical and physical organization isomorphic,
   navigable, minimal, and reproducible in every Work Lane.
 - `runtime-upgrade`: Prove atomic installation, upgrade, rollback, recovery,
@@ -85,6 +84,12 @@ CI generation and projections, release metadata, dependency locks, native
 packages, service definitions, branch and tag lifecycle, and owned host-local
 runtime state. Public behavior may change where current behavior is ambiguous,
 duplicated, misleading, unsafe, or incompatible with the terminal product.
+
+Since 2026-11-14 the Change closes on the installed product. Twenty-six open
+tasks about repository quality, supply, the CI graph, document normalisation
+and host cleanup left it; the design names each with its destination, and no
+delta statement claims their outcome. Evidence retention stays with the
+repository family's rules, so `evidence-layout` is no longer modified.
 
 Codex transcripts, client configuration, client-selected models, external
 Provider credentials, and AIGW source remain outside this repository's write

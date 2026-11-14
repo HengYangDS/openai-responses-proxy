@@ -57,6 +57,14 @@ command.
 - **AND** emits no traceback, warning, internal type, private path, credential,
   request content, or unrelated usage dump.
 
+#### Scenario: An option value is outside its grammar
+
+- **WHEN** `--port` is not written in ASCII decimal digits or lies outside
+  1 to 65535, or `--timeout-seconds` is not a finite number above zero
+- **THEN** the command exits with status 2 and names its own help
+- **AND** no value is converted to another one: a fraction, a base prefix, a
+  digit separator, a sign and an infinite deadline are refused.
+
 #### Scenario: Lifecycle evidence contradicts a completed operation
 
 - **WHEN** a reload result names a nonpositive process ID or the same predecessor

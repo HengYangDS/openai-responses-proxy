@@ -46,12 +46,11 @@ SHALL bind the exact tag, `VERSION`, first released section, and `HEAD`.
 
 ### Requirement: One CI model covers every integration path
 
-CUE SHALL own the semantic CI graph, including jobs, dependencies, triggers,
-matrices, platform claims, evidence reuse, release admission, and generated
-projection inventory. GitHub Actions and GitLab CI SHALL be checked projections
-of that graph. Proposal review, proposal update, maintainer fast-forward, `dev`,
-`main`, and tag events SHALL each produce or consume exact-revision evidence
-without duplicating jobs that prove no additional fact.
+CUE SHALL own both Forge CI definitions: one shared contract for the Python
+matrix, the verification sessions and the tool supply, and each Forge's jobs,
+dependencies and triggers. GitHub Actions and GitLab CI files SHALL be checked
+projections of it. Proposal review, proposal update, `dev`, `main`, and tag
+events SHALL each run their required graph for the exact revision.
 
 #### Scenario: A developer updates a proposal
 
@@ -61,10 +60,11 @@ without duplicating jobs that prove no additional fact.
 
 #### Scenario: A maintainer fast-forwards an admitted commit
 
-- **WHEN** the exact commit already has reusable evidence for the unchanged
-  source, locks, platform, and release context
-- **THEN** the target consumes that revision-bound evidence
-- **AND** any changed proof input triggers only the newly required jobs.
+- **WHEN** an admitted commit reaches `dev` or `main`
+- **THEN** the accepted-branch event runs its required graph for that exact
+  revision
+- **AND** a Forge file that differs from its CUE projection fails the check
+  without changing any file.
 
 #### Scenario: A required branch job is skipped
 
@@ -171,7 +171,8 @@ major versions SHALL need deliberate admission.
 ### Requirement: Performance claims are reproducible and budgeted
 
 The product SHALL publish deterministic local benchmarks and reviewed budgets
-for request-path and lifecycle overhead. Performance acceptance SHALL use
+for request-path overhead, startup readiness and handoff control. Performance
+acceptance SHALL use
 machine-readable repeated measurements isolated from third-party network
 latency. A passing functional suite SHALL NOT be described as performance
 optimization evidence.
