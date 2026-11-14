@@ -14,11 +14,12 @@ publication authority.
   usage error with exit status 2. It ended the command with a Python traceback
   and exit status 1. The fix comes with Cyclopts 5.4.2.
 - Reject a `--port` value that is not written in decimal digits as a usage
-  error. A fraction, a base prefix, a digit separator, a sign and non-ASCII
-  digits were converted to another port and run: `8.5` as 8, `9.5` as 10 and
-  `0x50` as 80.
-- Reject a `--timeout-seconds` value that is not finite, such as `inf` or
-  `1e999`, as a usage error. It was accepted as a deadline that never ends.
+  error. A fraction, a base prefix, a digit separator, a plus sign and non-ASCII
+  digits were accepted, and a fraction and a base prefix ran the command on
+  another port: `8.5` as 8, `9.5` as 10 and `0x50` as 80.
+- Reject a `--timeout-seconds` value above 3600, including `inf` and `1e999`,
+  as a usage error. Such a value was accepted as a deadline without an upper
+  bound.
 
 ### Changed
 

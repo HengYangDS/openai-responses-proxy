@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Protocol
@@ -37,17 +36,18 @@ def _decimal_port(_kind: object, words: Sequence[_Word]) -> int:
     non-ASCII digits, and ran the command on another integer: 8.5 as 8, 0x50 as 80.
     """
     text = words[0].value
-    if not (text.isascii() and text.isdecimal()):
+    # A port has at most five digits; the length bound also keeps a long digit string
+    # away from the interpreter's own integer-conversion limit and its message.
+    if not (text.isascii() and text.isdecimal() and len(text.lstrip("0")) <= _PORT_DIGITS):
         message = "a port is a whole number written in decimal digits"
         raise ValueError(message)
     return int(text)
 
 
-def _finite_deadline(_kind: object, seconds: float) -> None:
-    """Refuse a deadline that never ends: infinity, an overflowing decimal, or no number."""
-    if not (math.isfinite(seconds) and seconds > 0):
-        message = "A deadline is a finite number of seconds above zero."
-        raise ValueError(message)
+_PORT_DIGITS = 5
+# No native lifecycle step waits longer than an hour. Without a bound, `inf` and any
+# huge finite value were deadlines that never end.
+MAXIMUM_DEADLINE_SECONDS = 3600
 
 
 PORT = Annotated[
@@ -62,8 +62,8 @@ TIMEOUT = Annotated[
     float,
     Parameter(
         name="--timeout-seconds",
-        help="Native lifecycle deadline in seconds.",
-        validator=_finite_deadline,
+        help=f"Native lifecycle deadline in seconds, at most {MAXIMUM_DEADLINE_SECONDS}.",
+        validator=Number(gt=0, lte=MAXIMUM_DEADLINE_SECONDS),
     ),
 ]
 PURGE = Annotated[

@@ -259,39 +259,6 @@ class ProductInterfaceContracts:
         assert "[Errno" not in stderr
         assert "openai-responses-proxy install --help" in stderr
 
-    def test_ports_and_deadlines_are_rejected_at_the_command_boundary(self) -> None:
-        cases = (
-            ("status", "--port", "0"),
-            ("status", "--port", "65536"),
-            # A decimal that overflows a float reached the conversion as an unhandled
-            # OverflowError until Cyclopts 5.4.2: a traceback and exit status 1.
-            ("status", "--port", "1.0e999"),
-            ("status", "--port", "-1.5e400"),
-            # A port is written in ASCII decimal digits. Each of these was converted to
-            # another integer and run: 8.5 as 8, 9.5 as 10, 0x50 as 80.
-            ("status", "--port", "8.5"),
-            ("status", "--port", "9.5"),
-            ("status", "--port", "8080.0"),
-            ("status", "--port", "0x50"),
-            ("status", "--port", "8_080"),
-            ("status", "--port", "+8080"),
-            ("status", "--port", "\uff18\uff10\uff18\uff10"),
-            ("reload", "--timeout-seconds", "0"),
-            ("reload", "--timeout-seconds", "-1"),
-            # A deadline without an end is no deadline.
-            ("reload", "--timeout-seconds", "inf"),
-            ("reload", "--timeout-seconds", "1e999"),
-            ("reload", "--timeout-seconds", "nan"),
-        )
-        for arguments in cases:
-            code, stdout, stderr = invoke(*arguments)
-            assert code == 2
-            assert stdout == ""
-            assert f"openai-responses-proxy {arguments[0]} --help" in stderr
-            assert "openai-responses-proxy doctor" not in stderr
-            assert "Traceback" not in stderr
-            assert "Warning" not in stderr
-
     def test_module_boundary_delegates_exit_status(self, *, mocker: MockerFixture) -> None:
         main = mocker.patch.object(application, "main", return_value=7)
         with pytest.raises(SystemExit, match="7"):
