@@ -7,10 +7,9 @@ platform exceptions, duplicated configuration, stale residue, and proof that
 does not always match the claim it is used to support. Local repairs have
 therefore produced churn without removing the causes of recurring failures.
 
-This Change makes the entire repository converge as one system. Existing files
-and mechanisms are inputs to evaluate, not defaults to preserve: every retained
-entity must have one precise meaning, one owner, one reason to change, a current
-consumer, and evidence that it contributes to the terminal product.
+This Change makes the product converge as one system. Existing files and
+mechanisms are inputs to evaluate, not defaults to preserve; the Impact names
+what left its scope on 2026-11-14.
 
 ## What Changes
 
@@ -35,16 +34,13 @@ consumer, and evidence that it contributes to the terminal product.
   documentation, CI projections, generated assets, and root files.
 - Use mature ecosystem tools for linting, formatting, typing, dead code,
   dependency hygiene, links and secrets.
-- Give every Work Lane one locked bootstrap, and keep every direct tool and
-  dependency at its verified current stable release without a second toolchain.
+- Give every Work Lane one locked bootstrap without a second toolchain, and
+  one dependency proposal policy with one declared release age.
 - Make CUE the owner of both Forge CI definitions and check the GitHub and
   GitLab files as its projections.
 - Enforce SemVer, signed commits and tags, immutable assets, checksums,
   Changelog continuity, exact installed-runtime evidence, and independent
   verification on both Forges.
-- Rebuild documentation, decisions, examples and OpenSpec history around the
-  current product.
-- Leave no test or runtime residue of the product on the host.
 
 ## Capabilities
 
@@ -72,11 +68,8 @@ None.
 
 ## Impact
 
-The complete tracked repository and its produced artifacts are in scope:
-`src`, `tests`, `tools`, `.config`, root configuration, OpenSpec, documentation,
-CI generation and projections, release metadata, dependency locks, native
-packages, service definitions, branch and tag lifecycle, and owned host-local
-runtime state. Public behavior may change where current behavior is ambiguous,
+The product, its tests and tools, the CI projections, release metadata, native
+packages and service definitions are in scope. Public behavior may change where current behavior is ambiguous,
 duplicated, misleading, unsafe, or incompatible with the terminal product.
 
 Since 2026-11-14 the Change closes on the installed product. Twenty-six open
@@ -85,7 +78,10 @@ and host cleanup are out of scope, and no delta statement claims their outcome.
 Evidence retention stays with the repository family's rules, so
 `evidence-layout` is no longer modified. Each task has a destination; one in
 ETHOS is this repository's reading of that shared base, and a task that its
-destination does not take returns as a new Change.
+destination does not take returns as a new Change. Two Forge secret names keep
+the former product name until their values are next set. After the Change
+closes, CI moves to a released ETHOS when one can trust commits in CI; that is
+ETHOS's schedule, not a task here.
 
 | Task | Subject                                   | Destination                                                                          |
 | ---- | ----------------------------------------- | ------------------------------------------------------------------------------------ |

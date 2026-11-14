@@ -193,7 +193,7 @@ entrypoint.
 
 #### Scenario: GitLab executes repository release tests
 
-- **WHEN** the GitLab metadata job runs repository-only tests under importlib mode
+- **WHEN** a GitLab verification job runs repository tests under importlib mode
 - **THEN** its Nox session invokes pytest through the selected interpreter
 - **AND** repository `tools` modules remain importable without `PYTHONPATH`
   injection or a compatibility package.
@@ -212,9 +212,9 @@ own configuration.
 
 - **WHEN** the repository has no local virtual environment, Nox environment,
   Node modules, build output, coverage data, or test temporary state
-- **THEN** the documented locked bootstrap reconstructs all required state
-- **AND** subsequent verification uses only that checkout's mutable environments
-  and shared content-addressed caches.
+- **THEN** the documented bootstrap task syncs every locked Python group,
+  installs the locked Node modules without their scripts and verifies their
+  registry signatures.
 
 #### Scenario: Operator uv configuration is present
 

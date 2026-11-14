@@ -44,8 +44,7 @@ admission, and a lint exemption SHALL name one exact rule.
 
 #### Scenario: A numeric threshold is proposed
 
-- **WHEN** source size, complexity, nesting, parameters, coverage, or performance
-  becomes blocking
+- **WHEN** complexity, nesting, coverage, or performance becomes blocking
 - **THEN** its concern states the risk model and the measurement in the
   responsibility map.
 
