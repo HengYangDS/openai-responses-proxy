@@ -4,10 +4,11 @@
       of the chunked body, nothing after it, and no reopen follows; tests cover the event before content, after
       held events, after committed content, before later events, in a reopened stream, and a client that reads
       the whole response over a real connection.
-- [ ] 1.2 Log the ending as `terminal=error` with a bounded code token, and never the event's message; tests show
-      a message and an out-of-grammar code absent from the log, and a redacted code that takes no other field.
-- [ ] 1.3 Name the last accepted event type of a stream that ends without a terminal event; a test covers a
-      typed event, an untyped one, a type outside the grammar and a stream without events.
+- [ ] 1.2 Log the ending as `terminal=error` with a bounded code token, read beside the event's type or else in
+      its `error` member, and never the event's message; tests show a message and an out-of-grammar code absent
+      from the log, the nested code with its precedence, and a credential word that takes no other field.
+- [ ] 1.3 Name the last accepted event type of a stream that ends without a terminal event; tests cover a typed
+      event, an untyped one, a type outside the grammar, a rejected event and a stream without events.
 
 ## 2. Verification
 

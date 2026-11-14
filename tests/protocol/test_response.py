@@ -17,6 +17,41 @@ def _event(value: object) -> bytes:
     return b"event: response.output_item.added\ndata: " + _json(value) + b"\n\n"
 
 
+class StreamDiagnosticContracts:
+    """A diagnostic names an upstream's code or event type only as a bounded token."""
+
+    @pytest.mark.parametrize(
+        ("event", "code"),
+        [
+            ({"type": "error", "code": "validation_error"}, "validation_error"),
+            ({"type": "error", "code": None, "error": {"code": "nested_code"}}, "nested_code"),
+            ({"type": "error", "code": "", "error": {"code": "nested_code"}}, "unknown"),
+            ({"type": "error"}, "unknown"),
+            (["error", "validation_error"], "unknown"),
+            ("validation_error", "unknown"),
+            (None, "unknown"),
+        ],
+    )
+    def test_a_stream_error_code_is_a_token_or_unknown(self, event: object, code: str) -> None:
+        assert response.stream_error_code(event) == code
+
+    @pytest.mark.parametrize(
+        ("event_type", "label"),
+        [
+            ("response.output_text.delta", "response.output_text.delta"),
+            ("", "untyped"),
+            (None, "untyped"),
+            (7, "untyped"),
+            ("Response Private-Prose", "other"),
+            ("a" * 65, "other"),
+        ],
+    )
+    def test_an_event_type_label_is_a_token_or_a_fixed_word(
+        self, event_type: object, label: str
+    ) -> None:
+        assert response.event_type_label(event_type) == label
+
+
 class LiveStreamContracts:
     @pytest.mark.parametrize("event", [b'data:{"type":\n\n', b'data: {"type":\ndata: bad}\n\n'])
     def test_validates_all_sse_data_field_spellings(self, event: bytes) -> None:

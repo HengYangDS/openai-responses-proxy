@@ -2,8 +2,9 @@
 
 ### Requirement: A top-level error event ends the stream
 
-A top-level `error` event of a Responses stream SHALL end the stream as
-`response.completed`, `response.failed` and `response.incomplete` do. The
+A top-level `error` event of a Responses stream SHALL be a terminal event: it
+SHALL end the stream as `response.completed`, `response.failed` and
+`response.incomplete` do, and it SHALL commit the response as content. The
 client SHALL receive the event unchanged and a complete HTTP body, and the
 request SHALL NOT be sent again. Diagnostics SHALL name the ending without the
 event's message.
@@ -15,9 +16,9 @@ event's message.
 - **THEN** the client receives those events unchanged, and the chunked body ends
 - **AND** the proxy does not reopen the request
 - **AND** the log names `terminal=error` and the event's code, read beside the
-  event's type or else in its `error` member, when the code is a token of
-  lowercase letters, digits and underscores of at most 64 characters, `unknown`
-  otherwise, and never the event's message.
+  event's type or, when none stands there, in its `error` member, when the code
+  is a token of lowercase letters, digits and underscores of at most 64
+  characters, `unknown` otherwise, and never the event's message.
 
 #### Scenario: An upstream sends more after its error event
 
@@ -42,9 +43,10 @@ a code and to an event type as to every other word of the log.
   `untyped` for an event without a type, `other` for another type and `none`
   for a stream without an accepted event.
 
-#### Scenario: A code reads as a credential field
+#### Scenario: A code is a credential word
 
-- **WHEN** an `error` event's code begins with a word that the log redacts, such
-  as `authorization_error`
-- **THEN** the log shows the code as redacted
-- **AND** the line keeps its event count and its path.
+- **WHEN** an `error` event's code is a word that the log redacts together with
+  the word after it, such as `authorization`
+- **THEN** the line keeps its event count and its path
+- **AND** a code that begins with such a word, such as `authorization_error`, is
+  shown as redacted.

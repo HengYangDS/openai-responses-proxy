@@ -219,6 +219,8 @@ class TestStreamErrorEvent:
                 "context_length_exceeded",
             ),
             ({"type": "error", "code": "beside_type", "error": {"code": "nested"}}, "beside_type"),
+            ({"type": "error", "code": None, "error": {"code": "nested_code"}}, "nested_code"),
+            ({"type": "error", "code": "", "error": {"code": "nested_code"}}, "unknown"),
             ({"type": "error", "code": 7, "error": {"code": "nested"}}, "unknown"),
             ({"type": "error", "error": {"code": "Private Prose", "message": "leaked"}}, "unknown"),
             ({"type": "error", "error": "leaked prose"}, "unknown"),
@@ -227,6 +229,8 @@ class TestStreamErrorEvent:
         ids=[
             "nested",
             "beside the type first",
+            "null counts as absent",
+            "empty is present",
             "a wrong type hides nothing",
             "prose",
             "text",
@@ -261,6 +265,8 @@ class TestStreamErrorEvent:
         ("code", "logged"),
         [
             ("authorization", "authorization"),
+            ("bearer", "bearer"),
+            ("api_key", "api_key"),
             ("authorization_error", "[redacted]"),
             ("api_key_invalid", "[redacted]"),
             ("bearer_token_expired", "[redacted]"),
@@ -270,7 +276,8 @@ class TestStreamErrorEvent:
     def test_a_code_that_the_log_redacts_takes_no_other_field_with_it(
         self, code: str, logged: str, log_path: Path
     ) -> None:
-        # The log redacts a word that reads as a credential field, with the word after it.
+        # The log redacts a word that reads as a credential field together with what follows
+        # it. A code that is such a word and nothing more would take the next field of its line.
         sse.relay(
             MemoryHandler(),
             DirectResponse(_error_event(code)),
@@ -314,6 +321,20 @@ class TestStreamErrorEvent:
         assert handler.output() == _chunked(*events)
         assert handler.close_connection
 
+    def test_a_rejected_event_is_not_the_last_accepted_one(self, log_path: Path) -> None:
+        handler = MemoryHandler()
+        upstream = DirectResponse(_DELTA + b"data: {not json\n\n")
+
+        result = sse.relay(handler, upstream, "/dmxapi/v1/responses", 18)
+
+        assert _stream(result)["terminal"] is None
+        fields = _log_fields(log_path, "sse_end_without_terminal")
+        assert fields["detail"] == "projection_failed"
+        assert fields["last"] == "response.output_text.delta"
+        assert fields["events"] == "1"
+        assert handler.output() == _chunked(_DELTA)
+        assert handler.close_connection
+
     def test_a_stream_without_events_names_none(self, log_path: Path) -> None:
         handler = MemoryHandler()
 
@@ -332,8 +353,8 @@ class TestStreamErrorEventOverAConnection(InputTransportFixture):
 
     def test_a_client_reads_the_whole_response_over_a_real_connection(self) -> None:
         # The observed case: the provider refuses the request inside the stream and closes.
-        # A client must reach the end of the body; a broken connection reads as a network fault,
-        # which a client answers by sending the request again.
+        # A client must reach the end of the body: the upstream ended its stream on purpose,
+        # and a broken connection would report a network fault that did not happen.
         refused = _CREATED + _IN_PROGRESS + _error_event()
         with (
             running_proxy(

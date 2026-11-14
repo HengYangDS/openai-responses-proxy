@@ -23,9 +23,9 @@ publication authority.
   event. The proxy forwarded the event and then broke the connection as if the
   stream were truncated, so a provider's refusal reached the client as a
   network fault. The client now receives the event and the end of the
-  response, and nothing that the upstream sends after the event. A client
-  that does not read `error` events, such as Codex 0.169.0, still sends its
-  request again.
+  response, and nothing that the upstream sends after the event. Whether a
+  client then sends its request again is the client's: against a test
+  upstream that ends the response completely, Codex 0.169.0 still did.
 
 ## [5.1.11] - 2026-11-14
 
