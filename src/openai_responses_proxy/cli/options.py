@@ -32,16 +32,21 @@ class _Word(Protocol):
 def _decimal_port(_kind: object, words: Sequence[_Word]) -> int:
     """Read a port written in ASCII decimal digits.
 
-    The default conversion also took a fraction, a base prefix, a digit separator and
-    non-ASCII digits, and ran the command on another integer: 8.5 as 8, 0x50 as 80.
+    The default conversion also took a fraction, a base prefix, a digit separator, a
+    plus sign and non-ASCII digits; a fraction and a base prefix ran the command on
+    another port: 8.5 as 8, 0x50 as 80.
     """
     text = words[0].value
-    # A port has at most five digits; the length bound also keeps a long digit string
-    # away from the interpreter's own integer-conversion limit and its message.
-    if not (text.isascii() and text.isdecimal() and len(text.lstrip("0")) <= _PORT_DIGITS):
+    if not (text.isascii() and text.isdecimal()):
         message = "a port is a whole number written in decimal digits"
         raise ValueError(message)
-    return int(text)
+    # Only the significant digits are converted, so a long digit string never meets
+    # the interpreter's own integer-conversion limit and its message.
+    digits = text.lstrip("0")
+    if len(digits) > _PORT_DIGITS:
+        message = "a port is at most 65535"
+        raise ValueError(message)
+    return int(digits or "0")
 
 
 _PORT_DIGITS = 5

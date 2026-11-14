@@ -26,6 +26,10 @@ class OptionGrammarContracts:
             # OverflowError until Cyclopts 5.4.2: a traceback and exit status 1.
             ("status", "--port", "1.0e999"),
             ("status", "--port", "-1.5e400"),
+            ("status", "--port="),
+            # A long digit string met the interpreter's integer-conversion limit.
+            ("status", "--port", "9" * 5000),
+            ("status", "--port", "100000"),
             # A port is written in ASCII decimal digits. Each of these was accepted, and
             # a fraction and a base prefix ran on another port: 8.5 as 8, 9.5 as 10,
             # 0x50 as 80.
@@ -36,8 +40,6 @@ class OptionGrammarContracts:
             ("status", "--port", "8_080"),
             ("status", "--port", "+8080"),
             ("status", "--port", "\uff18\uff10\uff18\uff10"),
-            ("status", "--port="),
-            ("status", "--port", "9" * 5000),
             ("uninstall", "--port", "8.5"),
             ("reload", "--timeout-seconds", "0"),
             ("reload", "--timeout-seconds", "-1"),
@@ -69,6 +71,8 @@ class OptionGrammarContracts:
         assert execute.call_args.kwargs["port"] == 8080
         assert invoke("status", "--port=65535")[0] == 0
         assert execute.call_args.kwargs["port"] == 65535
+        assert invoke("status", "--port", "0" * 5000 + "80")[0] == 0
+        assert execute.call_args.kwargs["port"] == 80
         assert invoke("reload", "--timeout-seconds", "3600")[0] == 0
         assert execute.call_args.kwargs["timeout_seconds"] == 3600.0
         assert invoke("reload", "--timeout-seconds", "0.5")[0] == 0
