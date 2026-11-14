@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-11-14
+
 ### Changed
 
 - **Breaking:** upgrade, rollback and reload replace a running listener only by
