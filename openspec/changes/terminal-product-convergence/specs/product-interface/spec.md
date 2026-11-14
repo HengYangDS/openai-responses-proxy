@@ -60,10 +60,12 @@ command.
 #### Scenario: An option value is outside its grammar
 
 - **WHEN** `--port` is not written in ASCII decimal digits or lies outside
-  1 to 65535, or `--timeout-seconds` is not a finite number above zero
+  1 to 65535, or `--timeout-seconds` is not a number above zero and at most
+  3600
 - **THEN** the command exits with status 2 and names its own help
-- **AND** no value is converted to another one: a fraction, a base prefix, a
-  digit separator, a sign and an infinite deadline are refused.
+- **AND** a `--port` written with a fraction, a base prefix, a digit separator,
+  a sign or a non-ASCII digit is refused, as is a deadline above 3600 seconds,
+  infinite or not a number.
 
 #### Scenario: Lifecycle evidence contradicts a completed operation
 

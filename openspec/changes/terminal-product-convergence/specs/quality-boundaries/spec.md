@@ -21,7 +21,7 @@ historical forbidden-name list.
   dependency direction, or retirement condition
 - **THEN** the responsibility map fails with the role and the missing field.
 
-### Requirement: Quality rules are complete, rational, and singly owned
+### Requirement: Declared quality rules are rational and singly owned
 
 Every quality concern that the responsibility map declares SHALL have one
 identity, one owner, one scope, one session and its configuration files, and
@@ -29,7 +29,7 @@ SHALL state its risk model, measurement, false-positive cost, remediation, and
 review condition. Warnings of tests, Nox sessions and type checks SHALL fail
 admission, and a lint exemption SHALL name one exact rule.
 
-#### Scenario: The responsibility map is checked for completeness
+#### Scenario: The responsibility map is validated
 
 - **WHEN** the responsibility map is validated
 - **THEN** each declared concern has a unique identity and exactly one owner
@@ -46,8 +46,8 @@ admission, and a lint exemption SHALL name one exact rule.
 
 - **WHEN** source size, complexity, nesting, parameters, coverage, or performance
   becomes blocking
-- **THEN** the threshold derives from an explicit risk and observed distribution
-- **AND** a stricter number is not accepted merely because it is smaller.
+- **THEN** its concern states the risk model and the measurement in the
+  responsibility map.
 
 ### Requirement: Source structure has trustworthy bounded admission
 

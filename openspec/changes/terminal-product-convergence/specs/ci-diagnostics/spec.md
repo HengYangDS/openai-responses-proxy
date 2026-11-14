@@ -194,7 +194,7 @@ entrypoint.
 #### Scenario: GitLab executes repository release tests
 
 - **WHEN** the GitLab metadata job runs repository-only tests under importlib mode
-- **THEN** it invokes pytest through the selected interpreter
+- **THEN** its Nox session invokes pytest through the selected interpreter
 - **AND** repository `tools` modules remain importable without `PYTHONPATH`
   injection or a compatibility package.
 
@@ -204,9 +204,9 @@ entrypoint.
 
 The repository SHALL expose one cross-platform developer entrypoint that
 selects locked tools, reconstructs Work-Lane-local mutable environments, and
-runs the same semantic verification graph consumed by both Forges. Ambient
-interpreters, user-site packages, global tool configuration, another checkout's
-environment, and mutable unpinned resolution SHALL NOT contribute to success.
+runs the same semantic verification graph consumed by both Forges. Its declared
+environment SHALL disable the user site and bind uv and npm to the repository's
+own configuration.
 
 #### Scenario: A fresh checkout is bootstrapped
 

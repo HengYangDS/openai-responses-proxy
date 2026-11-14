@@ -82,18 +82,10 @@ NOT branch on Provider names.
 
 #### Scenario: A Provider is added
 
-- **WHEN** its endpoint is declared in the manifest
-- **THEN** its route serves through the existing Responses path and forwards
-  the same portable body as every other route
+- **WHEN** its endpoint and any wire policy are declared in the manifest
+- **THEN** its route serves through the existing Responses path, and a policy
+  that is missing, incomplete or outside its declared package fails the load
 - **AND** no existing generic product module requires Provider-specific code.
-
-#### Scenario: A Provider needs its own wire policy
-
-- **WHEN** a Provider's wire differs from the portable form
-- **THEN** one policy module inside the declared package and one manifest
-  declaration carry the difference
-- **AND** a policy that is missing, incomplete or outside that package fails
-  the manifest load without leaving a loaded module behind.
 
 ### Requirement: HTTP request framing precedes Responses interpretation
 

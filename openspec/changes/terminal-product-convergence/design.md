@@ -469,13 +469,11 @@ never opens a keyring, changes Codex or Claude configuration, or requires AIGW.
 
 ### One CI model, two optional Forge projections
 
-CUE owns stages, jobs, dependencies, triggers, matrices, platform claims,
-artifacts, cache identities, and release admission. GitHub Actions and GitLab CI
-are generated projections and are checked for drift. Review SHA, proposal update,
-maintainer fast-forward, `dev` promotion, `main` promotion, and tag pipelines
-have explicit coverage. Equivalent exact-SHA evidence may be reused through a
-revision-bound attestation; repeated jobs that prove no additional fact are
-removed. Compatibility reuses same-workflow native assets without rebuilding.
+CUE owns both Forge definitions: one shared contract for the Python matrix, the
+verification sessions and the tool supply, and each Forge's jobs, dependencies
+and triggers. GitHub Actions and GitLab CI files are generated projections,
+checked for drift. Compatibility reuses same-workflow native assets without
+rebuilding.
 
 GitHub branch admission is a generated branch-only workflow that invokes the
 shared Verify graph once. Its stable `Admission` job fails unless the reusable
@@ -526,64 +524,16 @@ canonical change categories. Unpublished historical headings are folded into
 the later tagged release that actually carried their changes, preserving the
 user-visible account without preserving fictional releases. Published releases
 are immutable.
-Merged proposal branches, failed unpublished intermediates, retired Work Lanes,
-old hooks, orphaned runtimes, temporary services, caches, and generated residue
-are removed once exact ownership and lack of consumers are proved. Deletion is a
-first-class task, not deferred housekeeping.
+Merged proposal branches, retired Work Lanes and generated residue are removed
+by each lane's closeout once ownership and lack of consumers are proved.
 
 ### Close on the installed product
 
-The Change closes on the tasks that change or prove the installed product. Its
-owner approved the cut on 2026-11-13: 82 of 115 tasks were complete, and most
-of the 33 open ones concerned repository quality, supply, CI and cleanup that
-a shared base now owns or that a product in maintenance does not need. Seven
-stay: 4.7, 5.8, 10.2, 12.5 and the closing acceptance 13.5 to 13.7. Twenty-six
-leave with a named destination, and none is dropped silently. A delta statement
-that depended on a leaving task is narrowed to what the repository does, or
-leaves with it. Task 3.7 is new: the review of the cut found option values that
-the command line converted to other values.
-
-| Task | Subject                                   | Destination                                                                    |
-| ---- | ----------------------------------------- | ------------------------------------------------------------------------------ |
-| 6.6  | Carrier audit for one owner per meaning   | ETHOS's repository structure rule; nothing further here                        |
-| 6.7  | Unused dependencies and dead code         | ETHOS's shared hygiene reports; removals follow them                           |
-| 7.4  | A mature tool for every concern           | ETHOS's shared base for secrets, vulnerabilities, hygiene and workflow checks  |
-| 7.7  | Warnings fatal in every consumer          | Not pursued in maintenance; fatal today in tests, Nox sessions and type checks |
-| 7.10 | Proof that each control takes effect      | ETHOS's shared base for the reach of each obligation                           |
-| 7.11 | Responsibility map against real coverage  | Duplicate checkers leave with the shared base; the map stays here              |
-| 8.2  | Clean Work Lane proof                     | Not pursued in maintenance; every lane start runs the locked bootstrap         |
-| 8.3  | No ambient state in success paths         | Not pursued in maintenance; ETHOS states the environment of proof gates        |
-| 8.4  | Audit of direct dependencies              | The recurring supply refresh of the repository's owner                         |
-| 8.7  | SBOM, licence and provenance outputs      | ETHOS's shared release operation                                               |
-| 8.8  | PyInstaller against its alternatives      | Dropped in maintenance; reopened by a measured defect                          |
-| 9.1  | One CI graph in CUE                       | ETHOS's shared CI template                                                     |
-| 9.3  | Evidence on every integration path        | ETHOS's shared CI template                                                     |
-| 9.4  | Independent jobs without duplicate runs   | ETHOS's shared CI template                                                     |
-| 9.5  | Evidence reuse across runs                | ETHOS's shared CI template and its gate-reuse design                           |
-| 9.9  | Both projections for the exact candidate  | Merged into 13.6                                                               |
-| 11.2 | Documented commands on the released build | Merged into 13.7                                                               |
-| 11.3 | Document normalisation                    | Delivered by the shared formatting and layout base; nothing further planned    |
-| 11.5 | Each configuration field at its owner     | ETHOS's shared base and its repository structure rule                          |
-| 11.7 | One public vocabulary                     | Not pursued in maintenance; reopened by a stale term that a user meets         |
-| 12.1 | Benchmarks and budgets                    | The declared budgets are 4.7's measure; cross-platform benchmarks are dropped  |
-| 12.2 | Hot-path profiling                        | Dropped unless 4.7 misses a budget                                             |
-| 13.1 | Deletion of superseded entities           | The product part merged into 5.8; duplicate checkers leave with the base       |
-| 13.2 | Orphaned host residue                     | Continuous housekeeping of the repository's owner                              |
-| 13.3 | Proposal and lane retirement              | Each lane's closeout                                                           |
-| 13.4 | Failed tags, drafts and Forge records     | The repository's history rebuild, which its owner schedules                    |
-
-A destination in ETHOS is this repository's reading of that base; each is
-checked when the shared work opens, and a task that the base does not take
-returns here as a new Change, not as a reopened line.
-
-The Change closes when 13.5 to 13.7 pass, including one exit test per Provider
-route on the released executable. Two obligations continue after it under their
-own owners: CI moves to a released ETHOS once that release can trust commits in
-CI, and the repository's history is rebuilt when its owner schedules it.
-
-One known deviation from the single vocabulary remains: two Forge secret names
-keep the former product name. A secret cannot be renamed without its value, so
-they take the current name when their values are next set.
+The Change closes on the tasks that change or prove the installed product: 4.7,
+5.8, 10.2, 12.5 and the acceptance 13.5 to 13.7. Its owner approved the cut on
+2026-11-13. Twenty-six open tasks left, each with a destination that the
+proposal's Impact lists; a delta statement that depended on one is narrowed to
+what the repository does, or leaves with it.
 
 ## Risks / Trade-offs
 

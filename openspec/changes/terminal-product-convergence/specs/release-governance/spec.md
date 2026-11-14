@@ -63,8 +63,8 @@ events SHALL each run their required graph for the exact revision.
 - **WHEN** an admitted commit reaches `dev` or `main`
 - **THEN** the accepted-branch event runs its required graph for that exact
   revision
-- **AND** a Forge file that differs from its CUE projection fails the check
-  without changing any file.
+- **AND** on `dev`, the governance job fails a Forge file that differs from its
+  CUE projection, without changing any file.
 
 #### Scenario: A required branch job is skipped
 
@@ -86,8 +86,8 @@ events SHALL each run their required graph for the exact revision.
 ### Requirement: Publication closes source, Forge, and branch state
 
 A release SHALL create one signed local commit and annotated tag object, project
-those exact objects independently to selected Forges, publish complete matching
-asset inventories, and retire merged proposal and delivery refs. GitHub and
+those exact objects independently to the selected Forges, and publish complete
+matching asset inventories. GitHub and
 GitLab MAY supply different native runner sets, but each projection SHALL state
 the facts it proves and SHALL NOT relabel another platform's evidence.
 
@@ -95,8 +95,8 @@ the facts it proves and SHALL NOT relabel another platform's evidence.
 
 - **WHEN** both selected Forge publications and installed-product acceptance pass
 - **THEN** local and remote `main` and `dev` identify the accepted object
-- **AND** merged proposal branches, remote `work/*`, draft releases, and failed
-  unpublished intermediates have been removed.
+- **AND** each selected Forge's Release is published, not a draft, with the
+  complete asset inventory.
 
 ### Requirement: One dependency proposal policy
 
@@ -172,9 +172,8 @@ major versions SHALL need deliberate admission.
 
 The product SHALL publish deterministic local benchmarks and reviewed budgets
 for request-path overhead, startup readiness and handoff control. Performance
-acceptance SHALL use
-machine-readable repeated measurements isolated from third-party network
-latency. A passing functional suite SHALL NOT be described as performance
+acceptance SHALL use machine-readable repeated measurements isolated from
+third-party network latency. A passing functional suite SHALL NOT be described as performance
 optimization evidence.
 
 #### Scenario: Proxy data path is measured
@@ -189,8 +188,7 @@ optimization evidence.
 
 #### Scenario: Performance regresses
 
-- **WHEN** a measured metric exceeds its reviewed budget or allowed baseline
-  delta
+- **WHEN** a measured metric exceeds its reviewed budget
 - **THEN** the gate SHALL fail with the exact metric and comparison
 - **AND** profiling SHALL identify the bottleneck before implementation changes
 - **AND** correctness, security, portability, and lifecycle guarantees SHALL not
