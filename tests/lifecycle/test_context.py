@@ -181,41 +181,6 @@ class TestRuntimeContext:
         with pytest.raises(errors.InstallError, match="absolute HTTP\\(S\\) URL"):
             context.create(upstream_base_url="https://user:secret@api.openai.com/v1")
 
-    def test_runtime_spec_accepts_the_stable_carrier_written_by_the_previous_release(
-        self, tmp_path: Path
-    ) -> None:
-        install_dir = tmp_path / "payload"
-        target = install_dir / runtime_spec.FILENAME
-        target.parent.mkdir(parents=True)
-        target.write_bytes(
-            digest.canonical_json(
-                {
-                    "schema_version": 1,
-                    "install_dir": str(install_dir),
-                    "log_dir": str(tmp_path / "state"),
-                    "port": 8808,
-                    "proxy_log_max_bytes": config.DEFAULT_PROXY_LOG_MAX_BYTES,
-                    "proxy_log_backup_count": config.DEFAULT_PROXY_LOG_BACKUP_COUNT,
-                    "watchdog_log_max_bytes": config.DEFAULT_WATCHDOG_LOG_MAX_BYTES,
-                    "watchdog_log_backup_count": config.DEFAULT_WATCHDOG_LOG_BACKUP_COUNT,
-                    "upstream_timeout": config.DEFAULT_UPSTREAM_TIMEOUT,
-                    "upstream_read_timeout": config.DEFAULT_UPSTREAM_READ_TIMEOUT,
-                    "watchdog_interval": config.DEFAULT_WATCHDOG_INTERVAL,
-                    "watchdog_max_backoff": config.DEFAULT_WATCHDOG_MAX_BACKOFF,
-                    "response_failed_compaction_budget": (
-                        config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
-                    ),
-                    "response_failed_max_stages": config.DEFAULT_RESPONSE_FAILED_MAX_STAGES,
-                }
-            )
-        )
-
-        environment = runtime_spec.environment(target)
-
-        assert environment[config.HOME_ENV] == str(install_dir)
-        assert environment[config.STATE_HOME_ENV] == str(tmp_path / "state")
-        assert environment[config.PROXY_PORT_ENV] == "8808"
-
     def test_posix_projection_is_not_reinterpreted_by_a_windows_host(
         self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
@@ -355,7 +320,19 @@ class TestRuntimeContext:
         assert successor.catalog_max_bytes == 8192
         assert runtime_spec.write(successor).read_bytes() == original
 
-    def test_retained_carrier_gets_body_defaults_without_rewriting_it(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "missing",
+        [
+            "request_body_max_bytes",
+            "request_body_timeout",
+            "sse_buffer_max_bytes",
+            "catalog_timeout",
+            "catalog_max_bytes",
+        ],
+    )
+    def test_carrier_without_a_budget_field_is_refused_unchanged(
+        self, tmp_path: Path, *, missing: str
+    ) -> None:
         ctx = context.RuntimeContext(
             install_dir=str(tmp_path / "payload"),
             executable=str(tmp_path / "payload" / "bin" / "openai-responses-proxy"),
@@ -363,22 +340,13 @@ class TestRuntimeContext:
             log_dir=str(tmp_path / "state"),
         )
         target = runtime_spec.write(ctx)
-        retained = json.loads(target.read_bytes())
-        retained.pop("request_body_max_bytes", None)
-        retained.pop("request_body_timeout", None)
-        retained.pop("catalog_timeout", None)
-        retained.pop("catalog_max_bytes", None)
-        retained.pop("sse_buffer_max_bytes", None)
-        original = digest.canonical_json(retained)
+        carrier = json.loads(target.read_bytes())
+        del carrier[missing]
+        original = digest.canonical_json(carrier)
         target.write_bytes(original)
 
-        environment = runtime_spec.environment(target)
-
-        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES"] == "67108864"
-        assert environment["OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT"] == "30.0"
-        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT") == "30.0"
-        assert environment.get("OPENAI_RESPONSES_PROXY_CATALOG_MAX_BYTES") == "8388608"
-        assert environment.get("OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES") == "67108864"
+        with pytest.raises(errors.InstallError, match="remove the installation"):
+            runtime_spec.environment(target)
         assert target.read_bytes() == original
 
     @pytest.mark.parametrize(

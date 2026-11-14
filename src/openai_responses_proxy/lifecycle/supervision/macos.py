@@ -29,8 +29,6 @@ _SERVICE_ABSENT = 113
 _PID = re.compile(r"(?m)^\s*pid = (?P<pid>[1-9][0-9]*)\s*$")
 _GUI_ASID = re.compile(r"(?m)^\tgui asid = [1-9][0-9]*\s*$")
 _SESSION_TYPES = ("Aqua", "Background")
-# Released carriers: the GUI-only default, Background only, and the current pair.
-_RELEASED_SESSION_TYPES = (None, "Background", list(_SESSION_TYPES))
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,7 +173,7 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
         or arguments[1:] != [serving_roles.WATCHDOG_MODE]
         or not all(isinstance(value, str) for value in arguments)
         or environment != {"HOME": ctx.user_home}
-        or payload.get("LimitLoadToSessionType") not in _RELEASED_SESSION_TYPES
+        or payload.get("LimitLoadToSessionType") != list(_SESSION_TYPES)
     ):
         raise errors.InstallError("macOS launch-agent carrier ownership is unproved")
     executable = str(arguments[0])

@@ -26,7 +26,7 @@ from tests.release.fixtures import runtime_context_for
 from tests.release.fixtures import signed_asset
 from tests.release.fixtures import signing_inputs
 from tests.release.fixtures import stop_native_supervision
-from tests.release.fixtures import write_predecessor_native_projection
+from tests.release.fixtures import write_drifted_native_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
 from tools.release.verification import cleanup_runtime
@@ -200,7 +200,7 @@ class TestSignedNativeLifecycle:
                 b'{"id":"after-rebind","status":"completed"}'
             )
             if sys.platform != "win32":
-                write_predecessor_native_projection(ctx)
+                write_drifted_native_projection(ctx)
                 outdated = run_command(
                     executable, environment, "status", "--port", str(port), "--json"
                 )

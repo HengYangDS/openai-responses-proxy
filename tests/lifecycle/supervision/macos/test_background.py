@@ -119,48 +119,32 @@ class TestMacosBackgroundContract:
         assert macos._user_domain() == "user/501"
         assert payload["LimitLoadToSessionType"] == ["Aqua", "Background"]
 
-    @pytest.mark.parametrize("sessions", [None, "Background", ["Aqua", "Background"]])
-    def test_carrier_accepts_each_released_session_declaration(
-        self, *, sessions: str | list[str] | None
-    ) -> None:
-        with _temporary_context("log_dir") as ctx:
-            payload = plistlib.loads(macos.render_plist(ctx).encode())
-            if sessions is None:
-                payload.pop("LimitLoadToSessionType")
-            else:
-                payload["LimitLoadToSessionType"] = sessions
-            _set_file(macos._plist_path(ctx), plistlib.dumps(payload).decode())
-
-            assert macos.configured_executable(ctx) == ctx.executable
-
-    @pytest.mark.parametrize("sessions", [None, "Background"])
-    def test_projection_is_current_only_for_this_release_rendering(
-        self, *, sessions: str | None
-    ) -> None:
+    def test_projection_is_current_only_for_this_release_rendering(self) -> None:
         with _temporary_context("log_dir") as ctx:
             plist = Path(macos._plist_path(ctx))
             assert macos.projection_is_current(ctx) is False
             _set_file(plist, macos.render_plist(ctx))
             assert macos.projection_is_current(ctx) is True
             payload = plistlib.loads(macos.render_plist(ctx).encode())
-            if sessions is None:
-                payload.pop("LimitLoadToSessionType")
-            else:
-                payload["LimitLoadToSessionType"] = sessions
+            payload["ThrottleInterval"] += 1
             _set_file(plist, plistlib.dumps(payload).decode())
 
             assert macos.configured_executable(ctx) == ctx.executable
             assert macos.projection_is_current(ctx) is False
 
     @pytest.mark.parametrize(
-        "sessions", ["Aqua", ["Background"], ["Aqua", "Background", "LoginWindow"]]
+        "sessions",
+        [None, "Background", "Aqua", ["Background"], ["Aqua", "Background", "LoginWindow"]],
     )
-    def test_carrier_rejects_an_unreleased_session_declaration(
-        self, *, sessions: str | list[str]
+    def test_carrier_rejects_another_session_declaration(
+        self, *, sessions: str | list[str] | None
     ) -> None:
         with _temporary_context("log_dir") as ctx:
             payload = plistlib.loads(macos.render_plist(ctx).encode())
-            payload["LimitLoadToSessionType"] = sessions
+            if sessions is None:
+                del payload["LimitLoadToSessionType"]
+            else:
+                payload["LimitLoadToSessionType"] = sessions
             content = plistlib.dumps(payload).decode()
             carrier = _set_file(macos._plist_path(ctx), content)
 
@@ -202,17 +186,15 @@ class TestMacosBackgroundContract:
                 ["launchctl", "print", f"gui/501/{ctx.service_id}"],
             ]
 
-    def test_install_moves_a_background_only_watchdog_into_the_gui_login_domain(
+    def test_install_moves_a_user_domain_watchdog_into_the_gui_login_domain(
         self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos, "_native_tool", side_effect=lambda name: name)
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
         with _temporary_context("log_dir") as ctx:
             carrier = Path(macos._plist_path(ctx))
-            background_only = plistlib.loads(macos.render_plist(ctx).encode())
-            background_only["LimitLoadToSessionType"] = "Background"
             carrier.parent.mkdir(parents=True)
-            carrier.write_bytes(plistlib.dumps(background_only))
+            carrier.write_text(macos.render_plist(ctx), encoding="utf-8")
             predecessor = macos.process.OwnedProcess(41, ctx.executable, 1.0)
             successor = macos.process.OwnedProcess(73, ctx.executable, 2.0)
             mocker.patch.object(macos.process, "capture_executable", return_value=predecessor)
@@ -360,7 +342,7 @@ class TestMacosBackgroundContract:
         assert foreign.read_bytes() == content
         invoked.assert_not_called()
 
-    def test_install_replaces_the_owned_legacy_gui_watchdog_in_its_login_domain(
+    def test_install_replaces_the_owned_gui_watchdog_in_its_login_domain(
         self, *, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(macos.os, "getuid", return_value=501, create=True)
@@ -368,10 +350,8 @@ class TestMacosBackgroundContract:
         mocker.patch.object(macos, "_domains", return_value=("user/501", "gui/501"))
         with _temporary_context("log_dir") as ctx:
             carrier = Path(macos._plist_path(ctx))
-            legacy = plistlib.loads(macos.render_plist(ctx).encode())
-            legacy.pop("LimitLoadToSessionType")
             carrier.parent.mkdir(parents=True)
-            carrier.write_bytes(plistlib.dumps(legacy))
+            carrier.write_text(macos.render_plist(ctx), encoding="utf-8")
             predecessor = macos.process.OwnedProcess(41, ctx.executable, 1.0)
             successor = macos.process.OwnedProcess(73, ctx.executable, 2.0)
             mocker.patch.object(macos.process, "capture_executable", return_value=predecessor)

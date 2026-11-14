@@ -116,7 +116,7 @@ completion.
 #### Scenario: An owned predecessor watchdog is replaced
 
 - **WHEN** the exact selected installation has one verified watchdog in the user
-  or GUI domain, including a Background-only predecessor
+  or GUI domain
 - **THEN** the predecessor exits before its carrier is replaced
 - **AND** the successor is re-observed in the selected domain with its exact
   process identity.
@@ -229,7 +229,7 @@ when a running supervisor's declaration does not bind that executable. macOS
 and Linux SHALL compare the owned definition exactly; Windows SHALL compare the
 registered task action.
 
-#### Scenario: An older installer rendered the running supervisor's definition
+#### Scenario: The running supervisor's definition differs from this release's
 
 - **WHEN** a running supervisor's owned declaration binds the lifecycle control
   executable but differs from the installed release's projection

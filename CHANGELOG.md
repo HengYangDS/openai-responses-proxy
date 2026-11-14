@@ -8,6 +8,15 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** an installation written by 5.0.6 or earlier is refused instead
+  of read with defaults. A native runtime configuration without the body,
+  catalog and SSE budget fields, a macOS launch agent without the Aqua and
+  Background session pair, and a payload manifest without its receipt digest
+  each fail with their reason and change nothing. Remove such an installation
+  with the release that wrote it, then install this release.
+
 ### Removed
 
 - The README section "Migrate from 4.x". The `[5.0.0]` entry records that

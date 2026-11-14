@@ -191,8 +191,8 @@ supervision to the lifecycle control executable, as an upgrade does, and
 proves the serving listener. It refuses before any change when the owned
 supervisor declaration does not bind that executable. `status` reports the
 service as `outdated` when a running supervisor's owned definition differs from
-the installed release's rendering, for example a launch agent that an older
-installer wrote; Windows compares only the scheduled task's action, because Task
+the installed release's rendering, for example an edited launch agent;
+Windows compares only the scheduled task's action, because Task
 Scheduler normalizes the rest of an exported task. With a serving listener,
 `doctor` names `reload` when native supervision is declared but not running or
 outdated, `install --help` when it is absent, and `status --json` when it is
@@ -343,8 +343,7 @@ For a fresh installation, choose alternate budgets with
 `OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES` (4096–268435456 bytes) and
 `OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT` (0.001–300 seconds) in the
 installer's environment. Its native configuration owns the persisted values;
-upgrades retain them instead of taking a later shell's environment. Older
-configuration files receive these defaults without read-time mutation.
+upgrades retain them instead of taking a later shell's environment.
 
 Catalog settings follow the same persisted ownership:
 `OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT` (0.001–300 seconds) and
@@ -354,10 +353,9 @@ do not establish inbound header deadlines.
 SSE limits each event and the held pre-content prelude to 64 MiB, independently
 of stream duration or total delivered bytes. A fresh installation may select
 `OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES` (4096–268435456 bytes); upgrades
-retain that value and older carriers receive the default without a read-time
-rewrite. An exceeded budget returns `stream_buffer_limit` before commitment,
-or closes an already committed response without replay or a successful
-terminator. Valid events and live ciphertext keep their bytes.
+retain that value. An exceeded budget returns `stream_buffer_limit` before
+commitment, or closes an already committed response without replay or a
+successful terminator. Valid events and live ciphertext keep their bytes.
 
 ## Runtime evidence
 

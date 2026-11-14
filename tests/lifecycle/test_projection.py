@@ -27,20 +27,20 @@ if TYPE_CHECKING:
 def _write_payload_manifest(
     ctx: runtime_context.RuntimeContext, *, release_receipt_sha256: str | None = None
 ) -> Path:
-    """Write the production manifest shape for a current test payload."""
+    """Write the production manifest shape for a current test payload.
+
+    Without a digest it binds the receipt beside the payload, creating one when absent.
+    """
     install = Path(ctx.payload_dir)
     windows = (install / inventory.WINDOWS_EXECUTABLE).is_file()
     paths = sorted(inventory.required_runtime_files(windows=windows))
     digests = {relative: payload_digest.sha256_file(install / relative) for relative in paths}
-    manifest: dict[str, object] = {
-        "schema_version": inventory.MANIFEST_SCHEMA_VERSION,
-        "release": "0.0.0",
-        "files": digests,
-        "serving_files": dict(digests),
-        "serving_payload_sha256": payload_projection.manifest_serving_payload_sha256(digests),
-    }
-    if release_receipt_sha256 is not None:
-        manifest["release_receipt_sha256"] = release_receipt_sha256
+    if release_receipt_sha256 is None:
+        receipt = install / inventory.RELEASE_RECEIPT_FILENAME
+        if not receipt.exists():
+            receipt.write_bytes(b"{}\n")
+        release_receipt_sha256 = payload_digest.sha256_file(receipt)
+    manifest = payload_projection.manifest_for_digests("0.0.0", digests, release_receipt_sha256)
     path = payload_projection.payload_manifest_path(ctx)
     owned_files.write_bytes(path, payload_projection.manifest_bytes(manifest))
     return path
@@ -68,7 +68,7 @@ class TestPayloadProjection:
         assert Path(ctx.executable).is_file()
         assert (Path(ctx.payload_dir) / inventory.PROVIDER_MANIFEST).is_file()
 
-    def test_fixture_manifest_can_omit_receipt_identity(
+    def test_manifest_without_its_receipt_identity_is_incomplete(
         self, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
@@ -77,8 +77,12 @@ class TestPayloadProjection:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(blob.content)
         path = _write_payload_manifest(ctx)
-        assert "release_receipt_sha256" not in json.loads(Path(path).read_text(encoding="utf-8"))
         assert payload_projection.verify_payload_manifest(ctx)[0]
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        del manifest["release_receipt_sha256"]
+        owned_files.write_bytes(path, payload_projection.manifest_bytes(manifest))
+
+        assert payload_projection.verify_payload_manifest(ctx) == (False, "manifest is incomplete")
 
     def test_manifest_detects_payload_and_aggregate_tampering(
         self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory

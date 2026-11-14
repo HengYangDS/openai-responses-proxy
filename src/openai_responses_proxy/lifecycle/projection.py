@@ -226,6 +226,7 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
         or not isinstance(serving_files, dict)
         or not serving_files
         or not isinstance(aggregate, str)
+        or not isinstance(receipt_digest, str)
     ):
         return False, "manifest is incomplete"
     try:
@@ -265,15 +266,14 @@ def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, 
         return False, str(exc)
     if aggregate != actual_aggregate:
         return False, "serving payload aggregate mismatch"
-    if receipt_digest is not None:
-        if not isinstance(receipt_digest, str) or len(receipt_digest) != digest.SHA256_HEX_LENGTH:
-            return False, "release receipt digest is invalid"
-        try:
-            actual_receipt = digest.sha256_file(
-                Path(ctx.payload_dir, inventory.RELEASE_RECEIPT_FILENAME)
-            )
-        except OSError:
-            return False, "installed release receipt is unavailable"
-        if actual_receipt != receipt_digest:
-            return False, "release receipt digest mismatch"
+    if len(receipt_digest) != digest.SHA256_HEX_LENGTH:
+        return False, "release receipt digest is invalid"
+    try:
+        actual_receipt = digest.sha256_file(
+            Path(ctx.payload_dir, inventory.RELEASE_RECEIPT_FILENAME)
+        )
+    except OSError:
+        return False, "installed release receipt is unavailable"
+    if actual_receipt != receipt_digest:
+        return False, "release receipt digest mismatch"
     return True, f"release {release}; {len(files)} files verified"
