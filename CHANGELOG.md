@@ -25,7 +25,8 @@ publication authority.
   network fault. The client now receives the event and the end of the
   response, and nothing that the upstream sends after the event. Whether a
   client then sends its request again is the client's: against a test
-  upstream that ends the response completely, Codex 0.169.0 still did.
+  upstream that ends the response completely, Codex 0.169.0 still did for an
+  event whose code stands beside its type.
 
 ## [5.1.11] - 2026-11-14
 

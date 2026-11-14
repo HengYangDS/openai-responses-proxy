@@ -93,8 +93,9 @@ def failure_diagnostic(error: object) -> tuple[str, str]:
 def stream_error_code(event: object) -> str:
     """Return a stream error event's code as a bounded token, never its message.
 
-    The Responses reference puts the code beside the event's type; some streams nest it in an
-    `error` member, which is where Codex reads it. The code beside the type comes first.
+    The Responses reference puts the code beside the event's type. Codex 0.169.0 acts on a code
+    only in an `error` member, so a stream that is written for it carries the code there. The
+    code beside the type comes first; a missing or null one there counts as absent.
     """
     if not isinstance(event, dict):
         return "unknown"

@@ -16,9 +16,9 @@ event's message.
 - **THEN** the client receives those events unchanged, and the chunked body ends
 - **AND** the proxy does not reopen the request
 - **AND** the log names `terminal=error` and the event's code, read beside the
-  event's type or, when none stands there, in its `error` member, when the code
-  is a token of lowercase letters, digits and underscores of at most 64
-  characters, `unknown` otherwise, and never the event's message.
+  event's type or, when none or `null` stands there, in its `error` member,
+  when the code is a token of lowercase letters, digits and underscores of at
+  most 64 characters, `unknown` otherwise, and never the event's message.
 
 #### Scenario: An upstream sends more after its error event
 

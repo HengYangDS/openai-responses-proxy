@@ -18,8 +18,9 @@ only truthful signal is to break the connection.
 - Classifying `error` codes, or retrying after one. The upstream answered; the at-most-once rule keeps the request
   from being sent again.
 - Changing the event's bytes or translating it into `response.failed`.
-- Making a client stop resending. Codex 0.169.0 does not act on this event (see Risks), and a translation into
-  `response.failed` would not help it either: measured, it resends after a failure whose code it does not know.
+- Making a client stop resending. Codex 0.169.0 does not act on an `error` event whose code stands beside its
+  type (see Risks), and a translation into `response.failed` would not help it either: measured, it resends
+  after a failure whose code it does not know.
 - Another spelling of the event: one that is named `error` only in its `event:` line, with data of no type,
   stays an event like any other.
 
@@ -75,7 +76,8 @@ the event before it, beside `detail=projection_failed`. Event types are protocol
 - **Codex resends as before** → measured on 2026-11-14 with Codex 0.169.0 against a scripted upstream, not
   through the proxy. After `response.created`, `response.in_progress` and this `error` event it sends six
   requests when the body ends completely ("stream closed before response.completed") and six when the
-  connection breaks ("error decoding response body"). It reads an `error` event's code only in an `error` member
-  and stops only for a code that it knows: one request for `context_length_exceeded` there, six for
-  `validation_error`, and six after a `response.failed` with that code. The resends are the client's to fix.
+  connection breaks ("error decoding response body"). It acts on an `error` event's code only in an `error`
+  member and only for a code that it knows: with `context_length_exceeded` it sends one request when the code
+  is nested and six when it stands beside the type; with `validation_error` six in either place, and six after
+  a `response.failed` with that code. The resends are the client's to fix.
 - **An upstream sends `error` and then more events** → they are not read, as with the other terminal events.
