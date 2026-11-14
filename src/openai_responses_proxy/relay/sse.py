@@ -32,7 +32,8 @@ UPSTREAM_READ_TIMEOUT = runtime_config.load().upstream_read_timeout
 UPSTREAM_TIMEOUT = runtime_config.load().upstream_timeout
 SSE_BUFFER_MAX_BYTES = runtime_config.load().sse_buffer_max_bytes
 _HELD_TYPES = frozenset(("response.created", "response.in_progress"))
-_TERMINALS = frozenset(("response.completed", "response.failed", "response.incomplete"))
+# A top-level `error` event ends a Responses stream like the three terminal response events.
+_TERMINALS = frozenset(("response.completed", "response.failed", "response.incomplete", "error"))
 
 
 class StreamResult(TypedDict):
@@ -45,6 +46,8 @@ class StreamResult(TypedDict):
     error: BaseException | None
     failure_code: NotRequired[str]
     upstream_request_id: NotRequired[str]
+    last_event_type: NotRequired[str]
+    error_code: NotRequired[str]
 
 
 class RelayResult(TypedDict):
@@ -120,6 +123,7 @@ def _read_one_stream(
     upstream_detail = "eof"
     upstream_error: BaseException | None = None
     failure_code, upstream_request_id = "unknown", "none"
+    last_event_type, error_code = "none", "unknown"
     wrote_downstream = False
     prelude = bytearray()
     prelude_bytes = 0
@@ -141,7 +145,7 @@ def _read_one_stream(
 
     def process_event(event: bytes) -> None:
         nonlocal event_count, terminal_event, upstream_detail, upstream_error
-        nonlocal failure_code, upstream_request_id
+        nonlocal failure_code, upstream_request_id, last_event_type, error_code
         try:
             event = agent_delivery.restore_event(event, active=plaintext_agent_delivery)
             payload = live_response.sse_event_data(event)
@@ -153,7 +157,10 @@ def _read_one_stream(
         event_count += 1
         event_type = payload.get("type") if isinstance(payload, dict) else None
         event_type = event_type if isinstance(event_type, str) else ""
+        last_event_type = live_response.event_type_label(event_type)
         terminal_event = event_type if event_type in _TERMINALS else terminal_event
+        if event_type == "error":
+            error_code = live_response.stream_error_code(payload)
         response_body = payload.get("response") if isinstance(payload, dict) else None
         error = response_body.get("error") if isinstance(response_body, dict) else None
         if event_type == "response.failed":
@@ -215,6 +222,8 @@ def _read_one_stream(
         "error": upstream_error,
         "failure_code": failure_code,
         "upstream_request_id": upstream_request_id,
+        "last_event_type": last_event_type,
+        "error_code": error_code,
     }
 
 
@@ -345,8 +354,11 @@ def relay(
             telemetry.record_failure(f"stream_{detail}")
     safe_path = operational_log.safe_request_path(path)
     if result["terminal"] is not None:
+        code = (
+            f"code={result.get('error_code', 'unknown')} " if result["terminal"] == "error" else ""
+        )
         operational_log.log(
-            f"req={request_id} event=sse_terminal terminal={result['terminal']} "
+            f"req={request_id} event=sse_terminal terminal={result['terminal']} {code}"
             f"events={result['events']} path={safe_path}"
         )
     else:
@@ -356,6 +368,7 @@ def relay(
             f"req={request_id} event=sse_end_without_terminal detail={detail} "
             f"exception={operational_log.safe_exception_label(error) if error else 'none'} "
             f"reason={result.get('failure_code', 'unknown')} "
+            f"last={result.get('last_event_type', 'none')} "
             f"events={result['events']} path={safe_path}"
         )
     return {

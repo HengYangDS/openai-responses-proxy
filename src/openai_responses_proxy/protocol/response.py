@@ -12,6 +12,9 @@ import re
 from enum import StrEnum
 
 _JSON_TERMINALS = frozenset(("completed", "incomplete"))
+# Diagnostics name an upstream's code or event type only when it is a short token.
+_CODE_TOKEN = re.compile(r"[a-z0-9_]{1,64}")
+_EVENT_TYPE_TOKEN = re.compile(r"[a-z0-9_.]{1,64}")
 
 
 class ValidationReason(StrEnum):
@@ -85,6 +88,19 @@ def failure_diagnostic(error: object) -> tuple[str, str]:
         str(message)[:2048] if isinstance(message, str) else "",
     )
     return code, str(request_id[1]).lower() if request_id else "none"
+
+
+def stream_error_code(event: object) -> str:
+    """Return a top-level stream error event's code as a bounded token, never its message."""
+    code = event.get("code") if isinstance(event, dict) else None
+    return code if isinstance(code, str) and _CODE_TOKEN.fullmatch(code) else "unknown"
+
+
+def event_type_label(event_type: object) -> str:
+    """Name a stream event type for diagnostics: protocol vocabulary, never content."""
+    if not isinstance(event_type, str) or not event_type:
+        return "untyped"
+    return event_type if _EVENT_TYPE_TOKEN.fullmatch(event_type) else "other"
 
 
 def validate_json_response(raw_response: bytes) -> bytes:

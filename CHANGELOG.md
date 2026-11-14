@@ -8,6 +8,17 @@ publication authority.
 
 ## [Unreleased]
 
+### Fixed
+
+- End a stream completely when the upstream ends it with a top-level `error`
+  event. The proxy forwarded the event and then broke the connection as if the
+  stream were truncated, so a client such as Codex took a provider's refusal
+  for a network fault and sent the same request again, up to five times. The
+  client now receives the event and the end of the response.
+- Name the ending in the log: `terminal=error` with the event's code, and,
+  for a stream that ends without a terminal event, the type of its last event
+  as `last=`. Neither carries the event's message.
+
 ## [5.1.11] - 2026-11-14
 
 ### Fixed
