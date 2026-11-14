@@ -297,41 +297,6 @@ class TestTermination:
                 timeout_seconds=1.0,
             )
 
-    def test_script_termination_rechecks_identity_and_waits(self, *, mocker: MockerFixture) -> None:
-        mocker.patch.object(process, "pid_names_path", side_effect=[True, True])
-        candidate = mocker.Mock()
-        mocker.patch.object(process.psutil, "Process", return_value=candidate)
-
-        assert process.terminate_pid(123, expected_path="/proxy.py", timeout_seconds=1.0)
-        candidate.terminate.assert_called_once_with()
-        candidate.wait.assert_called_once_with(timeout=1.0)
-
-    def test_script_termination_fails_closed(
-        self, subtests: pytest.Subtests, *, mocker: MockerFixture
-    ) -> None:
-        cases = (
-            ("identity", [False], None),
-            ("identity changed", [True, False], None),
-            ("wait", [True, True], process.psutil.TimeoutExpired(123, 1)),
-        )
-        for case, identities, failure in cases:
-            with subtests.test(case=case):
-                mocker.patch.object(process, "pid_names_path", side_effect=identities)
-                candidate = mocker.Mock()
-                if failure is not None:
-                    candidate.wait.side_effect = failure
-                constructor = mocker.patch.object(process.psutil, "Process", return_value=candidate)
-                if failure is None:
-                    assert not process.terminate_pid(
-                        123, expected_path="/proxy.py", timeout_seconds=1.0
-                    )
-                else:
-                    with pytest.raises(errors.InstallError, match="wait: deadline expired"):
-                        process.terminate_pid(123, expected_path="/proxy.py", timeout_seconds=1.0)
-                constructor_calls = 0 if case == "identity" else 1
-                assert constructor.call_count == constructor_calls
-                mocker.stopall()
-
     def test_native_termination_rechecks_identity_and_waits(self, *, mocker: MockerFixture) -> None:
         roles = {"--internal-listener"}
         mocker.patch.object(
@@ -404,13 +369,3 @@ class TestTermination:
                 if case == "initial identity":
                     constructor.assert_not_called()
                 mocker.stopall()
-
-    def test_script_termination_accepts_already_exited_identity(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        mocker.patch.object(process, "pid_names_path", side_effect=[True, True])
-        candidate = mocker.Mock()
-        candidate.wait.side_effect = process.psutil.NoSuchProcess(123)
-        mocker.patch.object(process.psutil, "Process", return_value=candidate)
-
-        assert process.terminate_pid(123, expected_path="/installed/proxy.py")

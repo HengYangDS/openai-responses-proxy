@@ -202,16 +202,11 @@ reports every failure, and returns nonzero unless both provider-local
 publications complete. The provider-specific subcommands support an explicitly
 one-sided topology; neither result alone is dual-Forge parity.
 
-The GitHub deployment retains the existing protected secret inputs
-`CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY` and
-`CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST` in their original credential owner.
-The first remains the signing key; the second authenticates historical releases
-before version 5. The public variable
-`OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST` selects the same public key with the
-current product principal and namespace. Predecessors from version 5 onward use
-that current trust. These deployment inputs are not runtime command aliases;
-the historical trust input can retire after supported predecessor acceptance no
-longer consumes a release before version 5.
+The GitHub workflows read one release secret,
+`CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY`: the signing key, under its
+original secret name. The public variable
+`OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST` is the trust anchor for a release
+and for its published predecessor.
 
 ## Historical macOS override records
 

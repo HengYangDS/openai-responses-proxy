@@ -272,10 +272,12 @@ def test_reload_refuses_incompatible_listener_without_mutation(
     ctx = install_context(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
     mocker.patch.object(control, "read_runtime", return_value={"pid": 12345})
-    terminate = mocker.patch.object(process, "terminate_pid")
+    terminate_owned = mocker.patch.object(process, "terminate_owned_process")
+    terminate_executable = mocker.patch.object(process, "terminate_executable")
     with pytest.raises(errors.InstallError, match="not healthy enough to reload"):
         control.reload(ctx)
-    terminate.assert_not_called()
+    terminate_owned.assert_not_called()
+    terminate_executable.assert_not_called()
 
 
 def test_reload_starts_a_stopped_installation_through_its_native_supervisor(

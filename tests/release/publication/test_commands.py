@@ -233,7 +233,6 @@ def test_github_predecessor_cli_projects_the_exact_tag_to_github_environment(
     assert capsys.readouterr().out == "v3.1.0\n"
     assert environment.read_text(encoding="utf-8") == (
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG=v3.1.0\n"
-        "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT=codex-responses-proxy\n"
     )
 
 
@@ -260,7 +259,6 @@ def test_github_predecessor_cli_accepts_the_release_tag_as_identity(
     assert capsys.readouterr().out == "v3.1.0\n"
     assert environment.read_text(encoding="utf-8") == (
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG=v3.1.0\n"
-        "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT=codex-responses-proxy\n"
     )
 
 
@@ -289,7 +287,6 @@ def test_github_predecessor_cli_reads_the_candidate_source_identity(
     assert capsys.readouterr().out == "v5.0.5\n"
     assert environment.read_text(encoding="utf-8") == (
         "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG=v5.0.5\n"
-        "OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT=openai-responses-proxy\n"
     )
 
 

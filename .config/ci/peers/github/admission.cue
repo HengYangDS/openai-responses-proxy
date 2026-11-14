@@ -54,7 +54,6 @@ githubAdmission: {
 		verify: {
 			name: "Verify branch source"
 			uses: "./.github/workflows/verify.yml"
-			secrets: CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST: "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
 		}
 		admission: {
 			name:      "Admission"

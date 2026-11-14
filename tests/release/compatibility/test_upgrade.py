@@ -29,7 +29,6 @@ from tests.release.compatibility.fixtures import _assert_same_runtime_identity
 from tests.release.compatibility.fixtures import _required_path
 from tests.release.compatibility.fixtures import _wait_for_upgrade_drain
 from tests.release.compatibility.fixtures import admitted_predecessor
-from tests.release.compatibility.fixtures import renamed_product_lifecycle
 from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
@@ -50,16 +49,6 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
     current_bundle = _required_path("OPENAI_RESPONSES_PROXY_NATIVE_BUNDLE")
     previous_asset = _required_path("OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET")
     previous_trust = _required_path("OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR")
-    if previous_asset.name.startswith("codex-responses-proxy-"):
-        renamed_product_lifecycle(
-            tmp_path,
-            current_executable=current_executable,
-            current_bundle=current_bundle,
-            previous_asset=previous_asset,
-            previous_trust=previous_trust,
-        )
-        return
-
     current_version = (native_release.ROOT / "VERSION").read_text(encoding="ascii").strip()
     published_predecessor, previous_version, previous_executable = admitted_predecessor(
         tmp_path,

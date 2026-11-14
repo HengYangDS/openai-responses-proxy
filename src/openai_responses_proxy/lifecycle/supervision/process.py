@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -185,23 +184,6 @@ def argv_names_executable(
     return roles is None or bool(roles.intersection(argv[1:]))
 
 
-def pid_names_path(pid: int, expected_path: str) -> bool:
-    """Re-read ``pid`` and prove that one argument is the exact expected path."""
-    argv = process_argv(pid)
-    executable = os.path.basename(argv[0]).lower() if argv else ""
-    executable = executable.removesuffix(".exe")
-    if not argv[1:] or re.fullmatch(r"python(?:w|3(?:\.\d+)?)?", executable) is None:
-        return False
-    expected = os.path.normcase(os.path.realpath(os.path.abspath(expected_path)))
-    argument = os.path.normcase(os.path.realpath(os.path.abspath(argv[1])))
-    return argument == expected
-
-
-def pids_naming_path(expected_path: str) -> list[int]:
-    """Return process IDs whose argv exactly names ``expected_path``."""
-    return [pid for pid, _argv in _process_inventory() if pid_names_path(pid, expected_path)]
-
-
 def pid_names_executable(
     pid: int,
     expected_path: str,
@@ -358,31 +340,6 @@ def terminate_executable(
     try:
         candidate = psutil.Process(pid)
         if not pid_names_executable(pid, expected_path, roles=roles):
-            return False
-        phase = "signal"
-        candidate.terminate()
-        phase = "wait"
-        candidate.wait(timeout=timeout_seconds)
-    except psutil.NoSuchProcess:
-        return True
-    except (OSError, TypeError, psutil.Error) as error:
-        raise _termination_error(phase, error) from None
-    return True
-
-
-def terminate_pid(pid: int, *, expected_path: str, timeout_seconds: float = 5.0) -> bool:
-    """Signal an exact process identity and prove that identity is gone.
-
-    The command line is re-read immediately before the signal. Afterwards, PID
-    disappearance or a different occupant proves that the original process
-    exited; the new occupant is never signalled.
-    """
-    if not pid_names_path(pid, expected_path):
-        return False
-    phase = "capture"
-    try:
-        candidate = psutil.Process(pid)
-        if not pid_names_path(pid, expected_path):
             return False
         phase = "signal"
         candidate.terminate()

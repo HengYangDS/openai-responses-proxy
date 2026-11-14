@@ -8,6 +8,12 @@ publication authority.
 
 ## [Unreleased]
 
+### Removed
+
+- The README section "Migrate from 4.x". The `[5.0.0]` entry records that
+  migration: uninstall the earlier product with its own command, then install
+  this one.
+
 ## [5.1.12] - 2026-11-14
 
 ### Changed

@@ -33,11 +33,9 @@ def test_branch_admission_rejects_any_incomplete_reusable_verification(
     }
     jobs = _mapping(branch["jobs"])
     assert set(jobs) == {"verify", "admission"}
-    caller = _mapping(jobs["verify"])
-    assert caller["uses"] == "./.github/workflows/verify.yml"
-    trust = "CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST"
-    assert _mapping(caller["secrets"]) == {
-        trust: "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
+    assert _mapping(jobs["verify"]) == {
+        "name": "Verify branch source",
+        "uses": "./.github/workflows/verify.yml",
     }
     admission = _mapping(jobs["admission"])
     assert admission["name"] == "Admission"
@@ -60,7 +58,6 @@ def test_branch_admission_rejects_any_incomplete_reusable_verification(
     assert "pull_request" not in verify_triggers
     assert verify_triggers["push"] == {"tags": ["v*"]}
     assert _mapping(_mapping(verify_triggers["workflow_call"])["secrets"]) == {
-        trust: {"required": "true"},
         "CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY": {"required": "false"},
     }
 
@@ -72,7 +69,6 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
     assert github_triggers == {
         "workflow_call": {
             "secrets": {
-                "CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST": {"required": "true"},
                 "CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY": {"required": "false"},
             }
         },

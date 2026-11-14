@@ -143,35 +143,6 @@ supply the endpoint's credential through that client's existing credential
 owner. The proxy persists only the selected secret-free URL in its native
 runtime configuration. Released provider routes keep their own policies.
 
-## Migrate from 4.x
-
-Version 5 uses a new command, service, package, environment namespace, and
-native data directory. Retain the verified 4.x asset and its original external
-trust anchor outside the installed directory.
-
-Migrate at an idle boundary, when no client depends on the old listener.
-Removal stops that listener without draining it: in-flight Responses are
-interrupted, and new requests are refused until version 5 accepts them.
-Draining the old listener does not create this boundary; it rejects every new
-request with a retryable local `503` until the drain ends. Before removal, use
-each client's own control plane to route it around this listener, or stop the
-client, then confirm that `codex-responses-proxy status --json` reports no
-active Responses. Do not run the migration from a client whose model traffic
-passes through this listener.
-
-Then remove the old installation with `codex-responses-proxy uninstall --purge`
-and install the verified 5.x asset using `openai-responses-proxy install`. Keep
-the listener port so the original client URLs remain valid. After
-`openai-responses-proxy status --json` reports an accepting listener, restore
-those URLs through the same control planes. The proxy changes no client
-configuration, credentials, or conversation history.
-
-Cross-name recovery reverses those native operations: uninstall 5.x and
-reinstall the retained signed 4.x asset with its original trust anchor. The
-ordinary `rollback --to-release` command remains bound to one product's
-retained generation chain. Published 4.x assets and their signing namespace
-keep their original identities.
-
 ## Operate
 
 ```bash

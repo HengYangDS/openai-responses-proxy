@@ -20,9 +20,6 @@ from tools.release.publication.github import observe as github_observer
 from tools.release.publication.github import publish as github
 from tools.release.publication.gitlab import publish as gitlab
 
-# Releases before major version 5 published the product as codex-responses-proxy.
-_RENAMED_MAJOR_VERSION = 5
-
 
 class PublicationError(RuntimeError):
     """One or more selected Forge publications did not complete."""
@@ -192,14 +189,6 @@ def _predecessor(
     tag = github_observer.published_predecessor(repository=repository, version=version)
     with github_environment.open("a", encoding="utf-8", newline="\n") as environment:
         environment.write(f"{product_identity.environment_name('PREVIOUS_RELEASE_TAG')}={tag}\n")
-        predecessor_product = (
-            "codex-responses-proxy"
-            if int(identity.version_from_tag(tag).split(".")[0]) < _RENAMED_MAJOR_VERSION
-            else product_identity.PRODUCT_SLUG
-        )
-        environment.write(
-            f"{product_identity.environment_name('PREVIOUS_RELEASE_PRODUCT')}={predecessor_product}\n"
-        )
     print(tag)
 
 

@@ -475,31 +475,22 @@ def test_native_teardown_recovers_pending_transaction_before_purge(
     assert not root.exists()
 
 
-@pytest.mark.parametrize("wrapper_exit", [True, False, "denied"])
 def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
-    tmp_path: Path, mocker: MockerFixture, *, wrapper_exit: bool | str
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
-    wrapper = tmp_path / "wrapper"
     service = mocker.Mock()
     service.configured_executable.return_value = None
     denied = errors.InstallError("native service manager is unavailable")
     service.uninstall.side_effect = denied
     mocker.patch.object(verification.native_service, "adapter", return_value=service)
-    mocker.patch.object(verification.process, "pids_naming_path", return_value=[41])
-    terminate = mocker.patch.object(verification.process, "terminate_pid")
-    if wrapper_exit == "denied":
-        terminate.side_effect = errors.InstallError("wrapper process access denied")
-    else:
-        terminate.return_value = wrapper_exit
     mocker.patch.object(verification.process, "pids_naming_executable", return_value=[73])
     runtime_exit = mocker.patch.object(
         verification.process, "terminate_executable", return_value=True
     )
     with pytest.raises(errors.InstallError) as raised:
-        verification.cleanup_runtime(ctx, wrapper)
+        verification.cleanup_runtime(ctx)
     assert raised.value is denied
-    terminate.assert_called_once_with(41, expected_path=str(wrapper))
     assert runtime_exit.call_args.args == (73, ctx.executable)
 
 

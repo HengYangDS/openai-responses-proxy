@@ -203,7 +203,9 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
         in _string(download["run"])
     )
     assert '"$OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG"' not in _string(download["run"])
-    assert "--pattern" in _string(download["run"])
+    assert '--pattern "openai-responses-proxy-*-${{ matrix.platform }}.tar.gz"' in _string(
+        download["run"]
+    )
     assert "--repo" not in _string(download["run"])
     predecessor = next(
         step for step in steps if step.get("name") == "Resolve the exact published predecessor"
@@ -218,9 +220,10 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
         step for step in steps if step.get("name") == "Materialize the release trust anchor"
     )
     assert _mapping(trust["env"]) == {
-        "PREVIOUS_RELEASE_ASSET_TRUST": "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}",
         "RELEASE_ASSET_TRUST": "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}",
     }
+    for anchor in ("previous-release-asset-trust", "release-asset-trust"):
+        assert f"/{anchor}').write_text(trust + " in _string(trust["run"])
     proof = next(
         step
         for step in steps

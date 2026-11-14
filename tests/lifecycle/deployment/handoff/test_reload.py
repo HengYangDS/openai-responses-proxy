@@ -47,10 +47,12 @@ class TestControllerHandoffWiring(HandoffFixture):
             "capture_source_listener",
             return_value=process.OwnedProcess(999, ctx.executable, 0.5),
         )
-        terminate = mocker.patch.object(process, "terminate_pid")
+        terminate_owned = mocker.patch.object(process, "terminate_owned_process")
+        terminate_executable = mocker.patch.object(process, "terminate_executable")
         result = control.reload(ctx, timeout_seconds=5)
         request_handoff.assert_called_once()
-        terminate.assert_not_called()
+        terminate_owned.assert_not_called()
+        terminate_executable.assert_not_called()
         assert result == {"state": "reloaded", "old_pid": 1, "new_pid": 2}
         assert request_handoff.call_args.kwargs["lease_seconds"] == ctx.upstream_timeout
 

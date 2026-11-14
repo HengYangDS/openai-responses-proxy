@@ -10,7 +10,6 @@ import plistlib
 import re
 import subprocess
 import sys
-import tarfile
 import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -189,60 +188,6 @@ def post_response(
         content: object = response.read()
         assert isinstance(content, bytes)
         return content
-
-
-def legacy_published_bundle(asset: Path, anchor: Path, work: Path) -> tuple[Path, str]:
-    """Admit historical assets with their exact immutable original source."""
-    archive = work / "predecessor-source.tar"
-    source = work / "predecessor-source"
-    source.mkdir()
-    subprocess.run(
-        [
-            "git",
-            "archive",
-            "refs/tags/v4.0.6",
-            "src/codex_responses_proxy",
-            "--output",
-            str(archive),
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        timeout=30,
-    )
-    with tarfile.open(archive) as snapshot:
-        snapshot.extractall(source, filter="data")
-    bundle = work / "predecessor-native"
-    probe = (
-        "import sys; from pathlib import Path; "
-        "sys.path.insert(0, sys.argv[1]); "
-        "from codex_responses_proxy.lifecycle import artifact; "
-        "item=artifact.admit(Path(sys.argv[2]), trust_anchor=Path(sys.argv[3])); "
-        "root=Path(sys.argv[4]); root.mkdir(); "
-        "[(p.parent.mkdir(parents=True, exist_ok=True), p.write_bytes(b.content), "
-        "p.chmod(0o755 if b.mode=='100755' else 0o644)) "
-        "for b in item.peek_blobs() if b.path.startswith('bin/') "
-        "for p in [root / b.path.removeprefix('bin/')]]; print(item.version)"
-    )
-    admitted = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-c",
-            probe,
-            str(source / "src"),
-            str(asset),
-            str(anchor),
-            str(bundle),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=60,
-    )
-    archive.unlink()
-    return bundle, admitted.stdout.strip()
 
 
 def runtime_context_for(

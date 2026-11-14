@@ -95,17 +95,14 @@ import "list"
 		}, {
 			name: "Download the published predecessor release"
 			env: GH_TOKEN: "${{ github.token }}"
-			run: "gh release download \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG }}\" --pattern \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz\" --pattern \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-${{ matrix.platform }}.manifest.json\" --pattern SHA256SUMS --pattern SHA256SUMS.sig --dir \"${{ runner.temp }}/previous-release\""
+			run: "gh release download \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG }}\" --pattern \"openai-responses-proxy-*-${{ matrix.platform }}.tar.gz\" --pattern \"openai-responses-proxy-${{ matrix.platform }}.manifest.json\" --pattern SHA256SUMS --pattern SHA256SUMS.sig --dir \"${{ runner.temp }}/previous-release\""
 		}, {
 			name: "Materialize the release trust anchor"
-			env: {
-				PREVIOUS_RELEASE_ASSET_TRUST: "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
-				RELEASE_ASSET_TRUST:          "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
-			}
-			run: "python -c \"import os; from pathlib import Path; current = os.environ['RELEASE_ASSET_TRUST'].rstrip(); previous = os.environ['PREVIOUS_RELEASE_ASSET_TRUST'].rstrip() if os.environ['OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT'] == 'codex-responses-proxy' else current; assert current and previous, 'release trust is unavailable'; Path(r'${{ runner.temp }}/previous-release-asset-trust').write_text(previous + '\\n', encoding='ascii'); Path(r'${{ runner.temp }}/release-asset-trust').write_text(current + '\\n', encoding='ascii')\""
+			env: RELEASE_ASSET_TRUST: "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
+			run: "python -c \"import os; from pathlib import Path; trust = os.environ['RELEASE_ASSET_TRUST'].rstrip(); assert trust, 'release trust is unavailable'; Path(r'${{ runner.temp }}/previous-release-asset-trust').write_text(trust + '\\n', encoding='ascii'); Path(r'${{ runner.temp }}/release-asset-trust').write_text(trust + '\\n', encoding='ascii')\""
 		}, {
 			name: "Bind the exact predecessor asset"
-			run:  "python -c \"import glob, os; matches = glob.glob(r'${{ runner.temp }}/previous-release/${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz'); assert len(matches) == 1, matches; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + matches[0] + '\\n')\""
+			run:  "python -c \"import glob, os; matches = glob.glob(r'${{ runner.temp }}/previous-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); assert len(matches) == 1, matches; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + matches[0] + '\\n')\""
 		}], [for step in #LinuxUserManagerSteps {
 			step & {if: "matrix.platform == 'linux-x86_64'"}
 		}], [{
@@ -209,17 +206,14 @@ import "list"
 		}, {
 			name: "Download the published predecessor release"
 			env: GH_TOKEN: "${{ github.token }}"
-			run: "gh release download \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG }}\" --pattern \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz\" --pattern \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-${{ matrix.platform }}.manifest.json\" --pattern SHA256SUMS --pattern SHA256SUMS.sig --dir \"${{ runner.temp }}/previous-release\""
+			run: "gh release download \"${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TAG }}\" --pattern \"openai-responses-proxy-*-${{ matrix.platform }}.tar.gz\" --pattern \"openai-responses-proxy-${{ matrix.platform }}.manifest.json\" --pattern SHA256SUMS --pattern SHA256SUMS.sig --dir \"${{ runner.temp }}/previous-release\""
 		}, {
 			name: "Materialize the release trust anchor"
-			env: {
-				PREVIOUS_RELEASE_ASSET_TRUST: "${{ secrets.CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
-				RELEASE_ASSET_TRUST:          "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
-			}
-			run: "python -c \"import os; from pathlib import Path; current = os.environ['RELEASE_ASSET_TRUST'].rstrip(); previous = os.environ['PREVIOUS_RELEASE_ASSET_TRUST'].rstrip() if os.environ['OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT'] == 'codex-responses-proxy' else current; assert current and previous, 'release trust is unavailable'; Path(r'${{ runner.temp }}/previous-release-asset-trust').write_text(previous + '\\n', encoding='ascii'); Path(r'${{ runner.temp }}/release-asset-trust').write_text(current + '\\n', encoding='ascii')\""
+			env: RELEASE_ASSET_TRUST: "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
+			run: "python -c \"import os; from pathlib import Path; trust = os.environ['RELEASE_ASSET_TRUST'].rstrip(); assert trust, 'release trust is unavailable'; Path(r'${{ runner.temp }}/previous-release-asset-trust').write_text(trust + '\\n', encoding='ascii'); Path(r'${{ runner.temp }}/release-asset-trust').write_text(trust + '\\n', encoding='ascii')\""
 		}, {
 			name: "Bind the exact published assets"
-			run:  "python -c \"import glob, os; current = glob.glob(r'${{ runner.temp }}/current-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); previous = glob.glob(r'${{ runner.temp }}/previous-release/${{ env.OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_PRODUCT }}-*-${{ matrix.platform }}.tar.gz'); assert len(current) == len(previous) == 1, (current, previous); open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSET=' + current[0] + '\\nOPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + previous[0] + '\\n')\""
+			run:  "python -c \"import glob, os; current = glob.glob(r'${{ runner.temp }}/current-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); previous = glob.glob(r'${{ runner.temp }}/previous-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); assert len(current) == len(previous) == 1, (current, previous); open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSET=' + current[0] + '\\nOPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + previous[0] + '\\n')\""
 		}], [for step in #LinuxUserManagerSteps {
 			step & {if: "matrix.platform == 'linux-x86_64'"}
 		}], [{

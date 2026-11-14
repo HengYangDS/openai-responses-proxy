@@ -27,10 +27,7 @@ package ci
 githubVerify: {
 	name: "Verify"
 	on: {
-		workflow_call: secrets: {
-			CODEX_RESPONSES_PROXY_RELEASE_ASSET_TRUST: required:       true
-			CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY: required: false
-		}
+		workflow_call: secrets: CODEX_RESPONSES_PROXY_RELEASE_ASSET_SIGNING_KEY: required: false
 		push: tags: ["v*"]
 		release: types: ["published"]
 		workflow_dispatch: inputs: release_tag: {

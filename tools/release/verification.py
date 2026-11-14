@@ -291,19 +291,10 @@ def _uninstall_test_service(
 
 
 def _stop_test_processes(
-    wrapper: Path | None, process_contexts: tuple[runtime_context.RuntimeContext, ...]
+    process_contexts: tuple[runtime_context.RuntimeContext, ...],
 ) -> errors.InstallError | None:
     """Stop every owned test process and return the first unproved exit, if any."""
     failure: errors.InstallError | None = None
-    if wrapper is not None:
-        for pid in process.pids_naming_path(str(wrapper)):
-            try:
-                exited = process.terminate_pid(pid, expected_path=str(wrapper))
-            except errors.InstallError as error:
-                failure = failure or error
-            else:
-                if not exited:
-                    failure = failure or errors.InstallError("test wrapper exit is unproved")
     for owned_ctx in process_contexts:
         for pid in process.pids_naming_executable(
             owned_ctx.executable, roles=serving_roles.RUNTIME_ROLES
@@ -322,7 +313,7 @@ def _stop_test_processes(
     return failure
 
 
-def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = None) -> None:
+def cleanup_runtime(ctx: runtime_context.RuntimeContext) -> None:
     """Stop only processes and launch configuration owned by an isolated test."""
     service = native_service.adapter()
     owned_contexts = owned_process_contexts(ctx)
@@ -342,9 +333,9 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext, wrapper: Path | None = 
         _uninstall_test_service(service, ctx)
     except BaseException:
         # A failed uninstall still stops every owned process before it propagates.
-        _stop_test_processes(wrapper, process_contexts)
+        _stop_test_processes(process_contexts)
         raise
-    if (failure := _stop_test_processes(wrapper, process_contexts)) is not None:
+    if (failure := _stop_test_processes(process_contexts)) is not None:
         raise failure
     if service.status(ctx) != "absent":
         raise errors.InstallError("test native service reappeared after cleanup")

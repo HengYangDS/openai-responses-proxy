@@ -79,34 +79,13 @@ class TestProcessIdentity:
         )
         assert process.process_argv(123) == []
 
-    def test_process_inventory_and_path_discovery_fail_closed(
-        self, *, mocker: MockerFixture
-    ) -> None:
+    def test_process_inventory_fails_closed(self, *, mocker: MockerFixture) -> None:
         mocker.patch.object(
             process.psutil,
             "process_iter",
             side_effect=process.psutil.AccessDenied(),
         )
         assert process._process_inventory() == []
-        mocker.patch.object(
-            process,
-            "_process_inventory",
-            return_value=[
-                (7, ["python", "/installed/watchdog.py.backup"]),
-                (8, ["python", "/installed/watchdog.py"]),
-                (9, ["python", "-c", "print", "/installed/watchdog.py"]),
-            ],
-        )
-        mocker.patch.object(
-            process,
-            "process_argv",
-            side_effect=[
-                ["python", "/installed/watchdog.py.backup"],
-                ["python", "/installed/watchdog.py"],
-                ["python", "-c", "print", "/installed/watchdog.py"],
-            ],
-        )
-        assert process.pids_naming_path("/installed/watchdog.py") == [8]
 
     def test_argv_denial_reported_as_system_error_is_unreadable(
         self, *, mocker: MockerFixture
@@ -182,7 +161,7 @@ class TestProcessIdentity:
             roles={"--internal-handoff-child"},
         )
 
-    def test_identity_helpers_cover_empty_roles_and_python_suffixes(
+    def test_identity_helpers_cover_empty_roles(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         executable = os.path.abspath("/installed/openai-responses-proxy")
@@ -193,17 +172,6 @@ class TestProcessIdentity:
         ):
             with subtests.test(argv=argv, roles=roles):
                 assert process.argv_names_executable(argv, executable, roles=roles) is expected
-
-        for argv, expected in (
-            (["python3.12", "/installed/proxy.py"], True),
-            (["pythonw.exe", "/installed/proxy.py"], True),
-            (["ruby", "/installed/proxy.py"], False),
-            (["python"], False),
-        ):
-            with subtests.test(argv=argv):
-                mocker.patch.object(process, "process_argv", return_value=argv)
-                assert process.pid_names_path(17, "/installed/proxy.py") is expected
-                mocker.stopall()
 
         mocker.patch.object(process, "_process_inventory", return_value=[(17, [executable])])
         mocker.patch.object(process, "pid_names_executable", return_value=True)
@@ -222,8 +190,6 @@ class TestProcessIdentity:
                 assert argv[1:] == [str(fixture)]
                 assert Path(argv[0]).is_absolute()
                 assert Path(argv[0]).name.lower().startswith("python")
-                assert process.pid_names_path(child.pid, str(fixture))
-                assert child.pid in process.pids_naming_path(str(fixture))
             finally:
                 child.terminate()
                 child.wait(timeout=5)
