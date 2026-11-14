@@ -267,8 +267,21 @@ class ProductInterfaceContracts:
             # OverflowError until Cyclopts 5.4.2: a traceback and exit status 1.
             ("status", "--port", "1.0e999"),
             ("status", "--port", "-1.5e400"),
+            # A port is written in ASCII decimal digits. Each of these was converted to
+            # another integer and run: 8.5 as 8, 9.5 as 10, 0x50 as 80.
+            ("status", "--port", "8.5"),
+            ("status", "--port", "9.5"),
+            ("status", "--port", "8080.0"),
+            ("status", "--port", "0x50"),
+            ("status", "--port", "8_080"),
+            ("status", "--port", "+8080"),
+            ("status", "--port", "\uff18\uff10\uff18\uff10"),
             ("reload", "--timeout-seconds", "0"),
             ("reload", "--timeout-seconds", "-1"),
+            # A deadline without an end is no deadline.
+            ("reload", "--timeout-seconds", "inf"),
+            ("reload", "--timeout-seconds", "1e999"),
+            ("reload", "--timeout-seconds", "nan"),
         )
         for arguments in cases:
             code, stdout, stderr = invoke(*arguments)

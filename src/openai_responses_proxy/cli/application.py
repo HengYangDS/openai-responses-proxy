@@ -16,13 +16,13 @@ from typing import overload
 from cyclopts import App
 from cyclopts import Parameter
 from cyclopts.exceptions import CycloptsError
-from cyclopts.validators import Number
 from filelock import FileLock
 from filelock import Timeout
 from rich.console import Console
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.cli import options
 from openai_responses_proxy.cli import outcome
 from openai_responses_proxy.cli import presentation
 from openai_responses_proxy.lifecycle import context as runtime_context
@@ -39,39 +39,10 @@ _FAILURE_STATUS = "failed"
 type DoctorState = Literal[
     "running", "degraded", "stopped", "invalid", "not_installed", "recovery_required"
 ]
-_JSON = Annotated[
-    bool,
-    Parameter(
-        name="--json",
-        negative=False,
-        help="Emit stable JSON for automation.",
-        show_default=False,
-    ),
-]
-_PORT = Annotated[
-    int,
-    Parameter(
-        help="Loopback listener port.",
-        validator=Number(gte=1, lte=65535),
-    ),
-]
-_TIMEOUT = Annotated[
-    float,
-    Parameter(
-        name="--timeout-seconds",
-        help="Native lifecycle deadline in seconds.",
-        validator=Number(gt=0),
-    ),
-]
-_PURGE = Annotated[
-    bool,
-    Parameter(
-        name="--purge",
-        negative=False,
-        help="Also remove the verified installed payload.",
-        show_default=False,
-    ),
-]
+_JSON = options.JSON
+_PORT = options.PORT
+_TIMEOUT = options.TIMEOUT
+_PURGE = options.PURGE
 
 
 class DoctorCheck(TypedDict):
