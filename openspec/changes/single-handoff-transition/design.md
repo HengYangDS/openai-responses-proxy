@@ -52,7 +52,7 @@ which the failure resolver calls a handoff rolled back: an interrupt can leave t
 still in flight, and that handoff may yet commit its successor. Without the proof the outcome is unknown and the
 transaction is preserved, as before.
 
-### A finished handoff session is a session at rest
+### A finished handoff session is at rest once the listener has refused the request
 
 A listener that a handoff created reports that finished session, `finalized` with its transaction, until its next
 handoff begins, and beginning one replaces the session for good: a failed handoff leaves it idle. Every listener
@@ -60,9 +60,18 @@ is in that state after an upgrade, a reload or a rollback. The resolver and the 
 as "nothing in flight", so a request that such a listener refused before beginning it was waited out for the
 whole handoff deadline, up to the upstream timeout of 900 seconds, and ended as an unknown outcome.
 
-Both now accept two sessions: idle, and the finalized session exactly as the controller captured it before its
-request. Any other session, a finalized one with another transaction among them, is a handoff in flight or
-finished.
+That session, exactly as the controller captured it before its request, says that the request has not begun. It
+does not say that the request will not begin: the listener still shows it between reading the request and
+beginning the handoff. A test forces that order through the listener's own handler. A rollback there could
+overlap a handoff that then commits, and after a `rollback` command the retained generation would serve under a
+selector that names the other release.
+
+The resolver and the proof therefore accept that session only when the listener answered the request with an
+error status, which says that its handler has finished. `HandoffRefusedError` carries that answer from the
+request to both. Without it, after an interrupt or a lost connection, such a listener is waited out for the
+handoff deadline and the outcome is unknown, as in 5.1.12; a handoff that begins in that time is followed to
+its end. An idle session counts with or without an answer, as before. Any other session, a finalized
+one with another transaction among them, is a handoff in flight or finished.
 
 ### One owner closes a refused transaction
 
@@ -84,11 +93,17 @@ route. No special refusal is kept: a route that is named only to be refused is s
 - A handed-off process that cannot speak protocol 2 as the successor makes a rollback fail instead of falling
   back to replacement. → Accepted: no release under this name lacks it, and the failure leaves the current
   listener serving.
-- A handoff request that the listener has not begun to process when the controller reads its health is invisible
-  to the resolver and to the proof, so a rollback can overlap a handoff that begins in that moment. → As before for
-  an idle listener. The listener compares the request with the generation that the selector names before it
-  begins, and the rollback restores the previous selection, so a request that it processes after the rollback
-  is refused.
+- A handoff request that an idle listener has read and not begun when the controller reads its health is
+  invisible to the resolver and to the proof, so a rollback can overlap a handoff that begins in that moment.
+  → As before, and only for a listener that the supervisor started: one that a handoff created is covered above.
+  The listener compares the request with the generation that the selector names before it begins, so a request
+  that it compares after the rollback is refused. One that it compared before is not: a forward candidate is
+  deleted by then, and the retained generation of a `rollback` can still take over. Closing that window needs the
+  listener's part, or an idle session that counts only with an answer; task 12.5 of
+  `terminal-product-convergence` owns it.
+- An interrupt in the instant before a listener that a handoff created begins the handoff waits out the handoff
+  deadline and ends as an unknown outcome, with its transaction preserved for `recover`. → Accepted: it is what
+  5.1.12 does for that listener, and the alternative is the overlap above.
 - An interrupt whose cleanup of a refused transaction fails surfaces as a lifecycle error that names both, not as
   the interrupt. → Kept from `install_asset`: the failed cleanup is what the operator must read.
 - The incompatible-runtime refusal says "before installing this release" on a rollback too. → Kept: the predicate

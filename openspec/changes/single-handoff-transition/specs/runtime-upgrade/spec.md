@@ -43,11 +43,21 @@ before a projection, a service definition or a process changes.
 
 #### Scenario: A listener refuses a handoff request before beginning it
 
-- **WHEN** a listener answers a handoff request without beginning the handoff
+- **WHEN** a listener answers a handoff request with an error status without
+  beginning the handoff
 - **THEN** the controller reads that the listener began nothing and rolls the
   payload back without waiting out the handoff deadline
 - **AND** this holds for a listener that an earlier handoff created, whose
   health still shows that finished handoff.
+
+#### Scenario: A handoff request ends without the listener's answer
+
+- **WHEN** the controller is interrupted or loses its connection before a
+  listener that an earlier handoff created answers the handoff request
+- **THEN** that listener's finished handoff SHALL NOT count as proof that
+  nothing began, because the listener may be about to begin
+- **AND** a handoff that begins is followed to its end, and otherwise the
+  transaction is preserved for recovery as an unknown outcome.
 
 ### Requirement: The listener exposes no admission drain
 

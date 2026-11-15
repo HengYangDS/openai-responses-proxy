@@ -211,6 +211,8 @@ def test_status_and_reload_bound_unobservable_failures(
         side_effect=errors.InstallError("service unavailable"),
     )
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
+    # No listener answers; the test opens no port, so it reads none.
+    mocker.patch.object(control, "read_runtime", return_value=None)
     evidence = control.status(ctx)
     assert evidence["payload_integrity"] == {
         "ok": False,
@@ -237,14 +239,17 @@ def test_status_and_reload_bound_unobservable_failures(
         "capture_source_listener",
         return_value=control.process.OwnedProcess(7, ctx.executable, 1.0),
     )
-    mocker.patch.object(control.handoff, "request", side_effect=OSError("lost response"))
-    mocker.patch.object(
+    lost = OSError("lost response")
+    mocker.patch.object(control.handoff, "request", side_effect=lost)
+    resolver = mocker.patch.object(
         control.handoff,
         "resolve_after_controller_failure",
         side_effect=RuntimeError("resolution unavailable"),
     )
     with pytest.raises(errors.InstallError, match="outcome is unconfirmed"):
         control.reload(ctx)
+    # The resolver learns what ended the request: only a refusal proves that nothing began.
+    assert resolver.call_args.kwargs["failure"] is lost
 
 
 def test_reload_requires_installation_and_resolved_transaction_state(

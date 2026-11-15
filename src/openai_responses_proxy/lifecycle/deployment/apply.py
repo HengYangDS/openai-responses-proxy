@@ -269,6 +269,7 @@ def _upgrade(
             try:
                 _require_serving_predecessor(
                     ctx,
+                    failure=upgrade_error,
                     source_listener=source_listener,
                     source_runtime=current,
                     runtime_reader=runtime_reader,
@@ -303,13 +304,18 @@ def bind_control_supervisor(
 def _require_serving_predecessor(
     ctx: runtime_context.RuntimeContext,
     *,
+    failure: BaseException,
     source_listener: process.OwnedProcess,
     source_runtime: dict[str, object],
     runtime_reader: handoff.RuntimeReader,
 ) -> None:
-    """Raise unless runtime evidence proves that the captured predecessor still serves."""
+    """Raise unless runtime evidence proves that the captured predecessor still serves.
+
+    ``failure`` is what ended the handoff request.
+    """
     if not handoff.predecessor_serves(
         ctx,
+        failure=failure,
         source_listener=source_listener,
         source_runtime=source_runtime,
         runtime_reader=runtime_reader,
@@ -389,6 +395,7 @@ def request_handoff(
                 ctx,
                 current,
                 dict(expected),
+                failure=error,
                 runtime_reader=runtime_reader,
                 timeout_seconds=timeout_seconds,
                 lease_seconds=lease_seconds,

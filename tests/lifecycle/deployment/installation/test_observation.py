@@ -53,7 +53,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
 
         original = errors.InstallError("handoff failed")
         mocker.patch.object(apply.handoff, "request", side_effect=original)
-        mocker.patch.object(
+        resolver = mocker.patch.object(
             apply.handoff,
             "resolve_after_controller_failure",
             return_value=("rolled_back", current),
@@ -67,6 +67,8 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
                 runtime_reader=lambda _ctx: current,
                 timeout_seconds=1,
             )
+        # The resolver learns what ended the request: only a refusal proves that nothing began.
+        assert resolver.call_args.kwargs["failure"] is original
 
         mocker.patch.object(
             apply.handoff,

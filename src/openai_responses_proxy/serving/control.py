@@ -97,7 +97,9 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
         return
     try:
         request = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except (ValueError, RecursionError):
+        # Beside malformed JSON and bytes: a number over the interpreter's digit limit
+        # and a nesting past its depth. Each is a request that gets its refusal.
         handler.send_error(400, "invalid handoff JSON")
         return
     if not isinstance(request, dict):

@@ -5,11 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
+from openai_responses_proxy.serving import control as listener_control
 from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
 from tests.lifecycle.fixtures import install_context
+from tests.serving.handoff.fixtures import entrypoint_module
 from tests.serving.handoff.fixtures import expected_metadata
+from tests.serving.handoff.fixtures import fake_handler
+from tests.serving.handoff.fixtures import handoff_module
 from tests.serving.handoff.fixtures import idle_runtime
 from tests.serving.handoff.fixtures import matching_health
 
@@ -18,6 +23,10 @@ if TYPE_CHECKING:
 
     import pytest
     from pytest_mock import MockerFixture
+
+
+_REFUSED = handoff.HandoffRefusedError("handoff control returned HTTP 409")
+_UNANSWERED = errors.InstallError("handoff control is unavailable")
 
 
 class TestControllerHandoffWiring(HandoffFixture):
@@ -35,30 +44,141 @@ class TestControllerHandoffWiring(HandoffFixture):
             idle_runtime(accepting=False),
             idle_runtime(draining=True),
         )
-        for runtime in mismatches:
-            assert not handoff._old_runtime_resumed(runtime, old)
-        assert handoff._old_runtime_resumed(old, old)
+        for refused in (False, True):
+            for runtime in mismatches:
+                assert not handoff._old_runtime_resumed(runtime, old, refused=refused)
+            assert handoff._old_runtime_resumed(old, old, refused=refused)
 
-    def test_a_resting_handoff_child_is_resumed_until_it_begins_a_handoff(self) -> None:
-        """A listener that a handoff created reports that finalized session until its next one."""
+    def test_a_resting_handoff_child_is_resumed_only_after_it_refused_the_request(self) -> None:
+        """A listener that a handoff created reports that finalized session until its next one.
+
+        Only its refusal says that the request will not begin: without that answer the listener
+        may still be about to begin it.
+        """
         resting = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
-        assert handoff._old_runtime_resumed(dict(resting), resting)
-        # It began the handoff and rolled it back.
-        assert handoff._old_runtime_resumed(idle_runtime(), resting)
-        for runtime in (
-            idle_runtime(handoff_state="preparing", handoff_transaction_id="8" * 32),
-            idle_runtime(handoff_state="finalized", handoff_transaction_id="8" * 32),
-            idle_runtime(handoff_state="finalized"),
-            idle_runtime(handoff_state="aborting"),
-            idle_runtime(
-                handoff_state="finalized", handoff_transaction_id="7" * 32, accepting=False
-            ),
-        ):
-            assert not handoff._old_runtime_resumed(runtime, resting)
-        # A capture that was idle admits no finalized session.
-        assert not handoff._old_runtime_resumed(resting, idle_runtime())
+        assert handoff._old_runtime_resumed(dict(resting), resting, refused=True)
+        assert not handoff._old_runtime_resumed(dict(resting), resting, refused=False)
+        for refused in (False, True):
+            # It began the handoff and rolled it back.
+            assert handoff._old_runtime_resumed(idle_runtime(), resting, refused=refused)
+            for runtime in (
+                idle_runtime(handoff_state="preparing", handoff_transaction_id="8" * 32),
+                idle_runtime(handoff_state="finalized", handoff_transaction_id="8" * 32),
+                idle_runtime(handoff_state="finalized"),
+                idle_runtime(handoff_state="aborting"),
+                idle_runtime(
+                    handoff_state="finalized", handoff_transaction_id="7" * 32, accepting=False
+                ),
+            ):
+                assert not handoff._old_runtime_resumed(runtime, resting, refused=refused)
+            # A capture that was idle admits no finalized session.
+            assert not handoff._old_runtime_resumed(resting, idle_runtime(), refused=refused)
 
-    def test_failure_resolver_answers_at_once_for_a_resting_child_that_began_nothing(
+    def test_a_capture_that_names_no_finished_session_admits_only_an_idle_one(self) -> None:
+        """An echoed capture counts only as a finalized session with its transaction."""
+        for state, transaction in (
+            ("finalized", None),
+            ("finalized", ""),
+            ("finalized", 7),
+            ("preparing", "7" * 32),
+            ("ready", "7" * 32),
+            ("committing", "7" * 32),
+        ):
+            captured = idle_runtime(handoff_state=state, handoff_transaction_id=transaction)
+            assert not handoff._old_runtime_resumed(dict(captured), captured, refused=True)
+            assert handoff._old_runtime_resumed(idle_runtime(), captured, refused=True)
+
+    def test_failure_resolver_waits_out_a_resting_child_that_sent_no_answer(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """A request without an answer may still begin, so its listener at rest resolves nothing."""
+        ctx = install_context(Path(self.tempdir.name))
+        resting = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
+        mocker.patch.object(process, "owned_process_alive", return_value=True)
+        mocker.patch.object(process, "capture_executable", return_value=None)
+        clock = mocker.patch.object(handoff.time, "monotonic")
+        sleep = mocker.patch.object(handoff.time, "sleep")
+        reader = mocker.Mock(return_value=dict(resting))
+
+        for failure in (_UNANSWERED, KeyboardInterrupt()):
+            reader.reset_mock()
+            sleep.reset_mock()
+            # The deadline is 1 + 1 + 5 seconds after the first reading of the clock.
+            clock.side_effect = [0.0, 0.0, 6.9, 7.0]
+            assert handoff.resolve_after_controller_failure(
+                ctx,
+                resting,
+                expected_metadata(),
+                failure=failure,
+                runtime_reader=reader,
+                timeout_seconds=1,
+                lease_seconds=1,
+                source_listener=process.OwnedProcess(999, ctx.executable, 0.5),
+            ) == ("unknown", None)
+            assert reader.call_count == 2
+            assert sleep.call_count == 2
+
+    def test_a_request_that_a_resting_listener_has_read_and_not_begun_resolves_nothing(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """The order that the rule answers, with the listener's own handler and session.
+
+        The handler has compared the request with the disk and has not begun the handoff:
+        health still shows the finished session that the controller captured. A controller
+        that lost its answer in that moment must not call the handoff rolled back, because
+        the handler goes on and begins it.
+        """
+        bindings = listener_control.Bindings(
+            runtime_status=entrypoint_module.runtime_status,
+            handoff_context=entrypoint_module._handoff_context,
+        )
+        session = handoff_module._HANDOFF_SESSION
+
+        def health() -> dict[str, object]:
+            identity = handoff_module.runtime_identity(bindings.handoff_context())
+            return idle_runtime(
+                handoff_state=identity["handoff_state"],
+                handoff_transaction_id=identity["handoff_transaction_id"],
+            )
+
+        seen: dict[str, dict[str, object]] = {}
+
+        def begin(*_args: object, **_kwargs: object) -> None:
+            # Where the handler calls prepare, nothing has begun.
+            seen["read"] = health()
+            # prepare then replaces the finished session for good, as its first step.
+            with handoff_module._HANDOFF_LOCK:
+                handoff_module.reset_session_to_idle()
+                handoff_module._transition("preparing")
+                session.update(transaction_id=expected_metadata()["transaction_id"])
+            seen["begun"] = health()
+            raise handoff_module.HandoffError("the test stops the handoff here")
+
+        handoff_module.reset_session_to_idle()
+        try:
+            # A listener that a handoff created.
+            with handoff_module._HANDOFF_LOCK:
+                session.update(state="finalized", transaction_id="7" * 32)
+            captured = health()
+            mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)
+            mocker.patch.object(handoff_module, "prepare", side_effect=begin)
+            listener_control.prepare_handoff(
+                fake_handler(expected_metadata(), mocker=mocker), bindings
+            )
+        finally:
+            handoff_module.reset_session_to_idle()
+
+        assert (captured["handoff_state"], captured["handoff_transaction_id"]) == (
+            "finalized",
+            "7" * 32,
+        )
+        assert seen["read"] == captured
+        assert not handoff._old_runtime_resumed(seen["read"], captured, refused=False)
+        assert seen["begun"]["handoff_state"] == "preparing"
+        for refused in (False, True):
+            assert not handoff._old_runtime_resumed(seen["begun"], captured, refused=refused)
+
+    def test_failure_resolver_answers_at_once_for_a_resting_child_that_refused_the_request(
         self, *, mocker: MockerFixture
     ) -> None:
         """A request that the listener refused before it began leaves nothing to wait for."""
@@ -75,6 +195,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             ctx,
             resting,
             expected_metadata(),
+            failure=_REFUSED,
             runtime_reader=reader,
             timeout_seconds=30,
             lease_seconds=900,
@@ -95,6 +216,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         def serves(runtime: dict[str, object] | None) -> bool:
             return handoff.predecessor_serves(
                 ctx,
+                failure=_UNANSWERED,
                 source_listener=source,
                 source_runtime=idle_runtime(),
                 runtime_reader=lambda _ctx: runtime,
@@ -115,17 +237,24 @@ class TestControllerHandoffWiring(HandoffFixture):
                 assert not serves(runtime)
         resting = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
 
-        def rests(runtime: dict[str, object]) -> bool:
+        def rests(runtime: dict[str, object], failure: BaseException) -> bool:
             return handoff.predecessor_serves(
                 ctx,
+                failure=failure,
                 source_listener=source,
                 source_runtime=resting,
                 runtime_reader=lambda _ctx: runtime,
             )
 
-        assert rests(dict(resting))
-        assert rests(idle_runtime())
-        assert not rests(idle_runtime(handoff_state="ready", handoff_transaction_id="8" * 32))
+        # Its finished session proves nothing begun only with the listener's refusal.
+        assert rests(dict(resting), _REFUSED)
+        assert not rests(dict(resting), _UNANSWERED)
+        assert not rests(dict(resting), KeyboardInterrupt())
+        for failure in (_REFUSED, _UNANSWERED):
+            assert rests(idle_runtime(), failure)
+            assert not rests(
+                idle_runtime(handoff_state="ready", handoff_transaction_id="8" * 32), failure
+            )
         alive.return_value = False
         assert not serves(idle_runtime())
         control_request.assert_not_called()
@@ -164,6 +293,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                         ctx,
                         old,
                         expected,
+                        failure=_UNANSWERED,
                         runtime_reader=lambda _ctx, snapshot=runtime: snapshot,
                         timeout_seconds=1,
                         lease_seconds=1,
@@ -184,6 +314,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             ctx,
             old,
             expected,
+            failure=_UNANSWERED,
             runtime_reader=lambda _ctx: finalized,
             timeout_seconds=1,
             lease_seconds=1,
@@ -224,6 +355,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                 ctx,
                 old,
                 expected,
+                failure=_UNANSWERED,
                 runtime_reader=lambda _ctx: next(runtimes),
                 timeout_seconds=10,
                 lease_seconds=1,

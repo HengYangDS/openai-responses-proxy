@@ -25,6 +25,9 @@ rules:
     - Keep execution history, logs and acceptance reports with their Git, CI and native evidence
       owners, not in design prose.
     - Preserve rollback, evidence, and external-state boundaries.
+    - Rest every statement about platform behavior, another program or concurrency on a named
+      measurement or on a test that forces the order, and list the cases of every classification
+      before the decision that rests on them.
   tasks:
     - Use official checkboxes under numbered groups in dependency order, with numbering and nesting
       expressing one hierarchy. Each task keeps a stable identity, states one bounded action with

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import io
 import json
 import urllib.error
@@ -270,20 +271,33 @@ class TestControllerHandoffWiring(HandoffFixture):
                 with pytest.raises(errors.InstallError, match=message):
                     handoff.post_ready(ctx, expected)
 
+        # Only an answer with an error status is the listener's refusal: its handler has
+        # finished. A reply that breaks off, or none, leaves the request able to begin.
         conflict_body = io.BytesIO(b"conflict")
-        for failure, message in (
+        for failure, message, refused in (
             (
                 urllib.error.HTTPError("url", 409, "conflict", Message(), conflict_body),
                 "HTTP 409",
+                True,
             ),
-            (urllib.error.URLError("offline"), "unavailable"),
-            (ValueError("bad timeout"), "unavailable"),
+            (urllib.error.URLError("offline"), "unavailable", False),
+            (ValueError("bad timeout"), "unavailable", False),
+            (http.client.IncompleteRead(b"{"), "unavailable", False),
+            (http.client.BadStatusLine("broken"), "unavailable", False),
         ):
             with subtests.test(failure=type(failure).__name__):
                 open_request.side_effect = failure
-                with pytest.raises(errors.InstallError, match=message):
+                with pytest.raises(errors.InstallError, match=message) as raised:
                     handoff.post_ready(ctx, expected)
+                assert isinstance(raised.value, handoff.HandoffRefusedError) is refused
         assert conflict_body.closed
+
+        # A status that is neither READY nor an error is no refusal either.
+        open_request.side_effect = None
+        open_request.return_value = Response(valid, status=200)
+        with pytest.raises(errors.InstallError, match="returned HTTP 200") as raised:
+            handoff.post_ready(ctx, expected)
+        assert not isinstance(raised.value, handoff.HandoffRefusedError)
 
         oversized = expected_metadata(release="x" * handoff._MAX_BODY_BYTES)
         with pytest.raises(errors.InstallError, match="request payload is too large"):

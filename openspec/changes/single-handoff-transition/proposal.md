@@ -23,9 +23,9 @@ names it as the way every rollback works, which the product has not done since h
   captured predecessor still serves. Before, the controller first sent a request to reopen admission.
 - A rollback that is refused before any projection closes the transaction that it opened. Before, it left a
   prepared transaction behind, and every later command asked for `recover`.
-- A handoff request that a listener refuses before beginning it is resolved at once, also for a listener that a
-  handoff created. Before, such a listener was waited out for the whole handoff deadline, and the outcome was
-  unknown.
+- A handoff request that a listener refuses with an answer before beginning it is resolved at once, also for a
+  listener that a handoff created. Before, such a listener was waited out for the whole handoff deadline, and
+  the outcome was unknown; without the listener's answer it still is.
 - The main `runtime-upgrade` statement that rollback drains the listener is corrected: rollback hands off as an
   upgrade does.
 

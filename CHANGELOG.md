@@ -37,12 +37,19 @@ publication authority.
 - A handoff request that a listener refused without beginning the handoff was
   waited out for the whole handoff deadline and ended as an unknown outcome
   when a handoff had created that listener, which is the state of every
-  listener after an upgrade, a reload or a rollback. The controller now reads
-  that the listener began nothing and rolls back at once.
+  listener after an upgrade, a reload or a rollback. When the listener answers
+  the request with its refusal, the controller now reads that it began nothing
+  and rolls back at once. A request that ends without the listener's answer is
+  still waited out, because the listener may be about to begin.
 - A handoff request whose timeout or lease is no finite number takes the
-  default; it failed the listener's control handler.
+  default; it failed the listener's control handler. A request whose JSON
+  holds a number over Python's digit limit, or on Python 3.12 and 3.13 a
+  nesting past its depth limit, is refused with `400`; it ended the handler
+  without an answer.
 - A health response that breaks off after its headers counts as no answer; it
-  failed the lifecycle command with an internal error.
+  failed the lifecycle command with an internal error. A handoff reply that
+  breaks off is reported as unavailable handoff control; it surfaced as the
+  HTTP library's own exception.
 
 ### Removed
 

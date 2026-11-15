@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[3]
+_OVERLONG_NUMBER = b'{"lease_seconds": ' + b"9" * 4301 + b"}"
+_DEEP_NESTING = b"[" * 16_000 + b"]" * 16_000
 
 
 class TestHandoffControlHandler:
@@ -183,9 +185,13 @@ class TestHandoffControlHandler:
             ({"Content-Length": "2"}, b"{", 400),
             ({"Content-Length": "1"}, b"{", 400),
             ({"Content-Length": "2"}, b"[]", 400),
+            # A number that Python refuses to convert, and a nesting that Python 3.12 and
+            # 3.13 refuse to descend, are no JSON that the handler reads; each gets an answer.
+            ({"Content-Length": str(len(_OVERLONG_NUMBER))}, _OVERLONG_NUMBER, 400),
+            ({"Content-Length": str(len(_DEEP_NESTING))}, _DEEP_NESTING, 400),
         )
         for headers, raw, expected_status in cases:
-            with subtests.test(headers=headers, raw=raw):
+            with subtests.test(headers=headers, raw=raw[:16]):
                 fake_self = fake_handler({}, mocker=mocker)
                 fake_self.headers = {**fake_self.headers, **headers}
                 fake_self.rfile = io.BytesIO(raw)

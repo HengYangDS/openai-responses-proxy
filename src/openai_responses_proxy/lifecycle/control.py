@@ -358,6 +358,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
                 ctx,
                 runtime,
                 expected,
+                failure=handoff_exc,
                 runtime_reader=read_runtime,
                 timeout_seconds=timeout_seconds,
                 lease_seconds=lease_seconds,

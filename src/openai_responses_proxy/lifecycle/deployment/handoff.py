@@ -9,6 +9,7 @@ transaction commits a different admitted transaction.
 
 from __future__ import annotations
 
+import http.client
 import json
 import time
 import urllib.error
@@ -41,6 +42,14 @@ _RUNTIME_IDENTITY_FIELDS = ["release", *RUNTIME_DIGEST_FIELDS]
 
 RuntimeSnapshot = dict[str, object]
 RuntimeReader = Callable[[runtime_context.RuntimeContext], RuntimeSnapshot | None]
+
+
+class HandoffRefusedError(errors.InstallError):
+    """The listener answered the handoff request with an error status.
+
+    Its handler has then finished: the request began no handoff, or began one that failed,
+    and it will begin none later. A request without that answer may still begin.
+    """
 
 
 def fields_match(actual: RuntimeSnapshot, expected: dict[str, object]) -> bool:
@@ -88,8 +97,8 @@ def _handoff_reply(request: urllib.request.Request, *, timeout_seconds: float) -
     except urllib.error.HTTPError as exc:
         code = exc.code
         exc.close()
-        raise errors.InstallError(f"{label} returned HTTP {code}") from exc
-    except (OSError, urllib.error.URLError, ValueError) as exc:
+        raise HandoffRefusedError(f"{label} returned HTTP {code}") from exc
+    except (OSError, urllib.error.URLError, ValueError, http.client.HTTPException) as exc:
         raise errors.InstallError(f"{label} is unavailable") from exc
     if status != HTTPStatus.ACCEPTED:
         raise errors.InstallError(f"{label} returned HTTP {status}")
@@ -193,18 +202,22 @@ def post_ready(
 def predecessor_serves(
     ctx: runtime_context.RuntimeContext,
     *,
+    failure: BaseException,
     source_listener: process.OwnedProcess,
     source_runtime: RuntimeSnapshot,
     runtime_reader: RuntimeReader,
 ) -> bool:
     """Return whether the captured predecessor owns the listener with no handoff begun since.
 
-    A handoff that is in flight may yet commit its successor, so it proves nothing.
+    ``failure`` is what ended the handoff request. A handoff that is in flight may yet
+    commit its successor, so it proves nothing.
     """
     runtime = runtime_reader(ctx)
     return _runtime_is_captured_source(
         source_listener, runtime, source_runtime
-    ) and _old_runtime_resumed(runtime, source_runtime)
+    ) and _old_runtime_resumed(
+        runtime, source_runtime, refused=isinstance(failure, HandoffRefusedError)
+    )
 
 
 def request(
@@ -275,15 +288,20 @@ def resolve_after_controller_failure(
     old_runtime: RuntimeSnapshot,
     expected: RuntimeSnapshot,
     *,
+    failure: BaseException,
     source_listener: process.OwnedProcess,
     runtime_reader: RuntimeReader,
     timeout_seconds: float,
     lease_seconds: float,
 ) -> tuple[str, RuntimeSnapshot | None]:
-    """Resolve caller failure without racing listener-owned finalization."""
+    """Resolve caller failure without racing listener-owned finalization.
+
+    ``failure`` is what ended the handoff request.
+    """
     old_pid = old_runtime["pid"]
     if not positive_int(old_pid):
         return "unknown", None
+    refused = isinstance(failure, HandoffRefusedError)
     deadline = time.monotonic() + timeout_seconds + max(1.0, lease_seconds) + 5.0
     while time.monotonic() < deadline:
         runtime = runtime_reader(ctx)
@@ -311,7 +329,7 @@ def resolve_after_controller_failure(
                 return "finalized", runtime
             if _runtime_is_captured_source(
                 source_listener, runtime, old_runtime
-            ) and _old_runtime_resumed(runtime, old_runtime):
+            ) and _old_runtime_resumed(runtime, old_runtime, refused=refused):
                 return "rolled_back", runtime
         time.sleep(0.1)
     return "unknown", None
@@ -377,19 +395,24 @@ def _runtime_matches(
 def _old_runtime_resumed(
     runtime: RuntimeSnapshot | None,
     old_runtime: RuntimeSnapshot,
+    *,
+    refused: bool,
 ) -> bool:
     """Return whether the captured listener serves with no handoff begun since its capture.
 
-    Its handoff session is idle, or still the finalized one that the capture showed: a listener
-    that a handoff created reports that session until its next handoff begins, and beginning one
-    replaces it for good.
+    Its handoff session is idle, or it is still the finalized one that the capture showed and
+    the listener refused the request. A listener that a handoff created reports that session
+    until its next handoff begins, and beginning one replaces it for good; so the session
+    alone says only that the request has not begun yet. The refusal says that its handler has
+    finished. Without it the listener may have read the request and be about to begin.
     """
     if not isinstance(runtime, dict):
         return False
     session = (runtime.get("handoff_state"), runtime.get("handoff_transaction_id"))
     captured = (old_runtime.get("handoff_state"), old_runtime.get("handoff_transaction_id"))
     at_rest = session == ("idle", None) or (
-        captured[0] == "finalized"
+        refused
+        and captured[0] == "finalized"
         and isinstance(captured[1], str)
         and bool(captured[1])
         and session == captured

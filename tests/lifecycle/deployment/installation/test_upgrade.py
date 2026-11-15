@@ -233,8 +233,13 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         # A listener that a handoff created reports that finalized session until
         # its next handoff begins; a request that it refused first changes nothing.
         resting = self.current_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
+        mocker.patch.object(
+            apply,
+            "request_handoff",
+            side_effect=apply.handoff.HandoffRefusedError("handoff control returned HTTP 409"),
+        )
         refused = FakeTransaction(self.ctx)
-        with pytest.raises(errors.InstallError, match="handoff failed") as failed:
+        with pytest.raises(errors.InstallError, match="returned HTTP 409") as failed:
             self.deploy(
                 refused,
                 resting,
@@ -265,6 +270,40 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         evidence.assert_called_once_with(self.ctx)
         preserved_service.install_mock.assert_not_called()
         control_request.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "failure",
+        [errors.InstallError("handoff control is unavailable"), KeyboardInterrupt()],
+        ids=["no-answer", "interrupt"],
+    )
+    def test_an_unanswered_handoff_preserves_the_transaction_of_a_resting_listener(
+        self, failure: BaseException, *, mocker: MockerFixture
+    ) -> None:
+        """Without the listener's refusal its finished session does not prove nothing begun.
+
+        The listener may have read the request and be about to begin it, so a payload
+        rollback could overlap a handoff that commits its successor.
+        """
+        payload = FakeTransaction(self.ctx)
+        resting = self.current_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
+        service = FakeServiceAdapter(mocker=mocker)
+        mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
+        mocker.patch.object(apply, "request_handoff", side_effect=failure)
+        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
+
+        with pytest.raises(apply.UnknownDeploymentOutcome) as raised:
+            self.deploy(
+                payload,
+                resting,
+                adapter=service,
+                runtime_reader=mocker.Mock(return_value=resting),
+                mocker=mocker,
+            )
+
+        assert _UNPROVED in str(raised.value)
+        assert payload.events == ["commit", "activate", ("preserve", str(raised.value))]
+        control_request.assert_not_called()
+        service.install_mock.assert_not_called()
 
     @pytest.mark.parametrize(
         ("evidence", "proof_failure"),
