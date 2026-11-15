@@ -8,6 +8,31 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- The log names how every admitted response ended, in one line between
+  `responses_admitted` and `responses_released`. A completed response that is
+  not a stream wrote none; it writes `json_terminal` with the response's
+  `status`. A capacity recovery whose transport fails writes
+  `input_capacity_recovery_transport_error`, an exchange whose attempts all
+  went to retries and recoveries writes `upstream_transport_exhausted`, and
+  any other failure of the handler writes `responses_handler_exception` with
+  the exception's class.
+- A client that closes or resets its connection while an admitted response is
+  written is named once, by `downstream_client_closed` with the request's
+  number, provider and path, and the proxy ends that connection. A stream
+  wrote that line and then `client_closed_mid_request`; a response that was
+  not a stream, an upstream error or a local failure wrote only the second,
+  which names no request. An aborted connection (`ConnectionAbortedError`)
+  counts as such a close; in a stream it was a `stream_handler_exception`.
+
+### Fixed
+
+- A client that reset a kept-alive connection between two requests was logged
+  as `client_closed_mid_request`, about once for each response. Such a reset
+  writes no line. The event remains for a request whose request line has been
+  read and whose response is not admitted yet.
+
 ## [6.0.0] - 2026-11-15
 
 ### Changed

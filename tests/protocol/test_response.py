@@ -36,6 +36,24 @@ class StreamDiagnosticContracts:
         assert response.stream_error_code(event) == code
 
     @pytest.mark.parametrize(
+        ("word", "token"),
+        [
+            ("completed", "completed"),
+            ("a" + "b_9" * 21, "a" + "b_9" * 21),
+            ("a" * 65, "unknown"),
+            ("Completed", "unknown"),
+            ("in-progress", "unknown"),
+            ("", "unknown"),
+            (None, "unknown"),
+            (7, "unknown"),
+        ],
+    )
+    def test_a_diagnostic_token_is_a_bounded_lowercase_word_or_unknown(
+        self, word: object, token: str
+    ) -> None:
+        assert response.diagnostic_token(word) == token
+
+    @pytest.mark.parametrize(
         ("event_type", "label"),
         [
             ("response.output_text.delta", "response.output_text.delta"),
@@ -141,13 +159,13 @@ class LiveJsonContracts:
             }
         )
 
-        assert response.validate_json_response(payload) == payload
+        assert response.validate_json_response(payload) == (payload, "completed")
 
     def test_accepts_both_terminal_success_states(self, subtests: pytest.Subtests) -> None:
         for status in ("completed", "incomplete"):
             payload = _json({"status": status, "output": []})
             with subtests.test(status=status):
-                assert response.validate_json_response(payload) == payload
+                assert response.validate_json_response(payload) == (payload, status)
 
     @pytest.mark.parametrize("status", [[], {}])
     def test_nonstring_terminal_status_has_a_bounded_rejection(self, status: object) -> None:

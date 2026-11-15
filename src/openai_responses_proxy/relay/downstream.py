@@ -41,6 +41,8 @@ HOP_BY_HOP = {
     "accept-encoding",
 }
 MAX_RESPONSES_JSON_BYTES = 8 * 1024 * 1024
+# A client that closes or resets its connection ends a read or a write with one of these.
+CLIENT_CLOSED = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
 # A write that starts after the exchange deadline, which only its one structured
 # failure does, shares this short budget instead of an unbounded wait.
 LATE_FAILURE_WRITE_SECONDS = 1.0
@@ -119,8 +121,8 @@ class Exchange(Protocol):
     ) -> UpstreamResponse:
         """Open the current attempt within an optional existing deadline."""
 
-    def log(self, event: str, detail: str = "") -> None:
-        """Record a bounded request event."""
+    def log(self, event: str, detail: str = "", *, last: str = "") -> None:
+        """Record a bounded request event; ``last`` holds an upstream's word."""
 
     def input_variant_accepted(self) -> None:
         """Record accepted input-variant recovery."""
@@ -261,8 +263,8 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             exchange.log("sse_pre_content_exhausted", f"attempts={result['attempts']} ")
         else:
             exchange.input_variant_accepted()
-    except (BrokenPipeError, ConnectionResetError):
-        exchange.log("downstream_client_closed")
+    except CLIENT_CLOSED:
+        client_closed(exchange)
     except DownstreamDeadlineError:
         exchange.handler.close_connection = True
         exchange.log("downstream_write_deadline")
@@ -385,6 +387,16 @@ def _invalid_responses_success(exchange: Exchange, reason: str) -> None:
     exchange.log("invalid_responses_success_body", f"reason={reason} ")
 
 
+def client_closed(exchange: Exchange) -> None:
+    """Name a client's close of an admitted response once, and end its connection.
+
+    The handler neither reads from nor writes to that connection again, so nothing meets the
+    close a second time.
+    """
+    exchange.handler.close_connection = True
+    exchange.log("downstream_client_closed")
+
+
 def deadline_exceeded(exchange: Exchange) -> None:
     """Report one expired exchange before any downstream commitment."""
     telemetry.record_failure("upstream_deadline_exceeded")
@@ -427,7 +439,7 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
     """Validate one complete non-stream Responses body before commitment."""
     try:
         body = upstream_transport.read_body(response, exchange.deadline, MAX_RESPONSES_JSON_BYTES)
-        payload = live_response.validate_json_response(body)
+        payload, status = live_response.validate_json_response(body)
         payload = agent_delivery.restore_response(payload, active=exchange.plaintext_agent_delivery)
     except upstream_transport.ExchangeDeadlineError:
         deadline_exceeded(exchange)
@@ -449,4 +461,5 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
 
     send_payload(exchange.handler, response.status, payload)
     telemetry.record_counter("responses_completed")
+    exchange.log("json_terminal", last=f"status={live_response.diagnostic_token(status)}")
     exchange.input_variant_accepted()

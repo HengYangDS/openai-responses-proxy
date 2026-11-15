@@ -527,10 +527,45 @@ are immutable.
 Merged proposal branches, retired Work Lanes and generated residue are removed
 by each lane's closeout once ownership and lack of consumers are proved.
 
+### The log names each response's ending and no idle connection
+
+- **Rests on:** the log of the installed product, grouped by request and read
+  by event name alone, on one operator host. Under 5.1.12, from 2026-11-14
+  17:57 to 2026-11-15 10:28, it holds 838 lines `client_closed_mid_request`,
+  and each follows a released response within one second; from 02:35 to 10:28
+  on 11-15 it holds 567 admitted and 567 released responses. Under 6.0.0, from
+  2026-11-15 16:40 to 2026-11-16 00:32, it holds 1,276 requests: 1,265 streams
+  that end with `response.completed`, 8 with an error terminal, 1 that the
+  client closed, 1 still active, and 1 completed response that was not a
+  stream and has no line between its admission and its release. The counters
+  account for that one; the log does not. The same span holds 1,036 lines
+  `client_closed_mid_request`, each within one second after a released
+  response.
+- **Considered:** for a reset between two requests, a line under its own event
+  name, a counter in `status`, or nothing. For a completed response that is not
+  a stream, the counter alone, as today, or a line.
+- **Chosen because:** a reset between two requests is how this client ends a
+  kept-alive connection. It comes about once for each response and gives an
+  operator nothing to act on, so its own line would stay four fifths as long
+  as the list of responses, and a counter would add a public field for the
+  same non-event. A request's ending is different: a reader follows one request
+  through the log, and a response without an ending line cannot be told from
+  one that was lost, which a counter cannot settle for a single request.
+- **Applies to:** requests that the Responses relay admits, on every platform.
+  A client's close of an admitted response is named once, by
+  `downstream_client_closed` under the request's number; before this, a stream
+  wrote that line and then `client_closed_mid_request` from the next read on
+  the dead connection, and a response that was not a stream wrote the second
+  alone, without a request's number. `client_closed_mid_request` stays for a
+  request whose line has been read and whose response is not admitted yet.
+  Catalog reads keep their own terminal line. No counter, no field of
+  `status --json` and no exit status changes.
+
 ### Close on the installed product
 
 The Change closes on the tasks that change or prove the installed product: 4.7,
-5.8, 10.2, 12.5 and the acceptance 13.5 to 13.7. Its owner approved the cut on
+5.8, 10.2, 12.5 to 12.7 and the acceptance 13.5 to 13.7; task 7.16 guards the
+tests that prove them. Its owner approved the cut on
 2026-11-13. Twenty-six open tasks left, each with a destination that the
 proposal's Impact lists; a delta statement that depended on one is narrowed to
 what the repository does, or leaves with it.

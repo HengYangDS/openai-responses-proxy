@@ -12,7 +12,7 @@ import re
 from enum import StrEnum
 
 _JSON_TERMINALS = frozenset(("completed", "incomplete"))
-# Diagnostics name an upstream's code or event type only when it is a short token.
+# Diagnostics name an upstream's code, status or event type only when it is a short token.
 _CODE_TOKEN = re.compile(r"[a-z0-9_]{1,64}")
 _EVENT_TYPE_TOKEN = re.compile(r"[a-z0-9_.]{1,64}")
 
@@ -103,7 +103,12 @@ def stream_error_code(event: object) -> str:
     nested = event.get("error")
     if code is None and isinstance(nested, dict):
         code = nested.get("code")
-    return code if isinstance(code, str) and _CODE_TOKEN.fullmatch(code) else "unknown"
+    return diagnostic_token(code)
+
+
+def diagnostic_token(word: object) -> str:
+    """Name an upstream's code or status for diagnostics: a bounded token, or ``unknown``."""
+    return word if isinstance(word, str) and _CODE_TOKEN.fullmatch(word) else "unknown"
 
 
 def event_type_label(event_type: object) -> str:
@@ -113,8 +118,8 @@ def event_type_label(event_type: object) -> str:
     return event_type if _EVENT_TYPE_TOKEN.fullmatch(event_type) else "other"
 
 
-def validate_json_response(raw_response: bytes) -> bytes:
-    """Require a terminal Responses document and return its exact bytes."""
+def validate_json_response(raw_response: bytes) -> tuple[bytes, str]:
+    """Require a terminal Responses document and return its exact bytes and its status."""
     try:
         payload = json.loads(raw_response)
     except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
@@ -124,4 +129,4 @@ def validate_json_response(raw_response: bytes) -> bytes:
     status = payload.get("status")
     if not isinstance(status, str) or status not in _JSON_TERMINALS:
         raise ValueError("invalid_responses_success_body")
-    return raw_response
+    return raw_response, status

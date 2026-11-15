@@ -251,6 +251,46 @@ registered task action.
   its action
 - **THEN** its projection remains current.
 
+### Requirement: The log names how each admitted response ended
+
+Between the line that admits a response and the line that releases it, the log
+SHALL hold one line that names how the response ended, for a stream and for a
+response that is not a stream, as protocol vocabulary and never as content. A
+client's close of an admitted response SHALL be named once, in that line. A
+connection that a client resets while no request is being read or answered
+SHALL NOT be logged at all.
+
+#### Scenario: A response that is not a stream completes
+
+- **WHEN** an upstream answers a Responses request with one complete JSON body
+  and the client receives it
+- **THEN** the log holds, between the admission and the release, one line
+  `json_terminal` with the body's status when that is a token of lowercase
+  letters, digits and underscores of at most 64 characters, and `unknown`
+  otherwise.
+
+#### Scenario: A client resets an idle connection
+
+- **WHEN** a client resets a kept-alive connection after its response is
+  complete and before another request line is read
+- **THEN** the log holds no line for that reset
+- **AND** a reset after a request line has been read and before a response is
+  admitted is named `client_closed_mid_request`.
+
+#### Scenario: A client closes an admitted response
+
+- **WHEN** a client closes or resets its connection while an admitted response
+  is being written, a stream or not
+- **THEN** one line `downstream_client_closed` between the admission and the
+  release names it, under the request's number
+- **AND** no line after the release names the same close.
+
+#### Scenario: A response ends in another way
+
+- **WHEN** an admitted response ends by an upstream error, a deadline, a client
+  that closes, an invalid body or an unknown outcome
+- **THEN** one line between its admission and its release names that ending.
+
 ## MODIFIED Requirements
 
 ### Requirement: Local product closure is Forge-free

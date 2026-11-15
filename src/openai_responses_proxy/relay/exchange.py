@@ -159,11 +159,16 @@ class Exchange:
         if time.monotonic() >= self.deadline:
             raise ExchangeDeadlineError("upstream deadline expired during retry delay")
 
-    def log(self, event: str, detail: str = "") -> None:
-        """Record one request-scoped operational event without sensitive payloads."""
+    def log(self, event: str, detail: str = "", *, last: str = "") -> None:
+        """Record one request-scoped operational event without sensitive payloads.
+
+        ``last`` is a field that holds an upstream's word. It stands last in its line: the log's
+        redaction of a credential-shaped word also takes the word after it.
+        """
         path = operational_log.safe_request_path(self.handler.path)
         operational_log.log(
             f"req={self.request_id} event={event} provider={self.profile.name} {detail}path={path}"
+            + (f" {last}" if last else "")
         )
 
     def accepted_recovery(self) -> None:
@@ -464,6 +469,8 @@ def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
                 code,
             ),
         )
+        if exchange.used_capacity_recovery:
+            exchange.log(code, f"{operational_log.safe_exception_context(error)} ")
         return "terminal"
     if attempt < _MAX_ATTEMPTS - 1:
         exchange.log(
@@ -472,6 +479,12 @@ def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
         )
         exchange.pause(_BACKOFFS[min(attempt, len(_BACKOFFS) - 1)])
         return "retry"
+    _transport_exhausted(exchange, f"{operational_log.safe_exception_context(error)} ")
+    return "terminal"
+
+
+def _transport_exhausted(exchange: Exchange, detail: str) -> None:
+    """Answer an exchange that has no attempt left, and name that ending."""
     telemetry.record_failure("upstream_transport_error")
     downstream.send_payload(
         exchange.handler,
@@ -482,11 +495,7 @@ def _transport_error(exchange: Exchange, error: Exception, attempt: int) -> str:
             "upstream_transport_error",
         ),
     )
-    exchange.log(
-        "upstream_transport_exhausted",
-        f"{operational_log.safe_exception_context(error)} ",
-    )
-    return "terminal"
+    exchange.log("upstream_transport_exhausted", detail)
 
 
 def open_upstream(exchange: Exchange) -> UpstreamResponse | None:
@@ -516,14 +525,6 @@ def open_upstream(exchange: Exchange) -> UpstreamResponse | None:
     except ExchangeDeadlineError:
         downstream.deadline_exceeded(exchange)
         return None
-    telemetry.record_failure("upstream_transport_error")
-    downstream.send_payload(
-        exchange.handler,
-        502,
-        live_response.error_payload(
-            "Upstream transport failed after bounded retries; retry the turn",
-            "upstream_unavailable",
-            "upstream_transport_error",
-        ),
-    )
+    # Every attempt went to a retry or a recovery, so no transport error ended the last one.
+    _transport_exhausted(exchange, "exception=none ")
     return None

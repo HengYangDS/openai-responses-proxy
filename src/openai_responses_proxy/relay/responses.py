@@ -327,6 +327,14 @@ def relay(
     except downstream.DownstreamDeadlineError:
         handler.close_connection = True
         exchange.log("downstream_write_deadline")
+    except downstream.CLIENT_CLOSED:
+        downstream.client_closed(exchange)
+    except Exception as error:
+        exchange.log(
+            "responses_handler_exception",
+            f"exception={operational_log.safe_exception_label(error)} ",
+        )
+        raise
     finally:
         active_now = admission.release_response()
         exchange.log("responses_released", f"active={active_now} ")

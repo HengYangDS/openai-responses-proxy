@@ -20,6 +20,7 @@ from typing import override
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.relay import admission
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.serving import control
@@ -96,9 +97,14 @@ class ResilientProxyServer(ThreadingHTTPServer):
 
     @override
     def handle_error(self, request: object, client_address: object) -> None:
-        """Classify expected client disconnects without noisy tracebacks."""
+        """Name a request that its client closed, without a traceback.
+
+        Only a request whose line has been read and whose response is not admitted arrives
+        here. The handler ends a connection that its client closes between two requests, and
+        the relay names a client's close of an admitted response under that request.
+        """
         error = sys.exception()
-        if isinstance(error, (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)):
+        if isinstance(error, downstream.CLIENT_CLOSED):
             operational_log.log(
                 f"event=client_closed_mid_request "
                 f"exception={operational_log.safe_exception_label(error)}"
@@ -117,6 +123,8 @@ class Handler(BaseHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
     server_version = f"{product_identity.PRODUCT_SLUG}/0+unconfigured"
+    # Empty until a request line has been read on the current pass of the connection.
+    raw_requestline: bytes = b""
 
     @override
     def version_string(self) -> str:
@@ -130,6 +138,23 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args: object, **kwargs: object) -> None:
         """Suppress the base server's unstructured stderr access log."""
         del args, kwargs
+
+    @override
+    def handle_one_request(self) -> None:
+        """Serve one request; end quietly a connection that its client closes between two.
+
+        A client ends a kept-alive connection by a reset as readily as by an orderly close, and
+        neither is a request. Once a request line has been read, the same error leaves the
+        handler and the server names it.
+        """
+        try:
+            super().handle_one_request()
+        except downstream.CLIENT_CLOSED:
+            if self.raw_requestline:
+                raise
+            self.close_connection = True
+        finally:
+            self.raw_requestline = b""
 
     def do_POST(self) -> None:
         """Route the handoff control request or relay one upstream request."""
