@@ -233,19 +233,16 @@ absence.
   mutation. When an upgrade fails after projecting candidate bytes, rollback
   SHALL restore every retained prior byte and remove every verified candidate
   file that was absent from the prior snapshot. Explicit rollback to the selected
-  predecessor SHALL drain the current listener and use bounded native-generation
-  replacement, because the retained predecessor is not required to implement the
-  current release's hot-handoff capability.
+  predecessor SHALL use the same shared-listener handoff as an upgrade.
 
 #### Scenario: A retained predecessor predates the current handoff capability
 
-- **WHEN** an operator rolls back from the current release to its selected
-  predecessor
-- **THEN** the current listener drains before its exact process generation exits
-- **AND** native supervision starts the retained predecessor generation
-- **AND** rollback succeeds only after that generation proves its exact accepting
-  runtime identity
-- **AND** the predecessor is not asked to consume a newer handoff protocol.
+- **WHEN** an operator rolls back and the retained predecessor cannot complete
+  the handoff as the successor
+- **THEN** the current listener keeps serving and the reverse transaction is
+  rolled back
+- **AND** rollback reports the failure without draining the listener or
+  replacing its process.
 
 #### Scenario: Current payload upgrade fails
 
@@ -701,53 +698,6 @@ The rollback command SHALL require one syntactically valid target release.
 - **THEN** the active transaction is retained for `recover`
 - **AND** no successful rollback or restoration claim is emitted.
 
-### Requirement: Repeated lifecycle transitions use declared runtime capability
-
-The deployment controller SHALL select one strategy from verified runtime
-identity and explicit handoff capability.
-
-#### Scenario: Complete requirement obligations are evaluated
-
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** Only a runtime declaring
-  `selected-generation-handoff` MAY use shared-listener handoff because that
-  capability proves the predecessor resolves and launches the selector-bound
-  candidate payload rather than its own executable root. A complete, verified
-  runtime without that capability SHALL use a bounded native process-generation
-  replacement. An incomplete or inconsistent runtime SHALL be unsupported and
-  SHALL NOT be mutated.
-
-#### Scenario: Runtime declares selected-generation handoff
-
-- **WHEN** a runtime projects the `selected-generation-handoff` capability
-- **THEN** the next upgrade or rollback may use the shared-listener handoff
-- **AND** successor acceptance still requires the exact payload and process
-  identity.
-
-#### Scenario: Verified predecessor lacks selected-generation handoff
-
-- **WHEN** a published predecessor has complete identity but does not declare
-  the `selected-generation-handoff` capability
-- **THEN** deployment captures its exact listener process generation before
-  writing candidate state
-- **AND** rebinds native supervision, retires only that generation, and proves
-  one successor listener within the configured bound
-- **AND** preserves the transaction for recovery if predecessor exit is not
-  proved.
-
-#### Scenario: Native-generation successor does not become ready
-
-- **WHEN** the bounded replacement cannot prove the successor listener
-- **THEN** deployment restores the predecessor payload and service projection
-- **AND** reports no successful upgrade or rollback.
-
-#### Scenario: Runtime identity is incomplete
-
-- **WHEN** listener, payload, protocol, transaction, or process identity is
-  absent or inconsistent
-- **THEN** no handoff or native-generation replacement is attempted
-- **AND** the operator receives one precise incompatibility result.
-
 ### Requirement: Native supervision projects the terminal generation
 
 After listener handoff proves the terminal admission owner, installation SHALL
@@ -911,3 +861,95 @@ transactional handoff before changing native supervision.
   recovery
 - **AND** native supervision is not treated as lifecycle authority
 - **AND** no success or rollback claim is emitted.
+
+### Requirement: A lifecycle transition hands off or is refused
+
+Upgrade, rollback and reload SHALL replace a running listener only through the
+shared-listener handoff. A runtime qualifies when its identity is complete and
+it declares both the `selected-generation-handoff` and the
+`admission-preserving-handoff` capability. Any other runtime SHALL be refused
+before a projection, a service definition or a process changes.
+
+#### Scenario: A runtime declares both handoff capabilities
+
+- **WHEN** a verified runtime declares both capabilities
+- **THEN** upgrade, rollback and reload use the shared-listener handoff
+- **AND** successor acceptance still requires the exact payload and process
+  identity.
+
+#### Scenario: A runtime lacks a handoff capability
+
+- **WHEN** a verified runtime declares one of the capabilities or neither
+- **THEN** upgrade and rollback fail with the incompatible-runtime result,
+  which names removal before installation, and reload fails
+- **AND** no payload projection, service definition or process changes, and no
+  transaction remains.
+
+#### Scenario: Runtime identity is incomplete
+
+- **WHEN** listener, payload, protocol, transaction, or process identity is
+  absent or inconsistent
+- **THEN** no handoff is attempted
+- **AND** the operator receives one precise incompatibility result.
+
+#### Scenario: A handoff fails before its successor commits
+
+- **WHEN** an upgrade or rollback handoff fails before its successor commits
+- **THEN** the payload is rolled back only after health proves that the
+  captured predecessor still owns the listener, admits requests and has begun
+  no handoff since its capture
+- **AND** without that proof the transaction is preserved for recovery as an
+  unknown outcome
+- **AND** the controller sends the predecessor no request that changes its
+  admission.
+
+#### Scenario: A listener refuses a handoff request before beginning it
+
+- **WHEN** a listener answers a handoff request with an error status without
+  beginning the handoff
+- **THEN** the controller reads that the listener began nothing and rolls the
+  payload back without waiting out the handoff deadline
+- **AND** this holds for a listener that an earlier handoff created, whose
+  health still shows that finished handoff.
+
+#### Scenario: A handoff request ends without the listener's answer
+
+- **WHEN** the controller is interrupted or loses its connection before a
+  listener that an earlier handoff created answers the handoff request
+- **THEN** that listener's finished handoff SHALL NOT count as proof that
+  nothing began, because the listener may be about to begin
+- **AND** a handoff that begins is followed to its end, and otherwise the
+  transaction is preserved for recovery as an unknown outcome.
+
+### Requirement: The listener exposes no admission drain
+
+The listener SHALL NOT offer a control route that closes or reopens Responses
+admission, and SHALL NOT refuse a request because a lifecycle transition is in
+progress. Health SHALL report `accepting` as true and `draining` as false,
+which handoff protocol 2 names, and SHALL carry no drain generation or drain
+lease.
+
+#### Scenario: A client requests the former drain route
+
+- **WHEN** a client sends `POST` or `DELETE` to `/control/drain`
+- **THEN** the listener answers as it does for any path that names no provider
+  route
+- **AND** a later Responses request is admitted.
+
+#### Scenario: Health is read while the listener serves
+
+- **WHEN** a controller reads health
+- **THEN** `accepting` is true and `draining` is false
+- **AND** no drain generation or drain lease field is present.
+
+### Requirement: A refused rollback leaves no transaction
+
+A rollback that is refused before any projection SHALL close the transaction
+that it opened, so that the next command needs no recovery.
+
+#### Scenario: The running runtime cannot hand off
+
+- **WHEN** `rollback` opens its transaction and the running runtime is then
+  refused
+- **THEN** the journal is absent after the failure
+- **AND** the selector and the installed record are unchanged.
