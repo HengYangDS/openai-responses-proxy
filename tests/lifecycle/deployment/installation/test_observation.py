@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import urllib.error
 from typing import TYPE_CHECKING
 from typing import Self
@@ -204,5 +205,10 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         ):
             open_request.return_value = response
             assert control.read_runtime(self.ctx) is None
-        open_request.side_effect = urllib.error.URLError("offline")
-        assert control.read_runtime(self.ctx) is None
+        for failure in (
+            urllib.error.URLError("offline"),
+            http.client.IncompleteRead(b"{"),
+            http.client.RemoteDisconnected("closed"),
+        ):
+            open_request.side_effect = failure
+            assert control.read_runtime(self.ctx) is None

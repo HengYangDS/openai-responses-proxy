@@ -314,7 +314,9 @@ def _require_serving_predecessor(
         source_runtime=source_runtime,
         runtime_reader=runtime_reader,
     ):
-        raise errors.InstallError("predecessor listener no longer owns Responses admission")
+        raise errors.InstallError(
+            "predecessor listener does not answer as captured, accepting and with no handoff begun"
+        )
 
 
 def _remove_candidate_supervision(

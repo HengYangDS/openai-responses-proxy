@@ -19,6 +19,8 @@ from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentF
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+_UNPROVED = "predecessor listener does not answer as captured, accepting and with no handoff begun"
+
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     @pytest.mark.parametrize(
@@ -209,6 +211,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
 
         rolled_back = FakeTransaction(self.ctx)
         rollback_service = FakeServiceAdapter(mocker=mocker)
+        terminate = mocker.patch.object(rollback_service, "terminate_runtime")
         mocker.patch.object(
             apply, "request_handoff", side_effect=errors.InstallError("handoff failed")
         )
@@ -225,6 +228,22 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         assert rolled_back.events == ["commit", "activate", "rollback"]
         rollback_service.install_mock.assert_not_called()
         rollback_service.uninstall_mock.assert_not_called()
+        terminate.assert_not_called()
+
+        # A listener that a handoff created reports that finalized session until
+        # its next handoff begins; a request that it refused first changes nothing.
+        resting = self.current_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
+        refused = FakeTransaction(self.ctx)
+        with pytest.raises(errors.InstallError, match="handoff failed") as failed:
+            self.deploy(
+                refused,
+                resting,
+                adapter=FakeServiceAdapter(mocker=mocker),
+                runtime_reader=mocker.Mock(return_value=resting),
+                mocker=mocker,
+            )
+        assert not isinstance(failed.value, apply.UnknownDeploymentOutcome)
+        assert refused.events == ["commit", "activate", "rollback"]
 
         unknown = FakeTransaction(self.ctx)
         preserved_service = FakeServiceAdapter(mocker=mocker)
@@ -250,17 +269,29 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
     @pytest.mark.parametrize(
         ("evidence", "proof_failure"),
         [
-            (None, "predecessor listener no longer owns Responses admission"),
-            ({"pid": 222}, "predecessor listener no longer owns Responses admission"),
+            (
+                None,
+                _UNPROVED,
+            ),
+            (
+                {"pid": 222},
+                _UNPROVED,
+            ),
             (
                 {"serving_payload_sha256": "9" * 64},
-                "predecessor listener no longer owns Responses admission",
+                _UNPROVED,
             ),
-            ({"accepting": False}, "predecessor listener no longer owns Responses admission"),
-            ({"draining": True}, "predecessor listener no longer owns Responses admission"),
+            (
+                {"accepting": False},
+                _UNPROVED,
+            ),
+            (
+                {"draining": True},
+                _UNPROVED,
+            ),
             (
                 {"handoff_state": "ready", "handoff_transaction_id": "7" * 32},
-                "predecessor listener no longer owns Responses admission",
+                _UNPROVED,
             ),
             (OSError("offline"), "operating-system operation failed"),
         ],

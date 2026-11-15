@@ -47,10 +47,22 @@ its own route, and such a listener is not valid for a transition.
 
 Before its payload rollback, a failed handoff required the captured predecessor to own the listener and to admit
 requests, after a `DELETE /control/drain`. The request is gone and the proof stays: `handoff.predecessor_serves`
-reads health once. It also requires an idle handoff session, the condition under which the failure resolver calls
-a handoff rolled back: an interrupt can leave the resolver while a handoff is still in flight, and that handoff
-may yet commit its successor. Without the proof the outcome is unknown and the transaction is preserved, as
-before.
+reads health once. It also requires that the listener has begun no handoff since its capture, the condition under
+which the failure resolver calls a handoff rolled back: an interrupt can leave the resolver while a handoff is
+still in flight, and that handoff may yet commit its successor. Without the proof the outcome is unknown and the
+transaction is preserved, as before.
+
+### A finished handoff session is a session at rest
+
+A listener that a handoff created reports that finished session, `finalized` with its transaction, until its next
+handoff begins, and beginning one replaces the session for good: a failed handoff leaves it idle. Every listener
+is in that state after an upgrade, a reload or a rollback. The resolver and the proof counted only an idle session
+as "nothing in flight", so a request that such a listener refused before beginning it was waited out for the
+whole handoff deadline, up to the upstream timeout of 900 seconds, and ended as an unknown outcome.
+
+Both now accept two sessions: idle, and the finalized session exactly as the controller captured it before its
+request. Any other session, a finalized one with another transaction among them, is a handoff in flight or
+finished.
 
 ### One owner closes a refused transaction
 
@@ -72,6 +84,16 @@ route. No special refusal is kept: a route that is named only to be refused is s
 - A handed-off process that cannot speak protocol 2 as the successor makes a rollback fail instead of falling
   back to replacement. → Accepted: no release under this name lacks it, and the failure leaves the current
   listener serving.
+- A handoff request that the listener has not begun to process when the controller reads its health is invisible
+  to the resolver and to the proof, so a rollback can overlap a handoff that begins in that moment. → As before for
+  an idle listener. The listener compares the request with the generation that the selector names before it
+  begins, and the rollback restores the previous selection, so a request that it processes after the rollback
+  is refused.
+- An interrupt whose cleanup of a refused transaction fails surfaces as a lifecycle error that names both, not as
+  the interrupt. → Kept from `install_asset`: the failed cleanup is what the operator must read.
+- The incompatible-runtime refusal says "before installing this release" on a rollback too. → Kept: the predicate
+  does not tell a runtime that lacks a capability from one that is busy, and a refusal that names each belongs
+  with the failure work of `terminal-product-convergence`.
 - The journeys from the published predecessor cannot run on a development host without touching its service.
   → They run in the proof and in hosted CI on three platforms before the lane lands. A journey starts from the
   newest release below `VERSION`, so the lane carries the release preparation: its journeys start from 5.1.12.

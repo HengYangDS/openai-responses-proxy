@@ -34,12 +34,20 @@ before a projection, a service definition or a process changes.
 
 - **WHEN** an upgrade or rollback handoff fails before its successor commits
 - **THEN** the payload is rolled back only after health proves that the
-  captured predecessor still owns the listener, has no handoff in flight and
-  admits requests
+  captured predecessor still owns the listener, admits requests and has begun
+  no handoff since its capture
 - **AND** without that proof the transaction is preserved for recovery as an
   unknown outcome
 - **AND** the controller sends the predecessor no request that changes its
   admission.
+
+#### Scenario: A listener refuses a handoff request before beginning it
+
+- **WHEN** a listener answers a handoff request without beginning the handoff
+- **THEN** the controller reads that the listener began nothing and rolls the
+  payload back without waiting out the handoff deadline
+- **AND** this holds for a listener that an earlier handoff created, whose
+  health still shows that finished handoff.
 
 ### Requirement: The listener exposes no admission drain
 

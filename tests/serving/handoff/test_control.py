@@ -111,6 +111,9 @@ class TestHandoffControlHandler:
             ({"lease_seconds": [41]}, 30),
             ({"lease_seconds": 0}, 1),
             ({"lease_seconds": 41}, 41),
+            ({"lease_seconds": 41.5}, 41.5),
+            ({"lease_seconds": True}, 30),
+            ({"lease_seconds": 10**400}, 30),
             ({"lease_seconds": "9999"}, 900),
             ({"lease_seconds": float("inf")}, 30),
             ({"lease_seconds": float("nan")}, 30),
@@ -118,7 +121,38 @@ class TestHandoffControlHandler:
             with subtests.test(lease=lease):
                 handler = fake_handler({**expected_metadata(), **lease}, mocker=mocker)
                 control.prepare_handoff(handler, self.bindings)
-                assert prepare.call_args.kwargs["lease_seconds"] == expected
+                bounded = prepare.call_args.kwargs["lease_seconds"]
+                assert bounded == expected
+                assert type(bounded) is float
+
+    def test_handler_bounds_the_readiness_timeout(
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)
+        prepare = mocker.patch.object(
+            handoff_module,
+            "prepare",
+            side_effect=handoff_module.HandoffError("child failed"),
+        )
+        for timeout, expected in (
+            ({}, 30.0),
+            ({"timeout_seconds": None}, 30.0),
+            ({"timeout_seconds": "invalid"}, 30.0),
+            ({"timeout_seconds": [5]}, 30.0),
+            ({"timeout_seconds": True}, 30.0),
+            ({"timeout_seconds": 0}, 0.1),
+            ({"timeout_seconds": 2.5}, 2.5),
+            ({"timeout_seconds": "9999"}, 120.0),
+            ({"timeout_seconds": float("inf")}, 30.0),
+            ({"timeout_seconds": float("nan")}, 30.0),
+            ({"timeout_seconds": 10**400}, 30.0),
+        ):
+            with subtests.test(timeout=timeout):
+                handler = fake_handler({**expected_metadata(), **timeout}, mocker=mocker)
+                control.prepare_handoff(handler, self.bindings)
+                bounded = prepare.call_args.kwargs["timeout_seconds"]
+                assert bounded == expected
+                assert type(bounded) is float
 
     def test_status_control_serializes_the_bound_runtime_snapshot(
         self, *, mocker: MockerFixture

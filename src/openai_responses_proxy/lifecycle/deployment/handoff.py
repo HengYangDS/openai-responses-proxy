@@ -197,9 +197,9 @@ def predecessor_serves(
     source_runtime: RuntimeSnapshot,
     runtime_reader: RuntimeReader,
 ) -> bool:
-    """Return whether the captured predecessor owns the listener, idle and admitting requests.
+    """Return whether the captured predecessor owns the listener with no handoff begun since.
 
-    A handoff that is still in flight may yet commit its successor, so it proves nothing.
+    A handoff that is in flight may yet commit its successor, so it proves nothing.
     """
     runtime = runtime_reader(ctx)
     return _runtime_is_captured_source(
@@ -378,9 +378,23 @@ def _old_runtime_resumed(
     runtime: RuntimeSnapshot | None,
     old_runtime: RuntimeSnapshot,
 ) -> bool:
+    """Return whether the captured listener serves with no handoff begun since its capture.
+
+    Its handoff session is idle, or still the finalized one that the capture showed: a listener
+    that a handoff created reports that session until its next handoff begins, and beginning one
+    replaces it for good.
+    """
     if not isinstance(runtime, dict):
         return False
-    return fields_match(
+    session = (runtime.get("handoff_state"), runtime.get("handoff_transaction_id"))
+    captured = (old_runtime.get("handoff_state"), old_runtime.get("handoff_transaction_id"))
+    at_rest = session == ("idle", None) or (
+        captured[0] == "finalized"
+        and isinstance(captured[1], str)
+        and bool(captured[1])
+        and session == captured
+    )
+    return at_rest and fields_match(
         runtime,
         {
             "pid": old_runtime["pid"],
@@ -388,8 +402,6 @@ def _old_runtime_resumed(
             "release_receipt_sha256": old_runtime.get("release_receipt_sha256"),
             "payload_manifest_sha256": old_runtime.get("payload_manifest_sha256"),
             "handoff_protocol_version": HANDOFF_PROTOCOL_VERSION,
-            "handoff_state": "idle",
-            "handoff_transaction_id": None,
             "accepting": True,
             "draining": False,
         },

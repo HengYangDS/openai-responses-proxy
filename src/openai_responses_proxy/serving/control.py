@@ -8,14 +8,12 @@ process composition remains owned by the executable entrypoint.
 from __future__ import annotations
 
 import json
+import math
 import threading
-from collections.abc import Buffer
 from contextlib import suppress
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING
-from typing import SupportsIndex
-from typing import SupportsInt
 from typing import cast
 
 from openai_responses_proxy.relay import admission
@@ -28,8 +26,10 @@ if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
     from http.server import ThreadingHTTPServer
 
-_MIN_LEASE_SECONDS = 1
-_MAX_LEASE_SECONDS = 900
+_MIN_TIMEOUT_SECONDS = 0.1
+_MAX_TIMEOUT_SECONDS = 120.0
+_MIN_LEASE_SECONDS = 1.0
+_MAX_LEASE_SECONDS = 900.0
 
 
 @dataclass(frozen=True)
@@ -59,12 +59,17 @@ def send_status(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
     _write_json(handler, 200, bindings.runtime_status())
 
 
-def _bounded_lease_seconds(value: object) -> float:
-    """Bound the lease of a handed-off listener; an unreadable value takes the default."""
-    if isinstance(value, (str, Buffer, SupportsInt, SupportsIndex)):
-        with suppress(TypeError, ValueError, OverflowError):
-            return float(min(_MAX_LEASE_SECONDS, max(_MIN_LEASE_SECONDS, int(value))))
-    return handoff.HANDOFF_DEFAULT_LEASE_SECONDS
+def _bounded_seconds(value: object, *, minimum: float, maximum: float, default: float) -> float:
+    """Bound one duration of a handoff request.
+
+    A value that is no finite number takes the default.
+    """
+    if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+        with suppress(ValueError, OverflowError):
+            seconds = float(value)
+            if math.isfinite(seconds):
+                return min(maximum, max(minimum, seconds))
+    return default
 
 
 def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
@@ -124,9 +129,19 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
     if not handoff.disk_payload_matches_expected(expected, context):
         handler.send_error(409, "handoff request does not match the current disk payload")
         return
+    timeout_seconds = _bounded_seconds(
+        request.get("timeout_seconds"),
+        minimum=_MIN_TIMEOUT_SECONDS,
+        maximum=_MAX_TIMEOUT_SECONDS,
+        default=handoff.HANDOFF_READY_TIMEOUT_SECONDS,
+    )
+    lease_seconds = _bounded_seconds(
+        request.get("lease_seconds"),
+        minimum=_MIN_LEASE_SECONDS,
+        maximum=_MAX_LEASE_SECONDS,
+        default=handoff.HANDOFF_DEFAULT_LEASE_SECONDS,
+    )
     try:
-        timeout_seconds = min(120.0, max(0.1, float(request.get("timeout_seconds", 30.0))))
-        lease_seconds = _bounded_lease_seconds(request.get("lease_seconds"))
         server = cast("ThreadingHTTPServer", handler.server)
         prepared = handoff.prepare(
             server,

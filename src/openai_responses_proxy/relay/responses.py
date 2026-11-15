@@ -39,8 +39,6 @@ def resolve_upstream(
 
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
     """Reject one Responses request while its provider policy is cooling down."""
-    if not exchange.is_responses:
-        return False
     policy = exchange.profile.wire_policy
     if policy is not None:
         fingerprint = policy.request_fingerprint(exchange.body)

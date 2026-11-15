@@ -14,6 +14,11 @@
 - [x] 1.5 Close the transaction of a rollback that is refused before any projection, through the owner that
       `install` uses; a test with a real transaction shows no journal, an unchanged selector and an unchanged
       installed record.
+- [x] 1.6 Count a listener's finalized handoff session, exactly as captured, as no handoff begun in the failure
+      resolver and in the proof; tests show a refused request resolved at once for such a listener, and a session
+      in flight or of another transaction left unresolved.
+- [x] 1.7 Bound both durations of a handoff request alike and read a health response that breaks off as no
+      runtime; tests cover values that are no finite number and a response cut after its headers.
 
 ## 2. Verification
 

@@ -8,18 +8,20 @@ publication authority.
 
 ## [Unreleased]
 
-## [6.0.0] - 2026-11-14
+## [6.0.0] - 2026-11-15
 
 ### Changed
 
 - **Breaking:** upgrade, rollback and reload replace a running listener only by
   handoff. A runtime that does not advertise both handoff capabilities is
-  refused before any change with "installed runtime is incompatible; remove it
-  before installing this release"; `reload` accepted one capability before.
-  Every release from 5.0.0 on advertises both.
+  refused before any change: by `install` and `rollback` with "installed
+  runtime is incompatible; remove it before installing this release", and by
+  `reload` with "installed runtime is not healthy enough to reload", which
+  accepted one capability before. Every release from 5.0.0 on advertises both.
 - A handoff that fails before its successor commits is rolled back after the
-  controller reads from health that the predecessor still serves; it no longer
-  sends the predecessor a request first.
+  controller reads from health that the predecessor serves as captured,
+  accepts requests and has begun no handoff; it no longer sends the
+  predecessor a request first.
 - **Breaking:** an installation written by 5.0.6 or earlier is refused instead
   of read with defaults. A native runtime configuration without the body,
   catalog and SSE budget fields, a macOS launch agent without the Aqua and
@@ -32,15 +34,25 @@ publication authority.
 - A rollback that was refused before any change left a prepared transaction
   behind, and every later command asked for `recover`. The refusal now closes
   the transaction that it opened.
+- A handoff request that a listener refused without beginning the handoff was
+  waited out for the whole handoff deadline and ended as an unknown outcome
+  when a handoff had created that listener, which is the state of every
+  listener after an upgrade, a reload or a rollback. The controller now reads
+  that the listener began nothing and rolls back at once.
+- A handoff request whose timeout or lease is no finite number takes the
+  default; it failed the listener's control handler.
+- A health response that breaks off after its headers counts as no answer; it
+  failed the lifecycle command with an internal error.
 
 ### Removed
 
 - **Breaking:** the control routes `POST` and `DELETE /control/drain`, the
   local response `503 proxy_draining`, the `status` counters
-  `responses_rejected_while_draining` and `drain_leases_expired`, and the
-  health fields `drain_generation` and `drain_lease_remaining_seconds`. Health
-  keeps `accepting: true` and `draining: false`. A lifecycle transition never
-  closes admission.
+  `responses_rejected_while_draining` and `drain_leases_expired`, its failure
+  classes `draining` and `drain_lease_expired`, and the health fields
+  `drain_generation` and `drain_lease_remaining_seconds`. Health keeps
+  `accepting: true` and `draining: false`. A lifecycle transition never closes
+  admission.
 - The README section "Migrate from 4.x". The `[5.0.0]` entry records that
   migration: uninstall the earlier product with its own command, then install
   this one.

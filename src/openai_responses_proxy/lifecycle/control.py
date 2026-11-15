@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -46,7 +47,13 @@ def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | Non
             if response.status != HTTPStatus.OK:
                 return None
             payload: object = json.loads(response.read())
-    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError):
+    except (
+        OSError,
+        urllib.error.URLError,
+        http.client.HTTPException,
+        json.JSONDecodeError,
+        ValueError,
+    ):
         return None
     if not isinstance(payload, dict) or not all(isinstance(key, str) for key in payload):
         return None

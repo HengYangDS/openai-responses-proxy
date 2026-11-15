@@ -224,13 +224,6 @@ class TestTransportFailures(InputTransportFixture):
         responses.relay(handler, "POST", PROVIDERS)
         assert handler.statuses == [200]
 
-    def test_non_responses_admission_bypasses_responses_only_policy(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
-        exchange = mocker.Mock(handler=handler, is_responses=False)
-        assert not responses._cooldown_active(exchange)
-
     def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(
         self, *, mocker: MockerFixture
     ) -> None:
