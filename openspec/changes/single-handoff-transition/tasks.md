@@ -26,7 +26,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` passes on the lane head.
-- [ ] 2.2 The hosted graph passes at the proposal head, with the journeys from the published 5.1.12 on macOS, Linux
+- [x] 2.1 `mise run check` passes on the lane head.
+- [x] 2.2 The hosted graph passes at the proposal head, with the journeys from the published 5.1.12 on macOS, Linux
       and Windows; the head carries the next `VERSION`, or the journeys would start from 5.1.11.
-- [ ] 2.3 Each finding of a fresh-context review of the lane is fixed on the lane head or answered in the design.
+- [x] 2.3 Each finding of a fresh-context review of the lane is fixed on the lane head or answered in the design.
