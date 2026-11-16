@@ -8,10 +8,41 @@ publication authority.
 
 ## [Unreleased]
 
+## [6.0.2] - 2026-11-16
+
 ### Changed
 
+- An upgrade, a rollback or a reload whose handoff request ends without the
+  listener's answer (a lost connection, a timeout or an interrupt) no longer
+  restores the previous release at once. It waits for the request's timeout
+  and one second, 31 seconds by default, from the moment at which the listener
+  is first seen at rest, and restores then if the listener is still at rest;
+  `reload` reports the failed handoff. A handoff that begins in that time is
+  followed to its end.
+- A listener begins a handoff only within the request's timeout of accepting
+  the request's connection. It refuses a later request with HTTP 408 and
+  `{"ok": false, "error": "handoff_request_expired"}`.
+- `recover` of an interrupted upgrade or rollback whose previous release
+  still serves waits 121 seconds before it restores that release, and decides
+  on what the listener shows after that time. While it waits it writes one
+  line to standard error, "Recovery waits 121 seconds for a handoff request
+  that may still be pending."; with `--json` it writes nothing there. Its
+  result on standard output does not change.
 - The bundled Cyclopts advances from 5.4.2 to 5.5.1. No command, option, help
   text or exit status of this product changes.
+
+### Fixed
+
+- A handoff request that ended without the listener's answer was rolled back
+  as soon as a listener that the supervisor started showed no handoff, while
+  that listener could have received the request and go on to begin and commit
+  it. After a `rollback` command the older release then served while the
+  selector and the installed record named the newer one, and `status` reported
+  `degraded`. The controller and `recover` now restore only with evidence that
+  no handoff of the request is to come: the request was never sent, the
+  listener refused or acknowledged it, its handoff was seen to begin and end,
+  or the time in which the listener may begin it has run out. A listener of
+  6.0.1 or earlier does not bound that time itself.
 
 ## [6.0.1] - 2026-11-16
 

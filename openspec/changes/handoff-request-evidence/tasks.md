@@ -27,7 +27,7 @@
 
 ## 4. Release
 
-- [ ] 4.1 Prepare 6.0.2: `VERSION`, and the changelog heading dated by the UTC day.
+- [x] 4.1 Prepare 6.0.2: `VERSION`, and the changelog heading dated by the UTC day.
 
 ## 5. Verification
 
