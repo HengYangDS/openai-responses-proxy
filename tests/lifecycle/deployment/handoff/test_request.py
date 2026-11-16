@@ -18,6 +18,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
 from tests.lifecycle.deployment.handoff.fixtures import admit_handoff_generations
+from tests.lifecycle.deployment.handoff.fixtures import control_transport
 from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import Response
 from tests.serving.handoff.fixtures import expected_metadata
@@ -224,11 +225,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         valid = ready_ack(expected)
-        open_request = mocker.patch.object(
-            handoff.loopback,
-            "open_request",
-            return_value=Response(valid),
-        )
+        open_request = control_transport(mocker, return_value=Response(valid))
         assert handoff.post_ready(ctx, expected)["child_pid"] == 1000
         for field, bad_value in (
             ("ok", False),
@@ -248,13 +245,9 @@ class TestControllerHandoffWiring(HandoffFixture):
         ctx = install_context(Path(self.tempdir.name))
         expected = expected_metadata()
         valid = json.dumps(ready_ack(expected)).encode()
-        open_request = mocker.patch.object(
-            handoff.loopback,
-            "open_request",
-            return_value=Response(valid),
-        )
+        open_request = control_transport(mocker, return_value=Response(valid))
         handoff.post_ready(ctx, expected, lease_seconds=0.1, timeout_seconds=999)
-        request = open_request.call_args.args[0]
+        request = open_request.call_args.args[1]
         body = json.loads(request.data)
         assert body["lease_seconds"] == 1
         assert body["timeout_seconds"] == 120

@@ -100,7 +100,7 @@ def _reconcile(
             journal=journal,
             bind_terminal=bind_terminal,
         )
-    if runtime is not None and _runtime_matches_projection(runtime, candidate):
+    if runtime is not None and _candidate_committed(runtime, candidate):
         if phase == "materialized":
             rollback = records.transaction_root(ctx) / "rollback"
             snapshot = command.read_snapshot(
@@ -199,18 +199,71 @@ def _installed_matches_transaction(
     )
 
 
+def _session(
+    runtime: Mapping[str, object] | None,
+    projection: identity.LoadedPayloadIdentity,
+) -> tuple[object, object] | None:
+    """Return the handoff session of one accepting runtime that serves the verified projection.
+
+    The session is its state and the transaction that it names. A runtime that does not
+    answer, serves another payload or does not admit requests has none.
+    """
+    if (
+        runtime is None
+        or not identity.runtime_payload_matches(runtime, projection.handoff())
+        or runtime.get("accepting") is not True
+        or runtime.get("draining") is not False
+    ):
+        return None
+    return runtime.get("handoff_state"), runtime.get("handoff_transaction_id")
+
+
 def _runtime_matches_projection(
     runtime: Mapping[str, object] | None,
     projection: identity.LoadedPayloadIdentity,
 ) -> bool:
-    """Return whether one accepting runtime serves the verified projection."""
-    return (
-        runtime is not None
-        and identity.runtime_payload_matches(runtime, projection.handoff())
-        and runtime.get("accepting") is True
-        and runtime.get("draining") is False
-        and runtime.get("handoff_state") in {"idle", "serving", "finalized"}
-    )
+    """Return whether one accepting runtime serves the verified projection.
+
+    It reads every session in which a listener owns admission, a handoff in flight among
+    them: it says which payload answers, not that the payload's listener will stay.
+    """
+    session = _session(runtime, projection)
+    return session is not None and session[0] in {"idle", "serving", "finalized"}
+
+
+def _candidate_committed(
+    runtime: Mapping[str, object] | None,
+    candidate: identity.LoadedPayloadIdentity,
+) -> bool:
+    """Return whether the candidate's listener serves for good.
+
+    A listener that the supervisor started is idle, and one that a handoff created shows
+    ``finalized`` once its predecessor has finalized that handoff. Until then it shows
+    ``serving``, and its predecessor may still abort it.
+    """
+    session = _session(runtime, candidate)
+    return session is not None and session[0] in {"idle", "finalized"}
+
+
+def _prior_at_rest(
+    runtime: Mapping[str, object] | None,
+    prior: identity.LoadedPayloadIdentity,
+    *,
+    transaction_id: object,
+) -> bool:
+    """Return whether the prior generation's listener serves with no handoff in flight or done.
+
+    It is idle, or it shows ``finalized`` with the transaction of the handoff that created
+    it. A process that has handed the journal's transaction off answers a health read on a
+    connection that it accepted before its accept loop stopped: it shows ``serving`` while
+    that handoff is in flight and ``finalized`` with the journal's transaction while it
+    serves out its lease, and neither is at rest.
+    """
+    session = _session(runtime, prior)
+    if session is None:
+        return False
+    state, transaction = session
+    return state == "idle" or (state == "finalized" and transaction != transaction_id)
 
 
 def _rollback_materialized(
@@ -296,13 +349,18 @@ def _prior_generation_at_rest(
     journal: Mapping[str, object],
     runtime: Mapping[str, object] | None,
 ) -> generation.Selection:
-    """Return the prior selection, proved to serve with no handoff in flight on this snapshot."""
+    """Return the prior selection, proved to serve at rest on this snapshot.
+
+    No handoff is in flight, and none of the journal's transaction is done.
+    """
     previous = completion.prior_selection(journal)
     if previous is None or not generation.path(ctx, previous.active).is_dir():
         raise errors.RecoveryStateError("payload recovery prior selected generation is unavailable")
     previous_ctx = generation.context(ctx, previous.active)
     identity_before = identity.committed_payload(Path(previous_ctx.executable))
-    if identity_before is None or not _runtime_matches_projection(runtime, identity_before):
+    if identity_before is None or not _prior_at_rest(
+        runtime, identity_before, transaction_id=journal["transaction_id"]
+    ):
         raise errors.RecoveryStateError(
             "payload recovery runtime does not match the prior selected generation"
         )

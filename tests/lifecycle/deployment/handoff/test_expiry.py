@@ -20,6 +20,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.deployment.handoff.fixtures import PolledClock
+from tests.lifecycle.deployment.handoff.fixtures import control_transport
 from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import idle_runtime
@@ -295,9 +296,7 @@ class TestTheWaitOfAnUnansweredRequest(ExpiryFixture):
         self, caller: float, carried: int
     ) -> None:
         """The request and the wait take the timeout from one owner: whole seconds, 1 to 120."""
-        sent = self.mocker.patch.object(
-            handoff.loopback, "open_request", side_effect=ConnectionResetError("reset")
-        )
+        sent = control_transport(self.mocker, side_effect=ConnectionResetError("reset"))
         with pytest.raises(errors.InstallError, match="handoff control is unavailable") as ended:
             handoff.request(
                 self.ctx,
@@ -309,7 +308,7 @@ class TestTheWaitOfAnUnansweredRequest(ExpiryFixture):
                 lease_seconds=900,
             )
 
-        assert json.loads(sent.call_args.args[0].data)["timeout_seconds"] == carried
+        assert json.loads(sent.call_args.args[1].data)["timeout_seconds"] == carried
         assert handoff.carried_timeout_seconds(caller) == carried
         assert self.resolve(ended.value, lambda _now: idle_runtime(), timeout=caller, lease=900)[
             0

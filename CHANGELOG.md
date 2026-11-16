@@ -22,12 +22,18 @@ publication authority.
 - A listener begins a handoff only within the request's timeout of accepting
   the request's connection. It refuses a later request with HTTP 408 and
   `{"ok": false, "error": "handoff_request_expired"}`.
+- The command that requests a handoff ends the request's connection with a
+  reset, after an answer as well. A listener that answers a request which its
+  controller has already given up meets that reset and logs
+  `client_closed_mid_request`.
 - `recover` of an interrupted upgrade or rollback whose previous release
   still serves waits 121 seconds before it restores that release, and decides
   on what the listener shows after that time. While it waits it writes one
   line to standard error, "Recovery waits 121 seconds for a handoff request
   that may still be pending."; with `--json` it writes nothing there. Its
-  result on standard output does not change.
+  result on standard output does not change. An upgrade, a rollback or a
+  reload that is interrupted a second time while it waits for an unanswered
+  request leaves its transaction for `recover`.
 - The bundled Cyclopts advances from 5.4.2 to 5.5.1. No command, option, help
   text or exit status of this product changes.
 
@@ -41,8 +47,17 @@ publication authority.
   `degraded`. The controller and `recover` now restore only with evidence that
   no handoff of the request is to come: the request was never sent, the
   listener refused or acknowledged it, its handoff was seen to begin and end,
-  or the time in which the listener may begin it has run out. A listener of
+  or the time in which the listener may begin it has run out. The upgrade to
+  this release is still requested by the installed 6.0.1, and a listener of
   6.0.1 or earlier does not bound that time itself.
+- On Linux a handoff request of a command that had given up could reach a
+  listener later, when the listener's queue of pending connections had been
+  full: the listener took the connection behind connections that were made
+  after it and read the request. The reset withdraws such a connection.
+- `recover` restored the previous release over a listener that had handed the
+  transaction off and was serving out its lease, when that listener still
+  answered a health read, and it finalized a successor that its predecessor
+  could still abort. It leaves both for a later `recover`.
 
 ## [6.0.1] - 2026-11-16
 

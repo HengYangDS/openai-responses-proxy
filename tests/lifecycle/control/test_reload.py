@@ -18,6 +18,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.deployment.handoff.fixtures import PolledClock
+from tests.lifecycle.deployment.handoff.fixtures import control_transport
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.serving.handoff.fixtures import idle_runtime
@@ -517,7 +518,7 @@ def test_reload_reports_an_unanswered_handoff_of_an_idle_listener_as_failed_afte
     health = mocker.patch.object(control, "read_runtime", return_value=idle_runtime(pid=7))
     mocker.patch.object(control.process, "owned_process_alive", return_value=True)
     mocker.patch.object(control.process, "capture_executable", return_value=None)
-    sent = mocker.patch.object(control.loopback, "open_request", side_effect=transport)
+    sent = control_transport(mocker, side_effect=transport)
     clock = PolledClock(mocker)
 
     with pytest.raises(reported) as raised:

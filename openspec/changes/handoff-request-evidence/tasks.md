@@ -4,7 +4,12 @@
       (nothing sent, refused, acknowledged, observed, or nothing), and let the failure resolver and the proof
       before the restore read a listener at rest only together with it; a test forces the window through the
       listener's own handler and fails at 6.0.1, one test holds each row in the resolver and in the proof, and
-      upgrade, rollback and reload each preserve an unanswered request's transaction.
+      tests through upgrade, rollback and reload hold the rule for an unanswered request.
+- [x] 1.2 End the connection of every handoff request with a reset, set before the first byte of the request
+      is written, and read a failure of the connect or of that option as a request that was never sent;
+      tests hold the order of connect, option and first byte, real-socket tests hold on each platform that
+      the other end reads a reset after a request that was given up and after one that was answered, and a
+      dated record holds what a full queue did on macOS and on Linux, with its scripts.
 
 ## 2. The listener's bound
 
@@ -24,6 +29,10 @@
       it waits; tests hold the wait and its length, each decision after it, the window through the listener's
       own handler, a transaction that requested no handoff, which is restored at once, and an interrupt, which
       leaves the journal and the selection.
+- [x] 3.2 Let `recover` read the prior listener as at rest only when its session is idle or shows the
+      finished handoff of another transaction, and a successor as committed only when its session is idle or
+      finalized; tests hold each case on the first read and on the read after the wait, with the journal and
+      the selection unchanged where `recover` refuses.
 
 ## 4. Release
 

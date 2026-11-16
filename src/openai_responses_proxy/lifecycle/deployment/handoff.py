@@ -130,18 +130,38 @@ def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_secon
     return max(1.0, timeout_seconds, ctx.upstream_timeout)
 
 
-def _handoff_reply(request: urllib.request.Request, *, timeout_seconds: float) -> object:
-    """Read the bounded JSON reply of an accepted handoff request, or raise one public error."""
-    label = "handoff control"
+_CONTROL = "handoff control"
+_TRANSPORT_FAILURES = (OSError, urllib.error.URLError, ValueError, http.client.HTTPException)
+
+
+def _connect(
+    request: urllib.request.Request, *, timeout_seconds: float
+) -> http.client.HTTPConnection:
+    """Open the connection of a handoff request, or raise one public error with nothing sent.
+
+    Every close of the connection is a reset, so a request that the controller gives up
+    reaches a listener only on a connection that the listener already has in its queue.
+    """
     try:
-        with loopback.open_request(request, timeout_seconds=timeout_seconds) as response:
+        return loopback.connect_reset_on_close(request, timeout_seconds=timeout_seconds)
+    except _TRANSPORT_FAILURES as exc:
+        raise errors.InstallError(f"{_CONTROL} is unavailable") from exc
+
+
+def _handoff_reply(
+    connection: http.client.HTTPConnection, request: urllib.request.Request
+) -> object:
+    """Read the bounded JSON reply of an accepted handoff request, or raise one public error."""
+    label = _CONTROL
+    try:
+        with loopback.open_request_on(connection, request) as response:
             status = response.status
             raw = response.read(_MAX_BODY_BYTES + 1)
     except urllib.error.HTTPError as exc:
         code = exc.code
         exc.close()
         raise HandoffRefusedError(f"{label} returned HTTP {code}") from exc
-    except (OSError, urllib.error.URLError, ValueError, http.client.HTTPException) as exc:
+    except _TRANSPORT_FAILURES as exc:
         raise errors.InstallError(f"{label} is unavailable") from exc
     if status != HTTPStatus.ACCEPTED:
         raise errors.InstallError(f"{label} returned HTTP {status}")
@@ -289,20 +309,20 @@ def post_ready(
 ) -> RuntimeSnapshot:
     """POST the loopback handoff endpoint and require a protocol-v2 READY ack.
 
-    A failure that is raised before the connection opens carries that nothing was sent.
+    A failure that is raised before the first byte of the request is written carries that
+    nothing was sent: the building of the request, and the opening of its connection.
     """
     try:
         request = _ready_request(
             ctx, expected, lease_seconds=lease_seconds, timeout_seconds=timeout_seconds
         )
+        connection = _connect(request, timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS)
     except BaseException as failure:
-        # No connection was opened: the listener cannot begin a request that it never received.
+        # Nothing was written: the listener cannot begin a request that it never received.
         _record_evidence(failure, RequestEvidence.UNSENT)
         raise
-    # The connection opens in this call. From here on a failure carries no such evidence.
-    loaded_response = _handoff_reply(
-        request, timeout_seconds=timeout_seconds + _TRANSPORT_MARGIN_SECONDS
-    )
+    # The request is written in this call. From here on a failure carries no such evidence.
+    loaded_response = _handoff_reply(connection, request)
     if not isinstance(loaded_response, dict) or not all(
         isinstance(key, str) for key in loaded_response
     ):
@@ -361,9 +381,10 @@ def request(
     serving-payload digest, release-receipt digest, and manifest digest.
 
     A failure carries what the controller holds of the request: that nothing was sent, on a
-    failure before the connection opens; a refusal by its type; a READY acknowledgement on
-    every failure that follows it. An interrupt carries the same as any other failure there.
-    A failure of the sending itself carries no evidence: the listener may have the request.
+    failure before the request is written, the opening of its connection included; a refusal
+    by its type; a READY acknowledgement on every failure that follows it. An interrupt
+    carries the same as any other failure there. A failure of the sending or of the reading
+    carries no evidence: the listener may have the request.
     """
     try:
         _require_captured_source(source_listener, runtime_reader(ctx), source_runtime)

@@ -36,7 +36,7 @@ means idle, or that finalized session exactly as the controller captured it befo
 
   | What ended the request                                     | Evidence     | At rest when the listener shows |
   | ---------------------------------------------------------- | ------------ | ------------------------------- |
-  | A failure before the call that opens the connection        | unsent       | idle, or the captured session   |
+  | A failure before the first byte of the request is written  | unsent       | idle, or the captured session   |
   | An error status from the listener                          | refused      | idle, or the captured session   |
   | Any failure after a complete READY                         | acknowledged | idle                            |
   | No answer, then the request's transaction in the session   | observed     | idle                            |
@@ -61,15 +61,22 @@ means idle, or that finalized session exactly as the controller captured it befo
 
 ### The listener bounds its begin from the accept of the request's connection
 
-- **Rests on:** POSIX `accept` takes "the first connection on the queue of pending connections", and Winsock's
-  `accept` states the same; `tests/serving/test_accept.py` connects eight loopback clients to a listener that
-  nobody accepts from and takes them out in the order in which they connected, on each platform of the hosted
-  graph. One thread of one process accepts for a listener at rest (`ResilientProxyServer.get_request`), and it
-  stamps a connection before it accepts the next. Python's `time.monotonic` is system-wide, so two processes
-  of one host measure the same durations. The session's lock guards both the begin and the read of the session
-  for health: `tests/serving/handoff/test_bound.py` holds that the clock is read under the lock and after any
-  wait for it, that a begin shows its session before it releases the lock, and that a health read reads the
-  session under that lock.
+- **Rests on:** a listener accepts the connections that are in its queue in the order in which they entered
+  it. POSIX states it for `accept` ("the first connection on the queue of pending connections"), the
+  listen-queue measurement (`docs/evidence/listen-queue-measurement.md`) found it on macOS and on
+  Linux, and `tests/serving/test_accept.py`, which the hosted graph runs on three platforms, connects eight
+  loopback clients to a listener that nobody accepts from and takes them out in that order. The order of
+  entering the queue is not always the order of connecting; the next decision is about that. The standard
+  library's server loop accepts one connection, hands it to a thread and only then accepts the next
+  (`socketserver.BaseServer.serve_forever`, read in CPython 3.12 to 3.14), and the product starts one such
+  loop at a time in a process (`serving/handoff/transaction.py`, read; no test holds it).
+  `ResilientProxyServer.get_request` stamps a connection before that loop accepts the next, so a connection
+  that is accepted later is stamped no earlier, however long the accepting thread waits for a processor. The
+  listener and the controller each measure a duration on their own monotonic clock; nothing compares the two
+  clocks. The session's lock guards both the begin and the read of the session for health:
+  `tests/serving/handoff/test_bound.py` holds that the clock is read under the lock and after any wait for
+  it, that a begin shows its session before it releases the lock, and that a health read reads the session
+  under that lock.
 - **Considered:** a bound from the moment at which the handler has read the request; a deadline that the
   request carries; an identifier that the request carries and a route that withdraws it; a ticket that the
   listener issues before the request; the state of the controller's connection at the begin.
@@ -84,14 +91,41 @@ means idle, or that finalized session exactly as the controller captured it befo
 - **Applies to:** every handoff request. A request on a connection that was accepted earlier than its timeout
   ago is refused; the controller opens a connection for each request.
 
+### The controller ends its request's connection with a reset
+
+- **Rests on:** the listen-queue measurement (`docs/evidence/listen-queue-measurement.md`). On Linux a
+  client can hold a finished connect that the listener's full queue did not take. The listener takes that
+  connection later, after connections that were made later, and reads a request that the client sent before
+  it closed in the ordinary way (9 of 10 clients). A client that closed with a reset was never accepted (0 of
+  8). On macOS a full queue resets the connect or the connection right after it, and nothing arrives later. A
+  connection that is already in the queue is accepted with its request after a reset as well, on both hosts
+  and in `tests/runtime/test_loopback_reset.py` on every platform of the hosted graph. Windows was not
+  measured.
+- **Considered:** leave the ordinary close and name the full queue as a risk; make the controller's wait as
+  long as the longest retransmission of a handshake; close the request's connection with a reset.
+- **Chosen because:** with an ordinary close the request of a controller that gave up can reach the listener
+  after the controller's wait has ended, which is the defect that this Change closes; a first version of this
+  design named it as a risk without a measurement, and a review refused that. Retransmission timers are the
+  kernel's and differ by platform and setting. A reset leaves two cases at the moment at which the
+  controller gives up: the listener has the connection in its queue, where the order of the queue and the
+  stamp bound its begin, or the listener never receives the request. The kernel sends the same reset when
+  the controller's process ends, because the option is set before the first byte is written.
+- **Applies to:** the connection of every handoff request (`runtime/loopback.py`), after an answer as well. A
+  connect that fails and an option that cannot be set send nothing, and the failure says so. Health reads
+  keep their ordinary close: they leave nothing behind that a listener could begin. The option is the
+  controller's: an upgrade is requested by the command that is installed before it, so the upgrade from
+  6.0.1 to this release runs without it.
+
 ### An unanswered request is settled when its timeout has passed at rest
 
-- **Rests on:** the bound above. The request's connection was accepted before the connection of the resolver's
-  first health read, and the listener answered that read no later than the read returned. So the request can
-  begin no later than its timeout after that return, and a begin that passes the bound holds the session's
-  lock until the session shows it: a read that is asked after that time shows every handoff that the request
-  could begin. `tests/lifecycle/deployment/handoff/test_bound_window.py` runs the listener's handler and the
-  resolver on one clock from both sides of the bound.
+- **Rests on:** the two decisions above. When the controller has given the request up, the request's
+  connection is in the listener's queue or will never be. If it is in the queue, the listener accepts it
+  before the connection of the resolver's first health read, and it answered that read no later than the
+  read returned. So the request can begin no later than its timeout after that return, and a begin that
+  passes the bound holds the session's lock until the session shows it: a read that is asked after that time
+  shows every handoff that the request could begin.
+  `tests/lifecycle/deployment/handoff/test_bound_window.py` runs the listener's handler and the resolver on
+  one clock from both sides of the bound.
 - **Considered:** wait the whole handoff deadline and end unknown, as a listener that a handoff created ends
   today; settle after the request's timeout; ask the listener whether it declares the bound and settle only
   then.
@@ -124,29 +158,37 @@ means idle, or that finalized session exactly as the controller captured it befo
   that did not reach activation requested nothing and is restored at once, as before. A restoration that
   would be refused is refused before the wait. The snapshot that is read after the wait is decided by the
   rules of the first: at rest it is restored, a successor that committed is finalized, and a handoff in flight
-  or a listener that does not answer leaves the journal for a later `recover`, which waits again. `recover`
+  or a listener that does not answer leaves the journal for a later `recover`, which waits again. The prior
+  listener is at rest when its session is idle, or finalized with a transaction that is not the journal's: a
+  process that has handed the journal's transaction off shows `serving` or that transaction while it serves
+  out its lease, and can still answer a read on a connection that it accepted earlier. A successor has
+  committed when its session is idle or finalized; one that shows `serving` waits for its predecessor, which
+  can still abort it, and it ends on its own when that predecessor is gone. `recover`
   holds the lifecycle lock for the whole command, so no other lifecycle command runs beside the wait. In its
   human form it writes one line to standard error before the wait; with `--json` standard error stays as it
   is.
 
 ## Risks / Trade-offs
 
-- [A listener of 6.0.1 or earlier does not bound its begin] → The wait is then a practical bound and not the
-  listener's. It concerns every handoff from such a listener: the upgrade to this release, and a transition
-  that follows a rollback to 6.0.1.
-- [The listener's queue of 256 pending connections overflows, and the request's connection completes after
-  the connection of a health read] → Not measured. As the implementer and the owner recall it, Linux leaves a
-  connection that a full queue did not admit to complete on a later retransmission, so a later connection can
-  complete first; the request would then be stamped after that health read, and the wait would end before the
-  request's bound. Accepted: it needs a listener that accepted nothing for longer than the request's timeout
-  and then accepted the health read first, and such a listener serves nothing.
+- [The upgrade to this release is requested by 6.0.1's command of 6.0.1's listener] → Nothing of this Change
+  applies to that one handoff; it runs as every handoff of 6.0.1 does.
+- [A listener of 6.0.1 or earlier does not bound its begin] → After a rollback to 6.0.1 the installed command
+  is still this release's: it carries the evidence, the reset and the wait, and the wait is then a practical
+  bound and not the listener's.
+- [Windows was not measured] → The tests of the stamp, the queue's order and the reset run there in the hosted
+  graph. What a full queue does there is not known; a connect that it refuses sends nothing, and the reset is
+  set before the first byte on every platform.
+- [The wait of an unanswered request is silent, and a second interrupt inside it preserves the transaction]
+  → `recover` then waits its two minutes. The changelog says so; a line of progress for the three commands
+  is not part of this Change.
 - [A rollback's request names the retained generation, so two rollbacks to one generation share the
   transaction that "observed" reads] → An earlier request of that transaction can be pending only if a
   restore ran while it was; the wait in `recover` and the bound exclude that for a listener of this release.
 - [A listener begins and ends a handoff between two polls of 0.1 seconds, unseen] → The request is then
   settled by its timeout instead of at once.
-- [`recover` waits two minutes where the request's own timeout was thirty seconds] → Accepted: it happens
-  only after an interrupted or unconfirmed handoff, and the journal stays readable to 6.0.1.
+- [`recover` waits two minutes where the request's own timeout was thirty seconds, and where its controller
+  had already waited the request out] → Accepted: it happens only after an interrupted or unconfirmed
+  handoff, the journal says nothing of the request, and it stays readable to 6.0.1.
 
 ## Migration Plan
 

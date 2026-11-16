@@ -8,6 +8,8 @@ import socket
 import struct
 import sys
 import threading
+import urllib.error
+import urllib.request
 from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
@@ -21,6 +23,7 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.runtime import loopback
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving import server
 from tests.relay.fixtures import DirectResponse
@@ -189,6 +192,77 @@ def test_a_reset_between_two_requests_writes_no_line(
     # The handler ends the connection with the pass that met the reset: a further pass would
     # read a dead connection, which can raise again and again.
     assert proxy.passes == 2
+
+
+def test_a_handoff_request_that_is_answered_and_then_reset_writes_no_line(
+    proxy: _ObservedServer, log_path: Path, *, mocker: MockerFixture
+) -> None:
+    """The controller closes the connection of its handoff request with a reset, always.
+
+    The request asks for the connection to be closed, so the handler ends it after its one
+    answer, and the reset that follows meets no read and no write of a request.
+    """
+    mocker.patch.object(control.handoff, "disk_payload_matches_expected", return_value=False)
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{proxy.server_port}/control/handoff",
+        data=b'{"transaction_id":"txn-1"}',
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    connection = loopback.connect_reset_on_close(request, timeout_seconds=_HANDLER_SECONDS)
+
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        loopback.open_request_on(connection, request)
+    assert refused.value.code == 409
+    # Leaving the answer closes the connection, and that close is the reset.
+    refused.value.close()
+
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    assert _log_lines(log_path) == []
+    assert proxy.errors == []
+    assert proxy.passes == 1
+
+
+def test_a_handoff_request_that_its_controller_gave_up_before_the_answer_is_named_once(
+    proxy: _ObservedServer, log_path: Path, *, mocker: MockerFixture
+) -> None:
+    """The listener's answer to a request that was given up meets the controller's reset.
+
+    The handler has read the whole request and decides while the controller's timeout ends.
+    Its answer, here a refusal, is written to a connection that the controller has reset: one
+    line names the request that its client closed, and the handler ends without a traceback.
+    """
+    given_up = threading.Event()
+
+    def decide_after_the_reset(*_args: object) -> bool:
+        assert given_up.wait(_HANDLER_SECONDS)
+        _await_close(proxy)
+        return False
+
+    mocker.patch.object(
+        control.handoff, "disk_payload_matches_expected", side_effect=decide_after_the_reset
+    )
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{proxy.server_port}/control/handoff",
+        data=b'{"transaction_id":"txn-1"}',
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    connection = loopback.connect_reset_on_close(request, timeout_seconds=0.2)
+
+    with pytest.raises(TimeoutError):
+        loopback.open_request_on(connection, request)
+    given_up.set()
+
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    [line] = _log_lines(log_path)
+    [error] = proxy.errors
+    assert isinstance(error, downstream.CLIENT_CLOSED)
+    assert line.split()[1:] == [
+        "event=client_closed_mid_request",
+        f"exception={type(error).__name__}",
+    ]
+    assert proxy.passes == 1
 
 
 def test_an_orderly_close_between_two_requests_writes_no_line(

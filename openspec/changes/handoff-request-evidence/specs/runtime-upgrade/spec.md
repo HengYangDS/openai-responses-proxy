@@ -10,9 +10,18 @@ handoff only within that time.
 
 #### Scenario: A handoff request is never sent
 
-- **WHEN** the controller fails before it opens the connection of its handoff request
+- **WHEN** the controller fails before it writes the first byte of its handoff request, the opening of the
+  request's connection included
 - **THEN** it reads that the listener can begin nothing of that request
 - **AND** it rolls the payload back without waiting once health shows the captured listener at rest.
+
+#### Scenario: The controller ends the connection of its handoff request
+
+- **WHEN** the controller ends the connection of a handoff request, after an answer or without one, or the
+  controller's process ends
+- **THEN** the connection ends with a reset and not with an ordinary close, so that a listener which does not
+  have the connection yet never receives the request
+- **AND** a connection that cannot be made to end so carries no request.
 
 #### Scenario: A listener rolls back a handoff that it acknowledged
 
@@ -54,6 +63,13 @@ handoff only within that time.
 - **AND** a successor that committed in that time is finalized, and a handoff that is in flight then leaves
   the transaction for a later `recover`
 - **AND** a transaction that did not reach activation requested no handoff and is restored without that wait.
+
+#### Scenario: Recovery reads a handoff that is done or in flight
+
+- **WHEN** health shows the predecessor's listener with a handoff in flight, or with the finished handoff of
+  the transaction that `recover` decides, or shows a successor that its predecessor has not finalized
+- **THEN** `recover` restores nothing and finalizes nothing, and the transaction stays for a later `recover`
+- **AND** a predecessor that still shows the finished handoff which created it is at rest.
 
 #### Scenario: Recovery says that it waits
 

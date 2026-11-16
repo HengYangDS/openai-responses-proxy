@@ -19,6 +19,8 @@ from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from tests.lifecycle.deployment.handoff.fixtures import PolledClock
+from tests.lifecycle.deployment.handoff.fixtures import control_transport
+from tests.lifecycle.deployment.handoff.fixtures import no_control_connection
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
@@ -63,7 +65,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         current = self.current_runtime()
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport())
+        sent = control_transport(mocker, side_effect=transport())
         clock = PolledClock(mocker)
         health = mocker.Mock(return_value=current)
 
@@ -102,7 +104,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
         mocker.patch.object(generation, "control_context", return_value=self.ctx)
-        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport())
+        sent = control_transport(mocker, side_effect=transport())
         clock = PolledClock(mocker)
 
         with pytest.raises(reported) as raised:
@@ -127,7 +129,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         current = self.current_runtime()
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        sent = mocker.patch.object(apply.handoff.loopback, "open_request")
+        sent = no_control_connection(mocker)
         sleep = mocker.patch.object(
             apply.handoff.time, "sleep", side_effect=AssertionError("the resolver waited")
         )
@@ -144,6 +146,37 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         sleep.assert_not_called()
         service.install_mock.assert_not_called()
 
+    def test_upgrade_rolls_back_at_once_when_the_connection_of_its_request_does_not_open(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """A connect that fails wrote nothing, so the listener at rest proves the predecessor."""
+        payload = FakeTransaction(self.ctx)
+        current = self.current_runtime()
+        service = FakeServiceAdapter(mocker=mocker)
+        mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
+        sent = control_transport(mocker)
+        connect = mocker.patch.object(
+            apply.handoff.loopback,
+            "connect_reset_on_close",
+            side_effect=ConnectionRefusedError("refused"),
+        )
+        sleep = mocker.patch.object(
+            apply.handoff.time, "sleep", side_effect=AssertionError("the resolver waited")
+        )
+        # Admission, the request's check, the resolver and the proof.
+        health = mocker.Mock(return_value=current)
+
+        with pytest.raises(errors.InstallError, match="handoff control is unavailable") as raised:
+            self.deploy(payload, current, adapter=service, runtime_reader=health, mocker=mocker)
+
+        assert not isinstance(raised.value, apply.UnknownDeploymentOutcome)
+        assert payload.events == ["commit", "activate", "rollback"]
+        assert health.call_count == 4
+        connect.assert_called_once()
+        sent.assert_not_called()
+        sleep.assert_not_called()
+        service.install_mock.assert_not_called()
+
     def test_upgrade_rolls_back_an_acknowledged_handoff_that_the_listener_rolled_back(
         self, *, mocker: MockerFixture
     ) -> None:
@@ -152,9 +185,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         current = self.current_runtime()
         expected: dict[str, object] = {**payload.expected}
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        mocker.patch.object(
-            apply.handoff.loopback, "open_request", return_value=Response(ready_ack(expected))
-        )
+        control_transport(mocker, return_value=Response(ready_ack(expected)))
         mocker.patch.object(process, "wait_for_executable", return_value=None)
         sleep = mocker.patch.object(
             apply.handoff.time, "sleep", side_effect=AssertionError("the resolver waited")
@@ -177,9 +208,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             handoff_state="preparing", handoff_transaction_id=payload.expected["transaction_id"]
         )
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        mocker.patch.object(
-            apply.handoff.loopback, "open_request", side_effect=ConnectionResetError("reset")
-        )
+        control_transport(mocker, side_effect=ConnectionResetError("reset"))
         mocker.patch.object(
             apply.handoff.time, "monotonic", side_effect=itertools.count(0.0, 0.01).__next__
         )

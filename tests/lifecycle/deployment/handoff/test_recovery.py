@@ -10,6 +10,7 @@ from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import control as listener_control
 from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
+from tests.lifecycle.deployment.handoff.fixtures import no_control_connection
 from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import entrypoint_module
 from tests.serving.handoff.fixtures import expected_metadata
@@ -242,7 +243,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         ctx = install_context(Path(self.tempdir.name))
         source = process.OwnedProcess(999, ctx.executable, 0.5)
         alive = mocker.patch.object(process, "owned_process_alive", return_value=True)
-        control_request = mocker.patch.object(handoff.loopback, "open_request")
+        control_request = no_control_connection(mocker)
 
         def serves(runtime: dict[str, object] | None) -> bool:
             return handoff.predecessor_serves(

@@ -12,6 +12,7 @@ from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
+from tests.lifecycle.deployment.handoff.fixtures import no_control_connection
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
@@ -40,9 +41,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         current = self.current_runtime(handoff_capabilities=capabilities)
         service = FakeServiceAdapter(mocker=mocker)
         request = mocker.patch.object(apply, "request_handoff")
-        control_request = mocker.patch.object(
-            apply.handoff.loopback, "open_request", side_effect=AssertionError("control request")
-        )
+        control_request = no_control_connection(mocker)
         terminate = mocker.patch.object(process, "terminate_owned_process")
 
         with pytest.raises(errors.InstallError) as refused:
@@ -207,7 +206,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
     ) -> None:
         current = self.current_runtime()
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
+        control_request = no_control_connection(mocker)
 
         rolled_back = FakeTransaction(self.ctx)
         rollback_service = FakeServiceAdapter(mocker=mocker)
@@ -292,7 +291,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
         mocker.patch.object(apply, "request_handoff", side_effect=failure)
-        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
+        control_request = no_control_connection(mocker)
 
         with pytest.raises(apply.UnknownDeploymentOutcome) as raised:
             self.deploy(
@@ -368,7 +367,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
             "request_handoff",
             side_effect=apply.handoff.HandoffRefusedError("successor unavailable"),
         )
-        control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
+        control_request = no_control_connection(mocker)
 
         with pytest.raises(apply.UnknownDeploymentOutcome) as raised:
             self.deploy(

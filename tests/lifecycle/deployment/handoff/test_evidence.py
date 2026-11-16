@@ -2,7 +2,7 @@
 
 The rule's table, one row for each kind of evidence, in the resolver and in the proof:
 
-- unsent: the request failed before its connection opened.
+- unsent: the request failed before its first byte was written, its connect included.
 - refused: the listener answered with an error status.
 - acknowledged: the listener answered READY and the controller failed afterwards.
 - none: the request ended without the listener's answer.
@@ -24,6 +24,7 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
+from tests.lifecycle.deployment.handoff.fixtures import control_transport
 from tests.lifecycle.fixtures import install_context
 from tests.serving.handoff.fixtures import Response
 from tests.serving.handoff.fixtures import expected_metadata
@@ -83,7 +84,7 @@ class EvidenceFixture:
         self.mocker = mocker
         mocker.patch.object(process, "owned_process_alive", return_value=True)
         mocker.patch.object(process, "capture_executable", return_value=None)
-        self.control_request = mocker.patch.object(handoff.loopback, "open_request")
+        self.control_request = control_transport(mocker)
 
     def clock(self, step: float) -> MockType:
         """Advance the controller's clock by ``step`` seconds at each reading; return its sleep."""
@@ -473,7 +474,7 @@ class TestWhatTheRequestRecords(EvidenceFixture):
     def test_a_failure_of_the_sending_call_carries_no_evidence(
         self, subtests: pytest.Subtests
     ) -> None:
-        """Once the connection opens the listener may have the request, whatever ends it."""
+        """Once the request is written the listener may have it, whatever ends the call."""
         for transport in (
             ConnectionRefusedError("refused"),
             TimeoutError("timed out"),

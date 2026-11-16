@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
+from unittest import mock
 
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
@@ -42,6 +43,31 @@ def admit_handoff_generations(
     )
     mocker.patch.object(process, "listener_pids", return_value=[predecessor_pid])
     return predecessor, successor, alive
+
+
+def control_transport(
+    mocker: MockerFixture, *, return_value: object = mock.DEFAULT, side_effect: object = None
+) -> MockType:
+    """Open the connection of each handoff request; return the call that sends the request.
+
+    What that call returns or raises is the listener's answer, or the failure of the sending
+    or of the reading. Its second argument is the request.
+    """
+    mocker.patch.object(
+        handoff.loopback, "connect_reset_on_close", return_value=mocker.sentinel.connection
+    )
+    return mocker.patch.object(
+        handoff.loopback, "open_request_on", return_value=return_value, side_effect=side_effect
+    )
+
+
+def no_control_connection(mocker: MockerFixture) -> MockType:
+    """Fail a handoff request that opens its connection; return the call that would open it."""
+    return mocker.patch.object(
+        handoff.loopback,
+        "connect_reset_on_close",
+        side_effect=AssertionError("a handoff request opened its connection"),
+    )
 
 
 class PolledClock:

@@ -15,6 +15,7 @@ from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
+from tests.lifecycle.deployment.handoff.fixtures import no_control_connection
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
@@ -156,9 +157,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
         request = mocker.patch.object(apply, "request_handoff")
-        control_request = mocker.patch.object(
-            apply.handoff.loopback, "open_request", side_effect=AssertionError("control request")
-        )
+        control_request = no_control_connection(mocker)
         terminate = mocker.patch.object(process, "terminate_owned_process")
 
         with pytest.raises(errors.InstallError) as refused:
