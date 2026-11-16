@@ -280,9 +280,10 @@ responsibilities, not combined denominators or product-only green evidence.
 ### Each test marker has a gate session that runs it
 
 - **Rests on:** `repository_toolchain` at `6c4ff8bb`: 52 cases carry it, every
-  session of `tools/quality/python.py` deselects it, 34 ran in no gate, and one
-  had failed since 2026-11-14. Governance is the one gate that installs the Mise
-  and npm tools on each platform and Forge where it runs.
+  session of `tools/quality/python.py` deselects it, 42 ran in no gate (34 of
+  them nowhere, 8 in the editing loop alone), and one had failed since
+  2026-11-14. Governance is the one gate that installs the Mise and npm tools
+  where it runs: locally, and on Linux in each Forge's source job.
 - **Considered:** the marker in `quality`, in `tests`, in a session and job of
   its own, or in governance.
 - **Chosen because:** `quality` has no Mise in GitLab's image, `tests` has no
@@ -585,4 +586,5 @@ remains untouched until the successor passes its declared transition.
 What remains is the order of tasks 13.5 to 13.7: verify the frozen candidate
 once, repairing a failure at its smallest owner; land and publish it and prove
 the installed upgrade, no-op, rollback, recovery, re-upgrade, uninstall and
-reinstall; then retire what it supersedes and archive this Change.
+reinstall; then retire what it supersedes, archive this Change and verify
+that the repository family is terminal.
