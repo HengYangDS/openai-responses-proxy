@@ -5,7 +5,6 @@ from __future__ import annotations
 import tempfile
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
-from unittest import mock
 
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
@@ -45,8 +44,11 @@ def admit_handoff_generations(
     return predecessor, successor, alive
 
 
+_NO_ANSWER = object()
+
+
 def control_transport(
-    mocker: MockerFixture, *, return_value: object = mock.DEFAULT, side_effect: object = None
+    mocker: MockerFixture, *, return_value: object = _NO_ANSWER, side_effect: object = None
 ) -> MockType:
     """Open the connection of each handoff request; return the call that sends the request.
 
@@ -57,7 +59,10 @@ def control_transport(
         handoff.loopback, "connect_reset_on_close", return_value=mocker.sentinel.connection
     )
     return mocker.patch.object(
-        handoff.loopback, "open_request_on", return_value=return_value, side_effect=side_effect
+        handoff.loopback,
+        "open_request_on",
+        return_value=mocker.DEFAULT if return_value is _NO_ANSWER else return_value,
+        side_effect=side_effect,
     )
 
 
