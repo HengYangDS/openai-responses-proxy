@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.relay import admission
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol
 from openai_responses_proxy.serving.handoff import transaction as handoff
 
@@ -192,5 +193,5 @@ def prepare_handoff(
             },
         )
         handler.wfile.flush()
-    except (BrokenPipeError, ConnectionResetError):
+    except downstream.CLIENT_CLOSED:
         pass

@@ -16,6 +16,8 @@ from typing import override
 
 import pytest
 
+from openai_responses_proxy import errors
+from openai_responses_proxy.lifecycle.deployment import handoff as controller
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
@@ -35,6 +37,8 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 _HANDLER_SECONDS = 10.0
+# Long enough for a controller that leaves at the status to have left, on any host.
+_HELD_SECONDS = 0.3
 _PATH = "/dmxapi/v1/responses"
 _COMPLETED_JSON = b'{"id":"resp_done","status":"completed","output":[]}'
 _DELTA = b'data: {"type":"response.output_text.delta","delta":"kept"}\n\n'
@@ -59,9 +63,10 @@ class _ObservedHandler(server.Handler):
     def end_headers(self) -> None:
         """Write the head of the answer, then wait where a test holds the body back."""
         super().end_headers()
-        held = cast("_ObservedServer", self.server).body_released
-        if held is not None:
-            held.wait(_HANDLER_SECONDS)
+        observed = cast("_ObservedServer", self.server)
+        observed.head_written.set()
+        if observed.body_released is not None:
+            observed.body_released.wait(_HANDLER_SECONDS)
 
 
 class _ObservedServer(server.ResilientProxyServer):
@@ -73,6 +78,7 @@ class _ObservedServer(server.ResilientProxyServer):
         self.connection_accepted = threading.Event()
         self.request_parsed = threading.Event()
         self.handler_ended = threading.Event()
+        self.head_written = threading.Event()
         # Set by a test that holds each answer's body back until it releases it.
         self.body_released: threading.Event | None = None
         self.passes = 0
@@ -144,6 +150,12 @@ def proxy(mocker: MockerFixture) -> Generator[_ObservedServer]:
     try:
         yield listener
     finally:
+        # A handler that a failed test left held would write its answer after the test, when
+        # the log's path is the host's own again: release it and wait for its end first.
+        if listener.body_released is not None:
+            listener.body_released.set()
+            if listener.connections:
+                listener.handler_ended.wait(_HANDLER_SECONDS)
         listener.shutdown()
         listener.server_close()
         thread.join(timeout=_HANDLER_SECONDS)
@@ -271,6 +283,60 @@ def test_a_refusal_that_its_controller_leaves_before_the_body_is_named_once(
         "event=client_closed_mid_request",
         f"exception={type(error).__name__}",
     ]
+    assert proxy.passes == 1
+
+
+@pytest.mark.parametrize("writer", ["send_error", "write_json"])
+def test_the_controller_of_the_product_takes_a_held_refusal_whole(
+    writer: str, proxy: _ObservedServer, log_path: Path, *, mocker: MockerFixture
+) -> None:
+    """The product's own controller against the listener's two ways of writing a refusal.
+
+    The listener writes the head of its refusal and is held before the body. The controller
+    has the status then and reads on: it is still in its request when the body is released,
+    and its leaving meets no write. A controller that left at the status would have ended
+    while the body was held. Measured on Linux with the body unheld and a client that left at
+    the status: a line in 10 of 27 refusals that ``_write_json`` wrote and in 1 of 27 that
+    ``send_error`` wrote, and in none of 27 of either for this controller.
+    """
+    matches = writer == "write_json"
+    mocker.patch.object(control.handoff, "disk_payload_matches_expected", return_value=matches)
+    mocker.patch.object(
+        control.handoff,
+        "prepare",
+        side_effect=control.handoff.HandoffConflictError("a handoff is already in progress"),
+    )
+    proxy.body_released = threading.Event()
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{proxy.server_port}/control/handoff",
+        data=b'{"transaction_id":"txn-1"}',
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    ended: list[errors.InstallError] = []
+
+    def ask() -> None:
+        connection = controller._connect(request, timeout_seconds=_HANDLER_SECONDS)
+        try:
+            controller._handoff_reply(connection, request)
+        except errors.InstallError as failure:
+            ended.append(failure)
+
+    asking = threading.Thread(target=ask, daemon=True)
+    asking.start()
+    assert proxy.head_written.wait(_HANDLER_SECONDS)
+    asking.join(_HELD_SECONDS)
+    assert asking.is_alive()
+    proxy.body_released.set()
+    asking.join(_HANDLER_SECONDS)
+    assert not asking.is_alive()
+
+    [failure] = ended
+    assert isinstance(failure, controller.HandoffRefusedError)
+    assert str(failure) == "handoff control returned HTTP 409"
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    assert _log_lines(log_path) == []
+    assert proxy.errors == []
     assert proxy.passes == 1
 
 

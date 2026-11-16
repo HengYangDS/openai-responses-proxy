@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
 from tests.serving.handoff.fixtures import entrypoint_module
@@ -61,20 +62,24 @@ class TestHandoffControlHandler:
         assert thread_cls.call_args.kwargs["target"] == handoff_module.commit
 
     def test_handler_keeps_commit_after_ready_response_disconnect(
-        self, *, mocker: MockerFixture
+        self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
-        handler = fake_handler(expected_metadata(), mocker=mocker)
-        handler.wfile.write.side_effect = BrokenPipeError("controller disconnected")
+        """Every form of a client's close: a reset can end a write on Windows as an abort."""
         expected = expected_metadata()
         prepared = {"child": mocker.Mock(runtime_pid=999), "expected": expected}
         mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)
         mocker.patch.object(handoff_module, "prepare", return_value=prepared)
         thread_cls = mocker.patch("threading.Thread")
+        for closed in downstream.CLIENT_CLOSED:
+            with subtests.test(closed=closed.__name__):
+                thread_cls.reset_mock()
+                handler = fake_handler(expected, mocker=mocker)
+                handler.wfile.write.side_effect = closed("controller disconnected")
 
-        control.prepare_handoff(handler, self.bindings)
+                control.prepare_handoff(handler, self.bindings)
 
-        thread_cls.return_value.start.assert_called_once_with()
-        assert thread_cls.call_args.kwargs["target"] == handoff_module.commit
+                thread_cls.return_value.start.assert_called_once_with()
+                assert thread_cls.call_args.kwargs["target"] == handoff_module.commit
 
     def test_handler_rejects_non_loopback_clients(self, *, mocker: MockerFixture) -> None:
         handler = fake_handler(expected_metadata(), mocker=mocker)

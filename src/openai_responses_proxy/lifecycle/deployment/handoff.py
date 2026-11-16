@@ -85,10 +85,10 @@ def _record_evidence(failure: BaseException, evidence: RequestEvidence) -> None:
 def request_evidence(failure: BaseException) -> RequestEvidence:
     """Return what the failure of a handoff request carries of the listener's part in it.
 
-    A refusal is the failure's type. The request records on the failure that nothing was
-    sent, or the listener's acknowledgement, and the resolver records an observation or that
-    the request's time has run out. A failure that carries none of them holds no evidence,
-    whatever its message says.
+    A refusal is the failure's type, or is recorded on what interrupted the reading of its
+    body. The request records on the failure that nothing was sent, or the listener's
+    acknowledgement, and the resolver records an observation or that the request's time has
+    run out. A failure that carries none of them holds no evidence, whatever its message says.
     """
     if isinstance(failure, HandoffRefusedError):
         return RequestEvidence.REFUSED
@@ -150,12 +150,16 @@ def _connect(
 
 
 def _leave_after_the_whole_refusal(refusal: urllib.error.HTTPError) -> None:
-    """Take a refusal's body to its end, within the bound of a reply, then leave the connection.
+    """Take a refusal's body to its end, then leave the connection.
 
     Leaving the connection resets it, and a listener writes the status of a refusal and its
     body in two steps. A controller that left at the status could reset the connection under
     the second step, and the listener would log a request that its client closed. The status
     has already said that the listener refused: a body that breaks off changes nothing of it.
+
+    The body is bounded in bytes and each read of it by the connection's timeout, as an
+    acknowledgement's is. The listener writes a body in one step, so a refusal whose body
+    does not come holds the controller for one such timeout more and no longer.
     """
     try:
         with contextlib.suppress(*_TRANSPORT_FAILURES):
@@ -175,7 +179,12 @@ def _handoff_reply(
             raw = response.read(_MAX_BODY_BYTES + 1)
     except urllib.error.HTTPError as exc:
         code = exc.code
-        _leave_after_the_whole_refusal(exc)
+        try:
+            _leave_after_the_whole_refusal(exc)
+        except BaseException as interrupt:
+            # The status was read before the interrupt: the listener refused.
+            _record_evidence(interrupt, RequestEvidence.REFUSED)
+            raise
         raise HandoffRefusedError(f"{label} returned HTTP {code}") from exc
     except _TRANSPORT_FAILURES as exc:
         raise errors.InstallError(f"{label} is unavailable") from exc
