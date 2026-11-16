@@ -27,6 +27,16 @@ if TYPE_CHECKING:
 
 _REFUSED = handoff.HandoffRefusedError("handoff control returned HTTP 409")
 _UNANSWERED = errors.InstallError("handoff control is unavailable")
+_EVERY_EVIDENCE = tuple(handoff.RequestEvidence)
+# What says that no handoff of the request is still to come, so that an idle session is at rest.
+_FINISHED = (
+    handoff.RequestEvidence.UNSENT,
+    handoff.RequestEvidence.REFUSED,
+    handoff.RequestEvidence.ACKNOWLEDGED,
+    handoff.RequestEvidence.OBSERVED,
+)
+# What says that the request began nothing, so that the captured finished session is at rest.
+_NOT_BEGUN = (handoff.RequestEvidence.UNSENT, handoff.RequestEvidence.REFUSED)
 
 
 class TestControllerHandoffWiring(HandoffFixture):
@@ -44,10 +54,13 @@ class TestControllerHandoffWiring(HandoffFixture):
             idle_runtime(accepting=False),
             idle_runtime(draining=True),
         )
-        for refused in (False, True):
+        for evidence in _EVERY_EVIDENCE:
             for runtime in mismatches:
-                assert not handoff._old_runtime_resumed(runtime, old, refused=refused)
-            assert handoff._old_runtime_resumed(old, old, refused=refused)
+                assert not handoff._old_runtime_resumed(runtime, old, evidence=evidence)
+            # An idle session is at rest only once the listener has finished with the request.
+            assert handoff._old_runtime_resumed(old, old, evidence=evidence) is (
+                evidence in _FINISHED
+            )
 
     def test_a_resting_handoff_child_is_resumed_only_after_it_refused_the_request(self) -> None:
         """A listener that a handoff created reports that finalized session until its next one.
@@ -56,11 +69,14 @@ class TestControllerHandoffWiring(HandoffFixture):
         may still be about to begin it.
         """
         resting = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
-        assert handoff._old_runtime_resumed(dict(resting), resting, refused=True)
-        assert not handoff._old_runtime_resumed(dict(resting), resting, refused=False)
-        for refused in (False, True):
-            # It began the handoff and rolled it back.
-            assert handoff._old_runtime_resumed(idle_runtime(), resting, refused=refused)
+        for evidence in _EVERY_EVIDENCE:
+            assert handoff._old_runtime_resumed(dict(resting), resting, evidence=evidence) is (
+                evidence in _NOT_BEGUN
+            )
+            # It began the handoff and rolled it back, which only a finished request shows.
+            assert handoff._old_runtime_resumed(idle_runtime(), resting, evidence=evidence) is (
+                evidence in _FINISHED
+            )
             for runtime in (
                 idle_runtime(handoff_state="preparing", handoff_transaction_id="8" * 32),
                 idle_runtime(handoff_state="finalized", handoff_transaction_id="8" * 32),
@@ -70,9 +86,9 @@ class TestControllerHandoffWiring(HandoffFixture):
                     handoff_state="finalized", handoff_transaction_id="7" * 32, accepting=False
                 ),
             ):
-                assert not handoff._old_runtime_resumed(runtime, resting, refused=refused)
+                assert not handoff._old_runtime_resumed(runtime, resting, evidence=evidence)
             # A capture that was idle admits no finalized session.
-            assert not handoff._old_runtime_resumed(resting, idle_runtime(), refused=refused)
+            assert not handoff._old_runtime_resumed(resting, idle_runtime(), evidence=evidence)
 
     def test_a_capture_that_names_no_finished_session_admits_only_an_idle_one(self) -> None:
         """An echoed capture counts only as a finalized session with its transaction."""
@@ -85,8 +101,9 @@ class TestControllerHandoffWiring(HandoffFixture):
             ("committing", "7" * 32),
         ):
             captured = idle_runtime(handoff_state=state, handoff_transaction_id=transaction)
-            assert not handoff._old_runtime_resumed(dict(captured), captured, refused=True)
-            assert handoff._old_runtime_resumed(idle_runtime(), captured, refused=True)
+            refused = handoff.RequestEvidence.REFUSED
+            assert not handoff._old_runtime_resumed(dict(captured), captured, evidence=refused)
+            assert handoff._old_runtime_resumed(idle_runtime(), captured, evidence=refused)
 
     def test_failure_resolver_waits_out_a_resting_child_that_sent_no_answer(
         self, *, mocker: MockerFixture
@@ -173,10 +190,12 @@ class TestControllerHandoffWiring(HandoffFixture):
             "7" * 32,
         )
         assert seen["read"] == captured
-        assert not handoff._old_runtime_resumed(seen["read"], captured, refused=False)
+        assert not handoff._old_runtime_resumed(
+            seen["read"], captured, evidence=handoff.RequestEvidence.NONE
+        )
         assert seen["begun"]["handoff_state"] == "preparing"
-        for refused in (False, True):
-            assert not handoff._old_runtime_resumed(seen["begun"], captured, refused=refused)
+        for evidence in _EVERY_EVIDENCE:
+            assert not handoff._old_runtime_resumed(seen["begun"], captured, evidence=evidence)
 
     def test_failure_resolver_answers_at_once_for_a_resting_child_that_refused_the_request(
         self, *, mocker: MockerFixture
@@ -216,7 +235,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         def serves(runtime: dict[str, object] | None) -> bool:
             return handoff.predecessor_serves(
                 ctx,
-                failure=_UNANSWERED,
+                failure=_REFUSED,
                 source_listener=source,
                 source_runtime=idle_runtime(),
                 runtime_reader=lambda _ctx: runtime,
@@ -250,8 +269,11 @@ class TestControllerHandoffWiring(HandoffFixture):
         assert rests(dict(resting), _REFUSED)
         assert not rests(dict(resting), _UNANSWERED)
         assert not rests(dict(resting), KeyboardInterrupt())
+        # An idle session proves a handoff begun and ended only with the listener's answer.
+        assert rests(idle_runtime(), _REFUSED)
+        assert not rests(idle_runtime(), _UNANSWERED)
+        assert not rests(idle_runtime(), KeyboardInterrupt())
         for failure in (_REFUSED, _UNANSWERED):
-            assert rests(idle_runtime(), failure)
             assert not rests(
                 idle_runtime(handoff_state="ready", handoff_transaction_id="8" * 32), failure
             )
@@ -267,10 +289,10 @@ class TestControllerHandoffWiring(HandoffFixture):
         old = idle_runtime()
         finalized = matching_health(1000, expected, pid=1000, handoff_state="finalized")
         cases = (
-            ("finalized", [1000], finalized, ("finalized", finalized)),
-            ("rolled_back", [999], old, ("rolled_back", old)),
+            ("finalized", [1000], finalized, _UNANSWERED, ("finalized", finalized)),
+            ("rolled_back", [999], old, _REFUSED, ("rolled_back", old)),
         )
-        for name, listeners, runtime, expected_result in cases:
+        for name, listeners, runtime, failure, expected_result in cases:
             with subtests.test(name=name):
                 mocker.patch.object(process, "verified_proxy_listener_pids", return_value=listeners)
                 predecessor = process.OwnedProcess(999, ctx.executable, 0.5)
@@ -293,7 +315,7 @@ class TestControllerHandoffWiring(HandoffFixture):
                         ctx,
                         old,
                         expected,
-                        failure=_UNANSWERED,
+                        failure=failure,
                         runtime_reader=lambda _ctx, snapshot=runtime: snapshot,
                         timeout_seconds=1,
                         lease_seconds=1,

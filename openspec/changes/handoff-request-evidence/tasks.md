@@ -1,6 +1,6 @@
 ## 1. The controller's evidence
 
-- [ ] 1.1 Carry on the failure of a handoff request what the controller holds of the listener's part in it
+- [x] 1.1 Carry on the failure of a handoff request what the controller holds of the listener's part in it
       (nothing sent, refused, acknowledged, observed, or nothing), and let the failure resolver and the proof
       before the restore read a listener at rest only together with it; a test forces the window through the
       listener's own handler and fails at 6.0.1, one test holds each row in the resolver and in the proof, and

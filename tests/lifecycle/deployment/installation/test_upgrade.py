@@ -212,11 +212,14 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         rolled_back = FakeTransaction(self.ctx)
         rollback_service = FakeServiceAdapter(mocker=mocker)
         terminate = mocker.patch.object(rollback_service, "terminate_runtime")
+        # Only a request that the listener has finished with rolls back: here its refusal.
         mocker.patch.object(
-            apply, "request_handoff", side_effect=errors.InstallError("handoff failed")
+            apply,
+            "request_handoff",
+            side_effect=apply.handoff.HandoffRefusedError("handoff control returned HTTP 503"),
         )
         evidence = mocker.Mock(return_value=current)
-        with pytest.raises(errors.InstallError, match="handoff failed") as failed:
+        with pytest.raises(errors.InstallError, match="returned HTTP 503") as failed:
             self.deploy(
                 rolled_back,
                 current,
@@ -351,7 +354,10 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         *,
         mocker: MockerFixture,
     ) -> None:
-        """The payload rolls back only on proof that the captured predecessor still serves."""
+        """The payload rolls back only on proof that the captured predecessor still serves.
+
+        The listener refused the request, so nothing but the runtime evidence withholds the proof.
+        """
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         observed = {**current, **evidence} if isinstance(evidence, dict) else evidence
@@ -360,7 +366,7 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         mocker.patch.object(
             apply,
             "request_handoff",
-            side_effect=errors.InstallError("successor unavailable"),
+            side_effect=apply.handoff.HandoffRefusedError("successor unavailable"),
         )
         control_request = mocker.patch.object(apply.handoff.loopback, "open_request")
 
