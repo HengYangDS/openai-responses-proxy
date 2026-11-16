@@ -36,24 +36,6 @@ class StreamDiagnosticContracts:
         assert response.stream_error_code(event) == code
 
     @pytest.mark.parametrize(
-        ("word", "token"),
-        [
-            ("completed", "completed"),
-            ("a" + "b_9" * 21, "a" + "b_9" * 21),
-            ("a" * 65, "unknown"),
-            ("Completed", "unknown"),
-            ("in-progress", "unknown"),
-            ("", "unknown"),
-            (None, "unknown"),
-            (7, "unknown"),
-        ],
-    )
-    def test_a_diagnostic_token_is_a_bounded_lowercase_word_or_unknown(
-        self, word: object, token: str
-    ) -> None:
-        assert response.diagnostic_token(word) == token
-
-    @pytest.mark.parametrize(
         ("event_type", "label"),
         [
             ("response.output_text.delta", "response.output_text.delta"),

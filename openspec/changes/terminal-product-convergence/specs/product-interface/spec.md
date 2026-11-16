@@ -253,43 +253,57 @@ registered task action.
 
 ### Requirement: The log names how each admitted response ended
 
-Between the line that admits a response and the line that releases it, the log
-SHALL hold one line that names how the response ended, for a stream and for a
-response that is not a stream, as protocol vocabulary and never as content. A
-client's close of an admitted response SHALL be named once, in that line. A
-connection that a client resets while no request is being read or answered
-SHALL NOT be logged at all.
+The last line that the log holds for an admitted response before the line that
+releases it SHALL name how the response ended, for a stream and for a response
+that is not a stream, as protocol vocabulary and never as content; the lines
+before it name steps. A close or a reset by the client that a write of the
+response meets SHALL be that last line. A connection that a client resets while
+no request is being read or answered SHALL NOT be logged at all.
 
 #### Scenario: A response that is not a stream completes
 
 - **WHEN** an upstream answers a Responses request with one complete JSON body
   and the client receives it
-- **THEN** the log holds, between the admission and the release, one line
-  `json_terminal` with the body's status when that is a token of lowercase
-  letters, digits and underscores of at most 64 characters, and `unknown`
-  otherwise.
+- **THEN** the last line before the release is `json_terminal` with the body's
+  status, `completed` or `incomplete`.
 
 #### Scenario: A client resets an idle connection
 
 - **WHEN** a client resets a kept-alive connection after its response is
   complete and before another request line is read
-- **THEN** the log holds no line for that reset
+- **THEN** the log holds no line for that reset, and the proxy ends that
+  connection
 - **AND** a reset after a request line has been read and before a response is
   admitted is named `client_closed_mid_request`.
 
-#### Scenario: A client closes an admitted response
+#### Scenario: A write meets the client's close
 
-- **WHEN** a client closes or resets its connection while an admitted response
-  is being written, a stream or not
-- **THEN** one line `downstream_client_closed` between the admission and the
-  release names it, under the request's number
+- **WHEN** a write of an admitted response, a stream or not, meets the client's
+  close or reset
+- **THEN** the last line before the release is `downstream_client_closed`,
+  under the request's number
+- **AND** the proxy writes nothing more to that connection and ends it
 - **AND** no line after the release names the same close.
 
-#### Scenario: A response ends in another way
+#### Scenario: No write meets the client's close
 
-- **WHEN** an admitted response ends by an upstream error, a deadline, a client
-  that closes, an invalid body or an unknown outcome
-- **THEN** one line between its admission and its release names that ending.
+- **WHEN** a client closes its side in order and every write of the response
+  still succeeds
+- **THEN** the last line names the response's own ending.
+
+#### Scenario: A write to the client times out
+
+- **WHEN** a write of an answer to the client times out
+- **THEN** the last line before the release is `downstream_write_deadline`
+- **AND** the proxy writes no second answer to that connection.
+
+#### Scenario: A response ends after a recovery
+
+- **WHEN** an admitted response ends by an upstream error, a deadline, an
+  invalid body or an unknown outcome, or after a recovery that the upstream
+  accepted, rejected or exhausted
+- **THEN** the last line before its release names that ending
+- **AND** a line that names a recovery's step stands before it.
 
 ## MODIFIED Requirements
 

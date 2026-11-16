@@ -3,8 +3,8 @@
 See [proposal.md](proposal.md). This Change is the sole active repository-wide
 convergence carrier. Its tasks are the progress authority; no parallel roadmap,
 quality backlog, compatibility matrix, or cleanup ledger will be added.
-Implementation may use multiple signed atomic commits, but all remain in this
-one Work Lane and close requirements from this one Change.
+Implementation uses signed atomic commits in successive Work Lanes, and each
+closes requirements from this one Change.
 
 The accepted product is a local Responses data plane. It receives one supported
 Responses request, validates and projects it to one configured upstream wire
@@ -54,14 +54,9 @@ Proxy also operates with an ordinary explicit upstream without AIGW, client or
 Forge installation dependencies. Source tests and runtime counters cannot
 replace those consumer results.
 
-Only then release the complete name migration through the native owners. Bind
-the same signed stable source and selected-platform assets to both Forges,
-verify local and remote repository identities, native installation, upgrade,
-rollback and restored serving, and migrate every active reference. Preserve
-credentials, user models, sessions, historical evidence and foreign work.
-Perform exact owned cleanup after each bounded operation. Two undecodable
-historical ciphertext messages remain preserved and outside plaintext recovery
-acceptance; universal client/provider immunity is outside this increment.
+Two undecodable historical ciphertext messages remain preserved and outside
+plaintext recovery acceptance; universal client/provider immunity is outside
+this increment.
 
 ## Goals / Non-Goals
 
@@ -104,10 +99,8 @@ not retry with missing messages. Client configuration remains with its existing
 owner and must align the namespace and model agent version. Native compaction's
 empty current-turn tool catalog is a valid control.
 
-Source acceptance precedes release, native installation, scoped client
-selection, original-chat acceptance and rollback. Old ciphertext readability is
-a separate unproved boundary until a supported decode or exact source binding
-establishes it.
+Old ciphertext readability is a separate unproved boundary until a supported
+decode or exact source binding establishes it.
 
 ### One Change, ordered semantic closures
 
@@ -273,20 +266,6 @@ compensation together. Tests separate unit, integration, native and release
 claims; platform names express real dispatch. Retire generic suffix clusters
 through consumer-owned consolidation, not directory depth or forwarding aliases.
 Acceptance proves preserved behavior and fewer parallel owners.
-
-Quality repair follows the existing task dependency order:
-
-1. Repair measurement/scope errors and unsupported completion claims; preserve
-   the installed service.
-2. Consolidate rule ownership and prove the actual invocation and failure exit.
-   Record justified bounds; leave unproved scopes open.
-3. Close product, test and fixture owners together; delete displaced paths and
-   imports before advancing. Apply the same rule to tools and non-code carriers.
-4. Enable the agreed policies without blanket exclusions or permanent baselines;
-   focused checks precede expensive proof.
-5. Freeze an exact candidate for CI events, cold bootstrap, native lifecycle,
-   security and performance acceptance. Release identity stays immutable while
-   later delivery evidence completes tasks, archive and retirement.
 
 Generic ETHOS scope, lifecycle, hook dispatch, and capability-reporting defects
 belong to ETHOS. Product policy, native tool configuration, tests, and CI remain
@@ -529,37 +508,30 @@ by each lane's closeout once ownership and lack of consumers are proved.
 
 ### The log names each response's ending and no idle connection
 
-- **Rests on:** the log of the installed product, grouped by request and read
-  by event name alone, on one operator host. Under 5.1.12, from 2026-11-14
-  17:57 to 2026-11-15 10:28, it holds 838 lines `client_closed_mid_request`,
-  and each follows a released response within one second; from 02:35 to 10:28
-  on 11-15 it holds 567 admitted and 567 released responses. Under 6.0.0, from
-  2026-11-15 16:40 to 2026-11-16 00:32, it holds 1,276 requests: 1,265 streams
-  that end with `response.completed`, 8 with an error terminal, 1 that the
-  client closed, 1 still active, and 1 completed response that was not a
-  stream and has no line between its admission and its release. The counters
-  account for that one; the log does not. The same span holds 1,036 lines
+- **Rests on:** the installed 6.0.0's log on one operator host, grouped by
+  request and read by event name alone, from 2026-11-15 16:40 to 2026-11-16
+  00:32. Of 1,276 requests, the one completed response that was not a stream
+  has no line between its admission and its release; the counters account for
+  it, and the log does not. The same span holds 1,036 lines
   `client_closed_mid_request`, each within one second after a released
   response.
 - **Considered:** for a reset between two requests, a line under its own event
-  name, a counter in `status`, or nothing. For a completed response that is not
-  a stream, the counter alone, as today, or a line.
+  name, a counter in `status`, or nothing; for a completed response that is
+  not a stream, the counter alone, as before, or a line.
 - **Chosen because:** a reset between two requests is how this client ends a
   kept-alive connection. It comes about once for each response and gives an
-  operator nothing to act on, so its own line would stay four fifths as long
-  as the list of responses, and a counter would add a public field for the
-  same non-event. A request's ending is different: a reader follows one request
+  operator nothing to act on, so a line or a public counter would record a
+  non-event. A request's ending is different: a reader follows one request
   through the log, and a response without an ending line cannot be told from
   one that was lost, which a counter cannot settle for a single request.
-- **Applies to:** requests that the Responses relay admits, on every platform.
-  A client's close of an admitted response is named once, by
-  `downstream_client_closed` under the request's number; before this, a stream
-  wrote that line and then `client_closed_mid_request` from the next read on
-  the dead connection, and a response that was not a stream wrote the second
-  alone, without a request's number. `client_closed_mid_request` stays for a
-  request whose line has been read and whose response is not admitted yet.
-  Catalog reads keep their own terminal line. No counter, no field of
-  `status --json` and no exit status changes.
+- **Applies to:** requests that the Responses relay admits, on every platform,
+  as the requirement "The log names how each admitted response ended" states.
+  Its rule needs no knowledge of the events' names: the last line of a request
+  before its release is its ending, and the lines before it are steps. A
+  client that closes its side in order while every write still succeeds is
+  not seen, because the operating system accepts the bytes. Catalog reads
+  keep their own terminal line; no counter, field of `status --json` or exit
+  status changes.
 
 ### Close on the installed product
 
@@ -583,12 +555,6 @@ It changes neither admission nor retries nor client state. Source/native proof
 is distinct from release and installed acceptance; the current serving generation
 remains untouched until the successor passes its declared transition.
 
-- **The broad Change becomes an excuse for an unreviewable patch** → keep one
-  Change but use ordered atomic commits, focused proofs, and task-level
-  acceptance; never combine unrelated mutations in one commit.
-- **Topology work destabilizes the working service** → preserve the accepted
-  installed release until a signed candidate passes native lifecycle proof;
-  source restructuring does not mutate the active service.
 - **Strict quality expansion creates arbitrary vetoes** → every rule records
   risk, scope, measurement, false-positive cost, remediation, and review
   condition; unsupported or redundant rules are rejected rather than enabled
@@ -596,9 +562,6 @@ remains untouched until the successor passes its declared transition.
 - **Latest dependencies introduce regressions** → update one authority at a
   time, regenerate locks, run clean-room and affected-platform proof, and keep
   published assets immutable.
-- **Dual-Forge automation produces different Git objects** → create and sign
-  commits and tags locally once; Forges only receive exact objects and publish
-  independent projections.
 - **Destructive cleanup removes user or foreign state** → delete only exact
   product-owned, lease-owned, manifest-owned, branch-owned, or unreferenced
   entities after a read-only inventory and consumer proof.

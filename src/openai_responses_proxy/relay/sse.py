@@ -235,10 +235,16 @@ def relay(
     reopen: Callable[[float], UpstreamResponse] | None = None,
     *,
     send_headers: Callable[[], None] | None = None,
+    accepted: Callable[[], None] | None = None,
     plaintext_agent_delivery: bool = False,
     deadline: float | None = None,
 ) -> RelayResult:
-    """Relay validated SSE with retries only before downstream commitment."""
+    """Relay validated SSE with retries only before downstream commitment.
+
+    ``accepted`` is called when the client has the upstream's stream: its headers were sent,
+    and neither a rejected event nor the byte budget cut it. The call comes before the line
+    that names the stream's ending, so that a step of the exchange stands before that line.
+    """
     headers_sent = False
     send_headers = send_headers or (lambda: None)
 
@@ -352,6 +358,9 @@ def relay(
             telemetry.record_failure("stream_pre_content_exhausted")
         else:
             telemetry.record_failure(f"stream_{detail}")
+    delivered = headers_sent and result["detail"] not in {"projection_failed", "buffer_limit"}
+    if accepted is not None and delivered:
+        accepted()
     safe_path = operational_log.safe_request_path(path)
     # An upstream's word stands last in its line: the log's redaction of a credential-shaped
     # word also takes the word after it.

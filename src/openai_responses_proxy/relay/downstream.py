@@ -48,8 +48,12 @@ CLIENT_CLOSED = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
 LATE_FAILURE_WRITE_SECONDS = 1.0
 
 
-class DownstreamDeadlineError(upstream_transport.ExchangeDeadlineError):
-    """The downstream client did not accept a write within the exchange deadline."""
+class DownstreamDeadlineError(TimeoutError):
+    """The downstream client did not accept a write within the exchange deadline.
+
+    The timeout is the client's, so this is no ``ExchangeDeadlineError``: a handler of the
+    exchange's own deadline would answer the same connection a second time.
+    """
 
 
 class _DeadlineWriter:
@@ -121,8 +125,8 @@ class Exchange(Protocol):
     ) -> UpstreamResponse:
         """Open the current attempt within an optional existing deadline."""
 
-    def log(self, event: str, detail: str = "", *, last: str = "") -> None:
-        """Record a bounded request event; ``last`` holds an upstream's word."""
+    def log(self, event: str, detail: str = "") -> None:
+        """Record a bounded request event."""
 
     def input_variant_accepted(self) -> None:
         """Record accepted input-variant recovery."""
@@ -206,6 +210,7 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             exchange.request_id,
             reopen=None if exchange.used_input_variant_dialogue else reopen,
             send_headers=lambda: _send_stream_headers(exchange.handler, response),
+            accepted=exchange.input_variant_accepted,
             plaintext_agent_delivery=exchange.plaintext_agent_delivery,
             deadline=exchange.deadline,
         )
@@ -261,8 +266,6 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
                 retry_after="3",
             )
             exchange.log("sse_pre_content_exhausted", f"attempts={result['attempts']} ")
-        else:
-            exchange.input_variant_accepted()
     except CLIENT_CLOSED:
         client_closed(exchange)
     except DownstreamDeadlineError:
@@ -461,5 +464,5 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
 
     send_payload(exchange.handler, response.status, payload)
     telemetry.record_counter("responses_completed")
-    exchange.log("json_terminal", last=f"status={live_response.diagnostic_token(status)}")
     exchange.input_variant_accepted()
+    exchange.log("json_terminal", f"status={status} ")

@@ -10,21 +10,25 @@ publication authority.
 
 ### Changed
 
-- The log names how every admitted response ended, in one line between
-  `responses_admitted` and `responses_released`. A completed response that is
-  not a stream wrote none; it writes `json_terminal` with the response's
-  `status`. A capacity recovery whose transport fails writes
-  `input_capacity_recovery_transport_error`, an exchange whose attempts all
-  went to retries and recoveries writes `upstream_transport_exhausted`, and
-  any other failure of the handler writes `responses_handler_exception` with
-  the exception's class.
-- A client that closes or resets its connection while an admitted response is
-  written is named once, by `downstream_client_closed` with the request's
-  number, provider and path, and the proxy ends that connection. A stream
-  wrote that line and then `client_closed_mid_request`; a response that was
-  not a stream, an upstream error or a local failure wrote only the second,
-  which names no request. An aborted connection (`ConnectionAbortedError`)
-  counts as such a close; in a stream it was a `stream_handler_exception`.
+- The log names how every admitted response ended: the last line of a request
+  before `responses_released` names its ending, and the lines before it name
+  steps, such as a retry or a recovery. A completed response that is not a
+  stream wrote none; it writes `json_terminal` with the response's `status`,
+  `completed` or `incomplete`. A capacity recovery whose transport fails
+  writes `input_capacity_recovery_transport_error`, an exchange whose attempts
+  all went to retries and recoveries writes `upstream_transport_exhausted`,
+  and any other failure of the handler writes `responses_handler_exception`
+  with the exception's class. `input_variant_dialogue_recovery_accepted`
+  stands before the line that ends its response; it followed that line.
+- A close or a reset by the client that a write of an admitted response meets
+  is named once, by `downstream_client_closed` with the request's number,
+  provider and path, and the proxy ends that connection. A stream wrote that
+  line and then `client_closed_mid_request`; a response that was not a stream,
+  an upstream error or a local failure wrote only the second, which names no
+  request. An aborted connection (`ConnectionAbortedError`) counts as such a
+  close; in a stream it was a `stream_handler_exception`. A client that closes
+  its side in order while every write still succeeds is not seen: the response
+  keeps its own ending.
 
 ### Fixed
 
@@ -32,6 +36,11 @@ publication authority.
   as `client_closed_mid_request`, about once for each response. Such a reset
   writes no line. The event remains for a request whose request line has been
   read and whose response is not admitted yet.
+- A write of an upstream error or of a local failure that timed out was taken
+  for the exchange's deadline: the proxy wrote a second answer,
+  `504 upstream_deadline_exceeded`, to the same connection, and `status`
+  reported that failure last. Such a response ends as
+  `downstream_write_deadline`, and nothing more is written.
 
 ## [6.0.0] - 2026-11-15
 

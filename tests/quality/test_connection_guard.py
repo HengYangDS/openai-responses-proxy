@@ -1,11 +1,14 @@
-"""A test connects only to a loopback listener that the test process bound."""
+"""A test connects only to a port that the test process bound."""
 
 from __future__ import annotations
 
+import ipaddress
+import re
 import socket
 import subprocess
 import sys
 from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Protocol
 
@@ -35,20 +38,41 @@ threading.Thread(target=serve, daemon=True).start()
 print(listener.getsockname()[1], flush=True)
 sys.stdin.read()
 """
+# A test file that a child pytest runs under a copy of the shared configuration.
+_SWALLOWS = """
+import contextlib
+import socket
+
+
+def test_swallows_the_refusal():
+    with contextlib.suppress(OSError), socket.socket() as client:
+        client.connect(("127.0.0.1", 9))
+
+
+def test_binds_its_own_listener():
+    with socket.create_server(("127.0.0.1", 0)) as listener:
+        socket.create_connection(listener.getsockname()[:2]).close()
+"""
 _SECONDS = 10.0
-_REFUSAL = r"loopback port {port} .*did not bind.*a test binds its own listener"
+_CHILD_SECONDS = 60.0
+# The address that names every interface: a client that connects to it reaches this host.
+_EVERY_INTERFACE = str(ipaddress.IPv4Address(0))
 
 
 class _OwnListeners(Protocol):
     """The guard that the shared test configuration hands to a test."""
 
-    refused: list[int]
+    refused: list[tuple[object, object]]
 
-    def admit(self, address: object) -> None:
-        """Refuse a loopback address whose port the test process did not bind."""
+    def admit(self, family: int, address: object) -> None:
+        """Refuse an internet address whose port the test process did not bind."""
 
-    def require_none_refused(self) -> None:
-        """Fail when a connection was refused."""
+
+def _refusal(host: object, port: int) -> str:
+    return re.escape(
+        f"connection to {host!r} port {port} refused: the test process did not bind that port, "
+        "and a test binds its own listener"
+    )
 
 
 @contextmanager
@@ -65,27 +89,61 @@ def _child_listener(port: int = 0) -> Generator[int]:
         yield int(child.stdout.readline())
 
 
+@pytest.fixture(scope="module")
+def foreign_port() -> Generator[int]:
+    """Yield a loopback port on which another process listens."""
+    with _child_listener() as port:
+        yield port
+
+
 def _read(port: int) -> bytes:
     with socket.create_connection(("127.0.0.1", port), timeout=_SECONDS) as client:
         return client.recv(64)
 
 
-@pytest.mark.parametrize("host", ["127.0.0.1", "127.8.7.6", "localhost", "LocalHost", "::1"])
-def test_a_connection_to_a_listener_that_this_process_did_not_bind_is_refused(
-    host: str, own_listeners: _OwnListeners
+@pytest.mark.parametrize(
+    "host",
+    [
+        "127.0.0.1",
+        "127.8.7.6",
+        "localhost",
+        "LocalHost",
+        "::1",
+        _EVERY_INTERFACE,
+        "",
+        b"127.0.0.1",
+        "127.1",
+        "2130706433",
+        "localhost.",
+        "192.0.2.1",
+    ],
+)
+def test_a_connection_to_a_port_that_this_process_did_not_bind_is_refused_whatever_its_host(
+    host: str | bytes, foreign_port: int, own_listeners: _OwnListeners
 ) -> None:
-    with _child_listener() as port, socket.socket() as client:
-        with pytest.raises(ConnectionRefusedError, match=_REFUSAL.format(port=port)):
-            client.connect((host, port))
-        with pytest.raises(ConnectionRefusedError, match=_REFUSAL.format(port=port)):
-            client.connect_ex((host, port))
+    with socket.socket() as client:
+        client.settimeout(_SECONDS)
+        with pytest.raises(ConnectionRefusedError, match=_refusal(host, foreign_port)):
+            client.connect((host, foreign_port))
+        with pytest.raises(ConnectionRefusedError, match=_refusal(host, foreign_port)):
+            client.connect_ex((host, foreign_port))
 
-    # A test that swallows the refusal still fails when it ends.
-    assert own_listeners.refused == [port, port]
-    with pytest.raises(AssertionError, match=_REFUSAL.format(port=port)):
-        own_listeners.require_none_refused()
+    assert own_listeners.refused == [(host, foreign_port)] * 2
+    # This test met its refusals on purpose; left in place they would fail it when it ends.
     own_listeners.refused.clear()
-    own_listeners.require_none_refused()
+
+
+@pytest.mark.parametrize(
+    "address", [("127.0.0.1",), ("127.0.0.1", "http"), "127.0.0.1:80"], ids=repr
+)
+def test_an_internet_address_without_a_port_that_was_bound_is_refused(
+    address: object, own_listeners: _OwnListeners
+) -> None:
+    with pytest.raises(ConnectionRefusedError, match="a test binds its own listener"):
+        own_listeners.admit(socket.AF_INET6, address)
+
+    assert len(own_listeners.refused) == 1
+    own_listeners.refused.clear()
 
 
 def test_a_connection_to_a_listener_that_this_process_bound_is_admitted(
@@ -114,14 +172,33 @@ def test_a_port_that_this_process_bound_stays_admitted_when_a_child_listens_ther
     assert own_listeners.refused == []
 
 
-@pytest.mark.parametrize(
-    "address",
-    [("192.0.2.1", 9), ("upstream.invalid", 443), "/run/service.sock", ("127.0.0.1",)],
-    ids=["another host", "a name", "a path", "no port"],
-)
-def test_an_address_that_is_no_loopback_port_is_not_the_guards_to_refuse(
-    address: object, own_listeners: _OwnListeners
+def test_a_socket_of_another_family_is_not_the_guards_to_refuse(
+    own_listeners: _OwnListeners,
 ) -> None:
-    own_listeners.admit(address)
+    own_listeners.admit(socket.AF_UNSPEC, "/run/service.sock")
 
     assert own_listeners.refused == []
+
+
+def test_a_test_that_swallows_the_refusal_fails_when_it_ends(tmp_path: Path) -> None:
+    shared = Path(__file__).resolve().parents[1] / "conftest.py"
+    (tmp_path / "conftest.py").write_bytes(shared.read_bytes())
+    (tmp_path / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (tmp_path / "test_swallows.py").write_text(_SWALLOWS, encoding="utf-8")
+
+    child = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--rootdir", "."],
+        cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=_CHILD_SECONDS,
+        check=False,
+    )
+
+    # Both tests pass their own bodies; the fixture fails the one whose refusal it found.
+    assert child.returncode == 1, child.stdout + child.stderr
+    assert "2 passed, 1 error" in child.stdout
+    assert "ERROR at teardown of test_swallows_the_refusal" in child.stdout
+    assert re.search(_refusal("127.0.0.1", 9), child.stdout)

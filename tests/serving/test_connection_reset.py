@@ -1,4 +1,4 @@
-"""The log names a client's reset once, and only while one of its requests is read or answered."""
+"""The log names a client's close once, and only where a read or a write of a request meets it."""
 
 from __future__ import annotations
 
@@ -157,11 +157,11 @@ def _answered_connection(port: int) -> http.client.HTTPConnection:
     return connection
 
 
-def _await_reset(proxy: _ObservedServer) -> None:
-    """Wait until the client's reset has reached the listener's end of the connection.
+def _await_close(proxy: _ObservedServer) -> None:
+    """Wait until the client's close or reset has reached the listener's end of the connection.
 
     The handler waits for its upstream then and the request has been read whole, so that end
-    turns readable only when the reset arrives.
+    turns readable only when the close arrives.
     """
     [connection] = proxy.connections
     readable, _, _ = select.select([connection], [], [], _HANDLER_SECONDS)
@@ -186,6 +186,9 @@ def test_a_reset_between_two_requests_writes_no_line(
     assert proxy.handler_ended.wait(_HANDLER_SECONDS)
     assert _log_lines(log_path) == []
     assert proxy.errors == []
+    # The handler ends the connection with the pass that met the reset: a further pass would
+    # read a dead connection, which can raise again and again.
+    assert proxy.passes == 2
 
 
 def test_an_orderly_close_between_two_requests_writes_no_line(
@@ -238,25 +241,23 @@ def test_a_reset_after_part_of_a_request_line_writes_no_line(
     assert proxy.errors == []
 
 
-@pytest.mark.parametrize(
-    ("reads", "held", "content_type", "sent"),
+_ADMITTED = pytest.mark.parametrize(
+    ("reads", "held", "content_type", "sent", "ending"),
     [
-        ((_COMPLETED_JSON,), 0, "application/json", b""),
-        ((_DELTA, _COMPLETED), 1, "text/event-stream", _DELTA),
+        ((_COMPLETED_JSON,), 0, "application/json", b"", "json_terminal"),
+        ((_DELTA, _COMPLETED), 1, "text/event-stream", _DELTA, "sse_terminal"),
     ],
     ids=["a response that is not a stream", "a stream after its first event"],
 )
-def test_a_reset_while_an_admitted_response_is_written_is_named_once(
-    proxy: _ObservedServer,
-    log_path: Path,
-    *,
-    reads: tuple[bytes, ...],
-    held: int,
-    content_type: str,
-    sent: bytes,
-    mocker: MockerFixture,
-) -> None:
-    upstream = _HeldResponse(*reads, held=held, content_type=content_type)
+
+
+def _held_response(
+    proxy: _ObservedServer, upstream: _HeldResponse, sent: bytes, mocker: MockerFixture
+) -> tuple[socket.socket, bytes]:
+    """Send one request and return the client with what it has of the answer so far.
+
+    The upstream is held then, so the handler writes nothing more until the test releases it.
+    """
     mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=upstream)
     body = b'{"input":"current"}'
     client = socket.create_connection(("127.0.0.1", proxy.server_port), timeout=_HANDLER_SECONDS)
@@ -271,22 +272,42 @@ def test_a_reset_while_an_admitted_response_is_written_is_named_once(
         chunk = client.recv(65536)
         assert chunk
         received += chunk
+    return client, received
 
-    _reset(client)
-    _await_reset(proxy)
-    upstream.release.set()
 
-    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+def _admitted_events(log_path: Path) -> tuple[list[str], list[str]]:
+    """Return the lines from the admission on, and their events."""
     lines = _log_lines(log_path)
     events = [_fields(line)["event"] for line in lines]
     admitted = events.index("responses_admitted")
-    # The close is named under its request, and nothing follows the release.
-    assert events[admitted:] == [
-        "responses_admitted",
-        "downstream_client_closed",
-        "responses_released",
-    ]
-    assert _fields(lines[admitted + 1]) == {
+    return lines[admitted:], events[admitted:]
+
+
+@_ADMITTED
+def test_a_reset_that_a_write_of_an_admitted_response_meets_is_named_once(
+    proxy: _ObservedServer,
+    log_path: Path,
+    *,
+    reads: tuple[bytes, ...],
+    held: int,
+    content_type: str,
+    sent: bytes,
+    ending: str,
+    mocker: MockerFixture,
+) -> None:
+    del ending
+    upstream = _HeldResponse(*reads, held=held, content_type=content_type)
+    client, _received = _held_response(proxy, upstream, sent, mocker)
+
+    _reset(client)
+    _await_close(proxy)
+    upstream.release.set()
+
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    lines, events = _admitted_events(log_path)
+    # The close is the last line before the release, and nothing follows the release.
+    assert events == ["responses_admitted", "downstream_client_closed", "responses_released"]
+    assert _fields(lines[1]) == {
         "req": "1",
         "event": "downstream_client_closed",
         "provider": "dmxapi",
@@ -296,3 +317,34 @@ def test_a_reset_while_an_admitted_response_is_written_is_named_once(
     # would meet the close again.
     assert proxy.errors == []
     assert proxy.passes == 1
+
+
+@_ADMITTED
+def test_an_orderly_close_that_no_write_meets_leaves_the_responses_own_ending(
+    proxy: _ObservedServer,
+    log_path: Path,
+    *,
+    reads: tuple[bytes, ...],
+    held: int,
+    content_type: str,
+    sent: bytes,
+    ending: str,
+    mocker: MockerFixture,
+) -> None:
+    upstream = _HeldResponse(*reads, held=held, content_type=content_type)
+    client, received = _held_response(proxy, upstream, sent, mocker)
+
+    # The client ends its sending side and keeps reading, so no write to it can fail.
+    client.shutdown(socket.SHUT_WR)
+    _await_close(proxy)
+    upstream.release.set()
+    while chunk := client.recv(65536):
+        received += chunk
+    client.close()
+
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    assert received.startswith(b"HTTP/1.1 200 ")
+    assert reads[-1] in received
+    _lines, events = _admitted_events(log_path)
+    assert events == ["responses_admitted", ending, "responses_released"]
+    assert proxy.errors == []

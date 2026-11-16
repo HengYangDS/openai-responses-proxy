@@ -1,14 +1,14 @@
 """Test configuration that every tree shares: a test reaches only a listener that it bound.
 
-A connection from the test process to a loopback port that this process never bound would read
-whatever listens there on the host, an installed service among them. Such a connection is
-refused. A port that this process bound stays admitted after its socket is closed, because a
-test hands such a port to a child process that then listens there.
+A connection from the test process to a port that this process never bound would read whatever
+listens there, on the host or on the network, an installed service among them. Every such
+connection of an internet socket is refused, whatever host its address names. A port that this
+process bound stays admitted after its socket is closed, because a test hands such a port to a
+child process that then listens there.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import socket
 from typing import TYPE_CHECKING
 
@@ -20,53 +20,38 @@ if TYPE_CHECKING:
 _BIND = socket.socket.bind
 _CONNECT = socket.socket.connect
 _CONNECT_EX = socket.socket.connect_ex
+_INTERNET = frozenset({socket.AF_INET, socket.AF_INET6})
 type _Address = tuple[object, ...] | str | bytes
 
 
 class ForeignListenerError(ConnectionRefusedError):
-    """A test tried to reach a loopback port that the test process did not bind."""
-
-
-def _loopback_port(address: object) -> int | None:
-    """Return the port of an address on 127.0.0.0/8, ``::1`` or ``localhost``, or nothing."""
-    if not isinstance(address, tuple) or len(address) < 2:
-        return None
-    host, port = address[0], address[1]
-    if not isinstance(host, str) or not isinstance(port, int):
-        return None
-    if host.casefold() == "localhost":
-        return port
-    try:
-        return port if ipaddress.ip_address(host).is_loopback else None
-    except ValueError:
-        return None
+    """A test tried to reach a port that the test process did not bind."""
 
 
 class OwnListeners:
-    """The loopback ports that this process bound, and the connections refused for want of one."""
+    """The ports that this process bound, and the connections refused for want of one."""
 
     def __init__(self) -> None:
         """Start with no port bound and no connection refused."""
         self.bound: set[int] = set()
-        self.refused: list[int] = []
+        self.refused: list[tuple[object, object]] = []
 
-    def admit(self, address: object) -> None:
-        """Refuse a loopback address whose port this process did not bind."""
-        port = _loopback_port(address)
-        if port is None or port in self.bound:
+    def admit(self, family: int, address: object) -> None:
+        """Refuse an internet address unless this process bound its port."""
+        if family not in _INTERNET:
             return
-        self.refused.append(port)
-        raise ForeignListenerError(_refusal([port]))
+        pair = isinstance(address, tuple) and len(address) > 1
+        host, port = (address[0], address[1]) if pair else (address, None)
+        if isinstance(port, int) and port in self.bound:
+            return
+        self.refused.append((host, port))
+        raise ForeignListenerError(_refusal([(host, port)]))
 
-    def require_none_refused(self) -> None:
-        """Fail a test that had a connection refused, also when the test swallowed the error."""
-        assert not self.refused, _refusal(self.refused)
 
-
-def _refusal(ports: list[int]) -> str:
-    named = ", ".join(str(port) for port in sorted(set(ports)))
+def _refusal(targets: list[tuple[object, object]]) -> str:
+    named = ", ".join(f"{host!r} port {port}" for host, port in targets)
     return (
-        f"connection to loopback port {named} refused: the test process did not bind it, "
+        f"connection to {named} refused: the test process did not bind that port, "
         "and a test binds its own listener"
     )
 
@@ -76,17 +61,17 @@ _GUARD = OwnListeners()
 
 def _bind(self: socket.socket, address: _Address, /) -> None:
     _BIND(self, address)
-    if self.family in {socket.AF_INET, socket.AF_INET6}:
+    if self.family in _INTERNET:
         _GUARD.bound.add(self.getsockname()[1])
 
 
 def _connect(self: socket.socket, address: _Address, /) -> None:
-    _GUARD.admit(address)
+    _GUARD.admit(self.family, address)
     _CONNECT(self, address)
 
 
 def _connect_ex(self: socket.socket, address: _Address, /) -> int:
-    _GUARD.admit(address)
+    _GUARD.admit(self.family, address)
     return _CONNECT_EX(self, address)
 
 
@@ -101,12 +86,12 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(autouse=True)
 def own_listeners() -> Generator[OwnListeners]:
-    """Fail a test whose connection to a loopback port was refused.
+    """Fail a test whose connection was refused, also when the test swallowed the error.
 
     A refusal that a fixture of a wider scope met before the test counts against that test.
     """
     try:
         yield _GUARD
-        _GUARD.require_none_refused()
+        assert not _GUARD.refused, _refusal(_GUARD.refused)
     finally:
         _GUARD.refused.clear()

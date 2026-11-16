@@ -159,16 +159,11 @@ class Exchange:
         if time.monotonic() >= self.deadline:
             raise ExchangeDeadlineError("upstream deadline expired during retry delay")
 
-    def log(self, event: str, detail: str = "", *, last: str = "") -> None:
-        """Record one request-scoped operational event without sensitive payloads.
-
-        ``last`` is a field that holds an upstream's word. It stands last in its line: the log's
-        redaction of a credential-shaped word also takes the word after it.
-        """
+    def log(self, event: str, detail: str = "") -> None:
+        """Record one request-scoped operational event without sensitive payloads."""
         path = operational_log.safe_request_path(self.handler.path)
         operational_log.log(
             f"req={self.request_id} event={event} provider={self.profile.name} {detail}path={path}"
-            + (f" {last}" if last else "")
         )
 
     def accepted_recovery(self) -> None:
