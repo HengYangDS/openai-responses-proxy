@@ -218,7 +218,8 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
             ".",
             "-c",
             ".config/checks/pytest/pytest.toml",
-            "tests/quality/secrets",
+            "-m",
+            "repository_toolchain",
         ),
         (
             "lychee",

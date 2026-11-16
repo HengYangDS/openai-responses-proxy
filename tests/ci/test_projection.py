@@ -28,6 +28,19 @@ linuxImage: "python:" + python + "-bookworm@sha256:" + strings.Repeat("a", 64)
 """
 
 
+def _release_literal(release: str) -> str:
+    """Require the bare release exactly once in the model; return its file and line."""
+    bare = re.compile(rf"(?<![\d.]){re.escape(release)}(?![\d.])")
+    found = [
+        f"{Path(path).relative_to(project.ROOT).as_posix()}:{number}"
+        for path in project.model_inputs()
+        for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1)
+        for _occurrence in bare.finditer(line)
+    ]
+    assert len(found) == 1, f"release literals: {found}"
+    return found[0]
+
+
 @pytest.mark.repository_toolchain
 def test_native_cue_projects_one_matrix_and_refuses_drift_without_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -253,9 +266,16 @@ def test_native_release_projections_share_one_cue_owner(
     )
     project.main(("--write",))
     before = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
+    release = (tmp_path / ".config/mise/python-release").read_text().strip()
+    major, minor, patch = release.split(".")
+    successor = f"{major}.{minor}.{int(patch) + 1}"
     model = tmp_path / ".config/ci/graph/toolchains.cue"
     source = model.read_text()
-    updated, count = re.subn(r'(python:\s+)"3\.14\.7"', r'\g<1>"3.14.8"', source)
+    # The image reference is the model's only release literal; the Python patch is read from it.
+    assert _release_literal(release).startswith(".config/ci/graph/toolchains.cue:")
+    updated, count = re.subn(
+        rf'(linuxImage:\s+"python:){re.escape(release)}-', rf"\g<1>{successor}-", source
+    )
     assert count == 1
     model.write_text(updated)
     assert set(project.reconcile(write=False)) == {
@@ -264,9 +284,39 @@ def test_native_release_projections_share_one_cue_owner(
     }
     assert {path: path.read_bytes() for path in before} == before
     project.main(("--write",))
-    assert (tmp_path / ".config/mise/python-release").read_bytes() == b"3.14.8\n"
-    assert (tmp_path / ".config/ci/linux-release-image").read_text().startswith("python:3.14.8-")
+    assert (tmp_path / ".config/mise/python-release").read_bytes() == f"{successor}\n".encode()
+    image = (tmp_path / ".config/ci/linux-release-image").read_text()
+    assert image.startswith(f"python:{successor}-")
     accepted = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
     project.main(("--write",))
     assert project.reconcile(write=False) == ()
     assert {path: path.read_bytes() for path in accepted} == accepted
+
+
+@pytest.mark.parametrize(
+    ("relative", "addition"),
+    [
+        (".config/ci/graph/toolchains.cue", '#ReleaseRuntime: slimImage: "python:{}-slim"'),
+        (".config/ci/peers/github/workflow.cue", '#SecondRelease: "{}"'),
+    ],
+)
+def test_a_second_release_literal_anywhere_in_the_model_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str, addition: str
+) -> None:
+    root = project.ROOT
+    release = (root / ".config/mise/python-release").read_text(encoding="utf-8").strip()
+    assert _release_literal(release).startswith(".config/ci/graph/toolchains.cue:")
+    for path in project.model_inputs():
+        target = tmp_path / Path(path).relative_to(root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(Path(path).read_bytes())
+    monkeypatch.setattr(project, "ROOT", tmp_path)
+    monkeypatch.setattr(project, "MODEL", tmp_path / ".config/ci")
+    assert _release_literal(release).startswith(".config/ci/graph/toolchains.cue:")
+    with (tmp_path / relative).open("a", encoding="utf-8") as model:
+        model.write(f"\n{addition.format(release)}\n")
+
+    with pytest.raises(
+        AssertionError, match=rf"release literals: \[.*, '{re.escape(relative)}:\d+'\]"
+    ):
+        _release_literal(release)

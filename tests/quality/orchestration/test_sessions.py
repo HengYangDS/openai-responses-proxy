@@ -157,7 +157,7 @@ def test_sessions_accept_built_artifacts_before_publication(
     else:
         assert calls[behavior][-6:] == (
             "-m",
-            "not native_distribution and not repository_toolchain",
+            "not native_distribution and not native_observer and not repository_toolchain",
             "--rootdir",
             str(nox_configuration.python_quality.ROOT),
             "-c",

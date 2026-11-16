@@ -24,11 +24,12 @@ def test_native_developer_uv_uses_only_the_repository_configuration(
     user.mkdir()
     injected = user / "uv.toml"
     injected.write_text('required-version = "==99.0.0"\n')
-    environment = {
-        name: value
-        for name, value in os.environ.items()
-        if name in {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SystemRoot", "COMSPEC"}
-    }
+    # Where Mise keeps installed tools and their downloads is supply, not configuration: a runner
+    # image moves both off HOME, and without them the child would install every tool again. No
+    # variable that selects a configuration file or a setting is admitted.
+    supply = {"MISE_DATA_DIR", "MISE_CACHE_DIR"}
+    host = {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SystemRoot", "COMSPEC"}
+    environment = {name: value for name, value in os.environ.items() if name in host | supply}
     if injection == "explicit":
         environment["UV_CONFIG_FILE"] = str(injected)
     elif injection == "user":
