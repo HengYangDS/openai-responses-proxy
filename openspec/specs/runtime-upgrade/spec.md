@@ -896,8 +896,9 @@ before a projection, a service definition or a process changes.
 
 - **WHEN** an upgrade or rollback handoff fails before its successor commits
 - **THEN** the payload is rolled back only after health proves that the
-  captured predecessor still owns the listener, admits requests and has begun
-  no handoff since its capture
+  captured predecessor still owns the listener, admits requests and has no
+  handoff in flight, and the controller holds evidence that no handoff of its
+  request is to come
 - **AND** without that proof the transaction is preserved for recovery as an
   unknown outcome
 - **AND** the controller sends the predecessor no request that changes its
@@ -914,12 +915,15 @@ before a projection, a service definition or a process changes.
 
 #### Scenario: A handoff request ends without the listener's answer
 
-- **WHEN** the controller is interrupted or loses its connection before a
-  listener that an earlier handoff created answers the handoff request
-- **THEN** that listener's finished handoff SHALL NOT count as proof that
-  nothing began, because the listener may be about to begin
+- **WHEN** the controller is interrupted or loses its connection before the
+  listener answers the handoff request
+- **THEN** a listener at rest, idle or showing its finished handoff, SHALL NOT
+  count as proof that nothing began, because the listener may have the request
+  and be about to begin
 - **AND** a handoff that begins is followed to its end, and otherwise the
-  transaction is preserved for recovery as an unknown outcome.
+  request is settled as "A failed handoff request is settled by evidence of
+  the listener's part" requires, or the transaction is preserved for recovery
+  as an unknown outcome.
 
 ### Requirement: The listener exposes no admission drain
 
@@ -953,3 +957,81 @@ that it opened, so that the next command needs no recovery.
   refused
 - **THEN** the journal is absent after the failure
 - **AND** the selector and the installed record are unchanged.
+
+### Requirement: A failed handoff request is settled by evidence of the listener's part
+
+After a handoff request has failed, the controller and `recover` SHALL read a listener at rest, idle or showing
+a finished handoff, as proof that no handoff of that request is to come only together with evidence of the
+listener's part in it: the request was never sent, the listener refused or acknowledged it, its handoff was
+seen to begin and end, or the time in which the listener may begin it has run out. A listener SHALL begin a
+handoff only within that time.
+
+#### Scenario: A handoff request is never sent
+
+- **WHEN** the controller fails before it writes the first byte of its handoff request, the opening of the
+  request's connection included
+- **THEN** it reads that the listener can begin nothing of that request
+- **AND** it rolls the payload back without waiting once health shows the captured listener at rest.
+
+#### Scenario: The controller ends the connection of its handoff request
+
+- **WHEN** the controller ends the connection of a handoff request, after an answer or without one, or the
+  controller's process ends
+- **THEN** the connection ends with a reset and not with an ordinary close, so that a listener which does not
+  have the connection yet never receives the request
+- **AND** a connection that cannot be made to end so carries no request.
+
+#### Scenario: A listener rolls back a handoff that it acknowledged
+
+- **WHEN** a listener acknowledges a handoff request, the handoff fails before its successor commits, and the
+  listener's handoff session returns to idle
+- **THEN** the controller reads that the handoff began and ended
+- **AND** it rolls the payload back without waiting out the handoff deadline.
+
+#### Scenario: An unanswered request is seen to begin and end
+
+- **WHEN** a handoff request ends without the listener's answer, and the controller then reads the request's
+  transaction in the listener's handoff session and afterwards an idle session
+- **THEN** the controller reads that the handoff began and ended and rolls the payload back
+- **AND** a session that names another transaction is no sight of this request.
+
+#### Scenario: A listener refuses a request that reaches its handoff too late
+
+- **WHEN** a handoff request reaches the begin of its handoff later than the request's own timeout after the
+  listener accepted the request's connection
+- **THEN** the listener refuses the request with HTTP 408 and the error
+  `handoff_request_expired`
+- **AND** its handoff session is unchanged.
+
+#### Scenario: An unanswered request runs out of time
+
+- **WHEN** a handoff request ends without the listener's answer, the request's timeout and one second have
+  passed since a health read that followed the request showed the captured listener at rest, and a health
+  read that is asked after that time shows it at rest
+- **THEN** the controller reads that the listener can no longer begin that request and rolls the payload back
+- **AND** before that time a listener at rest proves nothing, and a handoff that begins is followed to its
+  end.
+
+#### Scenario: Recovery waits out a handoff request that may be pending
+
+- **WHEN** `recover` finds a transaction that reached activation and a predecessor at rest
+- **THEN** it restores the prior selection only on a health read that it asks after the longest timeout that a
+  handoff request can carry and one second have passed since its first read returned, and that still shows
+  the predecessor at rest
+- **AND** a successor that committed in that time is finalized, and a handoff that is in flight then leaves
+  the transaction for a later `recover`
+- **AND** a transaction that did not reach activation requested no handoff and is restored without that wait.
+
+#### Scenario: Recovery reads a handoff that is done or in flight
+
+- **WHEN** health shows the predecessor's listener with a handoff in flight, or with the finished handoff of
+  the transaction that `recover` decides, or shows a successor that its predecessor has not finalized
+- **THEN** `recover` restores nothing and finalizes nothing, and the transaction stays for a later `recover`
+- **AND** a predecessor that still shows the finished handoff which created it is at rest.
+
+#### Scenario: Recovery says that it waits
+
+- **WHEN** `recover` begins that wait in its human form
+- **THEN** it writes one line to standard error that names the wait and its length
+- **AND** with `--json` it writes nothing to standard error, and its result on standard output is unchanged
+  in either form.
