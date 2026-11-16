@@ -8,7 +8,11 @@ request that cannot be withdrawn is not sent.
 
 from __future__ import annotations
 
+import io
+import urllib.error
+from email.message import Message
 from typing import TYPE_CHECKING
+from typing import override
 
 import pytest
 
@@ -26,6 +30,30 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 _RESTING = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
+_REFUSAL = b'{"ok":false,"error":"handoff_in_progress"}'
+
+
+class _RecordedBody(io.BytesIO):
+    """The body of a refusal that records how much of it had been read when it was left."""
+
+    def __init__(self, content: bytes, *, breaks_off: bool = False) -> None:
+        super().__init__(content)
+        self._breaks_off = breaks_off
+        self.read_when_left: int | None = None
+
+    @override
+    def read(self, size: int | None = -1, /) -> bytes:
+        if self._breaks_off:
+            raise ConnectionResetError("the body broke off")
+        return super().read(size)
+
+    @override
+    def close(self) -> None:
+        if not self.closed and self.read_when_left is None:
+            self.read_when_left = self.tell()
+        super().close()
+
+
 _UNSENT = handoff.RequestEvidence.UNSENT
 
 
@@ -90,6 +118,33 @@ class TestTheConnectOfAHandoffRequest:
         assert opening.kwargs == {"timeout_seconds": 8.0}
         assert sending.args == (self.mocker.sentinel.opened, request)
         assert sending.kwargs == {}
+
+    def test_a_refusal_is_taken_whole_before_the_connection_is_left(self) -> None:
+        """Leaving the connection resets it, so the listener must have written its whole answer.
+
+        A listener writes the status of a refusal and then its body. On Linux a controller that
+        left at the status reset the connection under the body in 3 of 15 refusals, and the
+        listener logged a request that its client had closed.
+        """
+        body = _RecordedBody(_REFUSAL)
+        self.sent.side_effect = urllib.error.HTTPError("url", 409, "conflict", Message(), body)
+
+        with pytest.raises(handoff.HandoffRefusedError, match="HTTP 409"):
+            handoff.post_ready(self.ctx, expected_metadata(), lease_seconds=1, timeout_seconds=1)
+
+        assert body.closed
+        assert body.read_when_left == len(_REFUSAL)
+
+    def test_a_refusal_whose_body_breaks_off_is_still_the_listeners_refusal(self) -> None:
+        """The status has said that the listener refused; the rest of the answer adds nothing."""
+        body = _RecordedBody(_REFUSAL, breaks_off=True)
+        self.sent.side_effect = urllib.error.HTTPError("url", 503, "unavailable", Message(), body)
+
+        with pytest.raises(handoff.HandoffRefusedError, match="HTTP 503") as refused:
+            handoff.post_ready(self.ctx, expected_metadata(), lease_seconds=1, timeout_seconds=1)
+
+        assert handoff.request_evidence(refused.value) is handoff.RequestEvidence.REFUSED
+        assert body.closed
 
     def test_a_request_whose_connect_failed_is_settled_at_once_with_the_listener_at_rest(
         self,

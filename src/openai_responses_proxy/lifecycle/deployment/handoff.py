@@ -9,6 +9,7 @@ transaction commits a different admitted transaction.
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import http.client
 import json
@@ -148,6 +149,21 @@ def _connect(
         raise errors.InstallError(f"{_CONTROL} is unavailable") from exc
 
 
+def _leave_after_the_whole_refusal(refusal: urllib.error.HTTPError) -> None:
+    """Take a refusal's body to its end, within the bound of a reply, then leave the connection.
+
+    Leaving the connection resets it, and a listener writes the status of a refusal and its
+    body in two steps. A controller that left at the status could reset the connection under
+    the second step, and the listener would log a request that its client closed. The status
+    has already said that the listener refused: a body that breaks off changes nothing of it.
+    """
+    try:
+        with contextlib.suppress(*_TRANSPORT_FAILURES):
+            refusal.read(_MAX_BODY_BYTES + 1)
+    finally:
+        refusal.close()
+
+
 def _handoff_reply(
     connection: http.client.HTTPConnection, request: urllib.request.Request
 ) -> object:
@@ -159,7 +175,7 @@ def _handoff_reply(
             raw = response.read(_MAX_BODY_BYTES + 1)
     except urllib.error.HTTPError as exc:
         code = exc.code
-        exc.close()
+        _leave_after_the_whole_refusal(exc)
         raise HandoffRefusedError(f"{label} returned HTTP {code}") from exc
     except _TRANSPORT_FAILURES as exc:
         raise errors.InstallError(f"{label} is unavailable") from exc

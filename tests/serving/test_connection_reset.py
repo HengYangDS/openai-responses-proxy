@@ -55,6 +55,14 @@ class _ObservedHandler(server.Handler):
         cast("_ObservedServer", self.server).request_parsed.set()
         return parsed
 
+    @override
+    def end_headers(self) -> None:
+        """Write the head of the answer, then wait where a test holds the body back."""
+        super().end_headers()
+        held = cast("_ObservedServer", self.server).body_released
+        if held is not None:
+            held.wait(_HANDLER_SECONDS)
+
 
 class _ObservedServer(server.ResilientProxyServer):
     """Report each accepted connection, each error that leaves its handler, and its end."""
@@ -65,6 +73,8 @@ class _ObservedServer(server.ResilientProxyServer):
         self.connection_accepted = threading.Event()
         self.request_parsed = threading.Event()
         self.handler_ended = threading.Event()
+        # Set by a test that holds each answer's body back until it releases it.
+        self.body_released: threading.Event | None = None
         self.passes = 0
         super().__init__(("127.0.0.1", 0), _ObservedHandler, bindings)
 
@@ -199,8 +209,9 @@ def test_a_handoff_request_that_is_answered_and_then_reset_writes_no_line(
 ) -> None:
     """The controller closes the connection of its handoff request with a reset, always.
 
-    The request asks for the connection to be closed, so the handler ends it after its one
-    answer, and the reset that follows meets no read and no write of a request.
+    It takes the whole answer first, as the product's controller does. The request asks for
+    the connection to be closed, so the handler ends it after its one answer, and the reset
+    that follows meets no read and no write of a request.
     """
     mocker.patch.object(control.handoff, "disk_payload_matches_expected", return_value=False)
     request = urllib.request.Request(
@@ -214,12 +225,52 @@ def test_a_handoff_request_that_is_answered_and_then_reset_writes_no_line(
     with pytest.raises(urllib.error.HTTPError) as refused:
         loopback.open_request_on(connection, request)
     assert refused.value.code == 409
+    # The whole answer: the listener has written its last byte before the reset can reach it.
+    assert len(refused.value.read()) == int(refused.value.headers["Content-Length"])
     # Leaving the answer closes the connection, and that close is the reset.
     refused.value.close()
 
     assert proxy.handler_ended.wait(_HANDLER_SECONDS)
     assert _log_lines(log_path) == []
     assert proxy.errors == []
+    assert proxy.passes == 1
+
+
+def test_a_refusal_that_its_controller_leaves_before_the_body_is_named_once(
+    proxy: _ObservedServer, log_path: Path, *, mocker: MockerFixture
+) -> None:
+    """Why the controller takes a refusal whole: a reset between the status and the body.
+
+    The listener writes the head of its refusal and is held before the body. A controller that
+    leaves at the status resets the connection, and the body's write meets that reset: one
+    line names a request that its client closed. On Linux this order came by itself in about
+    one refusal of five while the controller left at the status.
+    """
+    mocker.patch.object(control.handoff, "disk_payload_matches_expected", return_value=False)
+    proxy.body_released = threading.Event()
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{proxy.server_port}/control/handoff",
+        data=b'{"transaction_id":"txn-1"}',
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    connection = loopback.connect_reset_on_close(request, timeout_seconds=_HANDLER_SECONDS)
+
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        loopback.open_request_on(connection, request)
+    assert refused.value.code == 409
+    refused.value.close()
+    _await_close(proxy)
+    proxy.body_released.set()
+
+    assert proxy.handler_ended.wait(_HANDLER_SECONDS)
+    [line] = _log_lines(log_path)
+    [error] = proxy.errors
+    assert isinstance(error, downstream.CLIENT_CLOSED)
+    assert line.split()[1:] == [
+        "event=client_closed_mid_request",
+        f"exception={type(error).__name__}",
+    ]
     assert proxy.passes == 1
 
 
