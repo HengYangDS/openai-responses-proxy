@@ -88,7 +88,9 @@ def pytest_configure(config: pytest.Config) -> None:
 def own_listeners() -> Generator[OwnListeners]:
     """Fail a test whose connection was refused, also when the test swallowed the error.
 
-    A refusal that a fixture of a wider scope met before the test counts against that test.
+    A refusal that a fixture of a wider scope met before the test counts against that test, and
+    one met after a test's teardown, by a thread that outlives it or by a wider fixture's own
+    teardown, counts against the next test.
     """
     try:
         yield _GUARD

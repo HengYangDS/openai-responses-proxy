@@ -455,6 +455,7 @@ _A_STREAM = {
         lambda: [_stream(_DELTA + _COMPLETED)],
         "stream_handler_exception",
         write=OSError,
+        closed=True,
     ),
 }
 ENDINGS = _BEFORE_A_RESPONSE | _NOT_A_STREAM | _A_STREAM

@@ -41,6 +41,10 @@ publication authority.
   `504 upstream_deadline_exceeded`, to the same connection, and `status`
   reported that failure last. Such a response ends as
   `downstream_write_deadline`, and nothing more is written.
+- A stream whose handler met a failure that it does not name
+  (`stream_handler_exception`), such as a write error that is neither the
+  client's close nor a timeout, left its connection open with a response body
+  that had not ended. The proxy ends that connection.
 
 ## [6.0.0] - 2026-11-15
 

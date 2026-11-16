@@ -7,6 +7,7 @@ import re
 import socket
 import subprocess
 import sys
+from contextlib import ExitStack
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from typing import Protocol
 import pytest
 
 if TYPE_CHECKING:
+    from collections.abc import Container
     from collections.abc import Generator
 
 # A listener in another process. It lives as long as its standard input stays open, so it ends
@@ -55,6 +57,7 @@ def test_binds_its_own_listener():
 """
 _SECONDS = 10.0
 _CHILD_SECONDS = 60.0
+_PORT_TRIES = 4
 # The address that names every interface: a client that connects to it reaches this host.
 _EVERY_INTERFACE = str(ipaddress.IPv4Address(0))
 
@@ -62,10 +65,23 @@ _EVERY_INTERFACE = str(ipaddress.IPv4Address(0))
 class _OwnListeners(Protocol):
     """The guard that the shared test configuration hands to a test."""
 
+    bound: set[int]
     refused: list[tuple[object, object]]
 
     def admit(self, family: int, address: object) -> None:
         """Refuse an internet address whose port the test process did not bind."""
+
+
+class _Claims:
+    """A record of bound ports that claims the first ports it is asked about, and no other."""
+
+    def __init__(self, first: int) -> None:
+        self.first = first
+        self.asked: list[object] = []
+
+    def __contains__(self, port: object) -> bool:
+        self.asked.append(port)
+        return len(self.asked) <= self.first
 
 
 def _refusal(host: object, port: int) -> str:
@@ -89,11 +105,25 @@ def _child_listener(port: int = 0) -> Generator[int]:
         yield int(child.stdout.readline())
 
 
-@pytest.fixture(scope="module")
-def foreign_port() -> Generator[int]:
-    """Yield a loopback port on which another process listens."""
-    with _child_listener() as port:
-        yield port
+def _never_bound(bound: Container[int], children: ExitStack) -> int:
+    """Return the port of a child listener that this process never bound.
+
+    The guard admits a port that this process bound at any time, so a child to which the
+    operating system gave such a number would be reached, not refused. An earlier child keeps
+    its port until ``children`` closes, so the next one gets another.
+    """
+    for _ in range(_PORT_TRIES):
+        port = children.enter_context(_child_listener())
+        if port not in bound:
+            return port
+    raise AssertionError("every child listener took a port that this process had bound")
+
+
+@pytest.fixture
+def foreign_port(own_listeners: _OwnListeners) -> Generator[int]:
+    """Yield a loopback port on which another process listens and that this one never bound."""
+    with ExitStack() as children:
+        yield _never_bound(own_listeners.bound, children)
 
 
 def _read(port: int) -> bytes:
@@ -131,6 +161,26 @@ def test_a_connection_to_a_port_that_this_process_did_not_bind_is_refused_whatev
     assert own_listeners.refused == [(host, foreign_port)] * 2
     # This test met its refusals on purpose; left in place they would fail it when it ends.
     own_listeners.refused.clear()
+
+
+def test_a_child_listener_on_a_port_that_this_process_bound_is_not_a_foreign_one() -> None:
+    bound = _Claims(first=1)
+    with ExitStack() as children:
+        port = _never_bound(bound, children)
+
+    assert len(bound.asked) == 2
+    assert port == bound.asked[1] != bound.asked[0]
+
+
+def test_a_foreign_port_is_given_up_when_every_child_takes_a_bound_one() -> None:
+    bound = _Claims(first=_PORT_TRIES)
+    with (
+        ExitStack() as children,
+        pytest.raises(AssertionError, match="every child listener took a port"),
+    ):
+        _never_bound(bound, children)
+
+    assert len(bound.asked) == _PORT_TRIES
 
 
 @pytest.mark.parametrize(

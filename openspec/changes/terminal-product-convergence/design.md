@@ -530,8 +530,9 @@ by each lane's closeout once ownership and lack of consumers are proved.
   before its release is its ending, and the lines before it are steps. A
   client that closes its side in order while every write still succeeds is
   not seen, because the operating system accepts the bytes. Catalog reads
-  keep their own terminal line; no counter, field of `status --json` or exit
-  status changes.
+  keep their own terminal line. No counter, field name of `status --json` or
+  exit status changes; after a write that timed out, `status` no longer
+  reports an upstream deadline as the last failure.
 
 ### Close on the installed product
 

@@ -272,6 +272,7 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
         exchange.handler.close_connection = True
         exchange.log("downstream_write_deadline")
     except Exception as error:  # noqa: BLE001 stream-outcome
+        exchange.handler.close_connection = True
         exchange.log(
             "stream_handler_exception",
             f"exception={operational_log.safe_exception_label(error)} ",
