@@ -8,8 +8,9 @@
 - [x] 1.2 End the connection of every handoff request with a reset, set before the first byte of the request
       is written, and read a failure of the connect or of that option as a request that was never sent;
       tests hold the order of connect, option and first byte, real-socket tests hold on each platform that
-      the other end reads a reset after a request that was given up and after one that was answered, and a
-      dated record holds what a full queue did on macOS and on Linux, with its scripts.
+      the other end reads a reset, and no ordinary end of stream, after a request that was given up, after
+      one that was answered and after a sender whose process ended, and a dated record holds what a full
+      queue did on macOS and on Linux, with its scripts.
 
 ## 2. The listener's bound
 

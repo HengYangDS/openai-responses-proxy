@@ -74,6 +74,23 @@ class TestTheConnectOfAHandoffRequest:
             assert handoff.request_evidence(failure) is _UNSENT
         self.sent.assert_not_called()
 
+    def test_the_request_is_sent_on_the_connection_that_was_opened_for_it(self) -> None:
+        """One connection: opened with the request's timeout and the transport's second, sent on."""
+        opened = self.mocker.patch.object(
+            handoff.loopback, "connect_reset_on_close", return_value=self.mocker.sentinel.opened
+        )
+        self.sent.side_effect = ConnectionResetError("reset")
+
+        with pytest.raises(errors.InstallError, match="handoff control is unavailable"):
+            handoff.post_ready(self.ctx, expected_metadata(), lease_seconds=1, timeout_seconds=7)
+
+        [opening] = opened.call_args_list
+        [sending] = self.sent.call_args_list
+        [request] = opening.args
+        assert opening.kwargs == {"timeout_seconds": 8.0}
+        assert sending.args == (self.mocker.sentinel.opened, request)
+        assert sending.kwargs == {}
+
     def test_a_request_whose_connect_failed_is_settled_at_once_with_the_listener_at_rest(
         self,
     ) -> None:

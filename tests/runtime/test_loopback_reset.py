@@ -8,10 +8,12 @@ listening socket accepts.
 
 from __future__ import annotations
 
+import errno
 import http.client
 import io
 import socket
 import struct
+import subprocess
 import sys
 import urllib.request
 from typing import TYPE_CHECKING
@@ -42,14 +44,24 @@ def _request(port: int) -> urllib.request.Request:
 class _RecordedSocket:
     """A connected socket that records each option, each write and each close, in order."""
 
-    def __init__(self, calls: list[tuple[object, ...]], *, refuse_linger: bool = False) -> None:
+    def __init__(
+        self,
+        calls: list[tuple[object, ...]],
+        *,
+        refuse_linger: bool = False,
+        refuse_no_delay: bool = False,
+    ) -> None:
         self.calls = calls
         self._refuse_linger = refuse_linger
+        self._refuse_no_delay = refuse_no_delay
 
     def setsockopt(self, level: int, option: int, value: object) -> None:
         self.calls.append(("option", level, option, value))
-        if self._refuse_linger and option == socket.SO_LINGER:
+        if self._refuse_linger and (level, option) == (socket.SOL_SOCKET, socket.SO_LINGER):
             raise OSError("the option is not supported")
+        if self._refuse_no_delay and (level, option) == (socket.IPPROTO_TCP, socket.TCP_NODELAY):
+            # What macOS answers on a connection that the listener's full queue has reset.
+            raise OSError(errno.EINVAL, "Invalid argument")
 
     def sendall(self, data: bytes) -> None:
         self.calls.append(("write", bytes(data)))
@@ -143,6 +155,23 @@ class TestTheOrderOfTheSteps:
         assert "write" not in kinds
         assert kinds[-1] == "close"
 
+    def test_a_connect_that_fails_after_its_socket_exists_closes_it_unwritten(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """The connect sets an option of its own first; a reset connection refuses it."""
+        calls: list[tuple[object, ...]] = []
+        mocker.patch.object(
+            socket, "create_connection", return_value=_RecordedSocket(calls, refuse_no_delay=True)
+        )
+
+        with pytest.raises(OSError, match="Invalid argument"):
+            loopback.connect_reset_on_close(_request(8791), timeout_seconds=_SECONDS)
+
+        kinds = [call[0] for call in calls]
+        assert "write" not in kinds
+        assert _linger(calls) == []
+        assert kinds[-1] == "close"
+
     def test_a_closed_connection_is_never_opened_again(self, *, mocker: MockerFixture) -> None:
         """A second connection would carry no option, so a second request fails unsent."""
         calls: list[tuple[object, ...]] = []
@@ -160,6 +189,22 @@ class TestTheOrderOfTheSteps:
 
         opened.assert_called_once()
         assert _written(calls) == written
+
+
+# A sender that ends as a killed process does: no close, no flush, no exit handler. It loads
+# the transport by its file, which needs the standard library alone.
+_END_WITHOUT_CLOSING = """
+import importlib.util, os, sys, urllib.request
+spec = importlib.util.spec_from_file_location("loopback", sys.argv[1])
+loopback = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(loopback)
+request = urllib.request.Request(
+    f"http://127.0.0.1:{sys.argv[2]}/control/handoff", data=b"{}", method="POST"
+)
+connection = loopback.connect_reset_on_close(request, timeout_seconds=5.0)
+connection.sock.sendall(b"POST /control/handoff HTTP/1.1\\r\\n")
+os._exit(0)
+"""
 
 
 @pytest.fixture
@@ -254,3 +299,37 @@ class TestWhatTheOtherEndSees:
         assert ending == "reset"
         # A reset may take what the listener's end had not read yet; it adds nothing.
         assert received == b"" or received.endswith(b"\r\n\r\n" + _BODY)
+
+    def test_a_sender_whose_process_ends_leaves_a_reset_as_well(
+        self, listening: socket.socket
+    ) -> None:
+        """The kernel closes the connection of a process that ends, and that close is a reset.
+
+        A child process opens the connection as the controller does, writes the beginning of
+        a request and ends without closing anything, as a killed controller ends. On Windows
+        the listener may get no connection at all, as after a request that was given up.
+        """
+        ended = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                _END_WITHOUT_CLOSING,
+                loopback.__file__,
+                str(listening.getsockname()[1]),
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        assert (ended.returncode, ended.stderr) == (0, b"")
+
+        accepted = _accept(listening)
+        if accepted is None:
+            assert sys.platform == "win32"
+            return
+        with accepted:
+            received, ending = _read_to_the_end(accepted)
+        assert ending == "reset"
+        assert b"POST /control/handoff HTTP/1.1\r\n".startswith(received)

@@ -12,8 +12,8 @@ Status: dated measurement (2026-11-16).
 
 The handoff controller must know when a listener can no longer begin a handoff request that the controller has given up. That rests on what a listener's operating system does with a connection that arrives while the listener's queue of pending connections is full. This record holds what was measured, how to measure it again, and what was not measured.
 
-- **Scope:** TCP connections to a listening loopback socket that accepts nothing, on two hosts. Private sockets of the scripts below; no product code and no installed service.
-- **Verifier:** the two scripts in this record, run as given under "Scripts".
+- **Scope:** TCP connections to a listening loopback socket that accepts nothing, on two hosts. Private sockets only, and no installed service. The first two results use no product code; the third calls the product's two transport functions.
+- **Verifier:** the two scripts in this record, run as given under "Scripts", for the first two results. The third came from a probe that is not in this record; the tests that it names hold it.
 - **Limit:** two kernels on one day. Windows was not measured. The record says what these kernels did; it does not lower the authority of the tests, which the hosted graph runs on every platform.
 
 ## Hosts
@@ -32,7 +32,7 @@ The handoff controller must know when a listener can no longer begin a handoff r
 | macOS | 128, the smaller of 256 and `somaxconn` | 155 failed with `ECONNRESET`; 17 returned, and a send on each failed with `EPIPE` | the 128, in the order of connecting |
 | Linux | 257                                     | 43 timed out after 0.5 seconds without an answer                                  | the 257, in the order of connecting |
 
-On macOS none of the 17 clients whose connect returned was accepted in the 20 seconds that followed: the listener had reset them.
+On macOS none of the 17 clients whose connect returned was accepted in the 20 seconds that followed: the listener had reset them. How the connects after the 128th divide between the two outcomes varies from run to run (155 and 17 here; a reviewer's run gave 118 and 54). That the 128 are accepted in order and that no other is accepted later did not vary.
 
 ### A burst of connects on Linux
 
@@ -48,7 +48,7 @@ On macOS the same burst never left a connected client outside the queue (60 tria
 
 ### A connection that is in the queue when its client resets it
 
-The product's handoff transport, given up at its timeout before the listener accepted: on both hosts the listener then accepted the connection and read the whole request, and after it a reset. With the transport of a health read, which closes in the ordinary way, the read ended as an ordinary end of stream. `tests/runtime/test_loopback_reset.py` holds the first on every platform of the hosted graph.
+The product's handoff transport (`connect_reset_on_close` and `open_request_on` of `runtime/loopback.py`), given up at its timeout before the listener accepted: on both hosts the listener then accepted the connection and read the whole request, and after it a reset. The same after a complete answer. With the transport of a health read, which closes in the ordinary way, the read ended as an ordinary end of stream. `tests/runtime/test_loopback_reset.py` holds on every platform of the hosted graph that such a connection ends with a reset and not with an ordinary end of stream; it does not hold how much of the request a platform delivers first.
 
 ## What follows
 

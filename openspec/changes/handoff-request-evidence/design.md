@@ -98,9 +98,10 @@ means idle, or that finalized session exactly as the controller captured it befo
   connection later, after connections that were made later, and reads a request that the client sent before
   it closed in the ordinary way (9 of 10 clients). A client that closed with a reset was never accepted (0 of
   8). On macOS a full queue resets the connect or the connection right after it, and nothing arrives later. A
-  connection that is already in the queue is accepted with its request after a reset as well, on both hosts
-  and in `tests/runtime/test_loopback_reset.py` on every platform of the hosted graph. Windows was not
-  measured.
+  connection that is already in the queue is accepted with its request after a reset as well, on both
+  hosts. `tests/runtime/test_loopback_reset.py` holds on every platform of the hosted graph that a
+  connection which its sender gave up, answered or left by ending its process ends with a reset and never
+  with an ordinary end of stream. Windows was not measured.
 - **Considered:** leave the ordinary close and name the full queue as a risk; make the controller's wait as
   long as the longest retransmission of a handshake; close the request's connection with a reset.
 - **Chosen because:** with an ordinary close the request of a controller that gave up can reach the listener
@@ -109,7 +110,8 @@ means idle, or that finalized session exactly as the controller captured it befo
   kernel's and differ by platform and setting. A reset leaves two cases at the moment at which the
   controller gives up: the listener has the connection in its queue, where the order of the queue and the
   stamp bound its begin, or the listener never receives the request. The kernel sends the same reset when
-  the controller's process ends, because the option is set before the first byte is written.
+  the controller's process ends, because the option is set before the first byte is written; a test ends a
+  child process without a close and reads the reset.
 - **Applies to:** the connection of every handoff request (`runtime/loopback.py`), after an answer as well. A
   connect that fails and an option that cannot be set send nothing, and the failure says so. Health reads
   keep their ordinary close: they leave nothing behind that a listener could begin. The option is the
@@ -162,8 +164,8 @@ means idle, or that finalized session exactly as the controller captured it befo
   listener is at rest when its session is idle, or finalized with a transaction that is not the journal's: a
   process that has handed the journal's transaction off shows `serving` or that transaction while it serves
   out its lease, and can still answer a read on a connection that it accepted earlier. A successor has
-  committed when its session is idle or finalized; one that shows `serving` waits for its predecessor, which
-  can still abort it, and it ends on its own when that predecessor is gone. `recover`
+  committed when its session is idle or finalized; one that shows `serving` waits for its predecessor's word
+  to finalize, which can still abort it, and it ends on its own when that predecessor is gone. `recover`
   holds the lifecycle lock for the whole command, so no other lifecycle command runs beside the wait. In its
   human form it writes one line to standard error before the wait; with `--json` standard error stays as it
   is.
@@ -181,6 +183,10 @@ means idle, or that finalized session exactly as the controller captured it befo
 - [The wait of an unanswered request is silent, and a second interrupt inside it preserves the transaction]
   → `recover` then waits its two minutes. The changelog says so; a line of progress for the three commands
   is not part of this Change.
+- [A successor shows `finalized` from its predecessor's word on, and the predecessor can still fail while it
+  reads the successor's answer to that word] → `recover` cannot tell that moment from a finished handoff and
+  would finalize. Left as it is: it needs that failure in the instant of `recover`'s read, 121 seconds after
+  a controller was lost.
 - [A rollback's request names the retained generation, so two rollbacks to one generation share the
   transaction that "observed" reads] → An earlier request of that transaction can be pending only if a
   restore ran while it was; the wait in `recover` and the bound exclude that for a listener of this release.

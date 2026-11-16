@@ -46,6 +46,11 @@ _NO_ANSWER = pytest.mark.parametrize(
 _WAIT_SECONDS = 31.0
 
 
+def _kinds(payload: FakeTransaction) -> list[object]:
+    """Return the transaction's events by kind; a preserved one carries its reason beside it."""
+    return [event[0] if isinstance(event, tuple) else event for event in payload.events]
+
+
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     @_NO_ANSWER
     def test_upgrade_rolls_back_when_an_idle_listener_never_answers_within_the_timeout(
@@ -115,6 +120,67 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         assert payload.events == ["commit", "activate", "rollback", "close_prepared"]
         sent.assert_called_once()
         assert clock.now == _WAIT_SECONDS
+        service.install_mock.assert_not_called()
+
+    def test_upgrade_that_is_interrupted_again_while_it_waits_leaves_its_transaction(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """A second interrupt inside the wait holds no evidence of the listener's part.
+
+        The request ended without an answer and the resolver waits. The interrupt that ends
+        that wait is another failure: the proof reads nothing from it, so nothing is restored
+        and the transaction is left for ``recover``.
+        """
+        payload = FakeTransaction(self.ctx)
+        current = self.current_runtime()
+        service = FakeServiceAdapter(mocker=mocker)
+        mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
+        sent = control_transport(mocker, side_effect=ConnectionResetError("reset"))
+        PolledClock(mocker)
+        # Admission, the request's check and two polls of the resolver; its third is interrupted.
+        health = mocker.Mock(
+            side_effect=[current, current, current, current, KeyboardInterrupt(), current]
+        )
+
+        with pytest.raises(apply.UnknownDeploymentOutcome) as raised:
+            self.deploy(payload, current, adapter=service, runtime_reader=health, mocker=mocker)
+
+        assert "cannot prove that the predecessor still serves" in str(raised.value)
+        assert _kinds(payload) == ["commit", "activate", "preserve"]
+        sent.assert_called_once()
+        assert health.call_count == 6
+        service.install_mock.assert_not_called()
+
+    def test_rollback_that_is_interrupted_again_while_it_waits_leaves_its_transaction(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """The same second interrupt in a rollback: the selection of the serving release stays."""
+        retained = payload_rollback.RetainedRollback(
+            root=Path("/retained/1.2.2"),
+            predecessor=retained_identity("1.2.2"),
+            successor=retained_identity("1.2.3"),
+        )
+        payload = FakeTransaction(self.ctx)
+        current = self.current_runtime(release="1.2.3")
+        service = FakeServiceAdapter(mocker=mocker)
+        mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
+        mocker.patch.object(generation, "control_context", return_value=self.ctx)
+        sent = control_transport(mocker, side_effect=ConnectionResetError("reset"))
+        PolledClock(mocker)
+        reads = iter([current, current, current, KeyboardInterrupt()])
+
+        def health(_ctx: object) -> dict[str, object]:
+            shown = next(reads, current)
+            if isinstance(shown, BaseException):
+                raise shown
+            return shown
+
+        with pytest.raises(apply.UnknownDeploymentOutcome):
+            apply.rollback(self.ctx, retained, adapter=service, runtime_reader=health)
+
+        # The transaction was not prepared any more, so closing a prepared one changes nothing.
+        assert _kinds(payload) == ["commit", "activate", "preserve", "close_prepared"]
+        sent.assert_called_once()
         service.install_mock.assert_not_called()
 
     def test_upgrade_rolls_back_at_once_when_its_request_was_never_sent(

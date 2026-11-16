@@ -237,9 +237,11 @@ def _candidate_committed(
 ) -> bool:
     """Return whether the candidate's listener serves for good.
 
-    A listener that the supervisor started is idle, and one that a handoff created shows
-    ``finalized`` once its predecessor has finalized that handoff. Until then it shows
-    ``serving``, and its predecessor may still abort it.
+    A listener that the supervisor started is idle. One that a handoff created shows
+    ``serving`` until its predecessor tells it to finalize, and that predecessor may still
+    abort it; from that message on it shows ``finalized``. The predecessor can still fail
+    while it reads the successor's answer to that message, and this snapshot cannot tell
+    that moment from a finished handoff.
     """
     session = _session(runtime, candidate)
     return session is not None and session[0] in {"idle", "finalized"}

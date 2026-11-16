@@ -23,17 +23,19 @@ publication authority.
   the request's connection. It refuses a later request with HTTP 408 and
   `{"ok": false, "error": "handoff_request_expired"}`.
 - The command that requests a handoff ends the request's connection with a
-  reset, after an answer as well. A listener that answers a request which its
-  controller has already given up meets that reset and logs
-  `client_closed_mid_request`.
+  reset, after an answer as well. A listener's refusal of a request that its
+  controller has already given up meets that reset and is logged as
+  `client_closed_mid_request`. An acknowledgement that meets it does not
+  stop the handoff: the handoff goes on, and a command that still runs
+  follows it to its end.
 - `recover` of an interrupted upgrade or rollback whose previous release
   still serves waits 121 seconds before it restores that release, and decides
   on what the listener shows after that time. While it waits it writes one
   line to standard error, "Recovery waits 121 seconds for a handoff request
   that may still be pending."; with `--json` it writes nothing there. Its
-  result on standard output does not change. An upgrade, a rollback or a
-  reload that is interrupted a second time while it waits for an unanswered
-  request leaves its transaction for `recover`.
+  result on standard output does not change. An upgrade or a rollback that
+  is interrupted a second time while it waits for an unanswered request
+  leaves its transaction for `recover`.
 - The bundled Cyclopts advances from 5.4.2 to 5.5.1. No command, option, help
   text or exit status of this product changes.
 

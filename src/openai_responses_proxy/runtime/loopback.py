@@ -81,8 +81,10 @@ def connect_reset_on_close(
     connection = http.client.HTTPConnection(request.host, timeout=timeout_seconds)
     # A second connection would carry no option: sending on a closed one fails instead.
     connection.auto_open = 0
-    connection.connect()
     try:
+        # The connect can fail after its socket exists: a listener that has reset the
+        # connection refuses the first option that the connect itself sets.
+        connection.connect()
         connection.sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, reset_on_close())
     except BaseException:
         # A request that cannot be withdrawn is not sent. Nothing was written: this close
