@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-11-16
+
 ### Changed
 
 - The log names how every admitted response ended: the last line of a request
