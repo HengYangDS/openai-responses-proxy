@@ -26,10 +26,17 @@ def recover(
     ctx: runtime_context.RuntimeContext,
     *,
     runtime: Mapping[str, object] | None,
+    read_after_wait: Callable[[], Mapping[str, object] | None],
     bind_terminal: Callable[[runtime_context.RuntimeContext], None],
     discard_native: Callable[[runtime_context.RuntimeContext], None],
 ) -> dict[str, object]:
-    """Recover one transaction and bind its terminal runtime before closing it."""
+    """Recover one transaction and bind its terminal runtime before closing it.
+
+    ``runtime`` is health as the caller read it. ``read_after_wait`` waits until a listener
+    can begin no handoff request that it accepted before it answered that read, and returns
+    health as read afterwards. It is asked only where a transaction whose request may be
+    pending would be restored.
+    """
     if records.status(ctx) is None:
         return {"state": "not_required"}
     try:
@@ -41,6 +48,37 @@ def recover(
     phase = str(journal.get("phase") or journal["state"])
     if phase == "prepared":
         return _close_prepared(ctx, journal)
+    return _reconcile(
+        ctx,
+        journal=journal,
+        phase=phase,
+        runtime=runtime,
+        read_after_wait=read_after_wait,
+        bind_terminal=bind_terminal,
+        discard_native=discard_native,
+    )
+
+
+def _reconcile(
+    ctx: runtime_context.RuntimeContext,
+    *,
+    journal: Mapping[str, object],
+    phase: str,
+    runtime: Mapping[str, object] | None,
+    read_after_wait: Callable[[], Mapping[str, object] | None] | None,
+    bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+    discard_native: Callable[[runtime_context.RuntimeContext], None],
+) -> dict[str, object]:
+    """Decide one mutated transaction on one health snapshot.
+
+    Only a transaction that reached activation and is not fresh arrives at the last decision,
+    the restoration of the prior generation. Its controller activated it before it sent the
+    handoff request, so that request may be pending: a listener that has received a request
+    and not begun it shows the same session at rest as one that never will. With
+    ``read_after_wait`` nothing is restored on such a snapshot. The request is waited out,
+    and the snapshot that is read afterwards is decided here again, by every rule above, and
+    without another wait.
+    """
     candidate = _recovery_candidate(ctx, journal)
     if phase == "materialized" and not _runtime_matches_projection(runtime, candidate):
         return _rollback_materialized(
@@ -101,11 +139,21 @@ def recover(
             bind_terminal=bind_terminal,
             discard_native=discard_native,
         )
+    previous = _prior_generation_at_rest(ctx, journal=journal, runtime=runtime)
+    if read_after_wait is not None:
+        # A restoration that would be refused is refused now, and not after the wait.
+        completion.admit_prior_projection(ctx, journal, previous)
+        return _reconcile(
+            ctx,
+            journal=journal,
+            phase=phase,
+            runtime=read_after_wait(),
+            read_after_wait=None,
+            bind_terminal=bind_terminal,
+            discard_native=discard_native,
+        )
     return _restore_prior_generation(
-        ctx,
-        journal=journal,
-        runtime=runtime,
-        bind_terminal=bind_terminal,
+        ctx, journal=journal, previous=previous, bind_terminal=bind_terminal
     )
 
 
@@ -184,8 +232,12 @@ def _rollback_materialized(
         ):
             _require_unchanged_prior_terminal(ctx, generation_id=previous.active, runtime=runtime)
             return completion.complete_transaction(ctx, journal, outcome="rolled_back")
+        # A materialized transaction requested no handoff: nothing is pending to wait for.
         return _restore_prior_generation(
-            ctx, journal=journal, runtime=runtime, bind_terminal=bind_terminal
+            ctx,
+            journal=journal,
+            previous=_prior_generation_at_rest(ctx, journal=journal, runtime=runtime),
+            bind_terminal=bind_terminal,
         )
     if previous is None:
         completion.admit_prior_projection(ctx, journal, previous)
@@ -238,14 +290,13 @@ def _require_unchanged_prior_terminal(
         )
 
 
-def _restore_prior_generation(
+def _prior_generation_at_rest(
     ctx: runtime_context.RuntimeContext,
     *,
     journal: Mapping[str, object],
     runtime: Mapping[str, object] | None,
-    bind_terminal: Callable[[runtime_context.RuntimeContext], None],
-) -> dict[str, object]:
-    """Restore the exact prior projection and bind its proven live runtime."""
+) -> generation.Selection:
+    """Return the prior selection, proved to serve with no handoff in flight on this snapshot."""
     previous = completion.prior_selection(journal)
     if previous is None or not generation.path(ctx, previous.active).is_dir():
         raise errors.RecoveryStateError("payload recovery prior selected generation is unavailable")
@@ -255,6 +306,17 @@ def _restore_prior_generation(
         raise errors.RecoveryStateError(
             "payload recovery runtime does not match the prior selected generation"
         )
+    return previous
+
+
+def _restore_prior_generation(
+    ctx: runtime_context.RuntimeContext,
+    *,
+    journal: Mapping[str, object],
+    previous: generation.Selection,
+    bind_terminal: Callable[[runtime_context.RuntimeContext], None],
+) -> dict[str, object]:
+    """Restore the exact prior projection and bind its proven live runtime."""
     completion.restore_prior_projection(ctx, journal, previous)
     bind_terminal(generation.control_context(ctx))
     return completion.complete_transaction(ctx, journal, outcome="rolled_back")

@@ -57,6 +57,7 @@ def test_internal_dispatch_argument_contracts_fail_closed(
         ("status", {"port": True}),
         ("reload", {"port": 8792, "timeout_seconds": True}),
         ("uninstall", {"port": 8792, "purge": "yes"}),
+        ("recover", {"port": 8792, "progress": "yes"}),
     )
 
     for command, arguments in cases:

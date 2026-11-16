@@ -27,9 +27,9 @@ handler goes on to begin. `recover` decides the same way on one read of health.
 - A request that ends without the listener's answer, against a listener at rest, is no longer rolled back at
   once. The command waits for the request's timeout and one second, 31 seconds by default, and rolls back if
   the listener is still at rest then; a handoff that begins in that time is followed to its end.
-- `recover` waits for the longest time that a request can carry, 120 seconds, before it restores the prior
-  selection of a transaction whose handoff may have been requested, and follows a handoff that begins in that
-  time.
+- `recover` waits for the longest time that a request can carry and one second, 121 seconds, before it
+  restores the prior selection of a transaction whose handoff may have been requested, and decides on what
+  the listener shows after that time. In its human form it says on standard error that it waits.
 - Unchanged: a refused request is rolled back at once; a request that was never sent is rolled back at once;
   handoff protocol 2 keeps its fields and routes; the journal keeps its form.
 
@@ -48,7 +48,8 @@ handler goes on to begin. `recover` decides the same way on one read of health.
 
 Code: `lifecycle/deployment/handoff` (the evidence and the rule), `serving/server` and
 `serving/handoff/transaction` (the bound), `lifecycle/control` and `lifecycle/transaction/recovery`
-(`recover`), and their tests. No command, option, route, field of `status --json` or exit code changes.
+(`recover`), `cli` (the line that `recover` writes while it waits), and their tests. No command, option,
+route, field of `status --json` or exit code changes.
 
 - **Authority boundary:** the controller reads the listener's health and sends the one handoff request; it
   sends the listener nothing else, and it never ends a listener to settle an outcome.

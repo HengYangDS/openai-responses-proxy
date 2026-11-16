@@ -73,6 +73,8 @@ def uninstall_product(
             result = transaction_recovery.recover(
                 ctx,
                 runtime=None,
+                # Every owned process has exited: health answers nothing, after a wait as now.
+                read_after_wait=lambda: None,
                 bind_terminal=lambda _ctx: None,
                 discard_native=unexpected_discard,
             )

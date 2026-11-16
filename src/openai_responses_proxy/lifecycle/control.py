@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import time
 import urllib.error
 import urllib.request
 from http import HTTPStatus
@@ -32,6 +33,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Mapping
 
 
@@ -396,8 +398,19 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
     return reloaded
 
 
-def recover(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
-    """Converge one interrupted payload transaction and its native supervisor."""
+def recover(
+    ctx: runtime_context.RuntimeContext,
+    *,
+    announce_wait: Callable[[float], None] | None = None,
+) -> dict[str, object]:
+    """Converge one interrupted payload transaction and its native supervisor.
+
+    A transaction that reached activation may have left a handoff request pending at a
+    listener that shows itself at rest. Before such a transaction is restored, recovery waits
+    until that listener can begin no request that it accepted before it answered the first
+    health read, and decides on a read that is asked afterwards. ``announce_wait`` is told
+    the length of that wait before it begins.
+    """
     if (pending := records.status(ctx)) is not None and pending.get("state") == "purged":
         return uninstall.uninstall_product(ctx, purge=True)
 
@@ -415,9 +428,20 @@ def recover(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
     def discard_native(candidate: runtime_context.RuntimeContext) -> None:
         apply.discard_runtime(candidate, adapter=adapter(), timeout_seconds=5.0)
 
+    runtime = read_runtime(ctx)
+    # The read has returned: the listener answered it no later than this moment.
+    answered = time.monotonic()
+
+    def read_after_wait() -> dict[str, object] | None:
+        if announce_wait is not None:
+            announce_wait(handoff.LONGEST_WAIT_AT_REST_SECONDS)
+        handoff.wait_out_any_request(answered)
+        return read_runtime(ctx)
+
     return transaction.recover(
         ctx,
-        runtime=read_runtime(ctx),
+        runtime=runtime,
+        read_after_wait=read_after_wait,
         bind_terminal=bind_terminal,
         discard_native=discard_native,
     )

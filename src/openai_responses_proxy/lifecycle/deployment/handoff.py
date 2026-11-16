@@ -230,6 +230,27 @@ class _WaitAtRest:
         return asked - self._since >= self._seconds
 
 
+# The wait that settles a request whose own timeout is not known: the longest that a request
+# can carry, and the margin.
+LONGEST_WAIT_AT_REST_SECONDS = _MAX_REQUEST_TIMEOUT_SECONDS + _EXPIRY_MARGIN_SECONDS
+
+
+def wait_out_any_request(answered: float) -> None:
+    """Sleep until a listener can begin no request that it accepted before a health read.
+
+    ``answered`` is the monotonic moment at which that read returned; the listener answered
+    it no later. The caller does not know the request, so the wait is the longest one. A
+    read that is asked after it shows every handoff that such a request could begin.
+
+    Each sleep asks for all that remains, and the monotonic clock, which bounds the
+    listener's begin, decides when the wait is over, however the platform's sleep counts.
+    An interrupt ends the wait where it is.
+    """
+    until = answered + LONGEST_WAIT_AT_REST_SECONDS
+    while (remaining := until - time.monotonic()) > 0:
+        time.sleep(remaining)
+
+
 def _ready_request(
     ctx: runtime_context.RuntimeContext,
     expected: RuntimeSnapshot,

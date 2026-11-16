@@ -18,10 +18,12 @@
 
 ## 3. Recovery
 
-- [ ] 3.1 Let `recover` restore the prior selection of a transaction whose handoff may have been requested
-      only after the longest request timeout has passed since it first read the listener at rest, and follow
-      a handoff that begins in that time; tests hold the wait, the handoff that begins, and a transaction that
-      requested no handoff, which is restored at once.
+- [x] 3.1 Let `recover` restore the prior selection of a transaction that reached activation only on a health
+      read that it asks after the longest request timeout and one second have passed since its first read
+      returned, decide that read by the rules of the first, and say in its human form on standard error that
+      it waits; tests hold the wait and its length, each decision after it, the window through the listener's
+      own handler, a transaction that requested no handoff, which is restored at once, and an interrupt, which
+      leaves the journal and the selection.
 
 ## 4. Release
 

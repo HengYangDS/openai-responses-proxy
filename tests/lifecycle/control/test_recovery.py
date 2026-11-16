@@ -38,10 +38,12 @@ def test_recovery_rebinds_supervision_to_the_control_generation(
         _ctx: runtime_context.RuntimeContext,
         *,
         runtime: Mapping[str, object] | None,
+        read_after_wait: Callable[[], Mapping[str, object] | None],
         bind_terminal: Callable[[runtime_context.RuntimeContext], None],
         discard_native: Callable[[runtime_context.RuntimeContext], None],
     ) -> dict[str, object]:
         assert runtime == {"pid": 7}
+        assert callable(read_after_wait)
         assert callable(discard_native)
         bind_terminal(control_generation)
         return {"state": "finalized", "version": "3.1.3"}
@@ -72,10 +74,12 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
         _ctx: runtime_context.RuntimeContext,
         *,
         runtime: Mapping[str, object] | None,
+        read_after_wait: Callable[[], Mapping[str, object] | None],
         bind_terminal: Callable[[runtime_context.RuntimeContext], None],
         discard_native: Callable[[runtime_context.RuntimeContext], None],
     ) -> dict[str, object]:
         assert runtime == {"pid": 7}
+        assert callable(read_after_wait)
         assert callable(discard_native)
         bind_terminal(control_generation)
         raise AssertionError("an unproved supervisor must stop recovery before it finishes")
@@ -128,10 +132,12 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
         _ctx: runtime_context.RuntimeContext,
         *,
         runtime: Mapping[str, object] | None,
+        read_after_wait: Callable[[], Mapping[str, object] | None],
         bind_terminal: Callable[[runtime_context.RuntimeContext], None],
         discard_native: Callable[[runtime_context.RuntimeContext], None],
     ) -> dict[str, object]:
         assert runtime is None
+        assert callable(read_after_wait)
         assert callable(bind_terminal)
         discard_native(candidate)
         return {"state": "rolled_back"}
@@ -169,10 +175,12 @@ def test_recovery_requires_native_absence_when_candidate_identity_is_missing(
         _ctx: runtime_context.RuntimeContext,
         *,
         runtime: Mapping[str, object] | None,
+        read_after_wait: Callable[[], Mapping[str, object] | None],
         bind_terminal: Callable[[runtime_context.RuntimeContext], None],
         discard_native: Callable[[runtime_context.RuntimeContext], None],
     ) -> dict[str, object]:
         assert runtime is None
+        assert callable(read_after_wait)
         assert callable(bind_terminal)
         discard_native(candidate)
         return {"state": "rolled_back"}

@@ -71,7 +71,8 @@ def test_interrupted_reverse_transition_recovers_the_original_successor(
     )
     assert original_successor is not None
 
-    result = recover_transaction(ctx, runtime=recovery_runtime(original_successor))
+    at_rest = recovery_runtime(original_successor)
+    result = recover_transaction(ctx, runtime=at_rest, read_after_wait=lambda: at_rest)
 
     assert result["state"] == "rolled_back"
     assert payload_generation.read(ctx) == original_selection
@@ -142,7 +143,8 @@ def test_activated_generation_recovery_restores_the_exact_prior_selection(
     )
     assert previous is not None
 
-    result = recover_transaction(ctx, runtime=recovery_runtime(previous))
+    at_rest = recovery_runtime(previous)
+    result = recover_transaction(ctx, runtime=at_rest, read_after_wait=lambda: at_rest)
 
     assert result["state"] == "rolled_back"
     assert payload_generation.read(ctx) == before

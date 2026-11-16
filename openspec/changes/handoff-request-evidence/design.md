@@ -120,8 +120,14 @@ means idle, or that finalized session exactly as the controller captured it befo
   journal that the installed command, 6.0.1's, refuses, and no command of that installation could close it.
   The longest timeout needs no record, and the wait arises only where a request may be pending and the
   listener is at rest.
-- **Applies to:** `recover` of a transaction that reached activation. One that did not requested nothing and
-  is restored at once, as before.
+- **Applies to:** `recover` of a transaction that reached activation and is not a first installation. One
+  that did not reach activation requested nothing and is restored at once, as before. A restoration that
+  would be refused is refused before the wait. The snapshot that is read after the wait is decided by the
+  rules of the first: at rest it is restored, a successor that committed is finalized, and a handoff in flight
+  or a listener that does not answer leaves the journal for a later `recover`, which waits again. `recover`
+  holds the lifecycle lock for the whole command, so no other lifecycle command runs beside the wait. In its
+  human form it writes one line to standard error before the wait; with `--json` standard error stays as it
+  is.
 
 ## Risks / Trade-offs
 

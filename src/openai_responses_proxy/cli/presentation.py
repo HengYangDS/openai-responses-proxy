@@ -169,6 +169,11 @@ def render(command: str, result: Mapping[str, object] | None) -> str:
     return ""
 
 
+def pending_handoff_wait(seconds: float) -> str:
+    """Render the one line that says why recovery is silent for a while."""
+    return f"Recovery waits {seconds:g} seconds for a handoff request that may still be pending."
+
+
 def error(message: str, *, next_command: str) -> str:
     """Render one bounded problem with a single safe next action."""
     return _page("Action required", (("Problem", message),), next_command=next_command)

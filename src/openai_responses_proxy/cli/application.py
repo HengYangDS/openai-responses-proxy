@@ -131,6 +131,18 @@ def _purge_argument(arguments: Mapping[str, object]) -> bool:
     return value
 
 
+def _progress_argument(arguments: Mapping[str, object]) -> bool:
+    value = arguments.get("progress", False)
+    if not isinstance(value, bool):
+        raise TypeError("progress must be a boolean")
+    return value
+
+
+def _announce_wait(seconds: float) -> None:
+    """Tell a person on standard error that ``recover`` waits, before it falls silent."""
+    print(presentation.pending_handoff_wait(seconds), file=sys.stderr, flush=True)
+
+
 @overload
 def dispatch(
     command: Literal["install", "status", "recover", "reload", "rollback", "uninstall"],
@@ -177,7 +189,9 @@ def dispatch(command: str, **arguments: object) -> CommandResult:
                     purge=_purge_argument(arguments),
                 )
             if command == "recover":
-                return control.recover(context)
+                # Progress belongs to the human form: ``--json`` leaves standard error alone.
+                progress = _progress_argument(arguments)
+                return control.recover(context, announce_wait=_announce_wait if progress else None)
             if command == "reload":
                 return control.reload(context, timeout_seconds=_timeout_argument(arguments))
             to_release = arguments.get("to_release")
@@ -450,7 +464,7 @@ def _app() -> App:
     @app.command(name="recover")
     def recover(*, json_output: _JSON = False, port: _PORT = runtime_context.DEFAULT_PORT) -> int:
         """Resolve an interrupted installation or purge transaction."""
-        return _execute("recover", as_json=json_output, port=port)
+        return _execute("recover", as_json=json_output, port=port, progress=not json_output)
 
     @app.command(name="reload")
     def reload_command(

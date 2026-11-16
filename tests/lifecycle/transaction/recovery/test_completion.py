@@ -19,6 +19,7 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
+from tests.lifecycle.transaction.fixtures import no_wait
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
@@ -113,8 +114,11 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
     bind_terminal = mocker.Mock(side_effect=errors.InstallError("bind failed"))
     select = mocker.spy(payload_generation, "select")
 
+    # The journal says activated at each attempt, so each one waits before it restores.
     with pytest.raises(errors.InstallError, match="bind failed"):
-        recover_transaction(ctx, runtime=runtime, bind_terminal=bind_terminal)
+        recover_transaction(
+            ctx, runtime=runtime, read_after_wait=lambda: runtime, bind_terminal=bind_terminal
+        )
 
     assert Path(records.transaction_root(ctx)).is_dir()
     assert Path(candidate.context.payload_dir).is_dir()
@@ -123,7 +127,9 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
     bind_terminal.reset_mock(side_effect=True)
     bind_terminal.side_effect = None
 
-    result = recover_transaction(ctx, runtime=runtime, bind_terminal=bind_terminal)
+    result = recover_transaction(
+        ctx, runtime=runtime, read_after_wait=lambda: runtime, bind_terminal=bind_terminal
+    )
 
     assert result["state"] == "rolled_back"
     bind_terminal.assert_called_once_with(predecessor.context)
@@ -166,9 +172,13 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
         command, "restore", side_effect=errors.InstallError("command restoration interrupted")
     )
     binder = mocker.Mock()
+    # Only a transaction that reached activation waits before it restores.
+    read_after_wait = (lambda: runtime) if phase == "activated" else no_wait
 
     with pytest.raises(errors.InstallError, match="command restoration interrupted"):
-        recover_transaction(ctx, runtime=runtime, bind_terminal=binder)
+        recover_transaction(
+            ctx, runtime=runtime, read_after_wait=read_after_wait, bind_terminal=binder
+        )
 
     assert payload_generation.selected_context(ctx) == predecessor.context
     assert not Path(ctx.command).exists()
@@ -179,7 +189,9 @@ def test_recovery_retries_command_restoration_after_selection_is_restored(
     def bind_restored_terminal(active: runtime_context.RuntimeContext) -> None:
         assert command.status(Path(ctx.command), Path(active.executable))["state"] == "owned"
 
-    result = recover_transaction(ctx, runtime=runtime, bind_terminal=bind_restored_terminal)
+    result = recover_transaction(
+        ctx, runtime=runtime, read_after_wait=read_after_wait, bind_terminal=bind_restored_terminal
+    )
 
     assert result["state"] == "rolled_back"
     assert (

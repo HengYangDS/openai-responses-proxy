@@ -21,6 +21,7 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
+from tests.lifecycle.transaction.fixtures import no_wait
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
 
@@ -51,7 +52,11 @@ def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
 
     removal = mocker.Mock(side_effect=remove_native)
     result = transaction_recovery.recover(
-        ctx, runtime=None, bind_terminal=mocker.Mock(), discard_native=removal
+        ctx,
+        runtime=None,
+        read_after_wait=no_wait,
+        bind_terminal=mocker.Mock(),
+        discard_native=removal,
     )
     assert result["state"] == "rolled_back"
     removal.assert_called_once_with(candidate.context)
@@ -72,7 +77,11 @@ def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
 
     with pytest.raises(errors.RecoveryStateError, match="native cleanup is unproved"):
         transaction_recovery.recover(
-            ctx, runtime=None, bind_terminal=mocker.Mock(), discard_native=removal
+            ctx,
+            runtime=None,
+            read_after_wait=no_wait,
+            bind_terminal=mocker.Mock(),
+            discard_native=removal,
         )
     assert records.journal_path(ctx).read_bytes() == journal
     assert Path(candidate.context.executable).read_bytes() == payload
@@ -116,7 +125,11 @@ def test_fresh_recovery_admits_projection_before_native_disposal(
 
     with pytest.raises(errors.InstallError, match=message):
         transaction_recovery.recover(
-            ctx, runtime=None, bind_terminal=binding, discard_native=removal
+            ctx,
+            runtime=None,
+            read_after_wait=no_wait,
+            bind_terminal=binding,
+            discard_native=removal,
         )
 
     removal.assert_not_called()

@@ -196,7 +196,8 @@ def test_recover_restores_only_the_runtime_bound_retained_transaction(
         "next": "openai-responses-proxy status",
     }
     context.assert_called_once_with(port=8801)
-    recover.assert_called_once_with(ctx)
+    # ``--json`` asks for no progress on standard error.
+    recover.assert_called_once_with(ctx, announce_wait=None)
 
 
 def test_rollback_is_discoverable_and_delegates_to_the_installed_lifecycle(
@@ -352,7 +353,8 @@ def test_pristine_recover_and_uninstall_are_explicit_no_ops(
     assert json.loads(stdout) == {"state": "not_required", "next": None}
     assert stderr == ""
     context.assert_called_once_with(port=8792)
-    recover.assert_called_once_with(ctx)
+    # ``--json`` asks for no progress on standard error.
+    recover.assert_called_once_with(ctx, announce_wait=None)
 
     uninstall = mocker.patch.object(
         application.uninstall,

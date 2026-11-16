@@ -47,11 +47,20 @@ handoff only within that time.
 
 #### Scenario: Recovery waits out a handoff request that may be pending
 
-- **WHEN** `recover` finds a transaction whose handoff may have been requested and a predecessor at rest
-- **THEN** it restores the prior selection only after the longest timeout that a handoff request can carry has
-  passed since it first read that predecessor at rest, and the predecessor is still at rest
-- **AND** a handoff that begins in that time is followed to its end
-- **AND** a transaction that requested no handoff is restored without that wait.
+- **WHEN** `recover` finds a transaction that reached activation and a predecessor at rest
+- **THEN** it restores the prior selection only on a health read that it asks after the longest timeout that a
+  handoff request can carry and one second have passed since its first read returned, and that still shows
+  the predecessor at rest
+- **AND** a successor that committed in that time is finalized, and a handoff that is in flight then leaves
+  the transaction for a later `recover`
+- **AND** a transaction that did not reach activation requested no handoff and is restored without that wait.
+
+#### Scenario: Recovery says that it waits
+
+- **WHEN** `recover` begins that wait in its human form
+- **THEN** it writes one line to standard error that names the wait and its length
+- **AND** with `--json` it writes nothing to standard error, and its result on standard output is unchanged
+  in either form.
 
 ## MODIFIED Requirements
 
