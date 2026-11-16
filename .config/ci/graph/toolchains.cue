@@ -8,7 +8,7 @@ import "strings"
 		checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"          // v7.0.1
 		python:   "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"      // v7.1.0
 		uv:       "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2"        // v10.3.3
-		mise:     "jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785"           // v5.2.8
+		mise:     "jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d"           // v5.2.9
 		upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"   // v7.0.2
 		download: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" // v8.0.2
 	}

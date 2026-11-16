@@ -253,9 +253,16 @@ def test_native_release_projections_share_one_cue_owner(
     )
     project.main(("--write",))
     before = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
+    release = (tmp_path / ".config/mise/python-release").read_text().strip()
+    major, minor, patch = release.split(".")
+    successor = f"{major}.{minor}.{int(patch) + 1}"
     model = tmp_path / ".config/ci/graph/toolchains.cue"
     source = model.read_text()
-    updated, count = re.subn(r'(python:\s+)"3\.14\.7"', r'\g<1>"3.14.8"', source)
+    # The image reference is the model's only release literal; the Python patch is read from it.
+    assert source.count(f'"{release}"') == 0
+    updated, count = re.subn(
+        rf'(linuxImage:\s+"python:){re.escape(release)}-', rf"\g<1>{successor}-", source
+    )
     assert count == 1
     model.write_text(updated)
     assert set(project.reconcile(write=False)) == {
@@ -264,8 +271,9 @@ def test_native_release_projections_share_one_cue_owner(
     }
     assert {path: path.read_bytes() for path in before} == before
     project.main(("--write",))
-    assert (tmp_path / ".config/mise/python-release").read_bytes() == b"3.14.8\n"
-    assert (tmp_path / ".config/ci/linux-release-image").read_text().startswith("python:3.14.8-")
+    assert (tmp_path / ".config/mise/python-release").read_bytes() == f"{successor}\n".encode()
+    image = (tmp_path / ".config/ci/linux-release-image").read_text()
+    assert image.startswith(f"python:{successor}-")
     accepted = {item.path: item.path.read_bytes() for item in project.PROJECTIONS}
     project.main(("--write",))
     assert project.reconcile(write=False) == ()

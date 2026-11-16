@@ -8,6 +8,11 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- The bundled Cyclopts advances from 5.4.2 to 5.5.1. No command, option, help
+  text or exit status of this product changes.
+
 ## [6.0.1] - 2026-11-16
 
 ### Changed

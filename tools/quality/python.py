@@ -111,7 +111,7 @@ def behavior(
             else ("python", "-m", "pytest")
         ),
         "-m",
-        "not native_distribution and not repository_toolchain",
+        "not native_distribution and not native_observer and not repository_toolchain",
         "--rootdir",
         str(ROOT),
         "-c",

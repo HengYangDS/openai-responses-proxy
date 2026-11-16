@@ -105,10 +105,8 @@ def quality(session: nox.Session) -> None:
     if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR", ""):
         session.run(
             *PYTEST_COMMAND,
-            "tests/quality/orchestration/test_observation.py",
-            "-k",
-            "native_behavior_reports_share_one_actual_pytest_attempt "
-            "or native_static_report_observes_one_original_ruff_launch",
+            "-m",
+            "native_observer",
             env={**environment, "ETHOS_NATIVE_OUTPUT_DIR": None},
         )
 

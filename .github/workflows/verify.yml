@@ -71,7 +71,7 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
         with:
           version: 2026.11.8
           install: true
@@ -268,7 +268,7 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
         with:
           version: 2026.11.8
           install: true
@@ -307,7 +307,7 @@ jobs:
         with:
           cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
           version-file: .config/mise/uv.toml
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
         with:
           version: 2026.11.8
           install: true

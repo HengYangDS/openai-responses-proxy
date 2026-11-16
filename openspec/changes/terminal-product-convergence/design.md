@@ -277,6 +277,19 @@ nonzero decisions for independent product, tooling and orchestration scopes.
 Keep their floors and resolve gaps with meaningful tests, deletion or simpler
 responsibilities, not combined denominators or product-only green evidence.
 
+### Each test marker has a gate session that runs it
+
+- **Rests on:** `repository_toolchain` at `6c4ff8bb`: 52 cases carry it, every
+  session of `tools/quality/python.py` deselects it, 34 ran in no gate, and one
+  had failed since 2026-11-14. Governance is the one gate that installs the Mise
+  and npm tools on each platform and Forge where it runs.
+- **Considered:** the marker in `quality`, in `tests`, in a session and job of
+  its own, or in governance.
+- **Chosen because:** `quality` has no Mise in GitLab's image, `tests` has no
+  toolchain on three platforms, and a new job repeats governance's supply.
+- **Applies to:** every marker of the test configuration: a test fails when a
+  module that carries one is reached by no gate session.
+
 ### One development and supply-chain control plane
 
 `mise` selects locked cross-platform tools and exposes the small developer task
@@ -569,21 +582,7 @@ remains untouched until the successor passes its declared transition.
 
 ## Migration Plan
 
-1. Establish the full Change, capability deltas, task map, and exact current
-   baseline; keep the installed product untouched.
-2. Close the Windows native-environment P0 and prove the exact candidate on
-   macOS, Linux, and Windows before any release mutation.
-3. Freeze product ontology and dependency directions, then migrate one domain
-   at a time while deleting each superseded owner in the same atomic commit.
-4. Converge the CLI, Responses path, native lifecycle, development environment,
-   quality system, CI model, supply chain, documentation, and release system in
-   dependency order.
-5. Run the complete local and native verification ladder once on the frozen
-   candidate; repair failures at their smallest owner rather than rerunning the
-   whole graph for discovery.
-6. Land through current ETHOS authority, project the same signed objects to both
-   optional Forges, publish immutable assets, and prove installed upgrade,
-   no-op, rollback, recovery, re-upgrade, uninstall, and reinstall.
-7. Remove proposal branches, the Work Lane, superseded local and remote
-   artifacts, native test resources, caches, and consumerless records; then
-   archive this Change and verify the repository family is terminal.
+What remains is the order of tasks 13.5 to 13.7: verify the frozen candidate
+once, repairing a failure at its smallest owner; land and publish it and prove
+the installed upgrade, no-op, rollback, recovery, re-upgrade, uninstall and
+reinstall; then retire what it supersedes and archive this Change.

@@ -168,7 +168,7 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     assert behavior.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
     assert nested.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
     assert "--ethos-runtime-output" not in nested.args
-    assert "tests/quality/orchestration/test_observation.py" in nested.args
+    assert nested.args[-2:] == ("-m", "native_observer")
     assert any(
         "--xml" in call.args and call.args[-1] == str(output / "quality-coverage.xml")
         for call in session.run.call_args_list
@@ -184,7 +184,7 @@ def test_native_report_refuses_session_without_concrete_python(
         nox_configuration.python_quality._native_session(session)
 
 
-@pytest.mark.repository_toolchain
+@pytest.mark.native_observer
 def test_native_behavior_reports_share_one_actual_pytest_attempt(
     tmp_path: Path,
     mocker: MockerFixture,
@@ -281,7 +281,7 @@ def test_native_behavior_reports_share_one_actual_pytest_attempt(
     assert behavior[0].args[behavior[0].args.index("--report-log") + 1] == str(events_path)
 
 
-@pytest.mark.repository_toolchain
+@pytest.mark.native_observer
 def test_native_static_report_observes_one_original_ruff_launch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
