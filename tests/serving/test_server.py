@@ -38,6 +38,9 @@ def test_server_routes_each_method_to_one_owner(
     handler.server = mocker.Mock(
         bindings=server.Bindings(control=bindings, providers=providers, server_version="dmx/test")
     )
+    # The handoff route also carries the stamp of the accept of the request's connection.
+    handler.connection = mocker.sentinel.connection
+    accepted_at = handler.server.accepted_at.return_value
     handoff = mocker.patch.object(control, "prepare_handoff")
     status = mocker.patch.object(control, "send_status")
     relay = mocker.patch.object(responses, "relay")
@@ -57,7 +60,11 @@ def test_server_routes_each_method_to_one_owner(
                 candidate.reset_mock()
             handler.path = path
             getattr(handler, method)()
-            owner.assert_called_once_with(handler, *arguments)
+            if owner is handoff:
+                owner.assert_called_once_with(handler, *arguments, accepted_at=accepted_at)
+                handler.server.accepted_at.assert_called_once_with(mocker.sentinel.connection)
+            else:
+                owner.assert_called_once_with(handler, *arguments)
 
 
 def test_server_hardening_and_handoff_listener_adoption(*, mocker: MockerFixture) -> None:

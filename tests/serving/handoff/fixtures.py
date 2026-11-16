@@ -6,6 +6,7 @@ import errno
 import hashlib
 import io
 import json
+import math
 import os
 import shlex
 import socket
@@ -45,6 +46,9 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_EXECUTABLE_START_TIMEOUT_SECONDS = 60
+# The stamp of an accept whose bound no reading of the clock passes, for the contracts of a
+# handoff that are not about the bound of its begin.
+UNBOUNDED_ACCEPT = math.inf
 
 
 def expected_metadata(**overrides: object) -> dict[str, object]:

@@ -72,6 +72,10 @@ class HandoffConflictError(HandoffError):
     """Another process-local handoff already owns the single-flight session."""
 
 
+class HandoffRequestExpiredError(HandoffError):
+    """A request reached the begin of its handoff later than its timeout after its accept."""
+
+
 @dataclass(frozen=True)
 class Context:
     """Proxy-owned primitives needed by the handoff transaction."""
@@ -254,16 +258,30 @@ def prepare(
     expected: ReadOnlyJsonObject,
     context: Context,
     *,
+    accepted_at: float | None,
     timeout_seconds: float = HANDOFF_READY_TIMEOUT_SECONDS,
     lease_seconds: float = HANDOFF_DEFAULT_LEASE_SECONDS,
 ) -> PreparedHandoff:
-    """Prepare and validate a non-accepting replacement without closing admission."""
+    """Prepare and validate a non-accepting replacement without closing admission.
+
+    ``accepted_at`` is the listener's monotonic stamp of the accept of the request's
+    connection. The handoff begins only while the clock is no later than that stamp plus
+    ``timeout_seconds``, the request's own timeout; a later request, and one without a stamp,
+    is refused with the session unchanged. Every connection that the listener accepts later
+    is stamped no earlier, so a controller that has an answer to a later health read knows
+    that its request can begin no later than its timeout after that answer.
+    """
     required = _IDENTITY_FIELDS
     if not isinstance(expected, dict) or any(
         not isinstance(expected.get(key), str) or not expected.get(key) for key in required
     ):
         raise HandoffError("handoff request identity is incomplete")
     with _HANDOFF_LOCK:
+        # The clock is read under the lock, after any wait for it, and a request that passes
+        # shows its session before the lock is released: no health read sees a session at
+        # rest between the two.
+        if accepted_at is None or time.monotonic() > accepted_at + timeout_seconds:
+            raise HandoffRequestExpiredError("handoff request reached its begin after its timeout")
         if _HANDOFF_SESSION.get("state") == "finalized":
             reset_session_to_idle()
         if _HANDOFF_SESSION.get("state") != "idle":

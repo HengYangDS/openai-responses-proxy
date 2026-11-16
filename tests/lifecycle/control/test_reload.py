@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import itertools
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Self
@@ -18,6 +17,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
+from tests.lifecycle.deployment.handoff.fixtures import PolledClock
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.serving.handoff.fixtures import idle_runtime
@@ -491,33 +491,42 @@ def test_reload_reports_a_supervisor_rebind_failure_after_the_handoff(
 
 
 @pytest.mark.parametrize(
-    "transport",
-    [ConnectionResetError("reset"), TimeoutError("timed out"), KeyboardInterrupt()],
+    ("transport", "reported"),
+    [
+        (ConnectionResetError("reset"), errors.InstallError),
+        (TimeoutError("timed out"), errors.InstallError),
+        (KeyboardInterrupt(), KeyboardInterrupt),
+    ],
     ids=["reset", "timeout", "interrupt"],
 )
-def test_reload_leaves_an_unanswered_handoff_of_an_idle_listener_unconfirmed(
-    tmp_path: Path, transport: BaseException, *, mocker: MockerFixture
+def test_reload_reports_an_unanswered_handoff_of_an_idle_listener_as_failed_after_its_timeout(
+    tmp_path: Path,
+    transport: BaseException,
+    reported: type[BaseException],
+    *,
+    mocker: MockerFixture,
 ) -> None:
-    """An idle listener that never answers may have read the request and be about to begin it.
+    """An idle listener that never answers may be about to begin the request, for a time.
 
     The request, the resolver and the rule are the product's own. The listener never shows the
-    request, so reload reports neither a failed handoff nor a finished one, and rebinds nothing.
+    request and is at rest when the request's 30 seconds and one more have passed since its
+    first answer, so reload reports the handoff that failed, not an unconfirmed one, and
+    rebinds nothing.
     """
     ctx, _control_ctx, native = _serving_installation(tmp_path, service="installed", mocker=mocker)
     health = mocker.patch.object(control, "read_runtime", return_value=idle_runtime(pid=7))
     mocker.patch.object(control.process, "owned_process_alive", return_value=True)
     mocker.patch.object(control.process, "capture_executable", return_value=None)
     sent = mocker.patch.object(control.loopback, "open_request", side_effect=transport)
-    mocker.patch.object(
-        control.handoff.time, "monotonic", side_effect=itertools.count(0.0, 100.0).__next__
-    )
-    sleep = mocker.patch.object(control.handoff.time, "sleep")
+    clock = PolledClock(mocker)
 
-    with pytest.raises(BaseException, match="reload handoff outcome is unconfirmed") as raised:
+    with pytest.raises(reported) as raised:
         control.reload(ctx)
 
-    assert isinstance(raised.value, errors.InstallError)
+    assert type(raised.value) is reported
+    assert str(raised.value) in {"handoff control is unavailable", ""}
     sent.assert_called_once()
-    # Reload and the request read health once each; every later read is a poll.
-    assert sleep.call_count == health.call_count - 2 > 0
+    assert clock.now == 31.0
+    # Reload and the request read health once each; the resolver's first read precedes its polls.
+    assert health.call_count == 2 + clock.sleep.call_count + 1
     native.install.assert_not_called()

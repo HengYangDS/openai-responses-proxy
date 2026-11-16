@@ -8,11 +8,11 @@
 
 ## 2. The listener's bound
 
-- [ ] 2.1 Stamp each accepted connection with the listener's monotonic clock in the accepting thread, and
+- [x] 2.1 Stamp each accepted connection with the listener's monotonic clock in the accepting thread, and
       refuse a handoff request that reaches the begin of its handoff later than its own timeout after that
       stamp, under the lock that guards the handoff session and with that session unchanged; tests hold the
       refusal on both sides of the bound with a patched clock, and that the stamp is the accept's.
-- [ ] 2.2 Settle an unanswered request against a listener at rest once the request's timeout has passed since
+- [x] 2.2 Settle an unanswered request against a listener at rest once the request's timeout has passed since
       a health read that followed the request and the listener is still at rest; tests hold the wait, a
       handoff that begins inside it, and the three commands.
 

@@ -7,6 +7,7 @@ The rule's table, one row for each kind of evidence, in the resolver and in the 
 - acknowledged: the listener answered READY and the controller failed afterwards.
 - none: the request ended without the listener's answer.
 - observed: no answer, and the resolver has since seen the request's transaction in the session.
+- expired: no answer, and the request's timeout has passed at rest; ``test_expiry.py`` holds it.
 """
 
 from __future__ import annotations
@@ -254,18 +255,23 @@ class TestTheRuleInTheResolver(EvidenceFixture):
         ids=["no-answer", "unrecorded", "not-ready", "interrupt", "reset"],
     )
     @pytest.mark.parametrize("captured", [idle_runtime(), _RESTING], ids=["idle", "resting"])
-    def test_an_unanswered_request_against_a_listener_at_rest_is_unknown_at_the_deadline(
+    def test_an_unanswered_request_against_a_listener_at_rest_is_unknown_before_its_timeout(
         self, failure: BaseException, captured: dict[str, object]
     ) -> None:
-        """Row "none": the listener may have read the request and be about to begin it."""
+        """Row "none": the listener may have read the request and be about to begin it.
+
+        One read at rest proves nothing. Here the deadline ends the resolver before the
+        request's timeout has passed at rest.
+        """
         sleep = self.clock(3.0)
         reader = self.mocker.Mock(return_value=dict(captured))
 
         assert self.resolve(failure, reader, captured=captured) == ("unknown", None)
 
-        # Readings at 0 (the deadline, 7), 3 and 6 poll; the reading at 9 ends the wait.
-        assert reader.call_count == 2
-        assert sleep.call_count == 2
+        # Readings at 0 (the deadline, 7) and 3 poll once; the read has returned at 6, where
+        # the wait of 2 seconds at rest starts; the reading at 9 ends the resolver.
+        assert reader.call_count == 1
+        assert sleep.call_count == 1
         assert handoff.request_evidence(failure) is _NONE
 
     def test_an_unanswered_request_that_begins_and_ends_resolves_before_the_deadline(
@@ -308,16 +314,21 @@ class TestTheRuleInTheResolver(EvidenceFixture):
                 assert handoff.request_evidence(failure) is _OBSERVED
 
     def test_another_transaction_in_the_session_is_no_observation_of_this_request(self) -> None:
-        """Some other handoff began and ended; this request may still be read and begun."""
+        """Some other handoff began and ended; this request may still be read and begun.
+
+        The idle session after it resolves nothing at once, as an observation would. The
+        request is settled by its own timeout: the wait of 2 seconds at rest starts at 3,
+        when the first idle read has returned, and is over for the read that is asked at 5.
+        """
         failure = _unanswered()
         sleep = self.clock(1.0)
         other = idle_runtime(handoff_state="preparing", handoff_transaction_id="8" * 32)
         reader = self.mocker.Mock(side_effect=_script(other, idle_runtime()))
 
-        assert self.resolve(failure, reader) == ("unknown", None)
+        assert self.resolve(failure, reader) == ("rolled_back", idle_runtime())
 
-        assert reader.call_count == sleep.call_count == 6
-        assert handoff.request_evidence(failure) is _NONE
+        assert (reader.call_count, sleep.call_count) == (4, 3)
+        assert handoff.request_evidence(failure) is handoff.RequestEvidence.EXPIRED
 
     def test_an_observed_request_is_followed_to_its_finalized_successor(self) -> None:
         """A handoff that begins after an unanswered request and commits resolves as finalized."""

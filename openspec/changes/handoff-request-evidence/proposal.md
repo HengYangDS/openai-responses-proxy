@@ -22,10 +22,11 @@ handler goes on to begin. `recover` decides the same way on one read of health.
   it, the listener acknowledged it, its handoff was seen to begin and end, or the time in which the listener
   may begin it has run out.
 - A listener begins a handoff only within the request's own timeout, counted from the moment at which it
-  accepted the request's connection, and refuses the request afterwards.
+  accepted the request's connection, and refuses the request afterwards with HTTP 408 and the error
+  `handoff_request_expired`.
 - A request that ends without the listener's answer, against a listener at rest, is no longer rolled back at
-  once. The command waits for the request's timeout, 30 seconds by default, and rolls back if the listener is
-  still at rest then; a handoff that begins in that time is followed to its end.
+  once. The command waits for the request's timeout and one second, 31 seconds by default, and rolls back if
+  the listener is still at rest then; a handoff that begins in that time is followed to its end.
 - `recover` waits for the longest time that a request can carry, 120 seconds, before it restores the prior
   selection of a transaction whose handoff may have been requested, and follows a handoff that begins in that
   time.

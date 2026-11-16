@@ -6,6 +6,7 @@ import tempfile
 from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
+from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.lifecycle.supervision import process
 
 if TYPE_CHECKING:
@@ -41,6 +42,25 @@ def admit_handoff_generations(
     )
     mocker.patch.object(process, "listener_pids", return_value=[predecessor_pid])
     return predecessor, successor, alive
+
+
+class PolledClock:
+    """A controller's clock that moves only while the controller waits between two polls.
+
+    Each wait takes an eighth of a second, whatever it asks for. The sums are exact, so a test
+    names the reading at which a wait is over instead of counting readings of the clock.
+    """
+
+    POLL_SECONDS = 0.125
+
+    def __init__(self, mocker: MockerFixture) -> None:
+        """Replace the controller's clock and its sleep for the test."""
+        self.now = 0.0
+        mocker.patch.object(handoff.time, "monotonic", side_effect=lambda: self.now)
+        self.sleep = mocker.patch.object(handoff.time, "sleep", side_effect=self._wait)
+
+    def _wait(self, _seconds: float) -> None:
+        self.now += self.POLL_SECONDS
 
 
 class HandoffFixture:

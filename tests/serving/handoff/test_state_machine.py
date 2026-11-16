@@ -10,6 +10,7 @@ import pytest
 
 from openai_responses_proxy.serving.handoff import protocol as handoff_protocol_module
 from openai_responses_proxy.serving.handoff.protocol import HANDOFF_STARTUP_TIMEOUT_SECONDS
+from tests.serving.handoff.fixtures import UNBOUNDED_ACCEPT
 from tests.serving.handoff.fixtures import HandoffFixture
 from tests.serving.handoff.fixtures import child_message
 from tests.serving.handoff.fixtures import entrypoint_module
@@ -54,7 +55,13 @@ class TestParentHandoffStateMachine(HandoffFixture):
             *after_ready,
         ]
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, self.context, timeout_seconds=timeout_seconds)
+        prepared = self.p.prepare(
+            server,
+            expected,
+            self.context,
+            accepted_at=UNBOUNDED_ACCEPT,
+            timeout_seconds=timeout_seconds,
+        )
         outcome = self.p.commit(server, prepared, self.context)
         return outcome, server, child, expected
 
@@ -76,7 +83,11 @@ class TestParentHandoffStateMachine(HandoffFixture):
         }
         mocker.patch.object(self.p, "spawn_child", return_value=child)
         prepared = self.p.prepare(
-            fake_server(mocker=mocker), expected, self.context, timeout_seconds=1
+            fake_server(mocker=mocker),
+            expected,
+            self.context,
+            accepted_at=UNBOUNDED_ACCEPT,
+            timeout_seconds=1,
         )
 
         assert prepared["child"] is child
@@ -123,7 +134,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
             lambda: observing_context.executable,
         )
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, observing_context, timeout_seconds=5)
+        prepared = self.p.prepare(
+            server, expected, observing_context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=5
+        )
         outcome = self.p.commit(server, prepared, observing_context)
 
         assert outcome == "finalized"
@@ -153,7 +166,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
 
         def second_attempt() -> None:
             try:
-                self.p.prepare(server, metadata, self.context, timeout_seconds=5)
+                self.p.prepare(
+                    server, metadata, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=5
+                )
             except self.p.HandoffError as exc:
                 errors.append(exc)
 
@@ -161,7 +176,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         first = threading.Thread(
             target=self.p.prepare,
             args=(server, metadata, self.context),
-            kwargs={"timeout_seconds": 5},
+            kwargs={"accepted_at": UNBOUNDED_ACCEPT, "timeout_seconds": 5},
         )
         first.start()
         assert wait_until(lambda: self.p._HANDOFF_SESSION.get("state") == "preparing", timeout=2)
@@ -182,14 +197,14 @@ class TestParentHandoffStateMachine(HandoffFixture):
                 subtests.test(expected=expected),
                 pytest.raises(self.p.HandoffError, match="identity is incomplete"),
             ):
-                self.p.prepare(server, expected, self.context)
+                self.p.prepare(server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT)
 
         child = fake_child(mocker=mocker)
         expected = expected_metadata(transaction_id="txn-recycled")
         child.recv_message.return_value = child_message("ready", child, expected)
         self.p._HANDOFF_SESSION["state"] = "finalized"
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, self.context)
+        prepared = self.p.prepare(server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT)
         assert prepared["expected"] == expected
         assert self.p._HANDOFF_SESSION["state"] == "ready"
 
@@ -242,7 +257,13 @@ class TestParentHandoffStateMachine(HandoffFixture):
                 else:
                     mocker.patch.object(self.p, "spawn_child", return_value=child)
                 with pytest.raises(self.p.HandoffError):
-                    self.p.prepare(server, expected, self.context, timeout_seconds=1)
+                    self.p.prepare(
+                        server,
+                        expected,
+                        self.context,
+                        accepted_at=UNBOUNDED_ACCEPT,
+                        timeout_seconds=1,
+                    )
                 server.shutdown.assert_not_called()
                 assert self.p._HANDOFF_SESSION.get("state") == "idle"
                 assert child.terminate_bounded.call_count == int(name != "spawn")
@@ -297,7 +318,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         ]
         mocker.patch.object(self.p, "spawn_child", return_value=child)
         server = fake_server(mocker=mocker)
-        prepared = self.p.prepare(server, expected, self.context, timeout_seconds=1)
+        prepared = self.p.prepare(
+            server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=1
+        )
         log = mocker.Mock()
         context = entrypoint_module._handoff_context()
         object.__setattr__(context, "log", log)
@@ -342,6 +365,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
                                 fake_server(mocker=mocker),
                                 expected,
                                 self.context,
+                                accepted_at=UNBOUNDED_ACCEPT,
                                 timeout_seconds=1,
                             )
                         child.terminate_bounded.assert_called_once()
@@ -369,7 +393,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child.kill_bounded = mocker.Mock(return_value=True)
         mocker.patch.object(self.p, "spawn_child", return_value=child)
         with pytest.raises(self.p.HandoffError):
-            self.p.prepare(server, expected, self.context, timeout_seconds=1)
+            self.p.prepare(
+                server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=1
+            )
         child.terminate_bounded.assert_called_once()
         child.kill_bounded.assert_called_once()
 
@@ -386,7 +412,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child.terminate_bounded.return_value = False
         child.kill_bounded = mocker.Mock(return_value=False)
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, self.context, timeout_seconds=1)
+        prepared = self.p.prepare(
+            server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=1
+        )
         outcome = self.p.commit(server, prepared, self.context)
         assert outcome == "abort_unconfirmed"
         assert self.p._HANDOFF_SESSION["outcome"] == "abort_unconfirmed"
@@ -422,7 +450,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child.kill_bounded = mocker.Mock(return_value=False)
         mocker.patch.object(self.p, "spawn_child", return_value=child)
         with pytest.raises(self.p.HandoffError):
-            self.p.prepare(server, expected, self.context, timeout_seconds=1)
+            self.p.prepare(
+                server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=1
+            )
         assert self.p._HANDOFF_SESSION["state"] == "aborting"
 
     def test_internal_fail_closed_branches_are_bounded(self, *, mocker: MockerFixture) -> None:
@@ -452,7 +482,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
         child = fake_child(mocker=mocker)
         child.recv_message.return_value = child_message("ready", child, expected)
         mocker.patch.object(self.p, "spawn_child", return_value=child)
-        prepared = self.p.prepare(server, expected, self.context, timeout_seconds=1)
+        prepared = self.p.prepare(
+            server, expected, self.context, accepted_at=UNBOUNDED_ACCEPT, timeout_seconds=1
+        )
         child.send_message.side_effect = BrokenPipeError
         child.terminate_bounded.return_value = False
         child.kill_bounded.return_value = False

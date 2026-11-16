@@ -93,7 +93,9 @@ class TestAnUnansweredRequestInTheWindow(HandoffFixture):
         def controller_loses_its_answer() -> None:
             seen["read"] = _health()
             unanswered = errors.InstallError("handoff control is unavailable")
-            # The deadline is 1 + 1 + 5 seconds after the first reading of the clock.
+            # The deadline is 1 + 1 + 5 seconds after the first reading of the clock, and
+            # each reading takes 3: the deadline ends the resolver after one poll, before
+            # the request's timeout has passed at rest.
             clock = mocker.patch.object(
                 handoff.time, "monotonic", side_effect=itertools.count(0.0, 3.0).__next__
             )
@@ -131,7 +133,7 @@ class TestAnUnansweredRequestInTheWindow(HandoffFixture):
             handoff_transaction_id=expected_metadata()["transaction_id"],
         )
         assert (seen["resolution"], seen["proof"]) == (("unknown", None), False)
-        assert seen["waits"] == 2
+        assert seen["waits"] == 1
 
     def test_a_listener_that_then_begins_and_fails_is_seen_and_resolved_before_the_deadline(
         self, *, mocker: MockerFixture

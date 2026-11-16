@@ -32,13 +32,15 @@ handoff only within that time.
 
 - **WHEN** a handoff request reaches the begin of its handoff later than the request's own timeout after the
   listener accepted the request's connection
-- **THEN** the listener refuses the request with an error status
+- **THEN** the listener refuses the request with HTTP 408 and the error
+  `handoff_request_expired`
 - **AND** its handoff session is unchanged.
 
 #### Scenario: An unanswered request runs out of time
 
-- **WHEN** a handoff request ends without the listener's answer, the request's timeout has passed since a
-  health read that followed the request, and health still shows the captured listener at rest
+- **WHEN** a handoff request ends without the listener's answer, the request's timeout and one second have
+  passed since a health read that followed the request showed the captured listener at rest, and a health
+  read that is asked after that time shows it at rest
 - **THEN** the controller reads that the listener can no longer begin that request and rolls the payload back
 - **AND** before that time a listener at rest proves nothing, and a handoff that begins is followed to its
   end.

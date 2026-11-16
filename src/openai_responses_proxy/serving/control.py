@@ -72,8 +72,24 @@ def _bounded_seconds(value: object, *, minimum: float, maximum: float, default: 
     return default
 
 
-def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None:
-    """Prepare one replacement and transfer COMMIT before READY projection."""
+def _refusal(failure: handoff.HandoffError) -> tuple[int, str]:
+    """Return the error status and the name with which a handoff that did not begin is refused."""
+    if isinstance(failure, handoff.HandoffConflictError):
+        return HTTPStatus.CONFLICT.value, "handoff_in_progress"
+    if isinstance(failure, handoff.HandoffRequestExpiredError):
+        return HTTPStatus.REQUEST_TIMEOUT.value, "handoff_request_expired"
+    return HTTPStatus.SERVICE_UNAVAILABLE.value, "handoff_prepare_failed"
+
+
+def prepare_handoff(
+    handler: BaseHTTPRequestHandler, bindings: Bindings, *, accepted_at: float | None = None
+) -> None:
+    """Prepare one replacement and transfer COMMIT before READY projection.
+
+    ``accepted_at`` is the listener's monotonic stamp of the accept of the request's
+    connection. The handoff begins only within the request's timeout of it, and a request
+    without a stamp is refused.
+    """
     if not admission.is_local_controller(handler.client_address[0], handler.headers):
         handler.send_error(403, "handoff control is available only to a local native controller")
         return
@@ -149,21 +165,13 @@ def prepare_handoff(handler: BaseHTTPRequestHandler, bindings: Bindings) -> None
             server,
             expected,
             context,
+            accepted_at=accepted_at,
             timeout_seconds=timeout_seconds,
             lease_seconds=lease_seconds,
         )
     except handoff.HandoffError as exc:
-        status = 409 if isinstance(exc, handoff.HandoffConflictError) else 503
-        _write_json(
-            handler,
-            status,
-            {
-                "ok": False,
-                "error": "handoff_in_progress"
-                if status == HTTPStatus.CONFLICT
-                else "handoff_prepare_failed",
-            },
-        )
+        status, error = _refusal(exc)
+        _write_json(handler, status, {"ok": False, "error": error})
         return
     threading.Thread(
         target=handoff.commit,

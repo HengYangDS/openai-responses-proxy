@@ -34,9 +34,14 @@ _FINISHED = (
     handoff.RequestEvidence.REFUSED,
     handoff.RequestEvidence.ACKNOWLEDGED,
     handoff.RequestEvidence.OBSERVED,
+    handoff.RequestEvidence.EXPIRED,
 )
 # What says that the request began nothing, so that the captured finished session is at rest.
-_NOT_BEGUN = (handoff.RequestEvidence.UNSENT, handoff.RequestEvidence.REFUSED)
+_NOT_BEGUN = (
+    handoff.RequestEvidence.UNSENT,
+    handoff.RequestEvidence.REFUSED,
+    handoff.RequestEvidence.EXPIRED,
+)
 
 
 class TestControllerHandoffWiring(HandoffFixture):
@@ -105,10 +110,15 @@ class TestControllerHandoffWiring(HandoffFixture):
             assert not handoff._old_runtime_resumed(dict(captured), captured, evidence=refused)
             assert handoff._old_runtime_resumed(idle_runtime(), captured, evidence=refused)
 
-    def test_failure_resolver_waits_out_a_resting_child_that_sent_no_answer(
+    def test_failure_resolver_waits_out_the_timeout_of_a_resting_child_that_sent_no_answer(
         self, *, mocker: MockerFixture
     ) -> None:
-        """A request without an answer may still begin, so its listener at rest resolves nothing."""
+        """A request without an answer may still begin until its timeout has passed at rest.
+
+        It carried one second, and one more is the margin: a listener at rest resolves nothing
+        in a read that is asked 1.99 seconds after its first answer, and rolls the request
+        back in one that is asked at 2.
+        """
         ctx = install_context(Path(self.tempdir.name))
         resting = idle_runtime(handoff_state="finalized", handoff_transaction_id="7" * 32)
         mocker.patch.object(process, "owned_process_alive", return_value=True)
@@ -117,11 +127,12 @@ class TestControllerHandoffWiring(HandoffFixture):
         sleep = mocker.patch.object(handoff.time, "sleep")
         reader = mocker.Mock(return_value=dict(resting))
 
-        for failure in (_UNANSWERED, KeyboardInterrupt()):
+        for failure in (errors.InstallError("handoff control is unavailable"), KeyboardInterrupt()):
             reader.reset_mock()
             sleep.reset_mock()
-            # The deadline is 1 + 1 + 5 seconds after the first reading of the clock.
-            clock.side_effect = [0.0, 0.0, 6.9, 7.0]
+            # The deadline, the first poll and the return of its read at 0; then the moments
+            # at which the second and the third read are asked.
+            clock.side_effect = [0.0, 0.0, 0.0, 1.99, 2.0]
             assert handoff.resolve_after_controller_failure(
                 ctx,
                 resting,
@@ -131,9 +142,10 @@ class TestControllerHandoffWiring(HandoffFixture):
                 timeout_seconds=1,
                 lease_seconds=1,
                 source_listener=process.OwnedProcess(999, ctx.executable, 0.5),
-            ) == ("unknown", None)
-            assert reader.call_count == 2
+            ) == ("rolled_back", resting)
+            assert reader.call_count == 3
             assert sleep.call_count == 2
+            assert handoff.request_evidence(failure) is handoff.RequestEvidence.EXPIRED
 
     def test_a_request_that_a_resting_listener_has_read_and_not_begun_resolves_nothing(
         self, *, mocker: MockerFixture

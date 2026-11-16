@@ -18,6 +18,7 @@ from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
+from tests.lifecycle.deployment.handoff.fixtures import PolledClock
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
@@ -27,57 +28,70 @@ from tests.serving.handoff.fixtures import ready_ack
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
-    from pytest_mock import MockType
 
-_UNCONFIRMED = "handoff outcome is unconfirmed; transaction preserved for recovery"
+# What ends a request without the listener's answer, and the failure that the command reports.
+# Each test raises its own instance: a failure carries its evidence wherever it is raised again.
 _NO_ANSWER = pytest.mark.parametrize(
-    "transport",
-    [ConnectionResetError("reset"), TimeoutError("timed out"), KeyboardInterrupt()],
+    ("transport", "reported"),
+    [
+        (ConnectionResetError, errors.InstallError),
+        (TimeoutError, errors.InstallError),
+        (KeyboardInterrupt, KeyboardInterrupt),
+    ],
     ids=["reset", "timeout", "interrupt"],
 )
-
-
-def _waiting_clock(mocker: MockerFixture) -> MockType:
-    """Advance the controller's clock by 100 seconds at each reading; return its sleep."""
-    mocker.patch.object(
-        apply.handoff.time, "monotonic", side_effect=itertools.count(0.0, 100.0).__next__
-    )
-    return mocker.patch.object(apply.handoff.time, "sleep")
+# The request carries the command's 30 seconds, and one more is the margin.
+_WAIT_SECONDS = 31.0
 
 
 class TestReleasedDeployment(ReleasedDeploymentFixture):
     @_NO_ANSWER
-    def test_upgrade_preserves_its_transaction_when_an_idle_listener_never_answers(
-        self, transport: BaseException, *, mocker: MockerFixture
+    def test_upgrade_rolls_back_when_an_idle_listener_never_answers_within_the_timeout(
+        self,
+        transport: type[BaseException],
+        reported: type[BaseException],
+        *,
+        mocker: MockerFixture,
     ) -> None:
-        """An idle listener may have read the request and be about to begin it.
+        """An idle listener may have read the request and be about to begin it, for a time.
 
-        It never shows the request, so nothing says that it will not begin: the selection is
-        not restored and the transaction is left to ``recover``.
+        It begins a request only within the request's timeout of accepting it. It never shows
+        the request and is at rest when that time has passed since its first answer, so it
+        will begin nothing: the selection is restored and nothing is left to ``recover``.
         """
         payload = FakeTransaction(self.ctx)
         current = self.current_runtime()
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[111])
-        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport)
-        sleep = _waiting_clock(mocker)
+        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport())
+        clock = PolledClock(mocker)
         health = mocker.Mock(return_value=current)
 
-        with pytest.raises(BaseException, match=_UNCONFIRMED) as raised:
+        with pytest.raises(reported) as raised:
             self.deploy(payload, current, adapter=service, runtime_reader=health, mocker=mocker)
 
-        assert isinstance(raised.value, apply.UnknownDeploymentOutcome)
-        assert payload.events == ["commit", "activate", ("preserve", _UNCONFIRMED)]
+        assert not isinstance(raised.value, apply.UnknownDeploymentOutcome)
+        assert payload.events == ["commit", "activate", "rollback"]
         sent.assert_called_once()
-        # Admission and the request read health once each; every later read is a poll.
-        assert sleep.call_count == health.call_count - 2 > 0
+        # The resolver's first read starts the wait, and its last one is the first after it.
+        assert clock.now == _WAIT_SECONDS
+        # Admission, the request and the proof read health once each; the resolver polls.
+        assert health.call_count == 3 + clock.sleep.call_count + 1
         service.install_mock.assert_not_called()
 
     @_NO_ANSWER
-    def test_rollback_preserves_its_transaction_when_an_idle_listener_never_answers(
-        self, transport: BaseException, *, mocker: MockerFixture
+    def test_rollback_rolls_back_when_an_idle_listener_never_answers_within_the_timeout(
+        self,
+        transport: type[BaseException],
+        reported: type[BaseException],
+        *,
+        mocker: MockerFixture,
     ) -> None:
-        """The worst case of the window: the retained release must not take over unseen."""
+        """The worst case of the window: the retained release must not take over unseen.
+
+        After the request's timeout at rest it cannot take over any more, and the selection of
+        the release that serves is restored.
+        """
         retained = payload_rollback.RetainedRollback(
             root=Path("/retained/1.2.2"),
             predecessor=retained_identity("1.2.2"),
@@ -88,22 +102,17 @@ class TestReleasedDeployment(ReleasedDeploymentFixture):
         service = FakeServiceAdapter(mocker=mocker)
         mocker.patch.object(transaction, "begin_rollback_transaction", return_value=payload)
         mocker.patch.object(generation, "control_context", return_value=self.ctx)
-        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport)
-        sleep = _waiting_clock(mocker)
+        sent = mocker.patch.object(apply.handoff.loopback, "open_request", side_effect=transport())
+        clock = PolledClock(mocker)
 
-        with pytest.raises(BaseException, match=_UNCONFIRMED) as raised:
+        with pytest.raises(reported) as raised:
             apply.rollback(self.ctx, retained, adapter=service, runtime_reader=lambda _ctx: current)
 
-        assert isinstance(raised.value, apply.UnknownDeploymentOutcome)
+        assert not isinstance(raised.value, apply.UnknownDeploymentOutcome)
         # The transaction was not prepared any more, so closing a prepared one changes nothing.
-        assert payload.events == [
-            "commit",
-            "activate",
-            ("preserve", _UNCONFIRMED),
-            "close_prepared",
-        ]
+        assert payload.events == ["commit", "activate", "rollback", "close_prepared"]
         sent.assert_called_once()
-        assert sleep.call_count > 0
+        assert clock.now == _WAIT_SECONDS
         service.install_mock.assert_not_called()
 
     def test_upgrade_rolls_back_at_once_when_its_request_was_never_sent(

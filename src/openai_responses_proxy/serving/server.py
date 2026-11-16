@@ -11,6 +11,8 @@ import contextlib
 import socket
 import socketserver
 import sys
+import time
+import weakref
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
@@ -58,6 +60,10 @@ class ResilientProxyServer(ThreadingHTTPServer):
     ) -> None:
         """Bind immutable product dependencies to one listener instance."""
         self.bindings = bindings
+        # The monotonic moment at which this listener accepted each connection that still exists.
+        self._accepted: weakref.WeakKeyDictionary[socket.socket, float] = (
+            weakref.WeakKeyDictionary()
+        )
         super().__init__(server_address, request_handler_class, bind_and_activate)
 
     @override
@@ -74,10 +80,21 @@ class ResilientProxyServer(ThreadingHTTPServer):
 
     @override
     def get_request(self) -> tuple[socket.socket, object]:
-        """Accept one connection and disable Nagle delay on its socket."""
+        """Accept one connection, stamp it with the moment and disable Nagle delay on its socket.
+
+        The one thread that accepts for this listener takes the stamp before it accepts again,
+        so a connection that is accepted later is stamped no earlier. A handoff request may
+        begin its handoff only within its own timeout of this stamp, which a stamp taken by
+        the handler could not bound: a connection waits for its handler and for its request.
+        """
         request, address = super().get_request()
+        self._accepted[request] = time.monotonic()
         _disable_nagle(request)
         return request, address
+
+    def accepted_at(self, connection: socket.socket) -> float | None:
+        """Return the monotonic moment at which this listener accepted a connection, if it did."""
+        return self._accepted.get(connection)
 
     @override
     def process_request_thread(
@@ -159,7 +176,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         """Route the handoff control request or relay one upstream request."""
         if self.path == "/control/handoff":
-            control.prepare_handoff(self, self._bindings().control)
+            listener = cast("ResilientProxyServer", self.server)
+            control.prepare_handoff(
+                self,
+                listener.bindings.control,
+                accepted_at=listener.accepted_at(self.connection),
+            )
         else:
             responses.relay(self, "POST", self._bindings().providers)
 

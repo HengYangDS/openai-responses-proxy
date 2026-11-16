@@ -62,11 +62,14 @@ means idle, or that finalized session exactly as the controller captured it befo
 ### The listener bounds its begin from the accept of the request's connection
 
 - **Rests on:** POSIX `accept` takes "the first connection on the queue of pending connections", and Winsock's
-  `accept` states the same; a test accepts connections that were made in a known order and holds that order
-  on each platform of the hosted graph. One thread of one process accepts for a listener at rest
-  (`ResilientProxyServer.get_request`). Python's `time.monotonic` is system-wide, so two processes of one host
-  measure the same durations. The session's lock guards the begin and the read of the session for health; a
-  test holds a begin inside the lock and shows that a health read waits for it.
+  `accept` states the same; `tests/serving/test_accept.py` connects eight loopback clients to a listener that
+  nobody accepts from and takes them out in the order in which they connected, on each platform of the hosted
+  graph. One thread of one process accepts for a listener at rest (`ResilientProxyServer.get_request`), and it
+  stamps a connection before it accepts the next. Python's `time.monotonic` is system-wide, so two processes
+  of one host measure the same durations. The session's lock guards both the begin and the read of the session
+  for health: `tests/serving/handoff/test_bound.py` holds that the clock is read under the lock and after any
+  wait for it, that a begin shows its session before it releases the lock, and that a health read reads the
+  session under that lock.
 - **Considered:** a bound from the moment at which the handler has read the request; a deadline that the
   request carries; an identifier that the request carries and a route that withdraws it; a ticket that the
   listener issues before the request; the state of the controller's connection at the begin.
@@ -83,9 +86,12 @@ means idle, or that finalized session exactly as the controller captured it befo
 
 ### An unanswered request is settled when its timeout has passed at rest
 
-- **Rests on:** the bound above. The request's connection was accepted before the resolver's first health
-  read was. So the request can begin no later than its timeout after that read's answer, and a begin that
-  passes the bound holds the session's lock until the session shows it.
+- **Rests on:** the bound above. The request's connection was accepted before the connection of the resolver's
+  first health read, and the listener answered that read no later than the read returned. So the request can
+  begin no later than its timeout after that return, and a begin that passes the bound holds the session's
+  lock until the session shows it: a read that is asked after that time shows every handoff that the request
+  could begin. `tests/lifecycle/deployment/handoff/test_bound_window.py` runs the listener's handler and the
+  resolver on one clock from both sides of the bound.
 - **Considered:** wait the whole handoff deadline and end unknown, as a listener that a handoff created ends
   today; settle after the request's timeout; ask the listener whether it declares the bound and settle only
   then.
@@ -94,8 +100,10 @@ means idle, or that finalized session exactly as the controller captured it befo
   declared capability would keep that path for a 6.0.1 listener alone and give it no safety: `recover` must
   end, and it restores. One rule for every listener is the smaller product; the proposal names the listener
   that does not enforce it.
-- **Applies to:** the resolver and the proof. The wait is the timeout that the request carried, and a
-  handoff that begins inside it is followed as before.
+- **Applies to:** the resolver and the proof. The wait is the timeout that the request carried and one second,
+  which is far above the resolution of a platform's monotonic clock; it runs from the return of the first read
+  that shows the captured listener at rest to the asking of a later read, and no other read starts it again.
+  A handoff that begins inside it is followed as before.
 
 ### `recover` waits the longest timeout, and the journal keeps its form
 
@@ -120,6 +128,12 @@ means idle, or that finalized session exactly as the controller captured it befo
 - [A listener of 6.0.1 or earlier does not bound its begin] → The wait is then a practical bound and not the
   listener's. It concerns every handoff from such a listener: the upgrade to this release, and a transition
   that follows a rollback to 6.0.1.
+- [The listener's queue of 256 pending connections overflows, and the request's connection completes after
+  the connection of a health read] → Not measured. As the implementer and the owner recall it, Linux leaves a
+  connection that a full queue did not admit to complete on a later retransmission, so a later connection can
+  complete first; the request would then be stamped after that health read, and the wait would end before the
+  request's bound. Accepted: it needs a listener that accepted nothing for longer than the request's timeout
+  and then accepted the health read first, and such a listener serves nothing.
 - [A rollback's request names the retained generation, so two rollbacks to one generation share the
   transaction that "observed" reads] → An earlier request of that transaction can be pending only if a
   restore ran while it was; the wait in `recover` and the bound exclude that for a listener of this release.

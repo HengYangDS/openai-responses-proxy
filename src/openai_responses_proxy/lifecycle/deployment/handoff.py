@@ -34,6 +34,10 @@ from openai_responses_proxy.serving import roles as serving_roles
 HANDOFF_PROTOCOL_VERSION = 2
 _MAX_BODY_BYTES = 64 * 1024
 _TRANSPORT_MARGIN_SECONDS = 1.0
+_MAX_REQUEST_TIMEOUT_SECONDS = 120
+# Far above the resolution of a platform's monotonic clock: a health read that is asked this
+# long after a listener's bound is asked after the last begin that the bound admits.
+_EXPIRY_MARGIN_SECONDS = 1.0
 RUNTIME_DIGEST_FIELDS = [
     "serving_payload_sha256",
     "release_receipt_sha256",
@@ -56,8 +60,9 @@ class HandoffRefusedError(errors.InstallError):
 class RequestEvidence(enum.Enum):
     """What a controller holds that no handoff of its request is still to come.
 
-    The listener never received the request, or it has finished with it. The failure of the
-    request carries the evidence to the resolver and to the proof.
+    The listener never received the request, it has finished with it, or the time in which it
+    may begin it has run out. The failure of the request carries the evidence to the resolver
+    and to the proof.
     """
 
     NONE = "none"
@@ -65,6 +70,7 @@ class RequestEvidence(enum.Enum):
     REFUSED = "refused"
     ACKNOWLEDGED = "acknowledged"
     OBSERVED = "observed"
+    EXPIRED = "expired"
 
 
 _EVIDENCE_ATTRIBUTE = "handoff_request_evidence"
@@ -79,8 +85,9 @@ def request_evidence(failure: BaseException) -> RequestEvidence:
     """Return what the failure of a handoff request carries of the listener's part in it.
 
     A refusal is the failure's type. The request records on the failure that nothing was
-    sent, or the listener's acknowledgement, and the resolver records an observation. A
-    failure that carries none of them holds no evidence, whatever its message says.
+    sent, or the listener's acknowledgement, and the resolver records an observation or that
+    the request's time has run out. A failure that carries none of them holds no evidence,
+    whatever its message says.
     """
     if isinstance(failure, HandoffRefusedError):
         return RequestEvidence.REFUSED
@@ -183,6 +190,46 @@ def expected_metadata(root: str) -> RuntimeSnapshot:
     }
 
 
+def carried_timeout_seconds(timeout_seconds: float) -> int:
+    """Return the timeout that a handoff request carries to its listener.
+
+    Whole seconds from 1 to 120, the longest that the protocol admits. A listener begins the
+    request only within this time of accepting its connection, so the request and the wait
+    that settles it when it stays unanswered take the value from here.
+    """
+    return max(1, min(_MAX_REQUEST_TIMEOUT_SECONDS, int(timeout_seconds)))
+
+
+class _WaitAtRest:
+    """The wait after which a listener at rest can no longer begin an unanswered request.
+
+    A listener begins a request only within the carried timeout of accepting its connection,
+    and it accepted that connection before the connection of any later health read. So the
+    request can begin no later than that timeout after the first read that the listener
+    answered, and what is read afterwards changes nothing of it: the wait starts once and is
+    never started again. A read that is asked after the wait then shows every handoff that
+    the request could begin, because a begin shows its session before it releases the lock
+    that the read takes.
+    """
+
+    def __init__(self, timeout_seconds: float) -> None:
+        """Bind the wait to the timeout that the caller gave the request."""
+        self._seconds = carried_timeout_seconds(timeout_seconds) + _EXPIRY_MARGIN_SECONDS
+        self._since: float | None = None
+
+    def is_over(self, asked: float) -> bool:
+        """Count a read that showed the captured listener at rest; return whether the wait is over.
+
+        ``asked`` is the moment before the read was asked. The wait starts when the first
+        such read has returned, because the listener answered it no later, and it is over
+        only for a read that was asked after it, because the listener answered that no earlier.
+        """
+        if self._since is None:
+            self._since = time.monotonic()
+            return False
+        return asked - self._since >= self._seconds
+
+
 def _ready_request(
     ctx: runtime_context.RuntimeContext,
     expected: RuntimeSnapshot,
@@ -200,7 +247,7 @@ def _ready_request(
     }
     if lease_seconds is not None:
         body["lease_seconds"] = max(1, int(lease_seconds))
-    body["timeout_seconds"] = max(1, min(120, int(timeout_seconds)))
+    body["timeout_seconds"] = carried_timeout_seconds(timeout_seconds)
     data = json.dumps(body).encode("utf-8")
     if len(data) > _MAX_BODY_BYTES:
         raise errors.InstallError("handoff request payload is too large")
@@ -389,15 +436,18 @@ def resolve_after_controller_failure(
 
     ``failure`` is what ended the handoff request, with the evidence that it carries. With
     none the resolver waits: a listener that begins the request shows its transaction, which
-    the resolver records on the failure, and one that never shows it leaves the outcome
-    unknown at the deadline.
+    the resolver records on the failure, and one that is at rest in a read that is asked
+    when the request's timeout has passed since it first showed itself at rest can no longer
+    begin it, which the resolver records as well. A listener that is not at rest then, or
+    not the captured one, leaves the outcome unknown at the deadline.
     """
     old_pid = old_runtime["pid"]
     if not positive_int(old_pid):
         return "unknown", None
     evidence = request_evidence(failure)
+    wait = _WaitAtRest(timeout_seconds)
     deadline = time.monotonic() + timeout_seconds + max(1.0, lease_seconds) + 5.0
-    while time.monotonic() < deadline:
+    while (asked := time.monotonic()) < deadline:
         runtime = runtime_reader(ctx)
         if isinstance(runtime, dict):
             pid = runtime.get("pid")
@@ -424,10 +474,17 @@ def resolve_after_controller_failure(
             if evidence is RequestEvidence.NONE and _names_request(runtime, expected):
                 evidence = RequestEvidence.OBSERVED
                 _record_evidence(failure, evidence)
-            if _runtime_is_captured_source(
-                source_listener, runtime, old_runtime
-            ) and _old_runtime_resumed(runtime, old_runtime, evidence=evidence):
-                return "rolled_back", runtime
+            if _runtime_is_captured_source(source_listener, runtime, old_runtime):
+                if (
+                    evidence is RequestEvidence.NONE
+                    # At rest as an expired request reads it; only the wait is still open.
+                    and _old_runtime_resumed(runtime, old_runtime, evidence=RequestEvidence.EXPIRED)
+                    and wait.is_over(asked)
+                ):
+                    evidence = RequestEvidence.EXPIRED
+                    _record_evidence(failure, evidence)
+                if _old_runtime_resumed(runtime, old_runtime, evidence=evidence):
+                    return "rolled_back", runtime
         time.sleep(0.1)
     return "unknown", None
 
@@ -534,6 +591,8 @@ def _old_runtime_resumed(
       Nothing began, or it began and ended.
     - acknowledged: an idle session. The handoff began and rolled back.
     - observed: an idle session. The handoff began and rolled back.
+    - expired: an idle session, or the finalized one that the capture showed, unchanged.
+      The listener can no longer begin the request, and nothing of it is in flight.
     - none: no session. The listener may be about to begin.
 
     A listener that a handoff created reports that finalized session until its next handoff
@@ -555,6 +614,7 @@ def _old_runtime_resumed(
         RequestEvidence.REFUSED: idle or unchanged,
         RequestEvidence.ACKNOWLEDGED: idle,
         RequestEvidence.OBSERVED: idle,
+        RequestEvidence.EXPIRED: idle or unchanged,
         RequestEvidence.NONE: False,
     }[evidence]
     return at_rest and fields_match(
