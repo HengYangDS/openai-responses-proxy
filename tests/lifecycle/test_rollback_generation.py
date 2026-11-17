@@ -15,6 +15,7 @@ from openai_responses_proxy.lifecycle import rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -151,7 +152,7 @@ def test_linked_generation_store_invalidates_retained_authority(
 def test_orphan_generation_store_is_not_reported_as_clean_absence(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact("1.2.2"), mocker=mocker)
     transaction.commit_projection()
     generation.clear(ctx)
@@ -196,7 +197,7 @@ def test_control_context_remains_on_the_newest_selected_release(
     ctx = install_context(tmp_path)
     first, second = install_successor(ctx, mocker=mocker)
 
-    assert generation.control_context(ctx).executable == second.context.executable
+    assert generation.require_control_context(ctx).executable == second.context.executable
 
     generation.select(
         ctx,
@@ -204,7 +205,7 @@ def test_control_context_remains_on_the_newest_selected_release(
         predecessor=str(second.expected["transaction_id"]),
     )
 
-    assert generation.control_context(ctx).executable == second.context.executable
+    assert generation.require_control_context(ctx).executable == second.context.executable
 
 
 def test_selector_rejects_invalid_carriers_and_values(tmp_path: Path) -> None:
@@ -234,19 +235,19 @@ def test_selector_rejects_invalid_carriers_and_values(tmp_path: Path) -> None:
         ),
     )
     for name, value in cases:
-        ctx = install_context(tmp_path / name)
+        ctx = control_root(tmp_path / name)
         selector = generation.selector_path(ctx)
         selector.parent.mkdir(parents=True)
         selector.write_bytes(digest.canonical_json(value))
         with pytest.raises(errors.InstallError, match=r"selector|identity|unavailable"):
             generation.read(ctx)
 
-    ctx = install_context(tmp_path / "directory")
+    ctx = control_root(tmp_path / "directory")
     generation.selector_path(ctx).mkdir(parents=True)
     with pytest.raises(errors.InstallError, match="selector is invalid"):
         generation.read(ctx)
 
-    ctx = install_context(tmp_path / "symlink")
+    ctx = control_root(tmp_path / "symlink")
     target = tmp_path / "selector-target"
     target.write_text("{}", encoding="utf-8")
     selector = generation.selector_path(ctx)
@@ -350,7 +351,7 @@ def test_generation_cleanup_reports_exact_filesystem_failures(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Owned selector and generation cleanup never hide filesystem failures."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     selector = generation.selector_path(ctx)
     selector.parent.mkdir(parents=True)
 
@@ -377,7 +378,7 @@ def test_generation_cleanup_reports_exact_filesystem_failures(
         generation.remove(ctx, target.name, {})
     mocker.stop(remove)
 
-    empty_ctx = install_context(tmp_path / "empty-store")
+    empty_ctx = control_root(tmp_path / "empty-store")
     empty_target = generation.path(empty_ctx, "f" * 32)
     empty_target.mkdir(parents=True)
     rmdir = Path.rmdir
@@ -397,7 +398,7 @@ def test_generation_cleanup_reports_exact_filesystem_failures(
 def test_generation_removal_reports_native_code_without_private_paths(
     tmp_path: Path, *, native_code: int | str | bool | None, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     target = generation.path(ctx, "e" * 32)
     target.mkdir(parents=True)
     failure = PermissionError(13, "private native detail", str(target / "private-file"))
@@ -418,7 +419,7 @@ def test_owned_generation_inventory_distinguishes_absence_from_corruption(
     tmp_path: Path,
 ) -> None:
     """Lifecycle cleanup enumerates only valid generation directories."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     assert generation.owned_contexts(ctx) == ()
 
     store = generation.root(ctx)

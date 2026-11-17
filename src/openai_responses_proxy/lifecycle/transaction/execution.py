@@ -56,7 +56,8 @@ class PayloadTransaction:
         "_version",
     )
     _blobs: tuple[artifact.ArtifactFile, ...]
-    _ctx: runtime_context.RuntimeContext
+    _candidate_ctx: runtime_context.RuntimeContext
+    _ctx: runtime_context.InstallationContext
     _fresh: bool
     _receipt: ReadOnlyJsonObject
     _receipt_sha256: str
@@ -67,7 +68,7 @@ class PayloadTransaction:
     def __init__(
         self,
         *,
-        ctx: runtime_context.RuntimeContext,
+        ctx: runtime_context.InstallationContext,
         blobs: tuple[artifact.ArtifactFile, ...],
         version: str,
         receipt_sha256: str,
@@ -148,9 +149,10 @@ class PayloadTransaction:
             if self._reuse_generation:
                 self._require_unchanged_retained_payload()
             control_ctx = generation.control_context(self._ctx)
-            command_snapshot = command.snapshot(
-                Path(self._ctx.command), Path(control_ctx.executable)
-            )
+            # A first installation has no control generation yet: its record names the
+            # candidate, which is what this transaction makes the command name.
+            owner = control_ctx if control_ctx is not None else self._candidate_ctx
+            command_snapshot = command.snapshot(Path(self._ctx.command), Path(owner.executable))
             journal = {
                 **self._owned_journal(),
                 "snapshot_sha256": hashlib.sha256(
@@ -215,7 +217,7 @@ class PayloadTransaction:
             active=self._transaction_id,
             predecessor=predecessor,
         )
-        control_ctx = generation.control_context(self._ctx)
+        control_ctx = generation.require_control_context(self._ctx)
         command.project(
             Path(self._ctx.command),
             Path(control_ctx.executable),
@@ -340,7 +342,7 @@ class PayloadTransaction:
 
 
 def begin_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     candidate: artifact.VerifiedArtifact,
 ) -> PayloadTransaction:
     """Claim one admitted release and create its private transaction journal."""
@@ -348,7 +350,7 @@ def begin_transaction(
 
 
 def begin_rollback_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     retained: payload_rollback.RetainedRollback,
 ) -> PayloadTransaction:
     """Begin one reverse transition from a verified retained predecessor."""
@@ -389,7 +391,7 @@ def begin_rollback_transaction(
 
 
 def _begin_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     candidate: artifact.VerifiedArtifact,
 ) -> PayloadTransaction:
     """Claim one admitted payload for a forward transition."""
@@ -407,7 +409,7 @@ def _begin_transaction(
                 "uninstall the existing payload explicitly before reinstalling"
             )
         control_identity = identity.committed_payload(
-            Path(generation.control_context(ctx).executable)
+            Path(generation.require_control_context(ctx).executable)
         )
         if control_identity is None:
             raise errors.InstallError("installed control-plane identity is invalid")
@@ -480,7 +482,7 @@ def _empty_or_absent_control_root(root: Path) -> bool:
         raise errors.InstallError("installed payload root is unreadable") from exc
 
 
-def _claim_transaction_root(ctx: runtime_context.RuntimeContext) -> Path:
+def _claim_transaction_root(ctx: runtime_context.InstallationContext) -> Path:
     root = records.transaction_root(ctx)
     transaction_state = records.status(ctx)
     if transaction_state is not None:

@@ -19,6 +19,7 @@ from openai_responses_proxy.lifecycle.transaction import execution as payload_tr
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import listing_with_digests
@@ -214,12 +215,12 @@ def test_purge_refuses_a_control_root_without_an_owned_generation(
     tmp_path: Path, content: str, refusal: str, *, mocker: MockerFixture
 ) -> None:
     """A manifest alone proves no removal: nothing is recorded and every byte stays."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     if content == "root-level payload":
-        ctx = root_level_payload(ctx, mocker=mocker)
+        root_level_payload(ctx, mocker=mocker)
         records.installed_path(ctx).unlink()
     elif content == "generations alone":
-        install_payload(ctx, mocker=mocker)
+        install_payload(install_context(tmp_path), mocker=mocker)
         records.installed_path(ctx).unlink()
         payload_generation.clear(ctx)
     else:
@@ -352,7 +353,7 @@ def test_snapshot_failure_cleanup_remains_retryable(
     tmp_path: Path, *, restart: bool, mocker: MockerFixture
 ) -> None:
     """An incomplete snapshot has no rollback authority and needs only disposal."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     snapshot = mocker.patch.object(
         command, "write_snapshot", side_effect=errors.InstallError("snapshot failed")
@@ -386,7 +387,7 @@ def test_disposal_hold_cannot_reopen_a_terminal_transaction(
     tmp_path: Path, operation: str, *, mocker: MockerFixture
 ) -> None:
     """A surviving controller cannot overwrite a durable terminal outcome."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     root = records.transaction_root(ctx)
@@ -448,7 +449,7 @@ def test_recovery_cleans_a_finalized_transaction_without_rolling_back(
 def test_finalize_reports_cleanup_failure_without_erasing_success_state(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -473,7 +474,7 @@ def test_finalize_reports_cleanup_failure_without_erasing_success_state(
 def test_finalization_journal_omits_private_failure_details(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -497,7 +498,7 @@ def test_finalization_journal_omits_private_failure_details(
 def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
     tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path / "integrity")
+    ctx = control_root(tmp_path / "integrity")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     mocker.patch.object(
         payload_projection,
@@ -514,7 +515,7 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
         transaction.commit_projection()
     mocker.stopall()
 
-    ctx = install_context(tmp_path / "rollback")
+    ctx = control_root(tmp_path / "rollback")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     mocker.patch.object(
         payload_transaction.payload_candidate,
@@ -534,7 +535,7 @@ def test_commit_and_cleanup_fail_closed_on_unproved_terminal_state(
         assert "/Users/private/rollback" not in str(raised.value)
     mocker.stopall()
 
-    ctx = install_context(tmp_path / "cleanup")
+    ctx = control_root(tmp_path / "cleanup")
     root = records.transaction_root(ctx)
     root.mkdir(parents=True)
     mocker.patch.object(Path, "rmdir", return_value=None)

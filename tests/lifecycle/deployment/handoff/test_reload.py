@@ -15,6 +15,7 @@ from openai_responses_proxy.lifecycle.deployment import strategy
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.deployment.handoff.fixtures import HandoffFixture
 from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import install_payload
 from tests.serving.handoff.fixtures import expected_metadata
 from tests.serving.handoff.fixtures import idle_runtime
 from tests.serving.handoff.fixtures import matching_health
@@ -28,7 +29,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         self, *, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
-        Path(ctx.install_dir).mkdir(parents=True)
+        install_payload(ctx, mocker=mocker)
         native = mocker.patch.object(control, "adapter").return_value
         native.configured_executable.return_value = ctx.executable
         mocker.patch.object(control, "read_runtime", return_value=idle_runtime())
@@ -60,7 +61,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         self, *, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
-        Path(ctx.install_dir).mkdir(parents=True)
+        install_payload(ctx, mocker=mocker)
         mocker.patch.object(control, "read_runtime", return_value={"handoff_protocol_version": 2})
         mocker.patch.object(strategy, "runtime_supports_handoff", return_value=True)
         mocker.patch.object(
@@ -69,7 +70,7 @@ class TestControllerHandoffWiring(HandoffFixture):
             return_value=(False, "hash mismatch"),
         )
         request_handoff = mocker.patch.object(handoff, "request")
-        with pytest.raises(errors.InstallError, match="integrity"):
+        with pytest.raises(errors.InstallError, match=r"integrity check failed.*hash mismatch"):
             control.reload(ctx, timeout_seconds=5)
         request_handoff.assert_not_called()
 
@@ -77,7 +78,7 @@ class TestControllerHandoffWiring(HandoffFixture):
         self, *, mocker: MockerFixture
     ) -> None:
         ctx = install_context(Path(self.tempdir.name))
-        Path(ctx.install_dir).mkdir(parents=True)
+        install_payload(ctx, mocker=mocker)
         native = mocker.patch.object(control, "adapter").return_value
         native.configured_executable.return_value = ctx.executable
         expected = expected_metadata()

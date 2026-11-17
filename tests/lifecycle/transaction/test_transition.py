@@ -20,6 +20,7 @@ from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 def test_commit_prewarms_the_exact_candidate_executable(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = released_artifact()
     prewarm = mocker.patch.object(payload_transaction.payload_candidate, "prewarm")
 
@@ -160,7 +161,7 @@ def test_a_later_finalize_replaces_the_retained_predecessor(
 def test_retained_predecessor_reuses_an_exact_reverse_transaction(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(payload_transaction.payload_candidate, "prewarm")
     first = payload_transaction.begin_transaction(ctx, released_artifact("1.2.2"))
     first.commit_projection()
@@ -196,7 +197,7 @@ def test_finalized_reverse_transition_keeps_newest_control_upgrade_floor(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Serving rollback cannot make an older release the install authority."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(payload_transaction.payload_candidate, "prewarm")
     first = payload_transaction.begin_transaction(ctx, released_artifact("1.2.2"))
     first.commit_projection()
@@ -241,7 +242,7 @@ def test_reverse_transition_rechecks_predecessor_before_materialization(
 def test_fresh_commit_writes_manifest_receipt_and_pending_journal_then_finalize_state(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
 
     transaction.commit_projection()
@@ -265,7 +266,7 @@ def test_fresh_commit_writes_manifest_receipt_and_pending_journal_then_finalize_
 def test_upgrade_materializes_an_immutable_candidate_generation(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     predecessor_bytes = b"predecessor-native-executable"
     successor_bytes = b"successor-native-executable"
     predecessor = begin_transaction(
@@ -288,7 +289,9 @@ def test_upgrade_materializes_an_immutable_candidate_generation(
     assert predecessor_executable.read_bytes() == predecessor_bytes
     assert Path(successor.context.executable).read_bytes() == successor_bytes
     assert Path(successor.context.executable) != predecessor_executable
-    assert Path(ctx.executable) != Path(successor.context.executable)
+    selected = payload_generation.selected_context(ctx)
+    assert selected is not None
+    assert Path(selected.executable) == predecessor_executable
 
 
 def test_generation_upgrade_does_not_copy_a_payload_snapshot(
@@ -338,7 +341,7 @@ def test_activation_selects_candidate_and_retains_only_the_predecessor(
 def test_fresh_transaction_projects_and_rolls_back_the_user_command(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
 
     transaction.commit_projection()

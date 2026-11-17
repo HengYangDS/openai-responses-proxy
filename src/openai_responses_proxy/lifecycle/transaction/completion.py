@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 
 def close_finalized(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     bind_terminal: Callable[[runtime_context.RuntimeContext], None] | None,
@@ -37,12 +37,12 @@ def close_finalized(
     """Remove transaction residue only after finalized state proves the candidate."""
     _select_retention(ctx, journal=journal)
     if bind_terminal is not None:
-        bind_terminal(generation.control_context(ctx))
+        bind_terminal(generation.require_control_context(ctx))
     return complete_transaction(ctx, journal, outcome="finalized")
 
 
 def finalize_installation(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     runtime: Mapping[str, object],
@@ -65,7 +65,7 @@ def finalize_installation(
     return close_finalized(ctx, journal=journal, bind_terminal=bind_terminal)
 
 
-def _retained_predecessor(ctx: runtime_context.RuntimeContext, previous: str) -> str:
+def _retained_predecessor(ctx: runtime_context.InstallationContext, previous: str) -> str:
     """Return the predecessor generation only while its payload directory still exists."""
     if not generation.path(ctx, previous).is_dir():
         raise errors.InstallError("predecessor payload generation is unavailable")
@@ -73,7 +73,7 @@ def _retained_predecessor(ctx: runtime_context.RuntimeContext, previous: str) ->
 
 
 def _select_retention(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
 ) -> generation.Selection:
@@ -128,11 +128,15 @@ def prior_selection(journal: Mapping[str, object]) -> generation.Selection | Non
 
 
 def admit_prior_projection(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     journal: Mapping[str, object],
     previous: generation.Selection | None,
 ) -> tuple[generation.Selection | None, command.Snapshot]:
-    """Prove selector and command restoration before any native or file effect."""
+    """Prove selector and command restoration before any native or file effect.
+
+    A first installation had no selection before it: once its candidate's command is
+    detached, what it restores is a command path with nothing at it.
+    """
     selection = generation.read(ctx)
     candidate = str(journal["transaction_id"])
     selected_candidate = generation.Selection(candidate, previous.active if previous else None)
@@ -146,15 +150,17 @@ def admit_prior_projection(
         command.require_detachable(
             Path(ctx.command), Path(generation.context(ctx, candidate).executable), snapshot
         )
+    elif previous is None:
+        command.require_absent(Path(ctx.command))
     else:
         command.require_restorable(
-            Path(ctx.command), Path(generation.control_context(ctx).executable), snapshot
+            Path(ctx.command), Path(generation.require_control_context(ctx).executable), snapshot
         )
     return selection, snapshot
 
 
 def restore_prior_projection(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     journal: Mapping[str, object],
     previous: generation.Selection | None,
 ) -> None:
@@ -169,7 +175,12 @@ def restore_prior_projection(
             generation.clear(ctx)
         else:
             generation.select(ctx, active=previous.active, predecessor=previous.predecessor)
-    command.restore(Path(ctx.command), Path(generation.control_context(ctx).executable), snapshot)
+    if previous is None:
+        command.require_absent(Path(ctx.command))
+    else:
+        command.restore(
+            Path(ctx.command), Path(generation.require_control_context(ctx).executable), snapshot
+        )
 
 
 def reuses_retained_generation(journal: Mapping[str, object]) -> bool:
@@ -178,7 +189,7 @@ def reuses_retained_generation(journal: Mapping[str, object]) -> bool:
 
 
 def complete_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     journal: Mapping[str, object],
     *,
     outcome: Literal["closed", "rolled_back", "finalized"],
@@ -192,7 +203,7 @@ def complete_transaction(
     return finish_cleanup(ctx, terminal)
 
 
-def _purged_release(ctx: runtime_context.RuntimeContext) -> tuple[object, object]:
+def _purged_release(ctx: runtime_context.InstallationContext) -> tuple[object, object]:
     """Return the release and the receipt digest that the journal of a purge names.
 
     The installed record names them. Without it the selected generation's own manifest does,
@@ -214,7 +225,7 @@ def _purged_release(ctx: runtime_context.RuntimeContext) -> tuple[object, object
     return manifest["release"], manifest["release_receipt_sha256"]
 
 
-def purge(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
+def purge(ctx: runtime_context.InstallationContext) -> dict[str, object]:
     """Record exact disposal authority after supervision and processes have exited."""
     if records.status(ctx) is not None:
         raise errors.RecoveryRequiredError("complete payload recovery before uninstalling")
@@ -255,7 +266,7 @@ def purge(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
 
 
 def finish_cleanup(
-    ctx: runtime_context.RuntimeContext, journal: Mapping[str, object]
+    ctx: runtime_context.InstallationContext, journal: Mapping[str, object]
 ) -> dict[str, object]:
     """Resume only disposal; terminal projections and supervision remain unchanged."""
     match journal["state"]:
@@ -319,7 +330,7 @@ def _require_real_directory(root: Path) -> None:
 
 
 def _remove_transaction_root(
-    ctx: runtime_context.RuntimeContext, *, snapshot_sha256: object = None
+    ctx: runtime_context.InstallationContext, *, snapshot_sha256: object = None
 ) -> None:
     root = records.transaction_root(ctx)
     if not root.exists() and not root.is_symlink():

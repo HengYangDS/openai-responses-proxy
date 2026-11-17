@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,45 +22,36 @@ SELECTOR_FILENAME = identity.PAYLOAD_SELECTOR_FILENAME
 SELECTOR_SCHEMA = identity.PAYLOAD_SELECTOR_SCHEMA
 GENERATIONS_DIRNAME = identity.PAYLOAD_GENERATIONS_DIRNAME
 Selection = identity.PayloadSelection
+# What every reader of a payload says of a control root without a selector.
+NO_SELECTION = "no payload generation is selected"
 
 
-def root(ctx: runtime_context.RuntimeContext) -> Path:
+def root(ctx: runtime_context.InstallationContext) -> Path:
     """Return the immutable payload-generation store."""
     return Path(ctx.install_dir, GENERATIONS_DIRNAME)
 
 
-def path(ctx: runtime_context.RuntimeContext, generation: str) -> Path:
+def path(ctx: runtime_context.InstallationContext, generation: str) -> Path:
     """Return one validated payload-generation directory."""
     _require_name(generation)
     return root(ctx) / generation
 
 
-def selector_path(ctx: runtime_context.RuntimeContext) -> Path:
+def selector_path(ctx: runtime_context.InstallationContext) -> Path:
     """Return the durable active-generation selector."""
     return Path(ctx.install_dir, SELECTOR_FILENAME)
 
 
-def context(ctx: runtime_context.RuntimeContext, generation: str) -> runtime_context.RuntimeContext:
+def context(
+    ctx: runtime_context.InstallationContext, generation: str
+) -> runtime_context.RuntimeContext:
     """Project one immutable generation through the stable runtime settings."""
-    generation_root = path(ctx, generation)
-    executable_name = Path(ctx.executable).name.lower()
-    windows = executable_name.endswith(".exe")
-    if not windows:
-        stable_executable = Path(ctx.install_dir, inventory.EXECUTABLE)
-        stable_windows_executable = Path(ctx.install_dir, inventory.WINDOWS_EXECUTABLE)
-        if Path(ctx.executable) == stable_windows_executable or (
-            Path(ctx.executable) != stable_executable
-            and stable_windows_executable.exists()
-            and not stable_executable.exists()
-        ):
-            windows = True
-    return replace(
-        ctx,
-        executable=inventory.installed_executable(str(generation_root), windows=windows),
+    return ctx.for_executable(
+        inventory.installed_executable(str(path(ctx, generation)), windows=ctx.windows)
     )
 
 
-def read(ctx: runtime_context.RuntimeContext) -> Selection | None:
+def read(ctx: runtime_context.InstallationContext) -> Selection | None:
     """Read and validate the selected generation without following links."""
     selector = selector_path(ctx)
     if not selector.exists() and not selector.is_symlink():
@@ -83,18 +73,23 @@ def read(ctx: runtime_context.RuntimeContext) -> Selection | None:
 
 
 def selected_context(
-    ctx: runtime_context.RuntimeContext,
-) -> runtime_context.RuntimeContext:
-    """Return the active generation context, or the uninitialized install context."""
+    ctx: runtime_context.InstallationContext,
+) -> runtime_context.RuntimeContext | None:
+    """Return the active generation's context, or nothing when no generation is selected."""
     selection = read(ctx)
-    return context(ctx, selection.active) if selection is not None else ctx
+    return context(ctx, selection.active) if selection is not None else None
 
 
-def control_context(ctx: runtime_context.RuntimeContext) -> runtime_context.RuntimeContext:
-    """Return the newest selected generation that owns installed lifecycle control."""
+def control_context(
+    ctx: runtime_context.InstallationContext,
+) -> runtime_context.RuntimeContext | None:
+    """Return the newest selected generation, which owns installed lifecycle control.
+
+    Without a selection no generation owns it, and nothing is returned.
+    """
     selection = read(ctx)
     if selection is None:
-        return ctx
+        return None
     identified = []
     for generation_id in (selection.active, selection.predecessor):
         if generation_id is None:
@@ -107,8 +102,21 @@ def control_context(ctx: runtime_context.RuntimeContext) -> runtime_context.Runt
     return max(identified, key=lambda item: item[1])[0]
 
 
+def require_control_context(
+    ctx: runtime_context.InstallationContext,
+) -> runtime_context.RuntimeContext:
+    """Return the control generation where the caller has read or written a selection.
+
+    A selector that is gone by then was removed beside the running command, which stops.
+    """
+    control = control_context(ctx)
+    if control is None:
+        raise errors.InstallError(NO_SELECTION)
+    return control
+
+
 def owned_contexts(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
 ) -> tuple[runtime_context.RuntimeContext, ...]:
     """Return every exact immutable generation owned by the stable control root."""
     generations = root(ctx)
@@ -130,7 +138,7 @@ def owned_contexts(
 
 
 def select(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     active: str,
     predecessor: str | None,
@@ -155,7 +163,7 @@ def select(
     )
 
 
-def clear(ctx: runtime_context.RuntimeContext) -> None:
+def clear(ctx: runtime_context.InstallationContext) -> None:
     """Remove only the owned selector."""
     selector = selector_path(ctx)
     if selector.is_symlink():
@@ -166,7 +174,9 @@ def clear(ctx: runtime_context.RuntimeContext) -> None:
         raise errors.InstallError("payload generation selector removal failed") from exc
 
 
-def remove(ctx: runtime_context.RuntimeContext, generation: str, files: Mapping[str, str]) -> None:
+def remove(
+    ctx: runtime_context.InstallationContext, generation: str, files: Mapping[str, str]
+) -> None:
     """Dispose only the recorded bytes of one unselected generation."""
     selection = read(ctx)
     if selection is not None and generation in {
@@ -198,7 +208,9 @@ def remove(ctx: runtime_context.RuntimeContext, generation: str, files: Mapping[
         raise errors.InstallError("empty payload generation store removal failed") from exc
 
 
-def disposal_files(ctx: runtime_context.RuntimeContext, selection: Selection) -> dict[str, str]:
+def disposal_files(
+    ctx: runtime_context.InstallationContext, selection: Selection
+) -> dict[str, str]:
     """Capture verified retirement authority without including unowned content."""
     keep = {selection.active, selection.predecessor}
     return {
@@ -210,7 +222,7 @@ def disposal_files(ctx: runtime_context.RuntimeContext, selection: Selection) ->
 
 
 def prune(
-    ctx: runtime_context.RuntimeContext, selection: Selection, files: Mapping[str, str]
+    ctx: runtime_context.InstallationContext, selection: Selection, files: Mapping[str, str]
 ) -> None:
     """Resume recorded retirement without reconstructing partially removed payloads."""
     generations = root(ctx)
@@ -234,7 +246,9 @@ def prune(
         remove(ctx, generation, members)
 
 
-def _require_generation(ctx: runtime_context.RuntimeContext, generation: str, role: str) -> None:
+def _require_generation(
+    ctx: runtime_context.InstallationContext, generation: str, role: str
+) -> None:
     selected = path(ctx, generation)
     if selected.is_symlink() or not selected.is_dir():
         raise errors.InstallError(f"{role} payload generation is unavailable or invalid")

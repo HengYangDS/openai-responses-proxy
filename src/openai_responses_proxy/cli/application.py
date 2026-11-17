@@ -64,12 +64,12 @@ class DoctorReport(TypedDict):
 type CommandResult = Mapping[str, object] | None
 
 
-def _lifecycle_lock_path(ctx: runtime_context.RuntimeContext) -> Path:
+def _lifecycle_lock_path(ctx: runtime_context.InstallationContext) -> Path:
     """Return the stable lock shared by all lifecycle writers for one installation."""
     return Path(ctx.log_dir, "lifecycle.lock")
 
 
-def _acquire_lifecycle_lock(ctx: runtime_context.RuntimeContext) -> FileLock:
+def _acquire_lifecycle_lock(ctx: runtime_context.InstallationContext) -> FileLock:
     """Acquire the installation's native writer lock or raise one public error."""
     lock = FileLock(
         _lifecycle_lock_path(ctx),

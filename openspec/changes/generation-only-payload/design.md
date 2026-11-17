@@ -184,6 +184,16 @@ Paths below are relative to `src/openai_responses_proxy/`.
 - **Windows and Linux adapters.** Their `uninstall` finds a watchdog by its program. Whether deleting the
   Windows task ends its watchdog was not established; the adapter keeps looking for the watchdogs of the
   generations that the store holds.
+- **The order of `uninstall`.** It reads the generation store before it deregisters the service, because the
+  adapters' `uninstall` needs the generations' executables to find their watchdogs. An invalid store is now
+  refused before any effect; before, it was refused after the service had been removed. On Linux and Windows
+  the adapters look for the watchdogs of every generation of the store, where they looked for the active one's.
+- **Two refusals that read no payload.** `install` of a first installation while a runtime answers on the port,
+  and `install` of the installed release without a selection, raise the sentences that their branches already
+  raise ("installed listener process generation is not verified", "requested artifact is not the verified
+  active installation"); before, the second ended in a carrier read at the control root.
+- **The release tool's custody file** holds the control root's fields. A test process whose generation folder
+  is gone from the store is found only through the service's configured executable.
 - **Not measured here:** nothing of this design rests on platform timing or on another program's behavior.
 
 ## Migration Plan

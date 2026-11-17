@@ -101,7 +101,7 @@ class EvidenceFixture:
     def resolve(
         self,
         failure: BaseException,
-        reader: Callable[[runtime_context.RuntimeContext], dict[str, object] | None],
+        reader: Callable[[runtime_context.InstallationContext], dict[str, object] | None],
         *,
         captured: dict[str, object] | None = None,
     ) -> tuple[str, dict[str, object] | None]:
@@ -134,7 +134,7 @@ class EvidenceFixture:
 
     def request(
         self,
-        reader: Callable[[runtime_context.RuntimeContext], dict[str, object] | None],
+        reader: Callable[[runtime_context.InstallationContext], dict[str, object] | None],
         *,
         expected: dict[str, object] | None = None,
     ) -> dict[str, object]:

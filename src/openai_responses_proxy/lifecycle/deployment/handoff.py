@@ -47,7 +47,7 @@ RUNTIME_DIGEST_FIELDS = [
 _RUNTIME_IDENTITY_FIELDS = ["release", *RUNTIME_DIGEST_FIELDS]
 
 RuntimeSnapshot = dict[str, object]
-RuntimeReader = Callable[[runtime_context.RuntimeContext], RuntimeSnapshot | None]
+RuntimeReader = Callable[[runtime_context.InstallationContext], RuntimeSnapshot | None]
 
 
 class HandoffRefusedError(errors.InstallError):
@@ -122,7 +122,9 @@ def capture_source_listener(
     return owned
 
 
-def predecessor_lease_seconds(ctx: runtime_context.RuntimeContext, timeout_seconds: float) -> float:
+def predecessor_lease_seconds(
+    ctx: runtime_context.InstallationContext, timeout_seconds: float
+) -> float:
     """Keep a handed-off predecessor serving until its accepted exchanges reach their deadline.
 
     Each accepted Responses exchange is bounded by the configured upstream timeout, so a
@@ -297,7 +299,7 @@ def wait_out_any_request(answered: float) -> None:
 
 
 def _ready_request(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     expected: RuntimeSnapshot,
     *,
     lease_seconds: float | None,
@@ -326,7 +328,7 @@ def _ready_request(
 
 
 def post_ready(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     expected: RuntimeSnapshot,
     *,
     lease_seconds: float | None = None,
@@ -371,7 +373,7 @@ def post_ready(
 
 
 def predecessor_serves(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     failure: BaseException,
     source_listener: process.OwnedProcess,

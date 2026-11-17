@@ -13,7 +13,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from tests.lifecycle.deployment.installation.fixtures import FakeServiceAdapter
 from tests.lifecycle.deployment.installation.fixtures import FakeTransaction
 from tests.lifecycle.deployment.installation.fixtures import ReleasedDeploymentFixture
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.deployment.installation.fixtures import as_transaction
+from tests.lifecycle.fixtures import control_root
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -100,7 +101,7 @@ def test_install_has_no_json_publication_proof_loader() -> None:
 def test_install_admission_failure_closes_the_prepared_transaction(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     payload = mocker.Mock()
     payload.rollback_if_prepared.return_value = True
     mocker.patch.object(install.artifact, "admit", return_value="released")
@@ -125,7 +126,7 @@ def test_install_admission_failure_closes_the_prepared_transaction(
 def test_install_admission_failure_retains_failed_prepared_cleanup(
     tmp_path: Path, *, unavailable: bool, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     payload = mocker.Mock()
     failure_type = errors.NativeServiceUnavailableError if unavailable else errors.InstallError
     initial = failure_type("initial installation boundary failed")
@@ -167,7 +168,7 @@ def test_refused_rollback_reports_a_failed_cleanup_with_its_refusal(
 
     with pytest.raises(errors.InstallError) as raised:
         apply.rollback(
-            install_context(tmp_path),
+            control_root(tmp_path),
             mocker.Mock(),
             adapter=FakeServiceAdapter(mocker=mocker),
             runtime_reader=lambda _ctx: {"pid": 321},
@@ -193,3 +194,27 @@ def test_an_interrupted_transition_still_closes_its_prepared_transaction(
     with pytest.raises(KeyboardInterrupt):
         interrupted()
     payload.rollback_if_prepared.assert_called_once_with()
+
+
+def test_a_first_installation_refuses_a_listener_that_no_generation_can_own(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
+    """Nothing is selected, so whatever answers on the port is not this installation's.
+
+    The refusal is that of a listener that fails its capture, and no process is looked at.
+    """
+    ctx = control_root(tmp_path)
+    payload = FakeTransaction(ctx)
+    service = FakeServiceAdapter(mocker=mocker)
+    capture = mocker.spy(process, "capture_executable")
+    current = ReleasedDeploymentFixture.current_runtime(pid=4242)
+
+    with pytest.raises(errors.InstallError) as refused:
+        apply.install(
+            ctx, as_transaction(payload), adapter=service, runtime_reader=lambda _ctx: current
+        )
+
+    assert str(refused.value) == "installed listener process generation is not verified"
+    assert payload.events == []
+    capture.assert_not_called()
+    service.install_mock.assert_not_called()

@@ -17,6 +17,7 @@ from openai_responses_proxy.lifecycle.transaction import execution as payload_tr
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -213,7 +214,7 @@ def test_recovery_classifies_invalid_carriers_without_mutation(
     *,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     root = Path(records.transaction_root(ctx))
     journal = Path(records.journal_path(ctx))
     target = tmp_path / "retained-target"
@@ -293,7 +294,7 @@ def test_recovery_rejects_candidate_identity_drift(
     tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     """Recovery binds the candidate generation to the durable transaction journal."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     journal_path = Path(records.journal_path(ctx))

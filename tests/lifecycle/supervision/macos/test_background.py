@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import plistlib
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -20,11 +21,8 @@ from tests.lifecycle.supervision.macos.fixtures import service as _service
 
 if TYPE_CHECKING:
     import subprocess
-    from collections.abc import Callable
 
     from pytest_mock import MockerFixture
-
-    from openai_responses_proxy.lifecycle import runtime_spec
 
 
 class TestMacosBackgroundContract:
@@ -101,9 +99,13 @@ class TestMacosBackgroundContract:
             content = macos.render_plist(root_level)
             carrier = _set_file(macos._plist_path(ctx), content)
             invoked = mocker.patch.object(macos.subprocess, "run")
-            for operation in (macos.configured_executable, macos.install, macos.uninstall):
+            for operation in (
+                lambda: macos.configured_executable(ctx),
+                lambda: macos.install(ctx),
+                lambda: macos.uninstall(ctx, [ctx.executable]),
+            ):
                 with pytest.raises(errors.InstallError, match="executable ownership is unproved"):
-                    operation(ctx)
+                    operation()
             assert carrier.read_text() == content
             invoked.assert_not_called()
 
@@ -125,7 +127,7 @@ class TestMacosBackgroundContract:
 
             invoked = mocker.patch.object(macos.subprocess, "run", side_effect=native_operation)
             with pytest.raises(errors.InstallError, match="carrier is invalid"):
-                macos.uninstall(ctx)
+                macos.uninstall(ctx, [ctx.executable])
             assert carrier.read_bytes() == changed
             assert all(
                 call.args[0][1] not in {"bootstrap", "kickstart"} for call in invoked.call_args_list
@@ -339,15 +341,15 @@ class TestMacosBackgroundContract:
             _temporary_context("log_dir") as ctx,
             pytest.raises(errors.InstallError, match="both user and GUI"),
         ):
-            macos.uninstall(ctx)
+            macos.uninstall(ctx, [ctx.executable])
         invoked.assert_not_called()
 
-    @pytest.mark.parametrize("operation", [macos.install, macos.uninstall])
+    @pytest.mark.parametrize("operation", ["install", "uninstall"])
     def test_carrier_symlink_preserves_its_foreign_target(
         self,
         tmp_path: Path,
         *,
-        operation: Callable[[runtime_spec.NativeServiceContext], None],
+        operation: str,
         mocker: MockerFixture,
     ) -> None:
         foreign = tmp_path / "foreign.plist"
@@ -358,8 +360,13 @@ class TestMacosBackgroundContract:
             carrier.parent.mkdir(parents=True)
             carrier.symlink_to(foreign)
             invoked = mocker.patch.object(macos.subprocess, "run")
+            effect = (
+                partial(macos.install, ctx)
+                if operation == "install"
+                else partial(macos.uninstall, ctx, ())
+            )
             with pytest.raises(errors.InstallError, match="symlink"):
-                operation(ctx)
+                effect()
             assert carrier.is_symlink()
         assert foreign.read_bytes() == content
         invoked.assert_not_called()

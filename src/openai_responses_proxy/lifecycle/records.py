@@ -23,22 +23,22 @@ TERMINAL_STATES = frozenset({"closed", "rolled_back", "finalized", "purged"})
 _STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
 
-def transaction_root(ctx: runtime_context.RuntimeContext) -> Path:
+def transaction_root(ctx: runtime_context.InstallationContext) -> Path:
     """Return the sibling directory used for payload transactions."""
     return Path(f"{ctx.install_dir}.transaction")
 
 
-def installed_path(ctx: runtime_context.RuntimeContext) -> Path:
+def installed_path(ctx: runtime_context.InstallationContext) -> Path:
     """Return the finalized released-projection state path."""
     return Path(ctx.install_dir, inventory.INSTALLED_RELEASE_STATE_FILENAME)
 
 
-def journal_path(ctx: runtime_context.RuntimeContext) -> Path:
+def journal_path(ctx: runtime_context.InstallationContext) -> Path:
     """Keep transaction authority outside its disposable snapshot directory."""
     return Path(f"{transaction_root(ctx)}.json")
 
 
-def status(ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:
+def status(ctx: runtime_context.InstallationContext) -> dict[str, object] | None:
     """Return the bounded identity of one active transaction."""
     root = transaction_root(ctx)
     journal = journal_path(ctx)
@@ -61,7 +61,7 @@ def status(ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:
     return {key: journal[key] for key in allowed if key in journal}
 
 
-def read_journal(ctx: runtime_context.RuntimeContext) -> JsonObject:
+def read_journal(ctx: runtime_context.InstallationContext) -> JsonObject:
     """Read one existing transaction through its strict current schema."""
     root = transaction_root(ctx)
     if root.is_symlink():
@@ -196,7 +196,7 @@ def removal_files(journal: ReadOnlyJsonObject) -> dict[str, str]:
 
 
 def write_journal(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     transaction_id: str,
     version: str,
@@ -235,7 +235,7 @@ def write_journal(
     owned_files.write_bytes(journal_path(ctx), digest.canonical_json(journal), mode=0o600)
 
 
-def read_installed(ctx: runtime_context.RuntimeContext) -> JsonObject | None:
+def read_installed(ctx: runtime_context.InstallationContext) -> JsonObject | None:
     """Read and validate the installed release state when present."""
     path = installed_path(ctx)
     if not path.exists() and not path.is_symlink():

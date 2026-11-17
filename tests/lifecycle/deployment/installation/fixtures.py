@@ -9,6 +9,7 @@ from typing import override
 
 import pytest
 
+from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
@@ -21,10 +22,11 @@ from tests.lifecycle.fixtures import released_artifact
 from tests.serving.handoff.fixtures import idle_runtime
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pytest_mock import MockerFixture
     from pytest_mock import MockType
 
-    from openai_responses_proxy.lifecycle import context as runtime_context
     from openai_responses_proxy.lifecycle import runtime_spec
     from openai_responses_proxy.lifecycle.deployment import handoff
     from openai_responses_proxy.lifecycle.transaction import execution as transaction
@@ -34,7 +36,7 @@ class FakeTransaction:
     """Behavioral double for the payload transaction protocol."""
 
     def __init__(
-        self, ctx: runtime_context.RuntimeContext, *, events: list[object] | None = None
+        self, ctx: runtime_context.InstallationContext, *, events: list[object] | None = None
     ) -> None:
         """Initialize an observable payload-transaction double."""
         transaction_id = "1" * 32
@@ -99,33 +101,38 @@ class FakeServiceAdapter:
         self.configured = configured
         self.running_contexts: set[str] = set()
 
-    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def install(self, ctx: runtime_spec.NativeRuntimeContext) -> None:
         self.install_mock(ctx)
         self.configured = "canonical"
         self.running_contexts.add(ctx.executable)
 
-    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def uninstall(
+        self, ctx: runtime_context.InstallationContext, executables: Sequence[str]
+    ) -> None:
         self.uninstall_mock(ctx)
         self.configured = None
-        self.running_contexts.discard(ctx.executable)
+        self.running_contexts.difference_update(executables)
 
-    def runtime_pids(self, ctx: runtime_spec.NativeServiceContext) -> list[int]:
+    def runtime_pids(self, ctx: runtime_spec.NativeRuntimeContext) -> list[int]:
         return [222] if ctx.executable in self.running_contexts else []
 
     def terminate_runtime(
-        self, ctx: runtime_spec.NativeServiceContext, *, timeout_seconds: float
+        self, ctx: runtime_spec.NativeRuntimeContext, *, timeout_seconds: float
     ) -> int:
         del timeout_seconds
         running = self.runtime_pids(ctx)
         self.running_contexts.discard(ctx.executable)
         return len(running)
 
-    def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str | None:
-        configured = ctx.executable if self.configured == "canonical" else self.configured
-        return configured if isinstance(configured, str) else None
+    def configured_executable(self, ctx: runtime_context.InstallationContext) -> str | None:
+        """Return the declared executable: the asking generation's own while it is canonical."""
+        if self.configured != "canonical":
+            return self.configured
+        return ctx.executable if isinstance(ctx, runtime_context.RuntimeContext) else None
 
-    def status(self, ctx: runtime_spec.NativeServiceContext) -> str:
-        return "running" if ctx.executable in self.running_contexts else "absent"
+    def status(self, ctx: runtime_context.InstallationContext) -> str:
+        del ctx
+        return "running" if self.running_contexts else "absent"
 
 
 class OrderedServiceAdapter(FakeServiceAdapter):
@@ -137,14 +144,16 @@ class OrderedServiceAdapter(FakeServiceAdapter):
         self.events = events
 
     @override
-    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def install(self, ctx: runtime_spec.NativeRuntimeContext) -> None:
         self.events.append("service-install")
         super().install(ctx)
 
     @override
-    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def uninstall(
+        self, ctx: runtime_context.InstallationContext, executables: Sequence[str]
+    ) -> None:
         self.events.append("service-uninstall")
-        super().uninstall(ctx)
+        super().uninstall(ctx, executables)
 
 
 def _unsupervised_installation(
@@ -161,7 +170,7 @@ def _unsupervised_installation(
     install_payload(ctx, mocker=mocker)
     released = released_artifact()
     mocker.patch.object(install.artifact, "admit", return_value=released)
-    control_ctx = generation.control_context(ctx)
+    control_ctx = generation.require_control_context(ctx)
     committed = identity.committed_payload(Path(ctx.executable))
     assert committed is not None
     bound = {"control": service == "installed"}
@@ -196,6 +205,8 @@ class ReleasedDeploymentFixture:
     def _admit_current_listener(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Own the isolated install root and exact predecessor identity."""
         self.ctx = install_context(tmp_path)
+        # The fixture generation is the selected one: its listener is the one that serves.
+        mocker.patch.object(generation, "selected_context", return_value=self.ctx)
         mocker.patch.object(
             process,
             "capture_executable",

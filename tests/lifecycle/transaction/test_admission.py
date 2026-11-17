@@ -19,6 +19,7 @@ from openai_responses_proxy.lifecycle.transaction import execution as payload_tr
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
@@ -117,7 +118,7 @@ def test_recovered_transaction_cannot_mutate_the_next_transaction(
 
 
 def test_transaction_status_is_absent_without_a_journal(tmp_path: Path) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     assert records.status(ctx) is None
 
 
@@ -173,7 +174,7 @@ def test_retained_predecessor_rejects_corruption_before_mutation(
 
 
 def test_transaction_status_classifies_an_existing_invalid_carrier(tmp_path: Path) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     root = Path(records.transaction_root(ctx))
     root.mkdir(parents=True)
 
@@ -186,7 +187,7 @@ def test_transaction_status_classifies_an_existing_invalid_carrier(tmp_path: Pat
 
 
 def test_installed_state_rejects_a_symlink_even_when_its_target_is_absent(tmp_path: Path) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     installed = Path(records.installed_path(ctx))
     installed.parent.mkdir(parents=True)
     installed.symlink_to(tmp_path / "missing-installed-state.json")
@@ -216,7 +217,7 @@ def test_empty_control_root_remains_a_fresh_install(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """An empty pre-created control directory does not invent a predecessor."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     Path(ctx.install_dir).mkdir(parents=True)
 
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
@@ -254,7 +255,7 @@ def test_nonempty_control_root_without_installed_authority_is_rejected(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """Unowned residue cannot be interpreted as an install predecessor."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     install_root = Path(ctx.install_dir)
     install_root.mkdir(parents=True)
     (install_root / "unknown.txt").write_text("operator data", encoding="utf-8")
@@ -305,7 +306,7 @@ def test_transaction_status_projects_only_the_read_only_recovery_contract(
 def test_transaction_state_machine_rejects_invalid_order_and_duplicate_commit(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path / "transaction")
+    ctx = control_root(tmp_path / "transaction")
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     assert transaction.release == "1.2.3"
     assert transaction.expected["release"] == "1.2.3"
@@ -331,7 +332,7 @@ def test_transaction_state_machine_rejects_invalid_order_and_duplicate_commit(
         )
 
     fresh = begin_transaction(
-        install_context(tmp_path / "fresh"),
+        control_root(tmp_path / "fresh"),
         released_artifact(),
         mocker=mocker,
     )

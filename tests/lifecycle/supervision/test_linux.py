@@ -50,7 +50,7 @@ class TestLinuxLifecycle:
         with pytest.raises(errors.InstallError, match="service state is unproven"):
             linux.status(ctx)
         with pytest.raises(errors.InstallError, match="service state is unproven"):
-            linux.uninstall(ctx)
+            linux.uninstall(ctx, [ctx.executable])
 
         assert all(call.args[0][2] == "show" for call in command.call_args_list)
         processes.assert_not_called()
@@ -269,12 +269,12 @@ class TestLinuxLifecycle:
                 ],
             )
             mocker.patch.object(linux.process, "pids_naming_executable", return_value=[])
-            linux.uninstall(ctx)
+            linux.uninstall(ctx, [ctx.executable])
             assert not unit.exists()
             mocker.patch.object(linux.system_tools, "posix_tool", return_value=None)
             invoked = mocker.patch.object(linux.subprocess, "run")
             mocker.patch.object(linux.process, "pids_naming_executable", return_value=[])
-            linux.uninstall(ctx)
+            linux.uninstall(ctx, [ctx.executable])
             invoked.assert_not_called()
             for systemd, executable, output, expected in (
                 (
@@ -311,7 +311,7 @@ class TestLinuxLifecycle:
             unit = _set_file(linux._unit_path(ctx), "unit")
             mocker.patch.object(linux.system_tools, "posix_tool", return_value=None)
             with pytest.raises(errors.InstallError, match="systemctl is unavailable"):
-                linux.uninstall(ctx)
+                linux.uninstall(ctx, [ctx.executable])
             assert unit.exists()
 
             mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
@@ -324,7 +324,7 @@ class TestLinuxLifecycle:
                 ],
             )
             with pytest.raises(errors.InstallError, match="systemctl disable failed") as raised:
-                linux.uninstall(ctx)
+                linux.uninstall(ctx, [ctx.executable])
             assert "/home/private/unit" not in str(raised.value)
             assert unit.exists()
 
@@ -340,7 +340,7 @@ class TestLinuxLifecycle:
                 ],
             )
             with pytest.raises(errors.InstallError, match="daemon-reload failed"):
-                linux.uninstall(ctx)
+                linux.uninstall(ctx, [ctx.executable])
 
             _set_file(unit, "unit")
             mocker.patch.object(linux.system_tools, "posix_tool", return_value="/usr/bin/systemctl")
@@ -351,7 +351,7 @@ class TestLinuxLifecycle:
             )
             mocker.patch.object(linux, "status", return_value="installed")
             with pytest.raises(errors.InstallError, match="remains registered"):
-                linux.uninstall(ctx)
+                linux.uninstall(ctx, [ctx.executable])
 
     def test_uninstall_refuses_unproved_process_terminal_states(
         self, tmp_path: Path, subtests: pytest.Subtests, *, mocker: MockerFixture
@@ -365,14 +365,14 @@ class TestLinuxLifecycle:
             subtests.test("termination"),
             pytest.raises(errors.InstallError, match="17 exit is unproved"),
         ):
-            linux.uninstall(ctx)
+            linux.uninstall(ctx, [ctx.executable])
 
         mocker.patch.object(linux.process, "pids_naming_executable", side_effect=[[], [19]])
         with (
             subtests.test("residue"),
             pytest.raises(errors.InstallError, match=r"watchdogs remain: \[19\]"),
         ):
-            linux.uninstall(ctx)
+            linux.uninstall(ctx, [ctx.executable])
 
     def test_uninstall_terminates_each_verified_linux_watchdog(
         self, tmp_path: Path, *, mocker: MockerFixture
@@ -386,7 +386,7 @@ class TestLinuxLifecycle:
             side_effect=[[17], []],
         )
         terminate = mocker.patch.object(linux.process, "terminate_executable", return_value=True)
-        linux.uninstall(ctx)
+        linux.uninstall(ctx, [ctx.executable])
         terminate.assert_called_once_with(
             17,
             ctx.executable,

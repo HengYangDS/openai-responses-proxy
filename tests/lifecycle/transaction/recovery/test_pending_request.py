@@ -22,6 +22,7 @@ from openai_responses_proxy.lifecycle import generation as payload_generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.transaction import completion
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import interrupted_transition
@@ -168,7 +169,7 @@ def test_a_fresh_transaction_is_decided_without_a_wait(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A fresh installation hands nothing off, activated or not."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()

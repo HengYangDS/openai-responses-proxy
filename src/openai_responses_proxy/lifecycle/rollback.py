@@ -32,7 +32,7 @@ class RetainedRollbackStatus:
 
 
 def _load_selected(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     active: str,
     retained: str,
 ) -> RetainedRollback:
@@ -62,7 +62,7 @@ def _load_selected(
 
 
 def load_retained_or_none(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
 ) -> RetainedRollback | None:
     """Return the retained predecessor, distinguishing clean absence from corruption."""
     selection = generation.read(ctx)
@@ -73,7 +73,7 @@ def load_retained_or_none(
 
 
 def _require_closed_generation_store(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     selection: generation.Selection | None,
 ) -> None:
     """Require the generation store to contain exactly the selected authority."""
@@ -95,7 +95,7 @@ def _require_closed_generation_store(
         raise errors.InstallError("payload generation store is not closed over its selector")
 
 
-def status(ctx: runtime_context.RuntimeContext) -> RetainedRollbackStatus:
+def status(ctx: runtime_context.InstallationContext) -> RetainedRollbackStatus:
     """Inspect retained rollback availability without exposing carrier paths."""
     try:
         retained = load_retained_or_none(ctx)

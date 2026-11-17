@@ -19,6 +19,7 @@ from openai_responses_proxy.serving import inventory
 
 if TYPE_CHECKING:
     from openai_responses_proxy.json_value import JsonObject
+    from openai_responses_proxy.lifecycle.context import InstallationContext
     from openai_responses_proxy.lifecycle.context import RuntimeContext
 
 FILENAME = inventory.RUNTIME_CONFIG_FILENAME
@@ -46,7 +47,7 @@ _FIELDS = (
 
 
 class NativeServiceContext(Protocol):
-    """Minimum context consumed by every native service adapter."""
+    """The control root as a native service adapter reads it: no payload is named."""
 
     @property
     def user_home(self) -> str:
@@ -59,16 +60,6 @@ class NativeServiceContext(Protocol):
         ...
 
     @property
-    def executable(self) -> str:
-        """Return the installed executable selected for supervision."""
-        ...
-
-    @property
-    def payload_dir(self) -> str:
-        """Return the immutable payload generation selected for supervision."""
-        ...
-
-    @property
     def log_dir(self) -> str:
         """Return the product-owned runtime log directory."""
         ...
@@ -76,6 +67,20 @@ class NativeServiceContext(Protocol):
     @property
     def service_id(self) -> str:
         """Return the exact native service identity for this installation."""
+        ...
+
+
+class NativeRuntimeContext(NativeServiceContext, Protocol):
+    """One payload generation as an adapter supervises it or ends its processes."""
+
+    @property
+    def executable(self) -> str:
+        """Return the installed executable selected for supervision."""
+        ...
+
+    @property
+    def payload_dir(self) -> str:
+        """Return the immutable payload generation selected for supervision."""
         ...
 
 
@@ -91,7 +96,7 @@ def write(ctx: RuntimeContext) -> Path:
     return target
 
 
-def content(ctx: RuntimeContext) -> bytes:
+def content(ctx: InstallationContext) -> bytes:
     """Encode the exact carrier before materialization or disposal admission."""
     payload = {"schema_version": SCHEMA_VERSION}
     payload.update({name: getattr(ctx, name) for name in _FIELDS})

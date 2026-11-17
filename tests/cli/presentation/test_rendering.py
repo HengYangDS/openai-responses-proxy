@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -236,7 +236,7 @@ def test_rollback_without_a_predecessor_has_matching_human_and_json_semantics(
         "state": "unavailable",
         "detail": "no verified predecessor is retained",
     }
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "rollback", return_value=unavailable)
 

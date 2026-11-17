@@ -57,7 +57,7 @@ class TestTheWindowFromBothSides(HandoffFixture):
         self.ctx = install_context(Path(self.tempdir.name))
         self.source = process.OwnedProcess(999, self.ctx.executable, 0.5)
 
-    def health(self, _ctx: runtime_context.RuntimeContext | None = None) -> dict[str, object]:
+    def health(self, _ctx: runtime_context.InstallationContext | None = None) -> dict[str, object]:
         """Read the listener's own session as the controller's health read shows it."""
         identity = handoff_module.runtime_identity(self.bindings.handoff_context())
         return idle_runtime(
@@ -170,7 +170,7 @@ class TestTheWindowFromBothSides(HandoffFixture):
         sessions: dict[float, object] = {}
 
         def read_then_let_the_listener_go_on(
-            _ctx: runtime_context.RuntimeContext,
+            _ctx: runtime_context.InstallationContext,
         ) -> dict[str, object]:
             snapshot = self.health()
             sessions[clock.now] = snapshot["handoff_state"]

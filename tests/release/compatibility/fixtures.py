@@ -53,7 +53,7 @@ def _assert_same_runtime_identity(
 
 def _wait_for_successor_admission(
     future: Future[dict[str, object]],
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     predecessor_pid: int,
     successor_release: str,

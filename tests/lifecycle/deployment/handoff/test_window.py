@@ -36,7 +36,7 @@ _BINDINGS = listener_control.Bindings(
 )
 
 
-def _health(_ctx: runtime_context.RuntimeContext | None = None) -> dict[str, object]:
+def _health(_ctx: runtime_context.InstallationContext | None = None) -> dict[str, object]:
     """Read the listener's own session as the controller's health read shows it."""
     identity = handoff_module.runtime_identity(_BINDINGS.handoff_context())
     return idle_runtime(
@@ -157,7 +157,7 @@ class TestAnUnansweredRequestInTheWindow(HandoffFixture):
             sessions: list[object] = []
 
             def read_then_let_the_listener_go_on(
-                _ctx: runtime_context.RuntimeContext,
+                _ctx: runtime_context.InstallationContext,
             ) -> dict[str, object]:
                 snapshot = _health()
                 sessions.append(snapshot["handoff_state"])

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def _lacks_supervision(
-    ctx: runtime_context.RuntimeContext,
+    active: runtime_context.RuntimeContext,
     released: artifact.VerifiedArtifact,
     installed: Mapping[str, object],
     observed: Mapping[str, object],
@@ -44,23 +44,23 @@ def _lacks_supervision(
         or command_state.get("state") not in {"owned", "absent"}
     ):
         return False
-    committed = identity.committed_payload(Path(generation.selected_context(ctx).executable))
+    committed = identity.committed_payload(Path(active.executable))
     if (
         committed is None
         or committed.release_receipt_sha256 != released.receipt_sha256
         or committed.serving_payload_sha256 != released.serving_payload_sha256
-        or not control.installed_names(ctx, installed, committed)
+        or not control.installed_names(active, installed, committed)
     ):
         return False
     runtime = observed.get("runtime")
     if isinstance(runtime, dict):
         serving = (runtime.get("release_receipt_sha256"), runtime.get("serving_payload_sha256"))
         return serving == (released.receipt_sha256, released.serving_payload_sha256)
-    return observed.get("listener_pids") == [] and not process.listener_pids(ctx.port)
+    return observed.get("listener_pids") == [] and not process.listener_pids(active.port)
 
 
 def install_asset(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     asset: Path,
     *,
     trust_anchor: Path,
@@ -77,7 +77,11 @@ def install_asset(
             raise errors.RecoveryRequiredError("complete payload recovery before installing")
         observed = control.status(ctx, include_rollback=False)
         runtime = observed.get("runtime")
+        active = generation.selected_context(ctx)
         control_ctx = generation.control_context(ctx)
+        if active is None or control_ctx is None:
+            # An installed record without a selection names no payload that could be this one.
+            raise errors.InstallError("requested artifact is not the verified active installation")
         configured = native_service.adapter().configured_executable(control_ctx)
         selected_settings = runtime_spec.environment(runtime_spec.path(control_ctx))
         if selected_settings[config.UPSTREAM_BASE_URL_ENV] != ctx.upstream_base_url:
@@ -95,12 +99,12 @@ def install_asset(
         ):
             return {"state": "unchanged", "release": released.version}
         if selected_settings[config.PROXY_PORT_ENV] == str(ctx.port) and _lacks_supervision(
-            ctx, released, previous, observed
+            active, released, previous, observed
         ):
             command.project(Path(records.require_command(previous)), Path(control_ctx.executable))
             return {
                 "state": "installed",
-                "runtime": control.start_supervised(ctx, timeout_seconds=timeout_seconds),
+                "runtime": control.start_supervised(active, timeout_seconds=timeout_seconds),
             }
         raise errors.InstallError("requested artifact is not the verified active installation")
     payload_transaction = transaction.begin_transaction(ctx, released)

@@ -16,9 +16,11 @@ from openai_responses_proxy.lifecycle import install
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import uninstall
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import selected_context
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -67,7 +69,7 @@ def test_purge_stops_and_removes_every_owned_generation(
     successor.finalize({"pid": 2})
     orphan = "f" * 32
     orphan_root = generation.path(ctx, orphan)
-    active = generation.selected_context(ctx)
+    active = selected_context(ctx)
     shutil.copytree(active.payload_dir, orphan_root)
     service = mocker.Mock()
     service.status.return_value = "absent"
@@ -93,7 +95,7 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
     """A recorded removal continues after losing part of the active payload."""
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
-    active = generation.selected_context(ctx)
+    active = selected_context(ctx)
     service = mocker.Mock()
     service.status.return_value = "absent"
     service.terminate_runtime.return_value = 0
@@ -132,16 +134,25 @@ def test_interrupted_purge_resumes_without_deleted_payload_identity(
     pending = records.status(ctx)
     assert pending is not None
     assert pending["state"] == "purged"
+    # The selector is gone first: the resume has a journal and a store, and no selection.
+    resumed = control_root(tmp_path)
+    assert generation.read(resumed) is None
+    left = generation.owned_contexts(resumed)
+    service.reset_mock()
 
     result = (
-        uninstall.uninstall_product(ctx, purge=True)
+        uninstall.uninstall_product(resumed, purge=True)
         if resume == "uninstall"
-        else control.recover(active)
+        else control.recover(resumed)
     )
 
     assert result["state"] == "purged"
     assert not Path(ctx.install_dir).exists()
     assert records.status(ctx) is None
+    service.uninstall.assert_called_once_with(resumed, [owned.executable for owned in left])
+    assert [call.args[0] for call in service.terminate_runtime.call_args_list] == list(left)
+    # An interruption before the last file of the generation leaves its directory in the store.
+    assert left == ((active,) if interruption in {"selector", "payload", "metadata"} else ())
 
 
 def test_process_teardown_fails_closed_when_exit_is_unproved(
@@ -154,11 +165,11 @@ def test_process_teardown_fails_closed_when_exit_is_unproved(
     )
 
     with pytest.raises(errors.InstallError, match="exit is unproved"):
-        uninstall._stop_proxy(service, ctx)
+        uninstall._stop_proxy(service, [ctx])
     service.terminate_runtime.side_effect = None
     service.terminate_runtime.return_value = 0
     service.terminate_runtime.return_value = 2
-    assert uninstall._stop_proxy(service, ctx) == 2
+    assert uninstall._stop_proxy(service, [ctx]) == 2
 
 
 def test_process_teardown_includes_a_replaced_non_listener_generation(
@@ -168,7 +179,7 @@ def test_process_teardown_includes_a_replaced_non_listener_generation(
     service = mocker.Mock()
     service.terminate_runtime.return_value = 2
 
-    assert uninstall._stop_proxy(service, ctx) == 2
+    assert uninstall._stop_proxy(service, [ctx]) == 2
     service.terminate_runtime.assert_called_once_with(ctx, timeout_seconds=5.0)
 
 
@@ -180,11 +191,11 @@ def test_process_teardown_visits_one_active_generation_once(
     selected = generation.read(ctx)
     assert selected is not None
     assert selected.predecessor is None
-    active = generation.selected_context(ctx)
+    active = selected_context(ctx)
     service = mocker.Mock()
     service.terminate_runtime.return_value = 1
 
-    assert uninstall._stop_proxy(service, active) == 1
+    assert uninstall._stop_proxy(service, generation.owned_contexts(ctx)) == 1
     service.terminate_runtime.assert_called_once_with(active, timeout_seconds=5.0)
 
 
@@ -205,11 +216,11 @@ def test_uninstall_product_covers_success_and_fail_closed_boundaries(
     }
     assert not Path(ctx.command).exists()
     assert not Path(ctx.install_dir).exists()
-    service.uninstall.assert_called_once_with(ctx)
+    service.uninstall.assert_called_once_with(ctx, [ctx.executable])
 
     service.status.return_value = "loaded"
     with pytest.raises(errors.InstallError, match="remains loaded"):
-        uninstall._remove_service(service, ctx)
+        uninstall._remove_service(service, ctx, ())
 
     service.status.return_value = "absent"
     install_payload(ctx, mocker=mocker)
@@ -244,11 +255,10 @@ def test_purge_rejects_control_root_residue_after_owned_generations_are_removed(
 def test_uninstall_is_idempotent_when_no_installation_exists(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     service = mocker.Mock()
     service.status.return_value = "absent"
     mocker.patch.object(uninstall, "adapter", return_value=service)
-    mocker.patch.object(uninstall.process, "verified_proxy_listener_pids", return_value=[])
 
     assert uninstall.uninstall_product(ctx, purge=True) == {
         "state": "not_installed",
@@ -261,11 +271,10 @@ def test_uninstall_is_idempotent_when_no_installation_exists(
 def test_uninstall_refuses_any_retained_transaction_before_mutation(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     service = mocker.Mock()
     service.status.return_value = "absent"
     mocker.patch.object(uninstall, "adapter", return_value=service)
-    mocker.patch.object(uninstall.process, "verified_proxy_listener_pids", return_value=[])
 
     root = Path(records.transaction_root(ctx))
     root.mkdir(parents=True)
@@ -284,16 +293,11 @@ def test_uninstall_refuses_any_retained_transaction_before_mutation(
 def test_status_and_uninstall_use_the_finalized_command_path(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
-    installed_command = tmp_path / "original-bin" / "openai-responses-proxy"
+    installed = install_context(tmp_path)
+    install_payload(installed, mocker=mocker)
+    installed_command = Path(installed.command)
     changed_environment_command = tmp_path / "changed-bin" / "openai-responses-proxy"
-    ctx = replace(ctx, command=str(changed_environment_command))
-    installed_state = {
-        "schema_version": records.INSTALLED_RELEASE_STATE_SCHEMA,
-        "version": "2.0.37",
-        "command": str(installed_command),
-    }
-    mocker.patch.object(records, "read_installed", return_value=installed_state)
+    ctx = replace(installed, command=str(changed_environment_command))
     command_status = mocker.patch.object(
         control.command,
         "status",
@@ -327,7 +331,7 @@ def test_status_and_uninstall_use_the_finalized_command_path(
 def test_install_and_uninstall_adapters_preserve_bounded_errors(
     *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    ctx = install_context(tmp_path_factory.mktemp("case"))
+    ctx = control_root(tmp_path_factory.mktemp("case"))
     released = mocker.Mock()
     payload_transaction = mocker.Mock()
     service = mocker.Mock()

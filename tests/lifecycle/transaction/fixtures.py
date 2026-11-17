@@ -98,7 +98,7 @@ def interrupted_transition(
     )
 
 
-def observed_installation(ctx: runtime_context.RuntimeContext) -> tuple[object, ...]:
+def observed_installation(ctx: runtime_context.InstallationContext) -> tuple[object, ...]:
     """Return the selection, the command's target, the journal and the installed record."""
     return (
         payload_generation.read(ctx),
@@ -114,7 +114,7 @@ def no_wait() -> Mapping[str, object] | None:
 
 
 def recover_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     runtime: Mapping[str, object] | None,
     read_after_wait: Callable[[], Mapping[str, object] | None] = no_wait,
@@ -135,7 +135,7 @@ def recover_transaction(
     )
 
 
-def _recover_without_binding(ctx: runtime_context.RuntimeContext, outcome: str) -> None:
+def _recover_without_binding(ctx: runtime_context.InstallationContext, outcome: str) -> None:
     """Exercise restart recovery in a fresh interpreter without native effects."""
 
     def unexpected_binding(_ctx: runtime_context.RuntimeContext) -> None:

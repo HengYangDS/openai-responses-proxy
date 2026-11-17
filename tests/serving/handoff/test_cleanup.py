@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from dataclasses import asdict
+from dataclasses import fields
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Never
@@ -100,7 +100,9 @@ class TestHandoffCleanup(SubprocessFixture):
         )
 
         service = mocker.Mock()
-        service.uninstall.side_effect = lambda _ctx: events.append("service-uninstall")
+        service.uninstall.side_effect = lambda _ctx, _executables: events.append(
+            "service-uninstall"
+        )
         service.status.side_effect = lambda _ctx: events.append("service-status") or "absent"
         mocker.patch.object(native_service, "adapter", return_value=service)
 
@@ -210,7 +212,10 @@ class TestHandoffCleanup(SubprocessFixture):
 def test_installed_payload_retains_complete_custody_before_native_prewarm(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """The surviving executor sees the exact generation before a child can exist."""
+    """The surviving executor sees the control root before a child can exist.
+
+    The custody names no payload: teardown finds each generation again through the store.
+    """
     root = tmp_path / "owned"
     root.mkdir()
     contexts = tmp_path / "contexts.jsonl"
@@ -232,7 +237,12 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
         observed.append(ctx)
         rows = contexts.read_bytes().splitlines()
         assert len(rows) == 1, "complete cleanup custody must precede native execution"
-        assert json.loads(rows[0]) == asdict(ctx)
+        retained = json.loads(rows[0])
+        assert retained == {
+            item.name: getattr(ctx, item.name)
+            for item in fields(runtime_context.InstallationContext)
+        }
+        assert "executable" not in retained
 
     mocker.patch.object(candidate, "prewarm", side_effect=prewarm)
     ctx = write_installed_payload(

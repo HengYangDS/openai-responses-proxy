@@ -13,7 +13,7 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import identity
 from tests.lifecycle.fixtures import begin_transaction
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
@@ -29,7 +29,7 @@ def test_transaction_refuses_replaced_snapshot_before_any_effect(
     tmp_path: Path, operation: str, replacement: str, *, mocker: MockerFixture
 ) -> None:
     """Preserve every carrier and external command before rejecting snapshot drift."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     if operation == "rollback":

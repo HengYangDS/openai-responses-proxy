@@ -88,7 +88,8 @@ class TestWatchdogLogging:
         mocker.patch.object(watchdog, "EXECUTABLE", str(executable))
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         current = mocker.Mock(executable=str(executable))
-        context = mocker.patch.object(watchdog.runtime_context, "create", return_value=current)
+        context = mocker.patch.object(watchdog.runtime_context, "create")
+        mocker.patch.object(watchdog.generation, "selected_context", return_value=current)
         mocker.patch.object(
             watchdog.records,
             "status",
@@ -199,7 +200,8 @@ class TestWatchdogLogging:
     def test_watchdog_loop_is_bounded(self, *, mocker: MockerFixture) -> None:
         watchdog = load_watchdog()
         current = mocker.Mock(executable="/installed/current")
-        mocker.patch.object(watchdog.runtime_context, "create", return_value=current)
+        mocker.patch.object(watchdog.runtime_context, "create")
+        mocker.patch.object(watchdog.generation, "selected_context", return_value=current)
         transaction = mocker.patch.object(watchdog.records, "status", return_value=None)
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         spawn = mocker.patch.object(watchdog, "spawn_proxy")
@@ -219,12 +221,35 @@ class TestWatchdogLogging:
         watchdog.run(max_iterations=1)
         spawn.assert_called_once_with(current.executable)
 
+    def test_watchdog_starts_its_own_program_when_no_generation_is_selected(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """An interrupted purge has no selector: the watchdog's own program is the listener."""
+        watchdog = load_watchdog()
+        mocker.patch.object(watchdog, "EXECUTABLE", "/installed/generations/own/bin/proxy")
+        mocker.patch.object(watchdog.runtime_context, "create")
+        selected = mocker.patch.object(watchdog.generation, "selected_context", return_value=None)
+        transaction = mocker.patch.object(watchdog.records, "status", return_value=None)
+        mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
+        spawn = mocker.patch.object(watchdog, "spawn_proxy")
+        mocker.patch.object(watchdog, "_log")
+
+        watchdog.run(max_iterations=1)
+
+        selected.assert_called_once()
+        spawn.assert_called_once_with("/installed/generations/own/bin/proxy")
+        transaction.return_value = {"state": "purged"}
+        spawn.reset_mock()
+        watchdog.run(max_iterations=1)
+        spawn.assert_not_called()
+
     def test_watchdog_never_crosses_invalid_transaction_evidence(
         self, *, mocker: MockerFixture
     ) -> None:
         watchdog = load_watchdog()
         mocker.patch.object(watchdog, "is_proxy_up", return_value=False)
         mocker.patch.object(watchdog.runtime_context, "create")
+        mocker.patch.object(watchdog.generation, "selected_context", return_value=None)
         mocker.patch.object(
             watchdog.records,
             "status",

@@ -228,6 +228,24 @@ def status(command_path: Path, target: Path) -> dict[str, object]:
     }
 
 
+def status_without_payload(command_path: Path) -> dict[str, object]:
+    """Return the command's state where no payload generation is selected to own it.
+
+    Whatever is at the path then is another owner's.
+    """
+    return {
+        "state": "foreign" if os.path.lexists(command_path) else "absent",
+        "kind": None,
+        "path": str(command_path),
+    }
+
+
+def require_absent(command_path: Path) -> None:
+    """Refuse a command path that holds anything, where no payload generation can own it."""
+    if os.path.lexists(command_path):
+        raise errors.InstallError("command path changed ownership")
+
+
 def _classify(command_path: Path, target: Path) -> tuple[str, str]:
     if not os.path.lexists(command_path):
         return "absent", ""

@@ -22,6 +22,7 @@ from openai_responses_proxy.serving import roles as serving_roles
 if TYPE_CHECKING:
     from collections.abc import Generator
     from collections.abc import Mapping
+    from collections.abc import Sequence
 
 
 class ServiceAdapter(Protocol):
@@ -31,8 +32,10 @@ class ServiceAdapter(Protocol):
         """Install service; NativeServiceUnavailableError guarantees no service mutation."""
         ...
 
-    def uninstall(self, ctx: runtime_context.RuntimeContext) -> None:
-        """Remove the exact native service owned by this runtime context."""
+    def uninstall(
+        self, ctx: runtime_context.InstallationContext, executables: Sequence[str]
+    ) -> None:
+        """Remove the control root's native service and the watchdogs of these executables."""
         ...
 
     def terminate_runtime(
@@ -44,11 +47,11 @@ class ServiceAdapter(Protocol):
         """Terminate and prove exit of this generation's native runtime processes."""
         ...
 
-    def configured_executable(self, ctx: runtime_context.RuntimeContext) -> str | None:
+    def configured_executable(self, ctx: runtime_context.InstallationContext) -> str | None:
         """Return the executable configured in the native service definition."""
         ...
 
-    def status(self, ctx: runtime_context.RuntimeContext) -> str:
+    def status(self, ctx: runtime_context.InstallationContext) -> str:
         """Return the native service state for this installation."""
         ...
 
@@ -86,14 +89,18 @@ def closing_prepared(payload: transaction.PayloadTransaction, operation: str) ->
 
 
 def install(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     payload: transaction.PayloadTransaction,
     *,
     adapter: ServiceAdapter,
     runtime_reader: handoff.RuntimeReader,
     timeout_seconds: float = 30.0,
 ) -> dict[str, object]:
-    """Install fresh bytes or hand off one verified current native runtime."""
+    """Install fresh bytes or hand off one verified current native runtime.
+
+    A runtime that answers where no generation is selected is no listener of this
+    installation, and is refused as one whose process is not this installation's.
+    """
     current = runtime_reader(ctx)
     if current is None and not process.listener_pids(ctx.port):
         return _fresh_install(
@@ -111,8 +118,11 @@ def install(
         raise errors.InstallError(
             "installed runtime is incompatible; remove it before installing this release"
         )
-    source_listener = handoff.capture_source_listener(ctx, current)
-    control = generation.control_context(ctx)
+    source = generation.selected_context(ctx)
+    if source is None:
+        raise errors.InstallError("installed listener process generation is not verified")
+    source_listener = handoff.capture_source_listener(source, current)
+    control = generation.require_control_context(ctx)
     configured = adapter.configured_executable(control)
     if configured is None or runtime_spec.normalized_path(
         configured
@@ -132,7 +142,7 @@ def install(
 
 
 def rollback(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     retained: payload_rollback.RetainedRollback,
     *,
     adapter: ServiceAdapter,
@@ -220,7 +230,7 @@ def _fresh_install(
 
 
 def _upgrade(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     payload: transaction.PayloadTransaction,
     *,
     adapter: ServiceAdapter,
@@ -245,7 +255,7 @@ def _upgrade(
             timeout_seconds=timeout_seconds,
         )
         successor_committed = True
-        bind_control_supervisor(adapter, generation.control_context(ctx))
+        bind_control_supervisor(adapter, generation.require_control_context(ctx))
     except UnknownDeploymentOutcome as exc:
         payload.preserve_for_recovery(str(exc))
         raise
@@ -302,7 +312,7 @@ def bind_control_supervisor(
 
 
 def _require_serving_predecessor(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     failure: BaseException,
     source_listener: process.OwnedProcess,
@@ -338,7 +348,7 @@ def _remove_candidate_supervision(
             candidate.executable
         ):
             raise errors.InstallError("candidate native supervisor identity is unproved")
-        adapter.uninstall(candidate)
+        adapter.uninstall(candidate, [candidate.executable])
     if adapter.status(candidate) != "absent":
         raise errors.InstallError("candidate native supervision is not absent")
 

@@ -13,7 +13,7 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from tests.cli.fixtures import invoke
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -42,9 +42,7 @@ def test_internal_dispatch_argument_contracts_fail_closed(
 ) -> None:
     # A private installation context: the operator's live installation, and a lifecycle writer
     # holding its lock, must not decide this argument contract.
-    mocker.patch.object(
-        application.runtime_context, "create", return_value=install_context(tmp_path)
-    )
+    mocker.patch.object(application.runtime_context, "create", return_value=control_root(tmp_path))
     cases = (
         (
             "install",

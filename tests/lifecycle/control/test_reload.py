@@ -19,6 +19,7 @@ from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving.handoff import transaction as handoff_transaction
 from tests.lifecycle.deployment.handoff.fixtures import PolledClock
 from tests.lifecycle.deployment.handoff.fixtures import control_transport
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.serving.handoff.fixtures import idle_runtime
@@ -36,7 +37,7 @@ def _stopped_installation(
     """Install one verified payload whose owned supervisor and listener are stopped."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
-    control_ctx = generation.control_context(ctx)
+    control_ctx = generation.require_control_context(ctx)
     native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = "installed"
     native.configured_executable.return_value = control_ctx.executable
@@ -57,7 +58,7 @@ def _serving_installation(
     """Install one verified payload whose listener serves under the observed supervisor."""
     ctx = install_context(root)
     install_payload(ctx, mocker=mocker)
-    control_ctx = generation.control_context(ctx)
+    control_ctx = generation.require_control_context(ctx)
     native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = service
     native.configured_executable.return_value = control_ctx.executable
@@ -75,7 +76,7 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
     subtests: pytest.Subtests, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
-    Path(ctx.install_dir).mkdir(parents=True)
+    install_payload(ctx, mocker=mocker)
 
     class Response:
         status = 200
@@ -164,15 +165,13 @@ def test_control_reads_bounded_runtime_and_recovers_finalized_reload(
 def test_reload_reads_handoff_identity_from_selected_generation(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    stable = install_context(tmp_path)
-    Path(stable.install_dir).mkdir(parents=True)
+    stable = control_root(tmp_path)
     ctx = generation.context(stable, "a" * 32)
+    install_payload(ctx, mocker=mocker)
     runtime = {"pid": 7}
     expected = {"transaction_id": "tx"}
     native = mocker.patch.object(control, "adapter").return_value
     native.configured_executable.return_value = ctx.executable
-    mocker.patch.object(control.records, "read_installed", return_value={})
-    mocker.patch.object(control.records, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=runtime)
     mocker.patch.object(control.strategy, "runtime_supports_handoff", return_value=True)
     mocker.patch.object(
@@ -196,7 +195,7 @@ def test_reload_reads_handoff_identity_from_selected_generation(
         return_value={"old_pid": 7, "child_pid": 8},
     )
 
-    assert control.reload(ctx)["new_pid"] == 8
+    assert control.reload(stable)["new_pid"] == 8
     expected_metadata.assert_called_once_with(ctx.payload_dir)
 
 
@@ -204,7 +203,7 @@ def test_status_and_reload_bound_unobservable_failures(
     *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     ctx = install_context(tmp_path_factory.mktemp("case"))
-    Path(ctx.install_dir).mkdir(parents=True)
+    install_payload(ctx, mocker=mocker)
     current_error = errors.InstallError("current manifest invalid")
     mocker.patch.object(control.projection, "verify_payload_manifest", side_effect=current_error)
     mocker.patch.object(
@@ -257,7 +256,7 @@ def test_status_and_reload_bound_unobservable_failures(
 def test_reload_requires_installation_and_resolved_transaction_state(
     tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
 
     with subtests.test(state="absent"), pytest.raises(errors.NotInstalledError):
         control.reload(ctx)
@@ -278,7 +277,7 @@ def test_reload_requires_installation_and_resolved_transaction_state(
 def test_reload_refuses_incompatible_listener_without_mutation(
     *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    ctx = install_context(tmp_path_factory.mktemp("case"))
+    ctx = control_root(tmp_path_factory.mktemp("case"))
     Path(ctx.install_dir).mkdir(parents=True)
     mocker.patch.object(control, "read_runtime", return_value={"pid": 12345})
     terminate_owned = mocker.patch.object(process, "terminate_owned_process")
@@ -299,7 +298,7 @@ def test_reload_refuses_incompatible_listener_without_mutation(
 def test_reload_refuses_a_runtime_without_both_handoff_capabilities(
     tmp_path: Path, capability: str, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     Path(ctx.install_dir).mkdir(parents=True)
     mocker.patch.object(
         control, "read_runtime", return_value=idle_runtime(handoff_capabilities=[capability])

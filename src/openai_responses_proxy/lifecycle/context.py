@@ -8,6 +8,7 @@ import os
 import posixpath
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import fields
 from pathlib import PureWindowsPath
 
 from openai_responses_proxy import errors
@@ -17,7 +18,6 @@ from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
-from openai_responses_proxy.serving import inventory
 
 SERVICE_ID = product_identity.SERVICE_ID
 DEFAULT_PORT = config.DEFAULT_PORT
@@ -38,15 +38,24 @@ def service_id(install_dir: str) -> str:
     return f"{SERVICE_ID}.{suffix}"
 
 
-@dataclass(slots=True)
-class RuntimeContext:
-    """Absolute paths and validated settings for one installed projection."""
+def _host_is_windows() -> bool:
+    """Return whether this host installs the Windows payload."""
+    return config.os.name == "nt"
+
+
+@dataclass(slots=True, kw_only=True)
+class InstallationContext:
+    """Absolute paths and validated settings of one control root.
+
+    It names no payload: a function that reads one takes a ``RuntimeContext``.
+    """
 
     install_dir: str
-    executable: str
     command: str
     log_dir: str
     user_home: str = field(default_factory=config.home_dir)
+    # The platform whose payload this control root holds: the host's, unless a test models another.
+    windows: bool = field(default_factory=_host_is_windows)
     port: int = config.DEFAULT_PORT
     proxy_log_max_bytes: int = config.DEFAULT_PROXY_LOG_MAX_BYTES
     proxy_log_backup_count: int = config.DEFAULT_PROXY_LOG_BACKUP_COUNT
@@ -69,6 +78,20 @@ class RuntimeContext:
     def service_id(self) -> str:
         """Return the supervision identity for this installed root."""
         return service_id(self.install_dir)
+
+    def for_executable(self, executable: str) -> RuntimeContext:
+        """Return the context of the payload that owns ``executable`` below this control root."""
+        return RuntimeContext(
+            executable=executable,
+            **{item.name: getattr(self, item.name) for item in fields(InstallationContext)},
+        )
+
+
+@dataclass(slots=True, kw_only=True)
+class RuntimeContext(InstallationContext):
+    """One control root together with one payload generation of it."""
+
+    executable: str
 
     @property
     def payload_dir(self) -> str:
@@ -93,24 +116,22 @@ def validate_log_retention(value: int, *, name: str, minimum: int, maximum: int)
 
 def create(
     *,
-    executable: str | None = None,
     port: int = config.DEFAULT_PORT,
     proxy_log_max_bytes: int = config.DEFAULT_PROXY_LOG_MAX_BYTES,
     proxy_log_backup_count: int = config.DEFAULT_PROXY_LOG_BACKUP_COUNT,
     watchdog_log_max_bytes: int = config.DEFAULT_WATCHDOG_LOG_MAX_BYTES,
     watchdog_log_backup_count: int = config.DEFAULT_WATCHDOG_LOG_BACKUP_COUNT,
     upstream_base_url: str | None = None,
-) -> RuntimeContext:
-    """Validate command inputs and project all product-owned paths once."""
-    install_dir = config.data_dir()
-    projected = RuntimeContext(
+) -> InstallationContext:
+    """Validate command inputs and project the control root's paths and settings once.
+
+    The settings are those of the selected generation's carrier when a generation is selected
+    and holds one, and the defaults otherwise.
+    """
+    projected = InstallationContext(
         user_home=config.home_dir(),
-        install_dir=install_dir,
-        executable=executable
-        or inventory.installed_executable(install_dir, windows=config.os.name == "nt"),
-        command=str(
-            command.path(config.home_dir(), config.os.environ, windows=config.os.name == "nt")
-        ),
+        install_dir=config.data_dir(),
+        command=str(command.path(config.home_dir(), config.os.environ, windows=_host_is_windows())),
         log_dir=config.state_dir(),
         port=validate_port(port),
         proxy_log_max_bytes=validate_log_retention(
@@ -139,17 +160,19 @@ def create(
         ),
     )
     selected = generation.selected_context(projected)
-    carrier = runtime_spec.path(selected)
+    carrier = runtime_spec.path(selected) if selected is not None else None
     try:
-        environment = runtime_spec.environment(carrier) if carrier.exists() else None
+        environment = (
+            runtime_spec.environment(carrier) if carrier is not None and carrier.exists() else None
+        )
         settings = config.load(environment)
     except config.ConfigurationError as exc:
         raise errors.InstallError(str(exc)) from exc
-    selected.request_body_max_bytes = settings.request_body_max_bytes
-    selected.request_body_timeout = settings.request_body_timeout
-    selected.sse_buffer_max_bytes = settings.sse_buffer_max_bytes
-    selected.catalog_timeout = settings.catalog_timeout
-    selected.catalog_max_bytes = settings.catalog_max_bytes
+    projected.request_body_max_bytes = settings.request_body_max_bytes
+    projected.request_body_timeout = settings.request_body_timeout
+    projected.sse_buffer_max_bytes = settings.sse_buffer_max_bytes
+    projected.catalog_timeout = settings.catalog_timeout
+    projected.catalog_max_bytes = settings.catalog_max_bytes
     if upstream_base_url is None:
         upstream_base_url = (
             environment[config.UPSTREAM_BASE_URL_ENV]
@@ -157,9 +180,9 @@ def create(
             else config.os.environ.get(config.UPSTREAM_BASE_URL_ENV, "")
         )
     try:
-        selected.upstream_base_url = (
+        projected.upstream_base_url = (
             registry.normalize_upstream(upstream_base_url) if upstream_base_url else ""
         )
     except ValueError as exc:
         raise errors.InstallError(str(exc)) from exc
-    return selected
+    return projected

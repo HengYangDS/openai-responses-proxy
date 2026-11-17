@@ -417,3 +417,31 @@ def test_classification_and_snapshot_matching_fail_closed(
 
     monkeypatch.setattr(Path, "lstat", fail_lstat)
     assert command._matches_snapshot(command_path, owned) is False
+
+
+def test_a_command_without_a_payload_is_absent_or_another_owners(tmp_path: Path) -> None:
+    """With no payload generation to own it, anything at the command path is foreign."""
+    command_path = tmp_path / "bin" / "openai-responses-proxy"
+    command_path.parent.mkdir()
+
+    assert command.status_without_payload(command_path) == {
+        "state": "absent",
+        "kind": None,
+        "path": str(command_path),
+    }
+    command.require_absent(command_path)
+
+    occupants = {
+        "file": lambda: command_path.write_text("another program", encoding="utf-8"),
+        "dangling link": lambda: command_path.symlink_to(tmp_path / "missing"),
+        "directory": command_path.mkdir,
+    }
+    for name, occupy in occupants.items():
+        occupy()
+        assert command.status_without_payload(command_path)["state"] == "foreign", name
+        with pytest.raises(errors.InstallError, match="command path changed ownership"):
+            command.require_absent(command_path)
+        if command_path.is_dir() and not command_path.is_symlink():
+            command_path.rmdir()
+        else:
+            command_path.unlink()

@@ -25,7 +25,6 @@ from openai_responses_proxy.lifecycle.supervision import macos
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
-from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 from tools.release import verification
 from tools.release.artifact import bundle as release_assembly
@@ -192,8 +191,8 @@ def post_response(
 
 def runtime_context_for(
     home: Path, install: Path, state: Path, port: int
-) -> runtime_context.RuntimeContext:
-    """Return one isolated native lifecycle context."""
+) -> runtime_context.InstallationContext:
+    """Return one isolated native control root, which names no payload."""
     environment = native_process_environment(
         user_home=home,
         install_root=install,
@@ -201,33 +200,39 @@ def runtime_context_for(
     )
     windows = platform.system() == "Windows"
 
-    ctx = runtime_context.RuntimeContext(
+    ctx = runtime_context.InstallationContext(
         user_home=str(home),
         install_dir=str(install),
-        executable=inventory.installed_executable(str(install), windows=windows),
         command=str(command.path(str(home), environment, windows=windows)),
         log_dir=str(state),
         port=port,
+        windows=windows,
     )
     verification.retain_context(ctx)
     return ctx
 
 
-def native_service_projection(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
-    """Return the exact native-service and process state owned by one context."""
+def generation_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
+    """Return the processes that run one payload generation's executable in a product role."""
+    return process.pids_naming_executable(ctx.executable, roles=serving_roles.RUNTIME_ROLES)
+
+
+def native_service_projection(ctx: runtime_context.InstallationContext) -> dict[str, object]:
+    """Return the exact native-service state owned by one control root.
+
+    A control root names no executable: the processes of a generation are read with
+    ``generation_processes``.
+    """
     service = native_service.adapter()
     return {
         "service_id": ctx.service_id,
         "status": service.status(ctx),
         "configured_executable": service.configured_executable(ctx),
-        "processes": process.pids_naming_executable(
-            ctx.executable, roles=serving_roles.RUNTIME_ROLES
-        ),
     }
 
 
 def stop_native_supervision(
-    ctx: runtime_context.RuntimeContext, *, keep_runtime: bool = False
+    ctx: runtime_context.InstallationContext, *, keep_runtime: bool = False
 ) -> None:
     """Keep the owned service carrier while its supervisor stops, as after a restart.
 
@@ -251,7 +256,7 @@ def stop_native_supervision(
                 timeout=30,
             )
         if keep_runtime:
-            control = generation.control_context(ctx)
+            control = generation.require_control_context(ctx)
             watchdog = {serving_roles.WATCHDOG_MODE}
             for pid in process.pids_naming_executable(control.executable, roles=watchdog):
                 assert process.terminate_executable(pid, control.executable, roles=watchdog)
@@ -271,7 +276,9 @@ def stop_native_supervision(
         )
         content = carrier.read_bytes()
         mode = carrier.stat().st_mode & 0o777
-        service.uninstall(ctx)
+        service.uninstall(
+            ctx, [owned.executable for owned in verification.owned_process_contexts(ctx)]
+        )
         carrier.write_bytes(content)
         carrier.chmod(mode)
     if keep_runtime:
@@ -280,9 +287,9 @@ def stop_native_supervision(
         service.terminate_runtime(owned_ctx, timeout_seconds=5.0)
 
 
-def write_drifted_native_projection(ctx: runtime_context.RuntimeContext) -> None:
+def write_drifted_native_projection(ctx: runtime_context.InstallationContext) -> None:
     """Rewrite the running supervisor's owned definition so it differs from this release's."""
-    control = generation.control_context(ctx)
+    control = generation.require_control_context(ctx)
     if sys.platform == "darwin":
         carrier = Path(macos._plist_path(control))
         payload = plistlib.loads(carrier.read_bytes())

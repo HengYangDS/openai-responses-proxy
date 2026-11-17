@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def recover(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     runtime: Mapping[str, object] | None,
     read_after_wait: Callable[[], Mapping[str, object] | None],
@@ -60,7 +60,7 @@ def recover(
 
 
 def _reconcile(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     phase: str,
@@ -118,7 +118,7 @@ def _reconcile(
             )
             command.project(
                 Path(ctx.command),
-                Path(generation.control_context(ctx).executable),
+                Path(generation.require_control_context(ctx).executable),
                 previous=snapshot,
             )
         return completion.finalize_installation(
@@ -158,7 +158,7 @@ def _reconcile(
 
 
 def _close_prepared(
-    ctx: runtime_context.RuntimeContext, journal: Mapping[str, object]
+    ctx: runtime_context.InstallationContext, journal: Mapping[str, object]
 ) -> dict[str, object]:
     """Remove only a valid journal that proves no payload mutation began."""
     root = records.transaction_root(ctx)
@@ -168,7 +168,7 @@ def _close_prepared(
 
 
 def _recovery_candidate(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     journal: Mapping[str, object],
 ) -> identity.LoadedPayloadIdentity:
     """Verify one mutated transaction and its exact candidate projection."""
@@ -269,7 +269,7 @@ def _prior_at_rest(
 
 
 def _rollback_materialized(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     runtime: Mapping[str, object] | None,
@@ -301,12 +301,12 @@ def _rollback_materialized(
         discard_native(generation.context(ctx, str(journal["transaction_id"])))
     completion.restore_prior_projection(ctx, journal, previous)
     if previous is not None:
-        bind_terminal(generation.control_context(ctx))
+        bind_terminal(generation.require_control_context(ctx))
     return completion.complete_transaction(ctx, journal, outcome="rolled_back")
 
 
 def _require_unchanged_prior_terminal(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     generation_id: str,
     runtime: Mapping[str, object] | None,
@@ -346,7 +346,7 @@ def _require_unchanged_prior_terminal(
 
 
 def _prior_generation_at_rest(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     runtime: Mapping[str, object] | None,
@@ -370,7 +370,7 @@ def _prior_generation_at_rest(
 
 
 def _restore_prior_generation(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     journal: Mapping[str, object],
     previous: generation.Selection,
@@ -378,5 +378,5 @@ def _restore_prior_generation(
 ) -> dict[str, object]:
     """Restore the exact prior projection and bind its proven live runtime."""
     completion.restore_prior_projection(ctx, journal, previous)
-    bind_terminal(generation.control_context(ctx))
+    bind_terminal(generation.require_control_context(ctx))
     return completion.complete_transaction(ctx, journal, outcome="rolled_back")

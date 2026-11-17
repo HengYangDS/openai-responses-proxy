@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-from dataclasses import replace
 from pathlib import Path
 from pathlib import PurePath
 from pathlib import PurePosixPath
@@ -39,13 +38,14 @@ def generation_executable(install_dir: PurePath, *, windows: bool = False) -> st
     return inventory.installed_executable(str(payload_dir), windows=windows)
 
 
-def install_context(root: Path, *, windows: bool = False) -> runtime_context.RuntimeContext:
-    """Build an isolated install context for one explicitly modeled platform."""
-    install_dir = root / "data" / "openai-responses-proxy"
-    return runtime_context.RuntimeContext(
+def control_root(root: Path, *, windows: bool = False) -> runtime_context.InstallationContext:
+    """Build an isolated control root alone, for a state in which no generation is selected.
+
+    It names no payload, so a read of ``executable`` or ``payload_dir`` raises.
+    """
+    return runtime_context.InstallationContext(
         user_home=str(root),
-        install_dir=str(install_dir),
-        executable=generation_executable(install_dir, windows=windows),
+        install_dir=str(root / "data" / "openai-responses-proxy"),
         command=str(
             root
             / "commands"
@@ -53,7 +53,20 @@ def install_context(root: Path, *, windows: bool = False) -> runtime_context.Run
         ),
         log_dir=str(root / "state" / "openai-responses-proxy"),
         port=8791,
+        windows=windows,
     )
+
+
+def install_context(root: Path, *, windows: bool = False) -> runtime_context.RuntimeContext:
+    """Build an isolated install context in the fixture generation of one modeled platform."""
+    return generation.context(control_root(root, windows=windows), FIXTURE_GENERATION)
+
+
+def selected_context(ctx: runtime_context.InstallationContext) -> runtime_context.RuntimeContext:
+    """Return the selected generation's context of an installation that has a selection."""
+    selected = generation.selected_context(ctx)
+    assert selected is not None
+    return selected
 
 
 def platform_context(port: int = 8791, *, windows: bool = False) -> runtime_context.RuntimeContext:
@@ -70,6 +83,7 @@ def platform_context(port: int = 8791, *, windows: bool = False) -> runtime_cont
         user_home=str(home),
         install_dir=str(install_dir),
         executable=generation_executable(install_dir, windows=windows),
+        windows=windows,
         command=str(
             (
                 home
@@ -159,7 +173,7 @@ def released_artifact(
 
 
 def begin_transaction(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     candidate: artifact.VerifiedArtifact,
     *,
     mocker: MockerFixture,
@@ -177,9 +191,7 @@ def install_payload(
     ctx: runtime_context.RuntimeContext, version: str = "1.2.3", *, mocker: MockerFixture
 ) -> payload_transaction.PayloadTransaction:
     """Install and finalize one released payload in the generation that the context names."""
-    candidate = released_artifact(
-        version, windows=Path(ctx.executable).name == Path(inventory.WINDOWS_EXECUTABLE).name
-    )
+    candidate = released_artifact(version, windows=ctx.windows)
     naming = mocker.patch.object(payload_transaction, "uuid")
     naming.uuid4.return_value.hex = Path(ctx.payload_dir).name
     try:
@@ -193,15 +205,17 @@ def install_payload(
 
 
 def root_level_payload(
-    ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture
-) -> runtime_context.RuntimeContext:
+    control: runtime_context.InstallationContext, *, mocker: MockerFixture
+) -> runtime_context.InstallationContext:
     """Lay one verified payload at the control root's own level, where no release writes one.
 
     The control root then holds an executable, a valid manifest, a runtime carrier and an
     installed record, with no selector, no generation store and no journal, and the command
-    names the root-level executable. The returned context names that executable, as the
-    product's own context does when nothing is selected.
+    names the root-level executable. The control root's context is returned as it was given:
+    it names no payload, as the product's own context names none.
     """
+    assert type(control) is runtime_context.InstallationContext
+    ctx = generation.context(control, FIXTURE_GENERATION)
     install_payload(ctx, mocker=mocker)
     install_root = Path(ctx.install_dir)
     generation_root = Path(ctx.payload_dir)
@@ -210,13 +224,12 @@ def root_level_payload(
     generation.clear(ctx)
     generation_root.rmdir()
     generation.root(ctx).rmdir()
-    windows = Path(ctx.executable).name == Path(inventory.WINDOWS_EXECUTABLE).name
-    unselected = replace(
-        ctx, executable=inventory.installed_executable(ctx.install_dir, windows=windows)
-    )
     command.remove(Path(ctx.command), Path(ctx.executable))
-    command.project(Path(ctx.command), Path(unselected.executable))
-    return unselected
+    command.project(
+        Path(ctx.command),
+        Path(inventory.installed_executable(ctx.install_dir, windows=ctx.windows)),
+    )
+    return control
 
 
 def listing_with_digests(root: Path) -> tuple[tuple[str, str], ...]:
@@ -233,27 +246,29 @@ def listing_with_digests(root: Path) -> tuple[tuple[str, str], ...]:
     return tuple(entries)
 
 
-def retained_rollback(ctx: runtime_context.RuntimeContext) -> rollback.RetainedRollback:
+def retained_rollback(ctx: runtime_context.InstallationContext) -> rollback.RetainedRollback:
     """Return the verified predecessor that the test retained, failing on clean absence."""
     retained = rollback.load_retained_or_none(ctx)
     assert retained is not None
     return retained
 
 
-def running_supervisor(ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture) -> MockType:
+def running_supervisor(
+    ctx: runtime_context.InstallationContext, *, mocker: MockerFixture
+) -> MockType:
     """Project a running supervisor whose current declaration binds lifecycle control."""
     native = cast("MockType", mocker.patch.object(control, "adapter").return_value)
     native.status.return_value = "running"
-    native.configured_executable.return_value = generation.control_context(ctx).executable
+    native.configured_executable.return_value = generation.require_control_context(ctx).executable
     native.projection_is_current.return_value = True
     return native
 
 
 def healthy_status_dependencies(
-    ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture
+    ctx: runtime_context.InstallationContext, *, mocker: MockerFixture
 ) -> None:
     """Project verified listener and supervisor evidence for one installed generation."""
-    runtime = identity.committed_payload(Path(generation.selected_context(ctx).executable))
+    runtime = identity.committed_payload(Path(selected_context(ctx).executable))
     assert runtime is not None
     runtime_evidence = {
         "pid": 321,

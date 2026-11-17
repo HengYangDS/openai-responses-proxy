@@ -13,6 +13,7 @@ from openai_responses_proxy.cli import application
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.supervision import process
 from tests.cli.fixtures import invoke
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 def test_install_delegates_exact_asset_trust_anchor_and_port(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     create = mocker.patch.object(
         application.runtime_context,
         "create",
@@ -61,9 +62,7 @@ def test_install_delegates_exact_asset_trust_anchor_and_port(
 def test_unexpected_install_failure_has_a_bounded_public_result(
     tmp_path: Path, *, json_output: bool, mocker: MockerFixture
 ) -> None:
-    mocker.patch.object(
-        application.runtime_context, "create", return_value=install_context(tmp_path)
-    )
+    mocker.patch.object(application.runtime_context, "create", return_value=control_root(tmp_path))
     mocker.patch.object(
         application.install,
         "install_asset",
@@ -88,9 +87,7 @@ def test_unexpected_install_failure_has_a_bounded_public_result(
 def test_unexpected_presentation_failure_has_a_bounded_public_result(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    mocker.patch.object(
-        application.runtime_context, "create", return_value=install_context(tmp_path)
-    )
+    mocker.patch.object(application.runtime_context, "create", return_value=control_root(tmp_path))
     mocker.patch.object(application.install, "install_asset", return_value={"release": "4.0.4"})
     mocker.patch.object(
         application.presentation,
@@ -113,7 +110,7 @@ def test_reload_delegates_transactionally_with_an_explicit_timeout(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     result = {"state": "reloaded", "old_pid": 321, "new_pid": 654}
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     reload = mocker.patch.object(application.control, "reload", return_value=result)
     code, stdout, stderr = invoke("reload", "--json", "--port", "8801", "--timeout-seconds", "12.5")
@@ -128,7 +125,7 @@ def test_install_delegates_with_an_explicit_timeout(
 ) -> None:
     asset = tmp_path / "release.tar.gz"
     trust = tmp_path / "release.pub"
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(
         application.runtime_context,
         "create",
@@ -156,7 +153,7 @@ def test_install_delegates_with_an_explicit_timeout(
 def test_install_of_the_active_artifact_reports_no_change(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     unchanged = {"state": "unchanged", "release": "3.1.16"}
     mocker.patch.object(application.install, "install_asset", return_value=unchanged)
@@ -176,7 +173,7 @@ def test_recover_restores_only_the_runtime_bound_retained_transaction(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     runtime = {"pid": 321, "release": "2.0.10", "accepting": True}
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     context = mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "read_runtime", return_value=runtime)
     recover = mocker.patch.object(
@@ -208,7 +205,7 @@ def test_rollback_is_discoverable_and_delegates_to_the_installed_lifecycle(
         "from_release": "3.0.6",
         "to_release": "3.0.5",
     }
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     context = mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     rollback = mocker.patch.object(application.control, "rollback", return_value=result)
 
@@ -252,7 +249,7 @@ def test_rollback_to_the_current_release_reports_an_unchanged_terminal_state(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     unchanged = {"state": "unchanged", "release": "3.0.6"}
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "rollback", return_value=unchanged)
 
@@ -273,7 +270,7 @@ def test_recover_projects_one_precise_invalid_state_contract(
     json_output: bool,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction_root = Path(records.transaction_root(ctx))
     transaction_root.mkdir(parents=True)
     journal = Path(records.journal_path(ctx))
@@ -306,7 +303,7 @@ def test_recover_projects_one_precise_invalid_state_contract(
 def test_uninstall_removes_only_the_owned_service_unless_purge_is_requested(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     uninstall = mocker.patch.object(
         application.uninstall,
@@ -340,7 +337,7 @@ def test_uninstall_removes_only_the_owned_service_unless_purge_is_requested(
 def test_pristine_recover_and_uninstall_are_explicit_no_ops(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     context = mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "read_runtime", return_value=None)
     recover = mocker.patch.object(
@@ -429,7 +426,7 @@ def test_public_recovery_reconstructs_context_after_interrupted_purge(
 def test_install_dispatches_to_its_single_owner(tmp_path: Path, *, mocker: MockerFixture) -> None:
     asset = Path("release.tar.gz")
     anchor = Path("allowed-signers")
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(
         application.runtime_context,
         "create",

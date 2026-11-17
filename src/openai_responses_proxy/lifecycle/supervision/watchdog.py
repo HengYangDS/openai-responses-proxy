@@ -17,6 +17,7 @@ from pathlib import Path
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
+from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.runtime import bounded_log
 from openai_responses_proxy.runtime import config as runtime_config
@@ -113,8 +114,11 @@ def run(max_iterations: int | None = None) -> None:
         available = is_proxy_up()
         if not available:
             try:
-                ctx = runtime_context.create(executable=EXECUTABLE, port=PORT)
-                executable = ctx.executable
+                ctx = runtime_context.create(port=PORT)
+                # The selected generation's listener, or this program's own when none is.
+                selected = generation.selected_context(ctx)
+                if selected is not None:
+                    executable = selected.executable
                 transaction = records.status(ctx)
             except errors.InstallError:
                 transaction = {"state": "invalid"}

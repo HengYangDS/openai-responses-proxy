@@ -86,7 +86,7 @@ ignore = [
 # Platform adapters import at first use, so an incomplete installation reports the product's
 # assembly error; a test exercises that import failure.
 "src/openai_responses_proxy/lifecycle/supervision/native_service.py" = ["PLC0415"]
-# The release verifier reads RuntimeContext's field types with typing.get_type_hints.
+# The release verifier reads InstallationContext's field types with typing.get_type_hints.
 "src/openai_responses_proxy/lifecycle/context.py" = ["TC001", "TC002", "TC003"]
 # These modules write their program's output, and Cyclopts reads their command annotations
 # at run time.

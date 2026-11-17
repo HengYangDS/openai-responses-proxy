@@ -76,7 +76,7 @@ def test_native_compensation_resumes_partial_candidate_disposal(tmp_path: Path, 
         assert selection is not None
         metadata = records.installed_path(ctx).read_bytes()
         command_before = command.snapshot(
-            Path(ctx.command), Path(generation.control_context(ctx).executable)
+            Path(ctx.command), Path(generation.require_control_context(ctx).executable)
         )
         supervision = native_release.native_service_projection(ctx)
         current = native_release.signed_asset(
@@ -107,7 +107,7 @@ def test_native_compensation_resumes_partial_candidate_disposal(tmp_path: Path, 
         assert generation.read(ctx) == selection
         assert records.installed_path(ctx).read_bytes() == metadata
         restored_command = command.snapshot(
-            Path(ctx.command), Path(generation.control_context(ctx).executable)
+            Path(ctx.command), Path(generation.require_control_context(ctx).executable)
         )
         for field in ("state", "path", "target", "kind"):
             assert getattr(restored_command, field) == getattr(command_before, field)
@@ -126,7 +126,9 @@ def test_native_compensation_resumes_partial_candidate_disposal(tmp_path: Path, 
         assert generation.read(ctx) == selection
         assert records.installed_path(ctx).read_bytes() == metadata
         assert (
-            command.snapshot(Path(ctx.command), Path(generation.control_context(ctx).executable))
+            command.snapshot(
+                Path(ctx.command), Path(generation.require_control_context(ctx).executable)
+            )
             == restored_command
         )
         assert native_release.native_service_projection(ctx) == supervision
@@ -139,7 +141,9 @@ def test_native_compensation_resumes_partial_candidate_disposal(tmp_path: Path, 
         assert generation.read(ctx) == selection
         assert records.installed_path(ctx).read_bytes() == metadata
         assert (
-            command.snapshot(Path(ctx.command), Path(generation.control_context(ctx).executable))
+            command.snapshot(
+                Path(ctx.command), Path(generation.require_control_context(ctx).executable)
+            )
             == restored_command
         )
         assert native_release.native_service_projection(ctx) == supervision

@@ -69,7 +69,7 @@ class ExpiryFixture:
     def health(self, shows: Shows) -> handoff.RuntimeReader:
         """Answer each health read with what the listener shows at that reading of the clock."""
 
-        def read(_ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:
+        def read(_ctx: runtime_context.InstallationContext) -> dict[str, object] | None:
             self.read_at.append(self.clock.now)
             return shows(self.clock.now)
 

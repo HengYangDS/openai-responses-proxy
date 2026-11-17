@@ -409,7 +409,7 @@ class TestWindowsLifecycle:
             "pids_naming_executable",
             return_value=[12, 15, 18],
         )
-        assert windows._running_watchdog_pids(ctx) == [12, 15, 18]
+        assert windows._running_watchdog_pids(ctx.executable) == [12, 15, 18]
         inventory.assert_called_once_with(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
         invoked = mocker.patch.object(windows.subprocess, "run", return_value=_completed())
         mocker.patch.object(windows, "status", return_value="absent")
@@ -417,7 +417,7 @@ class TestWindowsLifecycle:
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=False)
 
         with pytest.raises(errors.InstallError, match="verified watchdog 4242 exit is unproved"):
-            windows.uninstall(ctx)
+            windows.uninstall(ctx, [ctx.executable])
         assert invoked.call_args_list[0].args[0][:2] == [SCHTASKS, "/delete"]
         terminate.assert_called_once_with(
             4242,
@@ -426,7 +426,7 @@ class TestWindowsLifecycle:
         )
         mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[4242], []])
         terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=True)
-        windows.uninstall(ctx)
+        windows.uninstall(ctx, [ctx.executable])
         terminate.assert_called_once_with(
             4242,
             ctx.executable,
@@ -448,7 +448,7 @@ class TestWindowsLifecycle:
             mocker.patch.object(windows, "status", return_value="installed")
             inventory = mocker.patch.object(windows, "_running_watchdog_pids")
             with pytest.raises(errors.InstallError, match=message) as raised:
-                windows.uninstall(ctx)
+                windows.uninstall(ctx, [ctx.executable])
             assert "C:/Users/private/secret" not in str(raised.value)
             inventory.assert_not_called()
 
@@ -460,4 +460,4 @@ class TestWindowsLifecycle:
         mocker.patch.object(windows, "status", return_value="absent")
         mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[], [23]])
         with pytest.raises(errors.InstallError, match=r"watchdogs remain: \[23\]"):
-            windows.uninstall(ctx)
+            windows.uninstall(ctx, [ctx.executable])

@@ -12,7 +12,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.transaction import completion as transaction_completion
 from openai_responses_proxy.serving import digest as payload_digest
 from tests.lifecycle.fixtures import begin_transaction
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.transaction.fixtures import _recover_without_binding
 
@@ -28,7 +28,7 @@ def test_transaction_disposal_retry_preserves_replaced_snapshot(
     tmp_path: Path, outcome: str, replacement: str, *, mocker: MockerFixture
 ) -> None:
     """A terminal retry never derives deletion authority from replacement bytes."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -69,7 +69,7 @@ def test_transaction_disposal_retry_preserves_replaced_snapshot(
 
 def test_transaction_disposal_refuses_a_substituted_root(tmp_path: Path) -> None:
     """A transaction-root link cannot authorize deleting an external directory."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     external = tmp_path / "external-transaction"
     rollback = external / "rollback"
     rollback.mkdir(parents=True)
@@ -89,7 +89,7 @@ def test_snapshot_disposal_rejects_invalid_journal_authority(
     tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
     """Materialized transactions require one well-formed original snapshot digest."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     original = records.journal_path(ctx).read_bytes()
@@ -116,7 +116,7 @@ def test_transaction_disposal_preserves_unowned_content(
     tmp_path: Path, outcome: str, location: str, residue: str, *, mocker: MockerFixture
 ) -> None:
     """Terminal disposal preserves unknown content and its recovery journal."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     root = records.transaction_root(ctx)
     if outcome != "closed":

@@ -7,7 +7,6 @@ import json
 import os
 import platform
 import shutil
-from dataclasses import asdict
 from dataclasses import replace
 from math import isfinite
 from pathlib import Path
@@ -39,7 +38,8 @@ if TYPE_CHECKING:
 
 _TEST_ROOT = product_identity.environment_name("NATIVE_TEST_ROOT")
 _CONTEXTS = product_identity.environment_name("NATIVE_TEST_CONTEXTS")
-_CONTEXT_TYPES = get_type_hints(runtime_context.RuntimeContext)
+# The custody file holds the control root's fields: a payload is found again through its store.
+_CONTEXT_TYPES = get_type_hints(runtime_context.InstallationContext)
 
 
 def accept(
@@ -93,8 +93,8 @@ def _basetemp(command: tuple[str, ...]) -> Path | None:
     return target
 
 
-def retain_context(ctx: runtime_context.RuntimeContext) -> None:
-    """Persist the existing native context before its first installation effect."""
+def retain_context(ctx: runtime_context.InstallationContext) -> None:
+    """Persist the control root of a native context before its first installation effect."""
     selected = os.environ.get(_TEST_ROOT)
     if selected is None:
         return
@@ -104,7 +104,7 @@ def retain_context(ctx: runtime_context.RuntimeContext) -> None:
         raise errors.InstallError("native test teardown custody is unavailable")
     _require_owned_context(ctx, root)
     with Path(target).open("ab") as output:
-        output.write(digest.canonical_json(asdict(ctx)))
+        output.write(digest.canonical_json({name: getattr(ctx, name) for name in _CONTEXT_TYPES}))
         output.flush()
         os.fsync(output.fileno())
 
@@ -122,10 +122,10 @@ def temporary_home(*, delete: bool = True) -> TemporaryDirectory[str]:
     return TemporaryDirectory(dir=root, delete=delete)
 
 
-def _require_owned_context(ctx: runtime_context.RuntimeContext, root: Path) -> None:
+def _require_owned_context(ctx: runtime_context.InstallationContext, root: Path) -> None:
     if not root.is_absolute() or root.resolve() != root:
         raise errors.InstallError("native test root identity changed")
-    for name in ("user_home", "install_dir", "log_dir", "command", "executable"):
+    for name in ("user_home", "install_dir", "log_dir", "command"):
         value = getattr(ctx, name)
         if not isinstance(value, str):
             raise errors.InstallError("native test context paths are invalid")
@@ -141,7 +141,7 @@ def reclaim(root: Path, contexts: Path) -> None:
     """Stop exact recorded native resources before removing this attempt's scratch."""
     if contexts.is_symlink() or not contexts.is_file():
         raise errors.InstallError("native test teardown custody changed")
-    retained: dict[str, runtime_context.RuntimeContext] = {}
+    retained: dict[str, runtime_context.InstallationContext] = {}
     content = contexts.read_bytes()
     if content and not content.endswith(b"\n"):
         raise errors.InstallError("native test context custody is invalid")
@@ -181,7 +181,7 @@ def reclaim(root: Path, contexts: Path) -> None:
         raise errors.InstallError("native test temporary files remain")
 
 
-def _decode_context(line: bytes) -> runtime_context.RuntimeContext:
+def _decode_context(line: bytes) -> runtime_context.InstallationContext:
     try:
         value = json.loads(line)
     except (ValueError, UnicodeError) as error:
@@ -193,41 +193,36 @@ def _decode_context(line: bytes) -> runtime_context.RuntimeContext:
         accepted = (int, float) if expected is float else (expected,)
         if type(item) not in accepted or (type(item) is float and not isfinite(item)):
             raise errors.InstallError("native test context custody is invalid")
-    return runtime_context.RuntimeContext(**value)
+    return runtime_context.InstallationContext(**value)
 
 
 def owned_runtime_contexts(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
 ) -> tuple[runtime_context.RuntimeContext, ...]:
-    """Return every payload context still owned by one stable installation root."""
-    return generation.owned_contexts(ctx) or (ctx,)
+    """Return the context of every payload generation that one control root's store holds."""
+    return generation.owned_contexts(ctx)
 
 
 def owned_process_contexts(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
 ) -> tuple[runtime_context.RuntimeContext, ...]:
-    """Include selected, unselected, and legacy executable identities for teardown."""
-    contexts = (*owned_runtime_contexts(ctx), ctx)
-    unique: dict[str, runtime_context.RuntimeContext] = {}
-    for owned_ctx in contexts:
-        unique.setdefault(owned_ctx.executable, owned_ctx)
-    return tuple(unique.values())
+    """Return the generations, selected or not, whose processes a teardown ends."""
+    return owned_runtime_contexts(ctx)
 
 
-def private_installation(home: Path, state: Path) -> runtime_context.RuntimeContext:
-    """Project a private installation whose data and state roots the caller owns."""
+def private_installation(home: Path, state: Path) -> runtime_context.InstallationContext:
+    """Project a private control root whose data and state roots the caller owns."""
     windows = os.name == "nt"
-    return runtime_context.RuntimeContext(
+    return runtime_context.InstallationContext(
         user_home=str(home.parent),
         install_dir=str(home),
-        executable=inventory.installed_executable(str(home), windows=windows),
         command=str(home.parent / "commands" / product_identity.executable_name(windows=windows)),
         log_dir=str(state),
     )
 
 
 def install_private_generation(
-    control_ctx: runtime_context.RuntimeContext,
+    control_ctx: runtime_context.InstallationContext,
     source: Path,
     *,
     port: int,
@@ -241,7 +236,7 @@ def install_private_generation(
     provider manifest, release receipt, payload manifest and runtime contract, so
     the listener verifies and loads it exactly as an installed product.
     """
-    ctx = replace(generation.context(control_ctx, "0" * 32), port=port)
+    ctx = generation.context(replace(control_ctx, port=port), "0" * 32)
     retain_context(ctx)
     install_dir = Path(ctx.payload_dir)
     target = Path(ctx.executable)
@@ -268,7 +263,7 @@ def install_private_generation(
     return ctx
 
 
-def private_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
+def private_processes(ctx: runtime_context.InstallationContext) -> list[int]:
     """Return the processes that still run an executable of a private installation."""
     return sorted(
         {
@@ -282,10 +277,12 @@ def private_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
 
 
 def _uninstall_test_service(
-    service: native_service.NativeServiceAdapter, ctx: runtime_context.RuntimeContext
+    service: native_service.NativeServiceAdapter,
+    ctx: runtime_context.InstallationContext,
+    process_contexts: tuple[runtime_context.RuntimeContext, ...],
 ) -> None:
     """Remove the isolated test's native service registration and prove it absent."""
-    service.uninstall(ctx)
+    service.uninstall(ctx, [owned_ctx.executable for owned_ctx in process_contexts])
     if service.status(ctx) != "absent":
         raise errors.InstallError("test native service remains after uninstall")
 
@@ -313,7 +310,7 @@ def _stop_test_processes(
     return failure
 
 
-def cleanup_runtime(ctx: runtime_context.RuntimeContext) -> None:
+def cleanup_runtime(ctx: runtime_context.InstallationContext) -> None:
     """Stop only processes and launch configuration owned by an isolated test."""
     service = native_service.adapter()
     owned_contexts = owned_process_contexts(ctx)
@@ -328,9 +325,9 @@ def cleanup_runtime(ctx: runtime_context.RuntimeContext) -> None:
         install_root = Path(ctx.install_dir).resolve()
         if not configured_path.is_relative_to(install_root):
             raise errors.InstallError("native service executable is outside the owned installation")
-        process_contexts = (*process_contexts, replace(ctx, executable=configured))
+        process_contexts = (*process_contexts, ctx.for_executable(configured))
     try:
-        _uninstall_test_service(service, ctx)
+        _uninstall_test_service(service, ctx, process_contexts)
     except BaseException:
         # A failed uninstall still stops every owned process before it propagates.
         _stop_test_processes(process_contexts)

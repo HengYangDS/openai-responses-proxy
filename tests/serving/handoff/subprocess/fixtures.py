@@ -59,7 +59,7 @@ class SubprocessFixture:
         failure: Exception | None = None
         try:
             service = native_service.adapter()
-            service.uninstall(ctx)
+            service.uninstall(ctx, [ctx.executable])
             assert service.status(ctx) == "absent"
         except (OSError, errors.InstallError, AssertionError) as error:
             failure = error

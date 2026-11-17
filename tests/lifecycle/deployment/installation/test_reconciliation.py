@@ -17,9 +17,12 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
 from tests.lifecycle.deployment.installation.fixtures import _unsupervised_installation
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
+from tests.lifecycle.fixtures import listing_with_digests
 from tests.lifecycle.fixtures import released_artifact
+from tests.lifecycle.fixtures import root_level_payload
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -244,3 +247,25 @@ def test_install_of_the_exact_artifact_keeps_restored_supervision_when_no_listen
     native.install.assert_called_once_with(control_ctx)
     native.uninstall.assert_not_called()
     assert not records.journal_path(ctx).exists()
+
+
+def test_install_of_a_recorded_release_refuses_a_control_root_without_a_selection(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
+    """An installed record alone names no payload that the artifact could be the active one of."""
+    ctx = root_level_payload(control_root(tmp_path), mocker=mocker)
+    mocker.patch.object(install.artifact, "admit", return_value=released_artifact())
+    native = mocker.patch.object(control, "adapter").return_value
+    native.status.return_value = "absent"
+    mocker.patch.object(control, "read_runtime", return_value=None)
+    begin = mocker.patch.object(transaction, "begin_transaction")
+    before = listing_with_digests(tmp_path)
+
+    with pytest.raises(errors.InstallError, match="not the verified active installation"):
+        install.install_asset(
+            ctx, tmp_path / "release.tar.gz", trust_anchor=tmp_path / "allowed-signers"
+        )
+
+    begin.assert_not_called()
+    native.install.assert_not_called()
+    assert listing_with_digests(tmp_path) == before

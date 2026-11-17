@@ -14,6 +14,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from openai_responses_proxy.lifecycle import runtime_spec
 
 UNIT_TEMPLATE = f"""[Unit]
@@ -65,7 +67,7 @@ def _unit_value(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
 
 
-def render_unit(ctx: runtime_spec.NativeServiceContext) -> str:
+def render_unit(ctx: runtime_spec.NativeRuntimeContext) -> str:
     """Render the user-level systemd watchdog unit for this installation."""
     return UNIT_TEMPLATE.format(
         executable=f'"{_unit_value(ctx.executable)}"',
@@ -91,7 +93,7 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return arguments[0].replace("%%", "%")
 
 
-def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+def projection_is_current(ctx: runtime_spec.NativeRuntimeContext) -> bool:
     """Return whether the product systemd unit is this release's rendering."""
     try:
         content = Path(_unit_path(ctx)).read_bytes()
@@ -100,7 +102,7 @@ def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
     return content == render_unit(ctx).encode("utf-8")
 
 
-def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> None:
+def _install_systemd(ctx: runtime_spec.NativeRuntimeContext, systemctl: str) -> None:
     unit = Path(_unit_path(ctx))
     service = f"{ctx.service_id}.service"
     unit.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +150,7 @@ def _install_systemd(ctx: runtime_spec.NativeServiceContext, systemctl: str) -> 
         raise errors.InstallError("systemd successor watchdog process identity is unproved")
 
 
-def install(ctx: runtime_spec.NativeServiceContext) -> None:
+def install(ctx: runtime_spec.NativeRuntimeContext) -> None:
     """Install and start the Linux user-level watchdog service."""
     systemctl = _user_systemctl()
     if systemctl is None:
@@ -159,8 +161,11 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
     _install_systemd(ctx, systemctl)
 
 
-def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
-    """Stop and remove only this installation's Linux watchdog service."""
+def uninstall(ctx: runtime_spec.NativeServiceContext, executables: Sequence[str]) -> None:
+    """Stop and remove only this installation's Linux watchdog service.
+
+    A watchdog that outlives its unit is found by its program, one of ``executables``.
+    """
     unit = Path(_unit_path(ctx))
     service = f"{ctx.service_id}.service"
     registered = status(ctx) != "absent"
@@ -189,16 +194,17 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
             raise errors.InstallError("systemctl daemon-reload failed after unit removal")
         if status(ctx) != "absent":
             raise errors.InstallError("systemd watchdog remains registered after removal")
-    watchdogs = process.pids_naming_executable(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
-    for pid in watchdogs:
-        if not process.terminate_executable(
-            pid, ctx.executable, roles={serving_roles.WATCHDOG_MODE}
+    for executable in executables:
+        watchdogs = process.pids_naming_executable(executable, roles={serving_roles.WATCHDOG_MODE})
+        for pid in watchdogs:
+            if not process.terminate_executable(
+                pid, executable, roles={serving_roles.WATCHDOG_MODE}
+            ):
+                raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
+        if remaining := process.pids_naming_executable(
+            executable, roles={serving_roles.WATCHDOG_MODE}
         ):
-            raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
-    if remaining := process.pids_naming_executable(
-        ctx.executable, roles={serving_roles.WATCHDOG_MODE}
-    ):
-        raise errors.InstallError(f"verified watchdogs remain: {remaining}")
+            raise errors.InstallError(f"verified watchdogs remain: {remaining}")
 
 
 def status(ctx: runtime_spec.NativeServiceContext) -> str:

@@ -36,7 +36,7 @@ from openai_responses_proxy.serving import entrypoint as entrypoint_module
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_module
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.supervision.fixtures import capture_generation
 from tools.release import verification
 
@@ -422,7 +422,7 @@ def write_installed_payload(
 ) -> runtime_context.RuntimeContext:
     """Build one selector-bound temporary generation without touching source."""
     ctx = verification.install_private_generation(
-        install_context(root, windows=os.name == "nt"),
+        control_root(root, windows=os.name == "nt"),
         Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"]),
         port=port,
         release=release,

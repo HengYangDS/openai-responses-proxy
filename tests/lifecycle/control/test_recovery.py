@@ -10,6 +10,7 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 
 if TYPE_CHECKING:
@@ -93,7 +94,7 @@ def test_recovery_rejects_an_unproved_terminal_supervisor(
 def test_recovery_no_op_does_not_touch_native_supervision(
     *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    ctx = install_context(tmp_path_factory.mktemp("case"))
+    ctx = control_root(tmp_path_factory.mktemp("case"))
     mocker.patch.object(control.records, "status", return_value=None)
     mocker.patch.object(control, "read_runtime", return_value=None)
     recover = mocker.patch.object(
@@ -145,7 +146,7 @@ def test_recovery_stops_only_its_candidate_before_native_disposal(
     mocker.patch.object(control.transaction, "recover", side_effect=recover_and_discard)
     if failure is None:
         assert control.recover(ctx) == {"state": "rolled_back"}
-        service.uninstall.assert_called_once_with(candidate)
+        service.uninstall.assert_called_once_with(candidate, [candidate.executable])
         service.terminate_runtime.assert_called_once_with(candidate, timeout_seconds=5.0)
     else:
         with pytest.raises(control.apply.UnknownDeploymentOutcome, match="cleanup is unconfirmed"):

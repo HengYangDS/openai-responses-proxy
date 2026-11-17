@@ -12,6 +12,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from types import ModuleType
 
     from openai_responses_proxy.lifecycle import runtime_spec
@@ -22,7 +23,7 @@ class NativeServiceAdapter(Protocol):
 
     __name__: str
 
-    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def install(self, ctx: runtime_spec.NativeRuntimeContext) -> None:
         """Install or replace the host-native service definition."""
         ...
 
@@ -30,12 +31,16 @@ class NativeServiceAdapter(Protocol):
         """Return the executable configured by the host-native service."""
         ...
 
-    def projection_is_current(self, ctx: runtime_spec.NativeServiceContext) -> bool:
+    def projection_is_current(self, ctx: runtime_spec.NativeRuntimeContext) -> bool:
         """Return whether the host-native service definition is this release's projection."""
         ...
 
-    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
-        """Remove the exact host-native service owned by this installation."""
+    def uninstall(self, ctx: runtime_spec.NativeServiceContext, executables: Sequence[str]) -> None:
+        """Remove the control root's host-native service.
+
+        ``executables`` are those of the generations that the store holds: where the host
+        does not end a watchdog with its service, the adapter finds it by one of them.
+        """
         ...
 
     def status(self, ctx: runtime_spec.NativeServiceContext) -> str:
@@ -44,7 +49,7 @@ class NativeServiceAdapter(Protocol):
 
     def terminate_runtime(
         self,
-        ctx: runtime_spec.NativeServiceContext,
+        ctx: runtime_spec.NativeRuntimeContext,
         *,
         timeout_seconds: float,
     ) -> int:
@@ -59,27 +64,27 @@ class _NativeRuntime:
         self._implementation = implementation
         self.__name__ = implementation.__name__
 
-    def install(self, ctx: runtime_spec.NativeServiceContext) -> None:
+    def install(self, ctx: runtime_spec.NativeRuntimeContext) -> None:
         self._implementation.install(ctx)
 
     def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str | None:
         return cast("str | None", self._implementation.configured_executable(ctx))
 
-    def projection_is_current(self, ctx: runtime_spec.NativeServiceContext) -> bool:
+    def projection_is_current(self, ctx: runtime_spec.NativeRuntimeContext) -> bool:
         return cast("bool", self._implementation.projection_is_current(ctx))
 
-    def uninstall(self, ctx: runtime_spec.NativeServiceContext) -> None:
-        self._implementation.uninstall(ctx)
+    def uninstall(self, ctx: runtime_spec.NativeServiceContext, executables: Sequence[str]) -> None:
+        self._implementation.uninstall(ctx, executables)
 
     def status(self, ctx: runtime_spec.NativeServiceContext) -> str:
         return cast("str", self._implementation.status(ctx))
 
-    def _runtime_pids(self, ctx: runtime_spec.NativeServiceContext) -> list[int]:
+    def _runtime_pids(self, ctx: runtime_spec.NativeRuntimeContext) -> list[int]:
         return process.pids_naming_executable(ctx.executable, roles=serving_roles.RUNTIME_ROLES)
 
     def terminate_runtime(
         self,
-        ctx: runtime_spec.NativeServiceContext,
+        ctx: runtime_spec.NativeRuntimeContext,
         *,
         timeout_seconds: float,
     ) -> int:

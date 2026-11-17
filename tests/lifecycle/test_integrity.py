@@ -22,6 +22,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import released_artifact
@@ -43,7 +44,7 @@ class TestPayloadValidation:
         mocker: MockerFixture,
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
-        ctx = install_context(tmp_path_factory.mktemp("case"))
+        ctx = control_root(tmp_path_factory.mktemp("case"))
         transaction_root = Path(records.transaction_root(ctx))
         transaction_root.mkdir(parents=True)
         with pytest.raises(errors.RecoveryStateError, match="evidence is invalid"):
@@ -118,7 +119,7 @@ class TestPayloadValidation:
         with pytest.raises(errors.InstallError, match="invalid serving payload"):
             payload_projection.manifest_serving_payload_sha256(invalid)
 
-        ctx = install_context(tmp_path_factory.mktemp("case"))
+        ctx = control_root(tmp_path_factory.mktemp("case"))
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
         collision = Path(transaction.context.payload_dir, inventory.PROVIDER_MANIFEST)
         collision.parent.mkdir(parents=True, exist_ok=True)
@@ -199,7 +200,7 @@ class TestPayloadValidation:
     def test_transaction_filesystem_failures_remain_fail_closed(
         self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
-        ctx = install_context(tmp_path_factory.mktemp("case"))
+        ctx = control_root(tmp_path_factory.mktemp("case"))
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
         sha256_file = payload_digest.sha256_file
         corrupted = False
@@ -225,7 +226,7 @@ class TestPayloadValidation:
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         def installed() -> tuple[runtime_context.RuntimeContext, Path, dict[str, object]]:
-            ctx = install_context(tmp_path_factory.mktemp("case"))
+            ctx = control_root(tmp_path_factory.mktemp("case"))
             transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
             transaction.commit_projection()
             transaction.activate()
@@ -331,7 +332,7 @@ class TestPayloadValidation:
     def test_canonical_state_validation_fail_closed(
         self, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
-        ctx = install_context(tmp_path_factory.mktemp("case"))
+        ctx = control_root(tmp_path_factory.mktemp("case"))
         path = Path(ctx.install_dir, "state.json")
         path.parent.mkdir(parents=True)
         path.write_text('{"value": 1}', encoding="utf-8")
@@ -449,7 +450,7 @@ def test_manifest_file_set_and_journal_shape_fail_closed(tmp_path: Path) -> None
     for manifest in invalid:
         with pytest.raises(errors.InstallError, match="file set is invalid"):
             owned_files.declared_files(manifest)
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     journal = records.journal_path(ctx)
     journal.parent.mkdir(parents=True, exist_ok=True)
     journal.write_bytes(b"[]")

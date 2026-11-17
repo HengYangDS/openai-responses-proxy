@@ -412,7 +412,7 @@ class TestMacosLifecycle:
                         _completed(returncode=113),
                     ],
                 )
-                macos.uninstall(ctx)
+                macos.uninstall(ctx, [ctx.executable])
                 assert not plist.exists()
                 assert invoked.call_count == 2
 
@@ -443,7 +443,7 @@ class TestMacosLifecycle:
                 ],
             )
             with pytest.raises(errors.InstallError, match="launchctl bootout failed") as raised:
-                macos.uninstall(ctx)
+                macos.uninstall(ctx, [ctx.executable])
             assert "/Users/private/LaunchAgents" not in str(raised.value)
             assert plist.exists()
             wait_for_executable.assert_called_once_with(
@@ -470,7 +470,7 @@ class TestMacosLifecycle:
                 ],
             )
 
-            macos.uninstall(ctx)
+            macos.uninstall(ctx, [ctx.executable])
 
             assert [call.args[0] for call in invoked.call_args_list] == [
                 ["launchctl", "print", f"user/501/{ctx.service_id}"],
@@ -493,5 +493,5 @@ class TestMacosLifecycle:
                 ],
             )
             with pytest.raises(errors.InstallError, match="remains registered"):
-                macos.uninstall(ctx)
+                macos.uninstall(ctx, [ctx.executable])
             assert plist.exists()

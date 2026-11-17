@@ -14,6 +14,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback as payload_rollback
 from openai_responses_proxy.serving import digest as payload_digest
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 def test_rollback_requires_idle_and_verified_retained_authority(
     tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction_status = mocker.patch.object(records, "status", return_value={"state": "prepared"})
 
     with (
@@ -88,7 +89,7 @@ def test_rollback_converges_on_one_explicit_release(
 def test_rollback_rejects_an_invalid_target_before_lifecycle_inspection(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction_status = mocker.patch.object(records, "status")
     installed = mocker.patch.object(records, "read_installed")
     retained = mocker.patch.object(payload_rollback, "load_retained_or_none")

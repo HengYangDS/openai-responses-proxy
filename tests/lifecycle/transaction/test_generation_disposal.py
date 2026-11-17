@@ -15,6 +15,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -169,7 +170,7 @@ def test_failed_materialization_disposes_only_predeclared_candidate_bytes(
 def test_candidate_disposal_rejects_invalid_journal_authority(
     tmp_path: Path, corruption: str, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     original = records.journal_path(ctx).read_bytes()
     journal = records.read_journal(ctx)

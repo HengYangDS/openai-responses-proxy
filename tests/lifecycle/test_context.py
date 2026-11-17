@@ -114,10 +114,11 @@ class TestRuntimeContext:
         mocker.patch.object(config, "home_dir", return_value="/portable/home")
         mocker.patch.object(config, "data_dir", return_value="/portable/payload")
         mocker.patch.object(config, "state_dir", return_value="/portable/state")
-        projected = context.create(executable="/portable/bin/openai-responses-proxy", port=8808)
+        projected = context.create(port=8808)
 
+        assert type(projected) is context.InstallationContext
         assert projected.install_dir == "/portable/payload"
-        assert projected.executable == "/portable/bin/openai-responses-proxy"
+        assert projected.windows == (os.name == "nt")
         assert projected.log_dir == "/portable/state"
         assert projected.user_home == "/portable/home"
         assert projected.port == 8808
@@ -204,7 +205,10 @@ class TestRuntimeContext:
         restored = context.create()
 
         assert environment[config.UPSTREAM_BASE_URL_ENV] == projected.upstream_base_url
-        assert restored.payload_dir == projected.payload_dir
+        assert type(restored) is context.InstallationContext
+        selected = generation.selected_context(restored)
+        assert selected is not None
+        assert selected.payload_dir == projected.payload_dir
         assert restored.upstream_base_url == projected.upstream_base_url
         assert (
             context.create(upstream_base_url="https://api.openai.com/v1").upstream_base_url
@@ -233,9 +237,9 @@ class TestRuntimeContext:
         mocker.patch.object(config, "data_dir", return_value="/portable/payload")
         mocker.patch.object(config, "state_dir", return_value="/portable/state")
         environment = runtime_spec.environment(runtime_spec.write(projected))
-        created = context.create(executable="/portable/bin/openai-responses-proxy")
+        created = context.create()
         assert environment[config.PROXY_LOG_ENV] == str(tmp_path / "posix-state" / "proxy.log")
-        assert created.executable == "/portable/bin/openai-responses-proxy"
+        assert created.install_dir == "/portable/payload"
 
     def test_path_projection_preserves_windows_roots_and_absolutizes_relative_overrides(
         self,
@@ -251,10 +255,9 @@ class TestRuntimeContext:
         mocker.patch.object(config, "home_dir", return_value="/portable/home")
         mocker.patch.object(config, "data_dir", return_value=str(payload))
         mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
-        executable = generation_executable(payload)
-        projected = context.create(executable=executable, port=8808)
+        projected = generation.context(context.create(port=8808), FIXTURE_GENERATION)
 
-        assert projected.executable == executable
+        assert projected.executable == generation_executable(payload, windows=os.name == "nt")
         assert "python" not in projected.__dataclass_fields__
         assert "proxy_script" not in projected.__dataclass_fields__
         assert "watchdog_script" not in projected.__dataclass_fields__
@@ -356,7 +359,9 @@ class TestRuntimeContext:
         assert successor.sse_buffer_max_bytes == 8192
         assert successor.catalog_timeout == 1.5
         assert successor.catalog_max_bytes == 8192
-        assert runtime_spec.write(successor).read_bytes() == original
+        selected = generation.selected_context(successor)
+        assert selected is not None
+        assert runtime_spec.write(selected).read_bytes() == original
 
     @pytest.mark.parametrize(
         "missing",
@@ -432,7 +437,7 @@ class TestRuntimeContext:
         mocker.patch.object(config, "state_dir", return_value="/state")
         for values in invalid:
             with subtests.test(values=values), pytest.raises(errors.InstallError):
-                context.create(executable="/portable/bin/openai-responses-proxy", **values)
+                context.create(**values)
 
     def test_service_projection_is_derived_from_one_runtime_contract(self, tmp_path: Path) -> None:
         install_dir = tmp_path / "proxy"

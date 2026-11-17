@@ -237,7 +237,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         def run_installed(*arguments: str) -> dict[str, object]:
             return native_release.run_command(installed_command, environment, *arguments)
 
-        control_executable = Path(generation.control_context(ctx).executable)
+        control_executable = Path(generation.require_control_context(ctx).executable)
         assert command.status(installed_command, control_executable)["state"] == "owned"
         after_runtime = after.get("runtime")
         assert isinstance(after_runtime, dict), after
@@ -404,7 +404,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert rolled_back["state"] == "rolled_back"
         assert rolled_back["from_release"] == current_version
         assert rolled_back["to_release"] == previous_version
-        assert Path(generation.control_context(ctx).executable) == control_executable
+        assert Path(generation.require_control_context(ctx).executable) == control_executable
         assert command.status(installed_command, control_executable)["state"] == "owned"
         after_rollback = run_installed(
             "status",
@@ -488,7 +488,8 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
             "--json",
         )
         assert reloaded["new_pid"] != after_runtime.get("pid")
-        owned_contexts = (*verification.owned_runtime_contexts(ctx), ctx)
+        owned_contexts = verification.owned_runtime_contexts(ctx)
+        assert owned_contexts
         removed = run_candidate(
             "uninstall",
             "--port",
@@ -506,8 +507,7 @@ def test_real_predecessor_upgrades_to_current_native_candidate(tmp_path: Path) -
         assert projection["status"] == "absent"
         assert projection["configured_executable"] is None
         assert all(
-            native_release.native_service_projection(owned_ctx)["processes"] == []
-            for owned_ctx in owned_contexts
+            native_release.generation_processes(owned_ctx) == [] for owned_ctx in owned_contexts
         )
         assert not install.exists()
         assert not records.transaction_root(ctx).exists()

@@ -22,6 +22,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from tests.lifecycle.supervision.fixtures import capture_generation
 from tests.release.fixtures import ROOT
+from tests.release.fixtures import generation_processes
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import preserve_native_host_projection
 from tests.release.fixtures import run_command
@@ -161,9 +162,7 @@ class TestSignedNativeLifecycle:
             assert native_service_projection(ctx) == isolated_before
             assert native_service_projection(canonical_ctx) == canonical_before
             assert owned_contexts
-            assert all(
-                native_service_projection(owned)["processes"] == [] for owned in owned_contexts
-            )
+            assert all(generation_processes(owned) == [] for owned in owned_contexts)
             assert all(
                 not path.exists() and not path.is_symlink()
                 for path in (
@@ -346,7 +345,7 @@ class TestSignedNativeLifecycle:
                     else:
                         assert ready.is_file(), (tmp_path / "killed-child.log").read_text()
                     retained = tuple(
-                        runtime_context.RuntimeContext(**json.loads(line))
+                        runtime_context.InstallationContext(**json.loads(line))
                         for line in contexts.read_bytes().splitlines()
                     )
                     assert retained
@@ -358,7 +357,7 @@ class TestSignedNativeLifecycle:
                     if fixture == "signed-install":
                         assert native_service_projection(ctx)["status"] != "absent"
                     else:
-                        assert native_service_projection(ctx)["processes"]
+                        assert any(generation_processes(owned) for owned in owned_contexts)
                     assert install.exists()
                 else:
                     assert contexts.read_bytes() == b""
@@ -372,7 +371,7 @@ class TestSignedNativeLifecycle:
                 workspace.cleanup()
         assert native_service_projection(ctx) == before
         assert native_service_projection(canonical) == canonical_before
-        assert all(native_service_projection(owned)["processes"] == [] for owned in owned_contexts)
+        assert all(generation_processes(owned) == [] for owned in owned_contexts)
         assert not test_root.exists()
         assert all(
             not path.exists() and not path.is_symlink()

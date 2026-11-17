@@ -18,6 +18,8 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle import system_tools
 
@@ -44,7 +46,7 @@ def _current_user() -> str:
     return f"{domain}\\{user}" if domain else user
 
 
-def render_task_xml(ctx: runtime_spec.NativeServiceContext) -> bytes:
+def render_task_xml(ctx: runtime_spec.NativeRuntimeContext) -> bytes:
     """Serialize one Task Scheduler projection as self-declared UTF-16 bytes."""
     root = ET.Element(f"{{{_TASK_NAMESPACE}}}Task", {"version": "1.2"})
     registration = _element(root, "RegistrationInfo")
@@ -137,7 +139,7 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return commands[0].text
 
 
-def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+def projection_is_current(ctx: runtime_spec.NativeRuntimeContext) -> bool:
     """Return whether the registered task action runs this release's watchdog.
 
     Task Scheduler normalizes the rest of an exported definition, so only the
@@ -146,7 +148,7 @@ def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
     return configured_executable(ctx) == ctx.executable
 
 
-def install(ctx: runtime_spec.NativeServiceContext) -> None:
+def install(ctx: runtime_spec.NativeRuntimeContext) -> None:
     """Replace and prove the Windows scheduled watchdog task."""
     previous_executable = configured_executable(ctx)
     predecessors = []
@@ -203,18 +205,18 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         raise errors.InstallError("scheduled successor watchdog process identity is unproved")
 
 
-def _running_watchdog_pids(ctx: runtime_spec.NativeServiceContext) -> list[int]:
-    """Return PIDs exactly naming this installation's native watchdog role."""
-    return process.pids_naming_executable(ctx.executable, roles={serving_roles.WATCHDOG_MODE})
+def _running_watchdog_pids(executable: str) -> list[int]:
+    """Return PIDs exactly naming one executable's native watchdog role."""
+    return process.pids_naming_executable(executable, roles={serving_roles.WATCHDOG_MODE})
 
 
 def _wait_for_watchdog(
-    ctx: runtime_spec.NativeServiceContext, timeout_seconds: float = 5.0
+    ctx: runtime_spec.NativeRuntimeContext, timeout_seconds: float = 5.0
 ) -> process.OwnedProcess | None:
     """Boundedly prove the one watchdog started by the registered task."""
     deadline = time.monotonic() + timeout_seconds
     while True:
-        watchdogs = _running_watchdog_pids(ctx)
+        watchdogs = _running_watchdog_pids(ctx.executable)
         if len(watchdogs) == 1:
             watchdog = process.capture_executable(
                 watchdogs[0],
@@ -229,8 +231,11 @@ def _wait_for_watchdog(
         time.sleep(min(0.05, remaining))
 
 
-def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
-    """Stop and remove only this installation's scheduled watchdog task."""
+def uninstall(ctx: runtime_spec.NativeServiceContext, executables: Sequence[str]) -> None:
+    """Stop and remove only this installation's scheduled watchdog task.
+
+    A watchdog that outlives its task is found by its program, one of ``executables``.
+    """
     deleted = subprocess.run(
         [_schtasks(), "/delete", "/tn", ctx.service_id, "/f"],
         capture_output=True,
@@ -246,13 +251,14 @@ def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
     # PID discovery and termination are separate observations. Re-read every
     # candidate immediately before signalling so PID reuse cannot target a new
     # process that appeared between them.
-    for pid in _running_watchdog_pids(ctx):
-        if not process.terminate_executable(
-            pid, ctx.executable, roles={serving_roles.WATCHDOG_MODE}
-        ):
-            raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
-    if remaining := _running_watchdog_pids(ctx):
-        raise errors.InstallError(f"verified watchdogs remain: {remaining}")
+    for executable in executables:
+        for pid in _running_watchdog_pids(executable):
+            if not process.terminate_executable(
+                pid, executable, roles={serving_roles.WATCHDOG_MODE}
+            ):
+                raise errors.InstallError(f"verified watchdog {pid} exit is unproved")
+        if remaining := _running_watchdog_pids(executable):
+            raise errors.InstallError(f"verified watchdogs remain: {remaining}")
 
 
 def status(ctx: runtime_spec.NativeServiceContext) -> str:

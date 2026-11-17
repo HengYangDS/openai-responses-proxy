@@ -21,12 +21,14 @@ from openai_responses_proxy.serving import entrypoint
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import roles as serving_roles
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import healthy_status_dependencies
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
 from tests.lifecycle.fixtures import running_supervisor
+from tests.lifecycle.fixtures import selected_context
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -35,26 +37,15 @@ if TYPE_CHECKING:
 def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     Path(ctx.install_dir).mkdir(parents=True)
     mocker.patch.object(control, "adapter").return_value.status.return_value = "absent"
-    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     mocker.patch.object(control, "read_runtime", return_value=None)
-    mocker.patch.object(
-        control.command,
-        "status",
-        return_value={"path": ctx.command, "state": "absent", "kind": None},
-    )
-    mocker.patch.object(
-        control.projection,
-        "verify_payload_manifest",
-        return_value=(False, "installed payload manifest is unavailable"),
-    )
 
     degraded = control.status(ctx)
 
     assert degraded["state"] == "degraded"
-    assert degraded["detail"] == "installed payload manifest is unavailable"
+    assert degraded["detail"] == "no payload generation is selected"
 
     transaction_root = Path(records.transaction_root(ctx))
     transaction_root.mkdir()
@@ -68,23 +59,12 @@ def test_status_distinguishes_invalid_evidence_from_runtime_degradation(
 def test_status_reports_an_invalid_installed_state_without_losing_read_only_evidence(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     install_root = Path(ctx.install_dir)
     install_root.mkdir(parents=True)
     Path(records.installed_path(ctx)).write_text("not-json", encoding="utf-8")
     mocker.patch.object(control, "adapter").return_value.status.return_value = "absent"
-    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     mocker.patch.object(control, "read_runtime", return_value=None)
-    mocker.patch.object(
-        control.command,
-        "status",
-        return_value={"path": ctx.command, "state": "absent", "kind": None},
-    )
-    mocker.patch.object(
-        control.projection,
-        "verify_payload_manifest",
-        return_value=(False, "installed payload manifest is unavailable"),
-    )
 
     result = control.status(ctx)
 
@@ -96,21 +76,10 @@ def test_status_reports_an_invalid_installed_state_without_losing_read_only_evid
 def test_status_distinguishes_absence_from_command_and_transaction_degradation(
     tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     service = mocker.patch.object(control, "adapter").return_value
     service.status.return_value = "absent"
-    mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     mocker.patch.object(control, "read_runtime", return_value=None)
-    command_status = mocker.patch.object(
-        control.command,
-        "status",
-        return_value={"path": ctx.command, "state": "absent", "kind": None},
-    )
-    mocker.patch.object(
-        control.projection,
-        "verify_payload_manifest",
-        return_value=(False, "installed payload manifest is unavailable"),
-    )
 
     absent = control.status(ctx)
     assert absent["state"] == "not_installed"
@@ -156,7 +125,7 @@ def test_status_classifies_a_verified_installation_whose_supervisor_is_stopped(
 ) -> None:
     ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
-    control_executable = generation.control_context(ctx).executable
+    control_executable = generation.require_control_context(ctx).executable
     native = mocker.patch.object(control, "adapter").return_value
     mocker.patch.object(control.process, "verified_proxy_listener_pids", return_value=[])
     port_listeners = mocker.patch.object(control.process, "listener_pids")
@@ -189,7 +158,7 @@ def test_status_classifies_a_verified_installation_whose_supervisor_is_stopped(
     assert stopped["service"] == "installed"
     assert stopped["runtime"] is None
     assert stopped["listener_pids"] == []
-    native.configured_executable.assert_called_with(generation.control_context(ctx))
+    native.configured_executable.assert_called_with(generation.require_control_context(ctx))
     foreign = str(tmp_path / "foreign" / "openai-responses-proxy")
     unproved = errors.InstallError("carrier is unproved")
     bound = control_executable
@@ -300,12 +269,12 @@ def test_control_status_includes_secret_free_runtime_when_listener_is_available(
 ) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        ctx = install_context(root)
+        ctx = control_root(root)
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
         transaction.commit_projection()
         transaction.activate()
         transaction.finalize({"pid": 1})
-        committed = identity.committed_payload(Path(generation.selected_context(ctx).executable))
+        committed = identity.committed_payload(Path(selected_context(ctx).executable))
         assert committed is not None
         runtime = {
             **entrypoint.runtime_status(),
@@ -326,12 +295,12 @@ def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A loopback runtime proof is authoritative after portable handoff."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
     transaction.finalize({"pid": 1})
-    active = generation.selected_context(ctx)
+    active = selected_context(ctx)
     committed = identity.committed_payload(Path(active.executable))
     assert committed is not None
     runtime = {
@@ -368,7 +337,7 @@ def test_status_uses_verified_runtime_identity_when_tcp_owner_projection_lags(
 def test_status_rejects_a_listener_serving_a_different_payload(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -399,12 +368,12 @@ def test_status_rejects_a_listener_serving_a_different_payload(
 def test_status_rejects_a_non_accepting_or_draining_runtime(
     tmp_path: Path, *, mocker: MockerFixture, subtests: pytest.Subtests
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
     transaction.finalize({"pid": 1})
-    committed = identity.committed_payload(Path(generation.selected_context(ctx).executable))
+    committed = identity.committed_payload(Path(selected_context(ctx).executable))
     assert committed is not None
     healthy = {
         "pid": 1,
@@ -432,7 +401,7 @@ def test_status_rejects_a_non_accepting_or_draining_runtime(
 def test_status_rejects_runtime_from_an_unowned_listener(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -459,7 +428,7 @@ def test_control_status_json_reports_recovery_without_private_transaction_data(
 ) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        ctx = install_context(root)
+        ctx = control_root(root)
         initial = begin_transaction(ctx, released_artifact("1.2.2"), mocker=mocker)
         initial.commit_projection()
         initial.activate()
@@ -516,7 +485,7 @@ def test_status_requires_a_current_supervisor_projection_bound_to_control(
         "status",
         return_value={"path": ctx.command, "state": "owned", "kind": "symlink"},
     )
-    control_ctx = generation.control_context(ctx)
+    control_ctx = generation.require_control_context(ctx)
     foreign = str(tmp_path / "foreign" / "openai-responses-proxy")
     unbound = "native supervisor is not bound to the lifecycle control executable"
     for case, configured, current, expected in (

@@ -22,6 +22,7 @@ from openai_responses_proxy.serving import roles as serving_roles
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Sequence
 
     from openai_responses_proxy.lifecycle import runtime_spec
 
@@ -121,7 +122,7 @@ def _require_success(completed: subprocess.CompletedProcess[str], operation: str
         raise errors.InstallError(msg)
 
 
-def render_plist(ctx: runtime_spec.NativeServiceContext) -> str:
+def render_plist(ctx: runtime_spec.NativeRuntimeContext) -> str:
     """Serialize the minimal launchd projection for one installed runtime."""
     payload = {
         "Label": ctx.service_id,
@@ -183,7 +184,7 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
     if (
         not path.is_absolute()
         or not resolved.is_relative_to(root)
-        or path.name != Path(ctx.executable).name
+        or path.name != Path(inventory.EXECUTABLE).name
         or path.parent.name != "bin"
         or payload.get("Program", executable) != executable
     ):
@@ -204,13 +205,13 @@ def configured_executable(ctx: runtime_spec.NativeServiceContext) -> str | None:
     return carrier[1] if carrier is not None else None
 
 
-def projection_is_current(ctx: runtime_spec.NativeServiceContext) -> bool:
+def projection_is_current(ctx: runtime_spec.NativeRuntimeContext) -> bool:
     """Return whether this installation's valid carrier is this release's rendering."""
     carrier = _carrier(ctx)
     return carrier is not None and carrier[0] == render_plist(ctx).encode()
 
 
-def install(ctx: runtime_spec.NativeServiceContext) -> None:
+def install(ctx: runtime_spec.NativeRuntimeContext) -> None:
     """Replace and prove one exact launchd watchdog process generation."""
     plist = _plist_path(ctx)
     previous_carrier = _carrier(ctx)
@@ -295,8 +296,12 @@ def install(ctx: runtime_spec.NativeServiceContext) -> None:
         raise errors.InstallError(msg)
 
 
-def uninstall(ctx: runtime_spec.NativeServiceContext) -> None:
-    """Boot out and remove only this installation's launchd service."""
+def uninstall(ctx: runtime_spec.NativeServiceContext, _executables: Sequence[str]) -> None:
+    """Boot out and remove only this installation's launchd service.
+
+    launchd names the watchdog that it started and the carrier names its program, so the
+    executables of the store's generations are not consulted.
+    """
     plist = _plist_path(ctx)
     previous_carrier = _carrier(ctx)
     domain, current = _registered_service(ctx, _domains())

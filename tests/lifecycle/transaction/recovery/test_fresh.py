@@ -17,6 +17,7 @@ from openai_responses_proxy.lifecycle.transaction import recovery as transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 
 
 def test_recovery_is_idempotent_when_no_transaction_exists(tmp_path: Path) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
 
     assert recover_transaction(ctx, runtime=None) == {"state": "not_required"}
 
@@ -38,7 +39,7 @@ def test_recovery_is_idempotent_when_no_transaction_exists(tmp_path: Path) -> No
 def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
@@ -67,7 +68,7 @@ def test_fresh_recovery_removes_native_candidate_before_discarding_payload(
 def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
@@ -92,7 +93,7 @@ def test_fresh_recovery_retains_payload_when_native_removal_is_unproved(
 def test_fresh_recovery_admits_projection_before_native_disposal(
     tmp_path: Path, drift: str, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
@@ -142,7 +143,7 @@ def test_fresh_recovery_rejects_an_unrelated_live_runtime(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A fresh interrupted projection cannot erase an unrelated accepting runtime."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
@@ -179,7 +180,7 @@ def test_fresh_recovery_rolls_back_a_selected_candidate_without_a_runtime(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """A first-install selector alone does not prove an installed runtime."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     interrupted = mocker.patch.object(
@@ -203,7 +204,7 @@ def test_recovery_finalizes_an_activated_fresh_candidate(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     """An activated first install can finish after its runtime proves the candidate."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     candidate.activate()
@@ -224,7 +225,7 @@ def test_recovery_finalizes_an_activated_fresh_candidate(
 def test_recovery_removes_an_interrupted_fresh_projection_without_a_runtime(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
 

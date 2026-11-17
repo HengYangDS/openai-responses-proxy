@@ -19,7 +19,7 @@ from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime.process_environment import native_process_environment
 from openai_responses_proxy.serving import roles as serving_roles
 from tests.cli.fixtures import invoke
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -209,7 +209,7 @@ class ProductInterfaceContracts:
         # A private installation context: the operator's live installation, and a lifecycle writer
         # holding its lock, must not decide these input errors.
         mocker.patch.object(
-            application.runtime_context, "create", return_value=install_context(tmp_path)
+            application.runtime_context, "create", return_value=control_root(tmp_path)
         )
         asset = tmp_path / "missing-release.tar.gz"
         trust_anchor = tmp_path / "missing-allowed-signers"

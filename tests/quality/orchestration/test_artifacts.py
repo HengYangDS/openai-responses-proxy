@@ -15,7 +15,9 @@ from typing import TYPE_CHECKING
 import pytest
 from pytest_mock import MockerFixture
 
+from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control as lifecycle_control
+from openai_responses_proxy.lifecycle import generation
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git
 from tests.release.compatibility.fixtures import _wait_for_successor_admission
@@ -391,8 +393,10 @@ def test_runtime_context_uses_the_native_command_projection(
     install = tmp_path / "payload"
     ctx = runtime_context_for(home, install, tmp_path / "state", 43210)
 
-    assert PureWindowsPath(ctx.executable) == PureWindowsPath(
-        install / "bin" / "openai-responses-proxy.exe"
+    assert type(ctx) is runtime_context.InstallationContext
+    assert ctx.windows
+    assert PureWindowsPath(generation.context(ctx, "1" * 32).executable) == PureWindowsPath(
+        install / "generations" / ("1" * 32) / "bin" / "openai-responses-proxy.exe"
     )
     assert PureWindowsPath(ctx.command) == PureWindowsPath(
         home / "AppData" / "Local" / "Microsoft" / "WindowsApps" / "openai-responses-proxy.cmd"

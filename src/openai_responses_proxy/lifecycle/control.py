@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 
-def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | None:
+def read_runtime(ctx: runtime_context.InstallationContext) -> dict[str, object] | None:
     """Read the proxy's secret-free health snapshot from loopback only."""
     request = urllib.request.Request(
         runtime_config.loopback_url(ctx.port, "/healthz"),
@@ -63,11 +63,15 @@ def read_runtime(ctx: runtime_context.RuntimeContext) -> dict[str, object] | Non
 
 
 def status(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     include_rollback: bool = True,
 ) -> dict[str, object]:
-    """Return non-secret runtime and transaction evidence without mutation."""
+    """Return non-secret runtime and transaction evidence without mutation.
+
+    Without a selected generation no payload location is read: no payload is verified, no
+    listener or runtime is this installation's, and whatever is at the command path is foreign.
+    """
     active = generation.selected_context(ctx)
     installed_error: str | None = None
     try:
@@ -75,17 +79,14 @@ def status(
     except errors.InstallError as exc:
         installed = None
         installed_error = str(exc)
-    try:
-        integrity_ok, integrity_detail = projection.verify_payload_manifest(active)
-    except errors.InstallError as exc:
-        integrity_ok, integrity_detail = False, str(exc)
+    integrity_ok, integrity_detail = _payload_integrity(active)
     try:
         control_ctx = generation.control_context(ctx)
     except errors.InstallError:
         control_ctx = active
-    service, supervision_bound = _observe_supervision(active, control_ctx)
-    listeners = process.verified_proxy_listener_pids(active)
-    runtime = read_runtime(active)
+    service, supervision_bound = _observe_supervision(ctx, control_ctx)
+    listeners = process.verified_proxy_listener_pids(active) if active is not None else []
+    runtime = read_runtime(ctx)
     pid = runtime.get("pid") if isinstance(runtime, dict) else None
     runtime_process = (
         process.capture_executable(
@@ -93,10 +94,14 @@ def status(
             active.executable,
             roles=serving_roles.LISTENER_ROLES,
         )
-        if type(pid) is int
+        if active is not None and type(pid) is int
         else None
     )
-    committed = identity.committed_payload(Path(active.executable)) if integrity_ok else None
+    committed = (
+        identity.committed_payload(Path(active.executable))
+        if active is not None and integrity_ok
+        else None
+    )
     installed_matches_payload = installed_names(ctx, installed, committed)
     runtime_matches_payload = (
         isinstance(runtime, dict)
@@ -112,9 +117,13 @@ def status(
     ):
         runtime = None
     installed_command = (
-        Path(records.require_command(installed)) if installed is not None else Path(active.command)
+        Path(records.require_command(installed)) if installed is not None else Path(ctx.command)
     )
-    command_state = command.status(installed_command, Path(control_ctx.executable))
+    command_state = (
+        command.status(installed_command, Path(control_ctx.executable))
+        if control_ctx is not None
+        else command.status_without_payload(installed_command)
+    )
     payload_transaction = records.status(ctx)
     rollback_status = (
         (
@@ -164,6 +173,7 @@ def status(
         and service == "installed"
         and runtime is None
         and not listeners
+        and active is not None
         and _stopped_supervisor_is_bound(active)
     ):
         lifecycle_state, detail = "stopped", "native supervisor is stopped"
@@ -227,8 +237,18 @@ def status(
     return evidence
 
 
+def _payload_integrity(active: runtime_context.RuntimeContext | None) -> tuple[bool, str]:
+    """Verify the selected generation's manifest; without a selection there is none to read."""
+    if active is None:
+        return False, generation.NO_SELECTION
+    try:
+        return projection.verify_payload_manifest(active)
+    except errors.InstallError as exc:
+        return False, str(exc)
+
+
 def installed_names(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     installed: Mapping[str, object] | None,
     committed: identity.LoadedPayloadIdentity | None,
 ) -> bool:
@@ -246,19 +266,25 @@ def installed_names(
 
 
 def _observe_supervision(
-    active: runtime_context.RuntimeContext, control_ctx: runtime_context.RuntimeContext
+    ctx: runtime_context.InstallationContext, control_ctx: runtime_context.RuntimeContext | None
 ) -> tuple[str, bool]:
-    """Classify native supervision and prove a running one binds the current control projection."""
+    """Classify native supervision and prove a running one binds the current control projection.
+
+    Without a control generation a running supervisor binds no executable of this installation.
+    """
     try:
         native = adapter()
-        service = native.status(active)
+        service = native.status(ctx)
         if service != "running":
             return service, False
-        configured = native.configured_executable(control_ctx)
-        bound = configured is not None and runtime_spec.normalized_path(
-            configured
-        ) == runtime_spec.normalized_path(control_ctx.executable)
-        if bound and not native.projection_is_current(control_ctx):
+        configured = native.configured_executable(ctx)
+        bound = (
+            control_ctx is not None
+            and configured is not None
+            and runtime_spec.normalized_path(configured)
+            == runtime_spec.normalized_path(control_ctx.executable)
+        )
+        if control_ctx is not None and bound and not native.projection_is_current(control_ctx):
             return "outdated", True
     except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
         return "unknown", False
@@ -272,7 +298,7 @@ def _stopped_supervisor_is_bound(active: runtime_context.RuntimeContext) -> bool
         installed_port = runtime_spec.environment(runtime_spec.path(active))[
             runtime_config.PROXY_PORT_ENV
         ]
-        control_ctx = generation.control_context(active)
+        control_ctx = generation.require_control_context(active)
         configured = adapter().configured_executable(control_ctx)
     except (OSError, errors.InstallError, errors.UnsupportedPlatformError):
         return False
@@ -292,7 +318,7 @@ def start_supervised(
     committed = identity.committed_payload(Path(ctx.executable))
     if committed is None:
         raise errors.InstallError("installed payload changed before supervised start")
-    apply.bind_control_supervisor(adapter(), generation.control_context(ctx))
+    apply.bind_control_supervisor(adapter(), generation.require_control_context(ctx))
     try:
         return apply.wait_for_serving_runtime(
             ctx,
@@ -307,8 +333,13 @@ def start_supervised(
         ) from exc
 
 
-def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -> dict[str, object]:
-    """Hand off the installed payload and rebind its supervisor, or start it when stopped."""
+def reload(
+    ctx: runtime_context.InstallationContext, timeout_seconds: float = 30.0
+) -> dict[str, object]:
+    """Hand off the installed payload and rebind its supervisor, or start it when stopped.
+
+    Without a selected generation there is nothing to start and nothing to hand off.
+    """
     installed = records.read_installed(ctx)
     install_root = Path(ctx.install_dir)
     if installed is None and not install_root.exists() and not install_root.is_symlink():
@@ -320,19 +351,28 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
                 "payload transaction evidence is invalid; preserve it for diagnosis"
             )
         raise errors.RecoveryRequiredError("complete payload recovery before reloading")
+    selected = generation.selected_context(ctx)
     runtime = read_runtime(ctx)
     if runtime is None or not strategy.runtime_supports_handoff(runtime):
-        if runtime is None and status(ctx, include_rollback=False)["state"] == "stopped":
-            started = start_supervised(ctx, timeout_seconds=timeout_seconds)
+        if (
+            runtime is None
+            and status(ctx, include_rollback=False)["state"] == "stopped"
+            and selected is not None
+        ):
+            started = start_supervised(selected, timeout_seconds=timeout_seconds)
             return {"state": "started", "new_pid": started["pid"]}
         raise errors.InstallError("installed runtime is not healthy enough to reload")
-    integrity_ok, integrity_detail = projection.verify_payload_manifest(ctx)
-    if not integrity_ok:
+    integrity_ok, integrity_detail = (
+        projection.verify_payload_manifest(selected)
+        if selected is not None
+        else (False, generation.NO_SELECTION)
+    )
+    if selected is None or not integrity_ok:
         raise errors.InstallError(
             f"payload integrity check failed before handoff reload: {integrity_detail}"
         )
     native = adapter()
-    control_ctx = generation.control_context(ctx)
+    control_ctx = generation.require_control_context(ctx)
     configured = native.configured_executable(control_ctx)
     if configured is None or runtime_spec.normalized_path(
         configured
@@ -341,13 +381,13 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
             "native supervisor is not bound to the lifecycle control executable",
             next_command=product_identity.command("status", "--json"),
         )
-    expected = handoff.expected_metadata(ctx.payload_dir)
+    expected = handoff.expected_metadata(selected.payload_dir)
     lease_seconds = handoff.predecessor_lease_seconds(ctx, timeout_seconds)
-    source_listener = handoff.capture_source_listener(ctx, runtime)
+    source_listener = handoff.capture_source_listener(selected, runtime)
     reloaded: dict[str, object]
     try:
         result = handoff.request(
-            ctx,
+            selected,
             expected,
             runtime_reader=read_runtime,
             timeout_seconds=timeout_seconds,
@@ -358,7 +398,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
     except BaseException as handoff_exc:
         try:
             resolution, resolved_runtime = handoff.resolve_after_controller_failure(
-                ctx,
+                selected,
                 runtime,
                 expected,
                 failure=handoff_exc,
@@ -400,7 +440,7 @@ def reload(ctx: runtime_context.RuntimeContext, timeout_seconds: float = 30.0) -
 
 
 def recover(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     announce_wait: Callable[[float], None] | None = None,
 ) -> dict[str, object]:
@@ -449,7 +489,7 @@ def recover(
 
 
 def rollback(
-    ctx: runtime_context.RuntimeContext,
+    ctx: runtime_context.InstallationContext,
     *,
     to_release: str,
     timeout_seconds: float = 30.0,

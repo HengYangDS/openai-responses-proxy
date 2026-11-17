@@ -285,7 +285,7 @@ def test_native_cleanup_separates_registration_and_process_ownership(
 
     verification.cleanup_runtime(ctx)
 
-    service.uninstall.assert_called_once_with(ctx)
+    service.uninstall.assert_called_once_with(ctx, [first.executable, second.executable])
 
 
 def test_native_cleanup_continues_independent_processes_after_unproved_exit(
@@ -297,7 +297,8 @@ def test_native_cleanup_continues_independent_processes_after_unproved_exit(
     service.status.return_value = "absent"
     service.configured_executable.return_value = None
     mocker.patch.object(verification.native_service, "adapter", return_value=service)
-    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    owned = generation.context(ctx, "1" * 32)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(owned,))
     mocker.patch.object(verification.process, "pids_naming_executable", return_value=[41, 73])
     failure = errors.InstallError(
         "native process termination wait: access denied; exit is unproved"
@@ -322,7 +323,8 @@ def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
     service.status.return_value = "absent"
     service.configured_executable.return_value = None
     mocker.patch.object(verification.native_service, "adapter", return_value=service)
-    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    owned = generation.context(ctx, "1" * 32)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(owned,))
     inventory = mocker.patch.object(
         verification.process, "pids_naming_executable", return_value=[41]
     )
@@ -333,8 +335,8 @@ def test_native_cleanup_refuses_a_runtime_process_whose_exit_is_unproved(
     with pytest.raises(errors.InstallError, match="test runtime process exit is unproved"):
         verification.cleanup_runtime(ctx)
 
-    inventory.assert_called_once_with(ctx.executable, roles=serving_roles.RUNTIME_ROLES)
-    terminate.assert_called_once_with(41, ctx.executable, roles=serving_roles.RUNTIME_ROLES)
+    inventory.assert_called_once_with(owned.executable, roles=serving_roles.RUNTIME_ROLES)
+    terminate.assert_called_once_with(41, owned.executable, roles=serving_roles.RUNTIME_ROLES)
 
 
 def test_native_cleanup_refuses_a_service_executable_outside_the_installation(
@@ -345,7 +347,9 @@ def test_native_cleanup_refuses_a_service_executable_outside_the_installation(
     service = mocker.Mock()
     service.configured_executable.return_value = str(tmp_path / "elsewhere" / "proxy")
     mocker.patch.object(verification.native_service, "adapter", return_value=service)
-    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    mocker.patch.object(
+        verification, "owned_process_contexts", return_value=(generation.context(ctx, "1" * 32),)
+    )
 
     with pytest.raises(errors.InstallError, match="outside the owned installation"):
         verification.cleanup_runtime(ctx)
@@ -377,13 +381,14 @@ def test_native_cleanup_proves_every_registration_and_process_is_gone(
     service.status.side_effect = statuses
     service.configured_executable.side_effect = configured
     mocker.patch.object(verification.native_service, "adapter", return_value=service)
-    mocker.patch.object(verification, "owned_process_contexts", return_value=(ctx,))
+    owned = generation.context(ctx, "1" * 32)
+    mocker.patch.object(verification, "owned_process_contexts", return_value=(owned,))
     mocker.patch.object(verification.process, "pids_naming_executable", side_effect=inventories)
 
     with pytest.raises(errors.InstallError, match=message):
         verification.cleanup_runtime(ctx)
 
-    service.uninstall.assert_called_once_with(ctx)
+    service.uninstall.assert_called_once_with(ctx, [owned.executable])
 
 
 @pytest.mark.parametrize("arguments", [("--basetemp",), ("--basetemp=/a", "--basetemp=/b")])
@@ -479,6 +484,8 @@ def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
     ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    owned = generation.context(ctx, "1" * 32)
+    Path(owned.payload_dir).mkdir(parents=True)
     service = mocker.Mock()
     service.configured_executable.return_value = None
     denied = errors.InstallError("native service manager is unavailable")
@@ -491,7 +498,7 @@ def test_native_cleanup_preserves_independent_exit_proof_after_service_failure(
     with pytest.raises(errors.InstallError) as raised:
         verification.cleanup_runtime(ctx)
     assert raised.value is denied
-    assert runtime_exit.call_args.args == (73, ctx.executable)
+    assert runtime_exit.call_args.args == (73, owned.executable)
 
 
 @pytest.mark.parametrize("boundary", ["status", "recover"])

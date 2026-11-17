@@ -14,7 +14,7 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.cli import application
 from openai_responses_proxy.runtime import config
 from tests.cli.fixtures import invoke
-from tests.lifecycle.fixtures import install_context
+from tests.lifecycle.fixtures import control_root
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -43,7 +43,7 @@ def test_lifecycle_lock_leaves_a_fresh_default_installation_root_absent(
         roots = config.data_dir(), config.state_dir()
     install_root, state_root = map(Path, roots)
     ctx = dataclasses.replace(
-        install_context(tmp_path), install_dir=str(install_root), log_dir=str(state_root)
+        control_root(tmp_path), install_dir=str(install_root), log_dir=str(state_root)
     )
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     observed: list[bool] = []
@@ -71,7 +71,7 @@ def test_mutating_commands_reject_a_second_lifecycle_writer(
     *,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     owners = {
         "install": mocker.patch.object(application.install, "install_asset"),
@@ -107,7 +107,7 @@ def test_no_op_recovery_on_a_fresh_host_creates_only_the_lifecycle_lock(
     mocker: MockerFixture,
 ) -> None:
     """A no-op lifecycle result may leave only the writer lock in the state root."""
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     mocker.patch.object(application.control, "read_runtime", return_value=None)
 
@@ -124,7 +124,7 @@ def test_lifecycle_lock_is_released_after_success_and_failure(
     *,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     recover = mocker.patch.object(
         application.control,
@@ -148,7 +148,7 @@ def test_unavailable_lifecycle_lock_is_a_bounded_public_error(
     *,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     lock = mocker.patch.object(application, "FileLock").return_value
     lock.acquire.side_effect = OSError("private host detail")
@@ -177,7 +177,7 @@ def test_read_only_commands_remain_available_during_lifecycle_mutation(
     *,
     mocker: MockerFixture,
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     evidence = {"state": "not_installed", "detail": "absent"}
     mocker.patch.object(application.runtime_context, "create", return_value=ctx)
     status = mocker.patch.object(application.control, "status", return_value=evidence)

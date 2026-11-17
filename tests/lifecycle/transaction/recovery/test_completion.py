@@ -15,6 +15,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
+from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -257,7 +258,7 @@ def test_recovery_keeps_superseded_generation_until_terminal_binding(
 def test_recovery_no_op_and_prepared_close_do_not_bind_supervision(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path)
+    ctx = control_root(tmp_path)
     bind_terminal = mocker.Mock()
 
     assert recover_transaction(

@@ -23,13 +23,15 @@ if TYPE_CHECKING:
 class _NativeModuleFixture(ModuleType):
     """Minimal platform-module fixture for shared native ownership tests."""
 
-    def install(self, _ctx: runtime_spec.NativeServiceContext) -> None:
+    def install(self, _ctx: runtime_spec.NativeRuntimeContext) -> None:
         pass
 
-    def configured_executable(self, ctx: runtime_spec.NativeServiceContext) -> str:
-        return ctx.executable
+    def configured_executable(self, _ctx: runtime_spec.NativeServiceContext) -> str | None:
+        return None
 
-    def uninstall(self, _ctx: runtime_spec.NativeServiceContext) -> None:
+    def uninstall(
+        self, _ctx: runtime_spec.NativeServiceContext, _executables: Sequence[str]
+    ) -> None:
         pass
 
     def status(self, _ctx: runtime_spec.NativeServiceContext) -> str:

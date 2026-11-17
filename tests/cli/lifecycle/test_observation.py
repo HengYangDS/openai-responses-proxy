@@ -98,6 +98,9 @@ def test_status_binds_listener_identity_to_the_installed_executable(
         "status",
         return_value={"path": context.command, "state": "owned", "kind": "symlink"},
     )
+    # The context is the selected generation's, which also owns lifecycle control.
+    mocker.patch.object(application.control.generation, "selected_context", return_value=context)
+    mocker.patch.object(application.control.generation, "control_context", return_value=context)
     adapter = mocker.patch.object(application.control, "adapter")
     pids = mocker.patch.object(process, "verified_proxy_listener_pids", return_value=[321])
     mocker.patch.object(

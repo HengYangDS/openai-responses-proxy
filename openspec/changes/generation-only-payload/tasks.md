@@ -22,16 +22,16 @@
 
 ## 3. Two contexts
 
-- [ ] 3.1 Divide the context into the control root's and a payload generation's; `selected_context` and
+- [x] 3.1 Divide the context into the control root's and a payload generation's; `selected_context` and
       `control_context` return a payload context or nothing; the platform is a field set from the host. The
       strict type check passes with `executable` on the payload context alone.
-- [ ] 3.2 `context.create` reads the settings of the selected generation's carrier, or the defaults; `status`
+- [x] 3.2 `context.create` reads the settings of the selected generation's carrier, or the defaults; `status`
       and `reload` without a selection read no payload location and report "no payload generation is
       selected". Tests cover an absent control root, an empty one and one with unverified content.
-- [ ] 3.3 `uninstall` without a payload deregisters the control root's service, ends the processes of the
+- [x] 3.3 `uninstall` without a payload deregisters the control root's service, ends the processes of the
       generations that the store holds, and removes no command that it cannot prove. Tests cover an empty
       control root and an interrupted purge.
-- [ ] 3.4 A first installation's command record names its candidate's executable, and the restoration without a
+- [x] 3.4 A first installation's command record names its candidate's executable, and the restoration without a
       previous selection requires the command to be absent. Tests cover a first installation that fails before
       and after its activation, its recovery, and a record of 6.0.2 built by hand.
 
