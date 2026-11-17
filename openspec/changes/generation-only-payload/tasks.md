@@ -44,8 +44,11 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `mise run check` passes on the lane head.
-- [ ] 5.2 The hosted graph passes at the proposal head on both forges, with the journeys from the published
-      6.0.2 on macOS, Linux and Windows.
-- [ ] 5.3 A fresh-context review of the whole change finds no order or state in which a command reads a
-      payload outside a generation, or its findings are answered.
+- [x] 5.1 `mise run check` passes on the lane head: at `ed30d5ef`, every session (2,968 cases, branch
+      coverage 97.43%).
+- [x] 5.2 The hosted graph passes at the proposal head on both forges, with the journeys from the published
+      6.0.2 on macOS, Linux and Windows: GitHub run 44085146994 (20 checks) and GitLab pipeline 16324 (seven
+      jobs) at `ed30d5ef`.
+- [x] 5.3 A fresh-context review of the whole change finds no order or state in which a command reads a
+      payload outside a generation, or its findings are answered: one round found none, and its six low
+      findings are answered in `ed30d5ef`.
