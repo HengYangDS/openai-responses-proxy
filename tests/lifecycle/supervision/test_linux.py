@@ -10,6 +10,7 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import linux
 from openai_responses_proxy.serving import roles as serving_roles
+from tests.lifecycle.fixtures import FIXTURE_GENERATION
 from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import set_file as _set_file
@@ -141,15 +142,17 @@ class TestLinuxLifecycle:
     def test_systemd_unit_quotes_path_values_and_specifier_tokens(self) -> None:
         ctx = platform_context()
         ctx.install_dir = '/opt/product path/%i/"payload"'
-        ctx.executable = f"{ctx.install_dir}/bin/openai-responses-proxy"
+        ctx.executable = (
+            f"{ctx.install_dir}/generations/{FIXTURE_GENERATION}/bin/openai-responses-proxy"
+        )
         ctx.log_dir = '/opt/state path/%h/"logs"'
         ctx.user_home = '/opt/home path/%u/"user"'
 
         unit = linux.render_unit(ctx)
 
         assert (
-            'ExecStart="/opt/product path/%%i/\\"payload\\"/bin/openai-responses-proxy" '
-            "--internal-watchdog"
+            'ExecStart="/opt/product path/%%i/\\"payload\\"/generations/'
+            f'{FIXTURE_GENERATION}/bin/openai-responses-proxy" --internal-watchdog'
         ) in unit
 
         with _temporary_context("log_dir") as temporary:

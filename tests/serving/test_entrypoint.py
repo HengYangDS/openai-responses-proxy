@@ -11,9 +11,14 @@ import pytest
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.serving import entrypoint
 from openai_responses_proxy.serving import identity
+from tests.lifecycle.fixtures import FIXTURE_GENERATION
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+
+# The payload of the running process: one generation of the control root "/installed".
+_PAYLOAD = Path("/installed/generations", FIXTURE_GENERATION)
+_EXECUTABLE = _PAYLOAD / "bin/openai-responses-proxy"
 
 
 class TestListenerEntrypoint:
@@ -24,7 +29,7 @@ class TestListenerEntrypoint:
         self, *, mocker: MockerFixture
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory, "generations", FIXTURE_GENERATION)
             executable = root / "bin/openai-responses-proxy"
             loaded = identity.LoadedPayloadIdentity("2.0.8", "a" * 64, "b" * 64, "c" * 64, root)
             providers = provider_registry.Registry(
@@ -49,7 +54,7 @@ class TestListenerEntrypoint:
     def test_bootstrap_rejects_missing_and_changed_payload_identity(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
-        executable = Path("/installed/bin/openai-responses-proxy")
+        executable = _EXECUTABLE
         loaded = identity.LoadedPayloadIdentity(
             "2.0.8", "a" * 64, "b" * 64, "c" * 64, executable.parents[1]
         )
@@ -72,18 +77,14 @@ class TestListenerEntrypoint:
                     entrypoint.bootstrap(executable)
 
     def _admit_run(self, mocker: MockerFixture) -> None:
-        loaded = identity.LoadedPayloadIdentity(
-            "2.0.8", "a" * 64, "b" * 64, "c" * 64, Path("/installed")
-        )
+        loaded = identity.LoadedPayloadIdentity("2.0.8", "a" * 64, "b" * 64, "c" * 64, _PAYLOAD)
         providers = provider_registry.Registry(
             {"fixture": provider_registry.Profile("fixture", "https://gateway.example/v1")}
         )
         mocker.patch.object(
             entrypoint,
             "bootstrap",
-            return_value=entrypoint.Bootstrap(
-                Path("/installed/bin/openai-responses-proxy"), loaded, providers
-            ),
+            return_value=entrypoint.Bootstrap(_EXECUTABLE, loaded, providers),
         )
 
     def test_runtime_providers_fail_closed_until_bootstrap_and_then_return_frozen_routes(
@@ -91,13 +92,9 @@ class TestListenerEntrypoint:
     ) -> None:
         with pytest.raises(RuntimeError, match="has not verified"):
             entrypoint.runtime_providers()
-        loaded = identity.LoadedPayloadIdentity(
-            "2.0.8", "a" * 64, "b" * 64, "c" * 64, Path("/installed")
-        )
+        loaded = identity.LoadedPayloadIdentity("2.0.8", "a" * 64, "b" * 64, "c" * 64, _PAYLOAD)
         providers = mocker.sentinel.providers
-        entrypoint._PROCESS.bootstrap = entrypoint.Bootstrap(
-            Path("/installed/bin/openai-responses-proxy"), loaded, providers
-        )
+        entrypoint._PROCESS.bootstrap = entrypoint.Bootstrap(_EXECUTABLE, loaded, providers)
         assert entrypoint.runtime_providers() is providers
 
     def test_handoff_context_launches_the_selected_generation(

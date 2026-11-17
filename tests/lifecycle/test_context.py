@@ -18,6 +18,7 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import roles
+from tests.lifecycle.fixtures import generation_executable
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -109,7 +110,7 @@ class TestRuntimeContext:
         install_dir = tmp_path / "payload"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
-            executable=str(install_dir / "bin" / "openai-responses-proxy"),
+            executable=generation_executable(install_dir),
             command=str(tmp_path / "bin" / "openai-responses-proxy"),
             log_dir=str(tmp_path / "state"),
             port=8808,

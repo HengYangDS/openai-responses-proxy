@@ -19,7 +19,7 @@ Paths below are relative to `src/openai_responses_proxy/`.
 
 **Non-Goals:**
 
-- A new refusal or a new wording for a root-level payload.
+- A refusal of a root-level payload in every command.
 - A change of the journal, of the command record, of the selector or of the handoff protocol.
 - Reading what a release older than 6.0.0 left behind.
 
@@ -55,8 +55,11 @@ Paths below are relative to `src/openai_responses_proxy/`.
   the unverified content of the table's last row.
 - **Chosen because:** a refusal in each reader keeps every reader. A refusal in `context.create` stops
   `status` and `uninstall` as well, which then cannot report or remove what the control root itself proves.
-  The last row needs no new refusal and no new wording: the commands already answer it, and the main
-  specification already says that content without ownership evidence is preserved and that purge fails closed.
+  The last row needs no new refusal: `status`, `install`, `rollback` and `reload` already answer it, and the
+  main specification already says that content without ownership evidence is preserved and that purge fails
+  closed. `uninstall --purge` answers it today through the root-level manifest that it does not find. Without
+  that look it fails in a sentence of its own, before it writes a journal: a journal that named the installed
+  record alone would remove the record and only then stop at the content that it does not know.
 - **Applies to:** `status`, `doctor`, `install`, `rollback`, `reload`, `uninstall`, `recover`; the accepted
   locations in `runtime_spec.py`, `serving/identity.py` and `supervision/macos.py`; the clauses
   `selection is None or` in `control.py`; `transaction/completion.py` `purge`; `tools/release/verification.py`.

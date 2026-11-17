@@ -31,7 +31,7 @@ def test_terminal_recovery_finishes_partially_removed_generation(
     """Disposal does not need the already removed generation's payload identity."""
     ctx = install_context(tmp_path)
     oldest = install_payload(ctx, "1.2.1", mocker=mocker)
-    install_payload(ctx, "1.2.2", mocker=mocker)
+    install_payload(payload_generation.context(ctx, "a" * 32), "1.2.2", mocker=mocker)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -66,7 +66,7 @@ def test_generation_disposal_preserves_unowned_content(
 ) -> None:
     ctx = install_context(tmp_path)
     oldest = install_payload(ctx, "1.2.1", mocker=mocker)
-    install_payload(ctx, "1.2.2", mocker=mocker)
+    install_payload(payload_generation.context(ctx, "a" * 32), "1.2.2", mocker=mocker)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()
@@ -107,7 +107,7 @@ def test_generation_disposal_retry_preserves_replaced_owned_file(
 ) -> None:
     ctx = install_context(tmp_path)
     oldest = install_payload(ctx, "1.2.1", mocker=mocker)
-    install_payload(ctx, "1.2.2", mocker=mocker)
+    install_payload(payload_generation.context(ctx, "a" * 32), "1.2.2", mocker=mocker)
     transaction = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     transaction.commit_projection()
     transaction.activate()

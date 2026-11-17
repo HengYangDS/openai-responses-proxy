@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import psutil
 
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.serving import inventory
+from tests.lifecycle.fixtures import generation_executable
 from tests.lifecycle.fixtures import install_context
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def temporary_context(
         context = install_context(Path(directory), windows=windows)
         setattr(context, attribute, directory)
         if attribute == "install_dir":
-            context.executable = inventory.installed_executable(directory, windows=windows)
+            context.executable = generation_executable(Path(directory), windows=windows)
         yield context
 
 

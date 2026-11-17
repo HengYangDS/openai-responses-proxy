@@ -67,7 +67,8 @@ def test_consumed_transaction_preserves_the_next_transaction(
     """An old upgrade capability cannot close a later writer's journal."""
     ctx = install_context(tmp_path)
     install_payload(ctx, "1.2.1", mocker=mocker)
-    completed = install_payload(ctx, "1.2.2", mocker=mocker)
+    successor = payload_generation.context(ctx, "a" * 32)
+    completed = install_payload(successor, "1.2.2", mocker=mocker)
     pending = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     journal = records.journal_path(ctx).read_bytes()
 

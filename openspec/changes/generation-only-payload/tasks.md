@@ -1,10 +1,11 @@
 ## 1. Fixtures
 
-- [ ] 1.1 Give every test context a payload in a generation: the fixtures `install_context`, `platform_context`,
-      `temporary_context` and `runtime_context_for` name an executable under the generation store, and
-      `install_payload` writes there without changing the context. The tests that assert a root-level executable
-      or carrier path assert the generation's. Done when the suites pass and no test outside those of 2.1 to
-      2.3 names a payload at the control root's own level.
+- [x] 1.1 Give every test context a payload in a generation: the fixtures `install_context`, `platform_context`
+      and `temporary_context` name an executable under the generation store, and `install_payload` writes there
+      without changing the context. A test that asserts a literal executable path asserts the generation's. The
+      release fixture `runtime_context_for` describes an installation that a built executable makes, whose
+      generation it cannot name: it keeps its path until 3.1 gives it the control root's context. Done when the
+      suites pass with the counts of the base and the fixtures name no path at the control root's own level.
 
 ## 2. No payload without a selection
 

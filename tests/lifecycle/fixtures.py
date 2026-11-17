@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+from pathlib import PurePath
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
@@ -26,16 +27,23 @@ if TYPE_CHECKING:
     from pytest_mock import MockType
 
 ROOT = Path(__file__).resolve().parents[2]
+# The one payload generation that every fixture context names below its control root.
+FIXTURE_GENERATION = "5" * 32
+
+
+def generation_executable(install_dir: PurePath, *, windows: bool = False) -> str:
+    """Return the fixture generation's executable below one control root."""
+    payload_dir = install_dir / generation.GENERATIONS_DIRNAME / FIXTURE_GENERATION
+    return inventory.installed_executable(str(payload_dir), windows=windows)
 
 
 def install_context(root: Path, *, windows: bool = False) -> runtime_context.RuntimeContext:
     """Build an isolated install context for one explicitly modeled platform."""
     install_dir = root / "data" / "openai-responses-proxy"
-    executable = inventory.installed_executable(str(install_dir), windows=windows)
     return runtime_context.RuntimeContext(
         user_home=str(root),
         install_dir=str(install_dir),
-        executable=executable,
+        executable=generation_executable(install_dir, windows=windows),
         command=str(
             root
             / "commands"
@@ -59,7 +67,7 @@ def platform_context(port: int = 8791, *, windows: bool = False) -> runtime_cont
     return runtime_context.RuntimeContext(
         user_home=str(home),
         install_dir=str(install_dir),
-        executable=inventory.installed_executable(str(install_dir), windows=windows),
+        executable=generation_executable(install_dir, windows=windows),
         command=str(
             (
                 home
@@ -166,15 +174,19 @@ def begin_transaction(
 def install_payload(
     ctx: runtime_context.RuntimeContext, version: str = "1.2.3", *, mocker: MockerFixture
 ) -> payload_transaction.PayloadTransaction:
-    """Install and finalize one released payload projection."""
+    """Install and finalize one released payload in the generation that the context names."""
     candidate = released_artifact(
         version, windows=Path(ctx.executable).name == Path(inventory.WINDOWS_EXECUTABLE).name
     )
-    transaction = begin_transaction(ctx, candidate, mocker=mocker)
+    naming = mocker.patch.object(payload_transaction, "uuid")
+    naming.uuid4.return_value.hex = Path(ctx.payload_dir).name
+    try:
+        transaction = begin_transaction(ctx, candidate, mocker=mocker)
+    finally:
+        mocker.stop(naming)
     transaction.commit_projection()
     transaction.activate()
     transaction.finalize({"pid": 1})
-    ctx.executable = transaction.context.executable
     return transaction
 
 
