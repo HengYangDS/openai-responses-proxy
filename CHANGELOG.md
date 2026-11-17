@@ -14,19 +14,22 @@ publication authority.
 
 - An installed payload is read only through the generation that the selector
   names. Payload files at the installation directory's own level, which no
-  release of this product has written since 4.0.0, are no longer read as an
+  release under this product's name has written, are no longer read as an
   installation: a runtime carrier, an executable, a launch agent's executable
-  or a manifest there is not this product's. `uninstall --purge` preserves every
-  byte of such a directory and fails with "the install directory holds no
-  payload generation that this product owns; its content is preserved".
+  or a manifest there is not this product's. `uninstall --purge` of such a
+  directory fails with an ownership diagnostic and preserves every byte of it;
+  with no generation in the store the diagnostic is "the install directory
+  holds no payload generation that this product owns; its content is
+  preserved".
 
 ### Changed
 
 - `status` of an installation directory without a selected generation reports
   `payload_integrity.detail` as "no payload generation is selected", with `ok`
-  false. Before, it reported "installed payload manifest is unavailable", or,
-  for payload files at the directory's own level, a verified payload. No other
-  field, state or exit status changes.
+  false, and a degraded state's `detail` says the same. Before, both reported
+  "installed payload manifest is unavailable", or, for payload files at the
+  directory's own level, a verified payload. No other field, state or exit
+  status changes.
 - `uninstall` reads the payload generations before it removes the native
   service, so an installation whose generation store is invalid is refused
   before anything is removed. Before, the service was removed first. On Linux

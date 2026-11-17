@@ -156,12 +156,30 @@ def test_rollback_proves_no_release_active_at_the_control_root_and_changes_no_fi
 def test_rollback_requires_a_selection_whatever_status_reports(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    """The installed record is bound to the selection by rollback itself as well."""
+    """Without a selection no release is active, whatever status reports."""
     ctx = root_level_payload(control_root(tmp_path), mocker=mocker)
     mocker.patch.object(control, "status", return_value={"state": "running", "release": "1.2.3"})
 
     with pytest.raises(errors.RollbackStateError, match="not proven active"):
         control.rollback(ctx, to_release="1.2.3")
+
+
+def test_an_installed_record_names_no_payload_without_a_selection(tmp_path: Path) -> None:
+    """The record is bound to the selection where it is compared, not only by its callers.
+
+    A payload identity read before the selector was removed still names no installed payload.
+    """
+    ctx = control_root(tmp_path)
+    committed = identity.LoadedPayloadIdentity("1.2.3", "a" * 64, "b" * 64, "c" * 64, tmp_path)
+    installed = {
+        "version": "1.2.3",
+        "receipt_sha256": "b" * 64,
+        "command": ctx.command,
+        "transaction_id": "5" * 32,
+    }
+
+    assert generation.read(ctx) is None
+    assert not control.installed_names(ctx, installed, committed)
 
 
 def test_reload_starts_nothing_for_a_payload_at_the_control_root(

@@ -374,6 +374,21 @@ class TestLinuxLifecycle:
         ):
             linux.uninstall(ctx, [ctx.executable])
 
+    def test_uninstall_ends_the_watchdog_of_a_generation_other_than_the_first(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
+        """After a rollback the store holds two generations, and either may run the watchdog."""
+        ctx = platform_context()
+        ctx.user_home = str(tmp_path)
+        retained = f"{ctx.install_dir}/generations/{'6' * 32}/bin/openai-responses-proxy"
+        mocker.patch.object(linux, "status", return_value="absent")
+        mocker.patch.object(linux.process, "pids_naming_executable", side_effect=[[], [], [23], []])
+        terminate = mocker.patch.object(linux.process, "terminate_executable", return_value=True)
+
+        linux.uninstall(ctx, [ctx.executable, retained])
+
+        terminate.assert_called_once_with(23, retained, roles={serving_roles.WATCHDOG_MODE})
+
     def test_uninstall_terminates_each_verified_linux_watchdog(
         self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:

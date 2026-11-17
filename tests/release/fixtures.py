@@ -218,16 +218,19 @@ def generation_processes(ctx: runtime_context.RuntimeContext) -> list[int]:
 
 
 def native_service_projection(ctx: runtime_context.InstallationContext) -> dict[str, object]:
-    """Return the exact native-service state owned by one control root.
+    """Return the exact native-service and process state owned by one control root.
 
-    A control root names no executable: the processes of a generation are read with
-    ``generation_processes``.
+    Its processes are those that run an executable of a generation that its store holds; a
+    control root without a store has none.
     """
     service = native_service.adapter()
     return {
         "service_id": ctx.service_id,
         "status": service.status(ctx),
         "configured_executable": service.configured_executable(ctx),
+        "processes": sorted(
+            pid for owned in generation.owned_contexts(ctx) for pid in generation_processes(owned)
+        ),
     }
 
 

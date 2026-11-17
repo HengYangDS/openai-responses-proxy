@@ -28,6 +28,7 @@ from openai_responses_proxy.lifecycle import uninstall
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 
@@ -325,6 +326,15 @@ def cleanup_runtime(ctx: runtime_context.InstallationContext) -> None:
         install_root = Path(ctx.install_dir).resolve()
         if not configured_path.is_relative_to(install_root):
             raise errors.InstallError("native service executable is outside the owned installation")
+        payload = configured_path.parent.parent
+        if (
+            configured_path.parent.name != "bin"
+            or payload.parent != install_root / generation.GENERATIONS_DIRNAME
+            or not identity.is_payload_generation_name(payload.name)
+        ):
+            raise errors.InstallError(
+                "native service executable is outside the installation's payload generations"
+            )
         process_contexts = (*process_contexts, ctx.for_executable(configured))
     try:
         _uninstall_test_service(service, ctx, process_contexts)

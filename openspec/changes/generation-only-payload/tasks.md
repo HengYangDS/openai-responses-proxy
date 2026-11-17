@@ -12,8 +12,9 @@
 - [x] 2.1 Remove the accepted root-level locations: the runtime carrier in `runtime_spec`, the control root of a
       serving process outside the generation store in `serving/identity`, the launch agent's executable on
       macOS. A test shows each refused. The root context of the release verification tool goes with 3.1.
-- [x] 2.2 Bind the installed record to the selection in `status` and `rollback` whenever a record exists; a test
-      shows a root-level payload with a valid manifest and an installed record reported neither `running` nor
+- [x] 2.2 Bind the installed record to the selection where it is compared (`installed_names`) and in
+      `rollback`; a test shows a record refused without a selection even with a payload identity in hand,
+      and a root-level payload with a valid manifest and an installed record reported neither `running` nor
       `stopped`.
 - [x] 2.3 Purge the generations of the store alone. A test shows `uninstall --purge` of a root-level payload
       with a valid manifest failing with every byte preserved and no journal written, a selected generation

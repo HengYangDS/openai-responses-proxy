@@ -11,7 +11,8 @@ the generation store takes its own folder for the control root.
 The lifecycle's one context type also carries an executable path at the control root whenever nothing is
 selected. No file is there, and every command still probes it: for a runtime carrier, for a manifest, against
 the running processes, the native service and the command. The main `runtime-upgrade` specification still
-describes an upgrade from an installation without generations, which the product has not performed since 4.0.0.
+describes an upgrade from an installation without generations, which no release under this product's name has
+performed.
 
 This is task 5.8 of `terminal-product-convergence`.
 
@@ -33,7 +34,8 @@ This is task 5.8 of `terminal-product-convergence`.
   has no operation that removes one scenario.
 
 No command, option, route, field of `status --json` or exit code changes for an installation that a release of
-this product wrote. For a control root without a selection, the text of `payload_integrity.detail` changes.
+this product wrote. For a control root without a selection, the text of `payload_integrity.detail` and of a
+degraded state's `detail` changes.
 
 ## Capabilities
 

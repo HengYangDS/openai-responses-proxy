@@ -433,6 +433,21 @@ class TestWindowsLifecycle:
             roles={serving_roles.WATCHDOG_MODE},
         )
 
+    def test_uninstall_ends_the_watchdog_of_a_generation_other_than_the_first(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """After a rollback the store holds two generations, and either may run the watchdog."""
+        ctx = platform_context(windows=True)
+        retained = rf"{ctx.install_dir}\generations\{'6' * 32}\bin\openai-responses-proxy.exe"
+        mocker.patch.object(windows.subprocess, "run", return_value=_completed())
+        mocker.patch.object(windows, "status", return_value="absent")
+        mocker.patch.object(windows, "_running_watchdog_pids", side_effect=[[], [], [4343], []])
+        terminate = mocker.patch.object(windows.process, "terminate_executable", return_value=True)
+
+        windows.uninstall(ctx, [ctx.executable, retained])
+
+        terminate.assert_called_once_with(4343, retained, roles={serving_roles.WATCHDOG_MODE})
+
     def test_uninstall_requires_task_deletion_and_absence_proof(
         self, *, mocker: MockerFixture
     ) -> None:

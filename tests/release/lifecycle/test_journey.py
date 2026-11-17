@@ -62,6 +62,7 @@ class TestSignedNativeLifecycle:
             "service_id": ctx.service_id,
             "status": "absent",
             "configured_executable": None,
+            "processes": [],
         }
         canonical_ctx = runtime_context.create()
         canonical_service_before = native_service_projection(canonical_ctx)

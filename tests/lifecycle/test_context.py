@@ -89,19 +89,21 @@ class TestRuntimeContext:
     def test_payload_root_follows_executable_platform_syntax(
         self, subtests: pytest.Subtests
     ) -> None:
-        for executable, expected in (
+        for install_dir, executable, expected in (
             (
-                "/opt/proxy/generations/abc/bin/openai-responses-proxy",
-                "/opt/proxy/generations/abc",
+                "/opt/proxy",
+                f"/opt/proxy/generations/{'5' * 32}/bin/openai-responses-proxy",
+                f"/opt/proxy/generations/{'5' * 32}",
             ),
             (
-                r"C:\proxy\generations\abc\bin\openai-responses-proxy.exe",
-                r"C:\proxy\generations\abc",
+                r"C:\proxy",
+                rf"C:\proxy\generations\{'5' * 32}\bin\openai-responses-proxy.exe",
+                rf"C:\proxy\generations\{'5' * 32}",
             ),
         ):
             with subtests.test(executable=executable):
                 projected = context.RuntimeContext(
-                    install_dir="/unused/control-root",
+                    install_dir=install_dir,
                     executable=executable,
                     command="/unused/command",
                     log_dir="/unused/logs",

@@ -28,6 +28,9 @@ from tools.release import verification
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
+# The executable of one payload generation of the control root "/opt/owned".
+_OWNED_EXECUTABLE = f"/opt/owned/generations/{'5' * 32}/bin/openai-responses-proxy"
+
 
 class TestHandoffCleanup(SubprocessFixture):
     def test_detached_fixture_stays_beneath_the_surviving_executor_root(
@@ -94,7 +97,7 @@ class TestHandoffCleanup(SubprocessFixture):
         cleanup = temporary.cleanup
         ctx = runtime_context.RuntimeContext(
             install_dir="/opt/owned",
-            executable="/opt/owned/proxy.py",
+            executable=_OWNED_EXECUTABLE,
             command="/opt/owned/proxy",
             log_dir="/opt/owned/state",
         )
@@ -115,7 +118,7 @@ class TestHandoffCleanup(SubprocessFixture):
 
         try:
             mocker.patch.object(process, "pids_naming_executable", side_effect=inventory)
-            captured = process.OwnedProcess(123, "/opt/owned/proxy.py", 42.0)
+            captured = process.OwnedProcess(123, _OWNED_EXECUTABLE, 42.0)
             mocker.patch.object(
                 process,
                 "capture_executable",
@@ -148,7 +151,7 @@ class TestHandoffCleanup(SubprocessFixture):
         temporary.cleanup.side_effect = [PermissionError("mapped module"), None]
         ctx = runtime_context.RuntimeContext(
             install_dir="/opt/owned",
-            executable="/opt/owned/proxy.py",
+            executable=_OWNED_EXECUTABLE,
             command="/opt/owned/proxy",
             log_dir="/opt/owned/state",
         )
@@ -165,10 +168,10 @@ class TestHandoffCleanup(SubprocessFixture):
         self, *, mocker: MockerFixture
     ) -> None:
         temporary = mocker.Mock()
-        owned = process.OwnedProcess(123, "/opt/owned/proxy.py", 42.0)
+        owned = process.OwnedProcess(123, _OWNED_EXECUTABLE, 42.0)
         ctx = runtime_context.RuntimeContext(
             install_dir="/opt/owned",
-            executable="/opt/owned/proxy.py",
+            executable=_OWNED_EXECUTABLE,
             command="/opt/owned/proxy",
             log_dir="/opt/owned/state",
         )

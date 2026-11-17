@@ -357,6 +357,26 @@ def test_native_cleanup_refuses_a_service_executable_outside_the_installation(
     service.uninstall.assert_not_called()
 
 
+def test_native_cleanup_refuses_a_service_executable_at_the_control_root(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
+    """Below the installation but outside its generations: no payload of this product lies there."""
+    ctx = runtime_context_for(tmp_path / "home", tmp_path / "payload", tmp_path / "state", 43210)
+    service = mocker.Mock()
+    service.configured_executable.return_value = str(
+        tmp_path / "payload" / "bin" / "openai-responses-proxy"
+    )
+    mocker.patch.object(verification.native_service, "adapter", return_value=service)
+    mocker.patch.object(
+        verification, "owned_process_contexts", return_value=(generation.context(ctx, "1" * 32),)
+    )
+
+    with pytest.raises(errors.InstallError, match="outside the installation's payload generations"):
+        verification.cleanup_runtime(ctx)
+
+    service.uninstall.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("statuses", "configured", "inventories", "message"),
     [

@@ -164,7 +164,8 @@ Paths below are relative to `src/openai_responses_proxy/`.
 
 - **Rests on:** the first decision: no release under this name wrote the state whose handling changes. For an
   installation that a release wrote, no command, option, route, field of `status --json` or exit code changes.
-  For a control root without a selection the text of `payload_integrity.detail` changes.
+  For a control root without a selection the text of `payload_integrity.detail` and of a degraded state's
+  `detail` changes.
 - **Considered:** a minor or a major version for the purge of a root-level payload, which a test held.
 - **Chosen because:** the version follows what an operator of a released installation can observe, and that
   is nothing. The changelog names the removal under its own heading, so that it is not read as a fix.
