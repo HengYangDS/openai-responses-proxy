@@ -59,7 +59,19 @@ Paths below are relative to `src/openai_responses_proxy/`.
   main specification already says that content without ownership evidence is preserved and that purge fails
   closed. `uninstall --purge` answers it today through the root-level manifest that it does not find. Without
   that look it fails in a sentence of its own, before it writes a journal: a journal that named the installed
-  record alone would remove the record and only then stop at the content that it does not know.
+  record alone would remove the record and only then stop at the content that it does not know. The purge's
+  cases, by what the control root holds:
+
+  | Generations in the store | Installed record | Selector | Purge                                                     |
+  | ------------------------ | ---------------- | -------- | --------------------------------------------------------- |
+  | none                     | any              | any      | refused: no payload generation that this product owns     |
+  | some                     | present          | any      | removes them; the record names the release                |
+  | some                     | absent           | present  | removes them; the selected generation's manifest names it |
+  | some                     | absent           | absent   | refused: neither a selector nor an installed record       |
+
+  The third row is today's behavior and stays: a lost installed record does not keep an operator from removing
+  a selected payload.
+
 - **Applies to:** `status`, `doctor`, `install`, `rollback`, `reload`, `uninstall`, `recover`; the accepted
   locations in `runtime_spec.py`, `serving/identity.py` and `supervision/macos.py`; the clauses
   `selection is None or` in `control.py`; `transaction/completion.py` `purge`; `tools/release/verification.py`.

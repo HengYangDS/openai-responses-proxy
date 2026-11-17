@@ -24,7 +24,6 @@ from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
-from tests.lifecycle.transaction.fixtures import _project_as_legacy_flat_install
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
 from tests.lifecycle.transaction.fixtures import recovery_runtime
@@ -237,8 +236,8 @@ def test_upgrade_requires_a_selected_generation_before_any_write(
 ) -> None:
     """Only a durable generation selector can authorize an installed predecessor."""
     ctx = install_context(tmp_path)
-    installed = install_payload(ctx, "1.2.2", mocker=mocker)
-    _project_as_legacy_flat_install(ctx, installed)
+    install_payload(ctx, "1.2.2", mocker=mocker)
+    payload_generation.clear(ctx)
     root = Path(ctx.install_dir)
     before = _retained_carrier_snapshot(root, tmp_path / "unused")
     command_before = Path(ctx.command).readlink()

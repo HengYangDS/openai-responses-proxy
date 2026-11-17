@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
+from tests.lifecycle.fixtures import FIXTURE_GENERATION
 from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
@@ -93,7 +95,7 @@ class TestServiceIdentity:
                 assert identity.committed_payload(executable) is None
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         assert (
-            identity.committed_payload(Path(ctx.install_dir, inventory.PROVIDER_MANIFEST)) is None
+            identity.committed_payload(Path(ctx.payload_dir, inventory.PROVIDER_MANIFEST)) is None
         )
 
     def test_loaded_identity_is_immutable_after_disk_drift(
@@ -123,6 +125,28 @@ class TestServiceIdentity:
         assert identity.selected_payload_executable(Path(candidate.executable)) == Path(
             candidate.executable
         ).resolve(strict=True)
+
+    @pytest.mark.parametrize("location", ["control-root", "unnamed-generation"])
+    def test_serving_process_outside_the_generation_store_resolves_no_successor(
+        self, location: str, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
+        """A payload that is no generation of a control root has no selector to follow."""
+        ctx = install_context(tmp_path)
+        install_payload(ctx, mocker=mocker)
+        outside = (
+            Path(ctx.install_dir)
+            if location == "control-root"
+            else generation.root(ctx) / "not-a-generation"
+        )
+        shutil.copytree(ctx.payload_dir, outside, dirs_exist_ok=True)
+        loaded = outside / executable_relative()
+        assert identity.freeze_loaded_payload(loaded) is not None
+        read_selector = mocker.spy(identity, "read_payload_selection")
+
+        with pytest.raises(ValueError, match="outside the payload generation store"):
+            identity.selected_payload_executable(loaded)
+
+        read_selector.assert_not_called()
 
     @pytest.mark.parametrize(
         ("mutation", "message"),
@@ -224,7 +248,7 @@ class TestServiceIdentity:
 
 def test_loaded_identity_accepts_only_exact_native_projection(subtests: pytest.Subtests) -> None:
     with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
+        root = Path(directory, generation.GENERATIONS_DIRNAME, FIXTURE_GENERATION)
         executable = root / inventory.EXECUTABLE
         executable.parent.mkdir(parents=True)
         executable.write_bytes(b"native executable\n")

@@ -6,6 +6,7 @@ import json
 import ntpath
 import os
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 from typing import Literal
 from typing import TypedDict
@@ -14,16 +15,31 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context
+from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import roles
+from tests.lifecycle.fixtures import FIXTURE_GENERATION
 from tests.lifecycle.fixtures import generation_executable
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def _select_fixture_generation(install_dir: Path) -> None:
+    """Write the selector that names the fixture generation of one control root as active."""
+    (install_dir / generation.SELECTOR_FILENAME).write_bytes(
+        digest.canonical_json(
+            {
+                "schema_version": generation.SELECTOR_SCHEMA,
+                "active": FIXTURE_GENERATION,
+                "predecessor": None,
+            }
+        )
+    )
 
 
 class _RuntimeOverrides(TypedDict, total=False):
@@ -63,7 +79,7 @@ class TestRuntimeContext:
 
         projected = context.RuntimeContext(
             install_dir="/opt/proxy",
-            executable="/opt/proxy/bin/openai-responses-proxy",
+            executable=generation_executable(PurePosixPath("/opt/proxy")),
             command="/fixture/user-root/.local/bin/openai-responses-proxy",
             log_dir="/var/state/proxy",
             port=8808,
@@ -146,32 +162,52 @@ class TestRuntimeContext:
         assert environment[config.HOME_ENV] == str(install_dir)
         assert environment[config.PROXY_PORT_ENV] == "8808"
 
+    def test_runtime_carrier_is_read_from_a_generation_and_refused_at_the_control_root(
+        self, tmp_path: Path
+    ) -> None:
+        """The same bytes are a carrier in a generation and unowned content beside the store."""
+        install_dir = tmp_path / "payload"
+        projected = context.RuntimeContext(
+            install_dir=str(install_dir),
+            executable=generation_executable(install_dir),
+            command=str(tmp_path / "bin" / "openai-responses-proxy"),
+            log_dir=str(tmp_path / "state"),
+            port=8808,
+        )
+        owned = runtime_spec.write(projected)
+        root_level = install_dir / runtime_spec.FILENAME
+        root_level.write_bytes(owned.read_bytes())
+
+        assert runtime_spec.environment(owned)[config.PROXY_PORT_ENV] == "8808"
+        with pytest.raises(errors.InstallError, match="outside the installed payload layout"):
+            runtime_spec.environment(root_level)
+        assert root_level.read_bytes() == owned.read_bytes()
+
     def test_explicit_upstream_survives_native_carrier_and_context_reload(
         self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         install_dir = tmp_path / "payload"
-        executable = install_dir / "bin" / "openai-responses-proxy"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
-            executable=str(executable),
+            executable=generation_executable(install_dir),
             command=str(tmp_path / "bin" / "openai-responses-proxy"),
             log_dir=str(tmp_path / "state"),
             upstream_base_url="http://127.0.0.1:43123/v1",
         )
         target = runtime_spec.write(projected)
+        _select_fixture_generation(install_dir)
         environment = runtime_spec.environment(target)
         mocker.patch.object(config, "home_dir", return_value=str(tmp_path))
         mocker.patch.object(config, "data_dir", return_value=str(install_dir))
         mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
 
-        restored = context.create(executable=str(executable))
+        restored = context.create()
 
         assert environment[config.UPSTREAM_BASE_URL_ENV] == projected.upstream_base_url
+        assert restored.payload_dir == projected.payload_dir
         assert restored.upstream_base_url == projected.upstream_base_url
         assert (
-            context.create(
-                executable=str(executable), upstream_base_url="https://api.openai.com/v1"
-            ).upstream_base_url
+            context.create(upstream_base_url="https://api.openai.com/v1").upstream_base_url
             == "https://api.openai.com/v1"
         )
 
@@ -188,7 +224,7 @@ class TestRuntimeContext:
         install_dir = tmp_path / "posix-payload"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
-            executable=str(install_dir / "bin" / "openai-responses-proxy"),
+            executable=generation_executable(install_dir),
             command=str(tmp_path / "bin" / "openai-responses-proxy"),
             log_dir=str(tmp_path / "posix-state"),
         )
@@ -215,10 +251,10 @@ class TestRuntimeContext:
         mocker.patch.object(config, "home_dir", return_value="/portable/home")
         mocker.patch.object(config, "data_dir", return_value=str(payload))
         mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
-        executable = payload / "bin" / "openai-responses-proxy"
-        projected = context.create(executable=str(executable), port=8808)
+        executable = generation_executable(payload)
+        projected = context.create(executable=executable, port=8808)
 
-        assert projected.executable == str(executable)
+        assert projected.executable == executable
         assert "python" not in projected.__dataclass_fields__
         assert "proxy_script" not in projected.__dataclass_fields__
         assert "watchdog_script" not in projected.__dataclass_fields__
@@ -232,7 +268,7 @@ class TestRuntimeContext:
         install_dir = tmp_path / "payload"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
-            executable=str(install_dir / "bin" / "openai-responses-proxy"),
+            executable=generation_executable(install_dir),
             command=str(tmp_path / "bin" / "openai-responses-proxy"),
             log_dir=str(tmp_path / "state"),
         )
@@ -257,7 +293,7 @@ class TestRuntimeContext:
         self, tmp_path: Path, *, mocker: MockerFixture
     ) -> None:
         install_dir = tmp_path / "payload"
-        executable = install_dir / "bin" / "openai-responses-proxy"
+        executable = Path(generation_executable(install_dir))
         executable.parent.mkdir(parents=True)
         executable.write_bytes(b"native")
         projected = context.RuntimeContext(
@@ -294,7 +330,8 @@ class TestRuntimeContext:
             clear=True,
         )
         initial = context.create()
-        target = runtime_spec.write(initial)
+        target = runtime_spec.write(generation.context(initial, FIXTURE_GENERATION))
+        _select_fixture_generation(tmp_path / "payload")
         original = target.read_bytes()
         environment = runtime_spec.environment(target)
 
@@ -336,7 +373,7 @@ class TestRuntimeContext:
     ) -> None:
         ctx = context.RuntimeContext(
             install_dir=str(tmp_path / "payload"),
-            executable=str(tmp_path / "payload" / "bin" / "openai-responses-proxy"),
+            executable=generation_executable(tmp_path / "payload"),
             command=str(tmp_path / "command"),
             log_dir=str(tmp_path / "state"),
         )
@@ -372,7 +409,7 @@ class TestRuntimeContext:
             config.load({name: invalid})
 
     def test_runtime_activation_rejects_missing_carrier(self, tmp_path: Path) -> None:
-        executable = tmp_path / "payload" / "bin" / "openai-responses-proxy"
+        executable = Path(generation_executable(tmp_path / "payload"))
         executable.parent.mkdir(parents=True)
         executable.write_bytes(b"native")
 
@@ -399,10 +436,9 @@ class TestRuntimeContext:
 
     def test_service_projection_is_derived_from_one_runtime_contract(self, tmp_path: Path) -> None:
         install_dir = tmp_path / "proxy"
-        executable = install_dir / "bin" / "openai-responses-proxy"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
-            executable=str(executable),
+            executable=generation_executable(install_dir),
             command="/fixture/user-root/.local/bin/openai-responses-proxy",
             log_dir="/var/state/proxy",
             port=8808,

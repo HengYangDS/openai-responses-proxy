@@ -1,4 +1,4 @@
-"""Transaction observations and owned historical-payload fixtures."""
+"""Transaction observations and recovery fixtures."""
 
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ from openai_responses_proxy.lifecycle.transaction import execution
 from openai_responses_proxy.lifecycle.transaction import recovery as payload_transaction
 from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
-from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import retained_rollback
@@ -167,19 +166,3 @@ def _retained_carrier_snapshot(root: Path, external_target: Path) -> tuple[objec
             entries.append((relative, "file", path.read_bytes()))
     target = external_target.read_bytes() if external_target.is_file() else None
     return ("root-directory", tuple(entries), target)
-
-
-def _project_as_legacy_flat_install(
-    ctx: runtime_context.RuntimeContext, installed: execution.PayloadTransaction
-) -> None:
-    """Recreate a manifest-owned flat payload for explicit removal checks."""
-    generation_root = Path(installed.context.payload_dir)
-    install_root = Path(ctx.install_dir)
-    for child in tuple(generation_root.iterdir()):
-        child.rename(install_root / child.name)
-    payload_generation.clear(ctx)
-    generation_root.rmdir()
-    ctx.executable = str(install_root / executable_relative())
-    command_path = Path(ctx.command)
-    command_path.unlink()
-    command_path.symlink_to(ctx.executable)

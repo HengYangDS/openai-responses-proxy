@@ -11,6 +11,7 @@ from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.deployment import handoff
 from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.serving import inventory
+from tests.lifecycle.fixtures import generation_executable
 from tests.serving.handoff import fixtures as handoff_fixtures
 from tests.serving.handoff.fixtures import entrypoint_module
 from tests.serving.handoff.fixtures import handoff_module
@@ -146,16 +147,18 @@ def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
     """A mocked launch contract must not build or prewarm a real native payload."""
-    payload = tmp_path / "generation"
-    payload.mkdir()
+    install_dir = tmp_path / "payload"
+    executable = generation_executable(install_dir)
+    payload = Path(executable).parents[1]
+    payload.mkdir(parents=True)
     upstream = "http://127.0.0.1:43123"
     (payload / inventory.PROVIDER_MANIFEST).write_text(
         f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream}"\npolicy = "dmxapi"\n',
         encoding="utf-8",
     )
     ctx = runtime_context.RuntimeContext(
-        install_dir=str(tmp_path / "payload"),
-        executable=str(payload / "bin" / "proxy"),
+        install_dir=str(install_dir),
+        executable=executable,
         command=str(tmp_path / "command"),
         log_dir=str(tmp_path / "state"),
         user_home=str(tmp_path),

@@ -199,12 +199,9 @@ def _absolute(value: str) -> bool:
 
 
 def _owned_carrier_location(target: Path, install_dir: str) -> bool:
-    stable = Path(install_dir, FILENAME)
-    generations = Path(install_dir, identity.PAYLOAD_GENERATIONS_DIRNAME)
-    return normalized_path(target) == normalized_path(stable) or (
-        target.name == FILENAME
-        and normalized_path(target.parent.parent) == normalized_path(generations)
-    )
+    """Return whether the carrier lies in one generation of its own install directory."""
+    store = normalized_path(Path(install_dir, identity.PAYLOAD_GENERATIONS_DIRNAME))
+    return target.name == FILENAME and normalized_path(target.parent.parent) == store
 
 
 def normalized_path(value: str | os.PathLike[str]) -> str:

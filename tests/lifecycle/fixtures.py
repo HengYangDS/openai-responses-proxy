@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+from dataclasses import replace
 from pathlib import Path
 from pathlib import PurePath
 from pathlib import PurePosixPath
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.lifecycle import artifact
+from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
@@ -188,6 +190,47 @@ def install_payload(
     transaction.activate()
     transaction.finalize({"pid": 1})
     return transaction
+
+
+def root_level_payload(
+    ctx: runtime_context.RuntimeContext, *, mocker: MockerFixture
+) -> runtime_context.RuntimeContext:
+    """Lay one verified payload at the control root's own level, where no release writes one.
+
+    The control root then holds an executable, a valid manifest, a runtime carrier and an
+    installed record, with no selector, no generation store and no journal, and the command
+    names the root-level executable. The returned context names that executable, as the
+    product's own context does when nothing is selected.
+    """
+    install_payload(ctx, mocker=mocker)
+    install_root = Path(ctx.install_dir)
+    generation_root = Path(ctx.payload_dir)
+    for child in tuple(generation_root.iterdir()):
+        child.rename(install_root / child.name)
+    generation.clear(ctx)
+    generation_root.rmdir()
+    generation.root(ctx).rmdir()
+    windows = Path(ctx.executable).name == Path(inventory.WINDOWS_EXECUTABLE).name
+    unselected = replace(
+        ctx, executable=inventory.installed_executable(ctx.install_dir, windows=windows)
+    )
+    command.remove(Path(ctx.command), Path(ctx.executable))
+    command.project(Path(ctx.command), Path(unselected.executable))
+    return unselected
+
+
+def listing_with_digests(root: Path) -> tuple[tuple[str, str], ...]:
+    """Return every path below ``root`` with its kind, its link target or its content digest."""
+    entries = []
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            entries.append((relative, f"link to {path.readlink()}"))
+        elif path.is_dir():
+            entries.append((relative, "directory"))
+        else:
+            entries.append((relative, payload_digest.sha256_file(path)))
+    return tuple(entries)
 
 
 def retained_rollback(ctx: runtime_context.RuntimeContext) -> rollback.RetainedRollback:

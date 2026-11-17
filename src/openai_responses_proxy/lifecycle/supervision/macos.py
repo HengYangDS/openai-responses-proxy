@@ -189,16 +189,12 @@ def _carrier(ctx: runtime_spec.NativeServiceContext) -> tuple[bytes, str] | None
     ):
         raise errors.InstallError("macOS launch-agent executable ownership is unproved")
     relative_path = resolved.relative_to(root)
-    if relative_path != Path(inventory.EXECUTABLE):
-        in_generations = relative_path.parts[:1] == (identity.PAYLOAD_GENERATIONS_DIRNAME,)
-        if not in_generations or Path(*relative_path.parts[2:]) != Path(inventory.EXECUTABLE):
-            raise errors.InstallError("macOS launch-agent executable ownership is unproved")
-        try:
-            identity.require_payload_generation_name(relative_path.parts[1])
-        except ValueError as exc:
-            raise errors.InstallError(
-                "macOS launch-agent executable ownership is unproved"
-            ) from exc
+    if (
+        relative_path.parts[:1] != (identity.PAYLOAD_GENERATIONS_DIRNAME,)
+        or Path(*relative_path.parts[2:]) != Path(inventory.EXECUTABLE)
+        or not identity.is_payload_generation_name(relative_path.parts[1])
+    ):
+        raise errors.InstallError("macOS launch-agent executable ownership is unproved")
     return content, executable
 
 

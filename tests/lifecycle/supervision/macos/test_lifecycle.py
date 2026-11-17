@@ -58,7 +58,7 @@ class TestMacosLifecycle:
         owned_home = tmp_path / "owned-home"
         ambient_home = tmp_path / "ambient-home"
         context = SimpleNamespace(
-            executable="/payload/bin/openai-responses-proxy",
+            executable=f"/payload/generations/{'a' * 32}/bin/openai-responses-proxy",
             install_dir="/payload",
             log_dir="/state",
             service_id="openai-responses-proxy.watchdog.fixture",

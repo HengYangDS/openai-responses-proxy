@@ -192,26 +192,48 @@ def complete_transaction(
     return finish_cleanup(ctx, terminal)
 
 
+def _purged_release(ctx: runtime_context.RuntimeContext) -> tuple[object, object]:
+    """Return the release and the receipt digest that the journal of a purge names.
+
+    The installed record names them. Without it the selected generation's own manifest does,
+    and without a selection nothing says which release the store's generations belong to.
+    """
+    installed = records.read_installed(ctx)
+    if installed is not None:
+        return records.require_version(installed), installed["receipt_sha256"]
+    selection = generation.read(ctx)
+    if selection is None:
+        raise errors.InstallError(
+            "payload generations have neither a selector nor an installed record; "
+            "their content is preserved"
+        )
+    manifest = owned_files.read_json_object(
+        projection.payload_manifest_path(generation.context(ctx, selection.active)),
+        "installed payload manifest",
+    )
+    return manifest["release"], manifest["release_receipt_sha256"]
+
+
 def purge(ctx: runtime_context.RuntimeContext) -> dict[str, object]:
     """Record exact disposal authority after supervision and processes have exited."""
     if records.status(ctx) is not None:
         raise errors.RecoveryRequiredError("complete payload recovery before uninstalling")
     root = Path(ctx.install_dir)
+    owned = generation.owned_contexts(ctx)
+    # Nothing is written before a refusal here or in the reading of the release: a journal that
+    # named the installed record alone would remove the record and only then stop at the content
+    # that it does not know.
+    if not owned:
+        raise errors.InstallError(
+            "the install directory holds no payload generation that this product owns; "
+            "its content is preserved"
+        )
+    version, receipt_sha256 = _purged_release(ctx)
     files: JsonObject = {}
-    for selected in generation.owned_contexts(ctx) or (ctx,):
+    for selected in owned:
         payload_root = Path(selected.payload_dir)
         for relative, expected in projection.owned_payload_files(selected).items():
             files[(payload_root / relative).relative_to(root).as_posix()] = expected
-    installed = records.read_installed(ctx)
-    if installed is None:
-        manifest = owned_files.read_json_object(
-            projection.payload_manifest_path(ctx), "installed payload manifest"
-        )
-        version = manifest["release"]
-        receipt_sha256 = manifest["release_receipt_sha256"]
-    else:
-        version = records.require_version(installed)
-        receipt_sha256 = installed["receipt_sha256"]
     for target in (generation.selector_path(ctx), records.installed_path(ctx)):
         if target.exists() or target.is_symlink():
             relative = target.relative_to(root).as_posix()

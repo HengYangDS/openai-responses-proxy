@@ -12,6 +12,7 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import macos
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.supervision.fixtures import completed as _completed
 from tests.lifecycle.supervision.fixtures import set_file as _set_file
 from tests.lifecycle.supervision.fixtures import temporary_context as _temporary_context
@@ -82,6 +83,27 @@ class TestMacosBackgroundContract:
             invoked = mocker.patch.object(macos.subprocess, "run")
             with pytest.raises(errors.InstallError, match="executable ownership is unproved"):
                 macos.install(ctx)
+            assert carrier.read_text() == content
+            invoked.assert_not_called()
+
+    def test_launch_agent_naming_an_executable_at_the_control_root_is_refused(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """Only a generation's executable below the install directory proves the carrier."""
+        with _temporary_context("log_dir") as ctx:
+            root_level = SimpleNamespace(
+                executable=inventory.installed_executable(ctx.install_dir),
+                install_dir=ctx.install_dir,
+                service_id=ctx.service_id,
+                user_home=ctx.user_home,
+                log_dir=ctx.log_dir,
+            )
+            content = macos.render_plist(root_level)
+            carrier = _set_file(macos._plist_path(ctx), content)
+            invoked = mocker.patch.object(macos.subprocess, "run")
+            for operation in (macos.configured_executable, macos.install, macos.uninstall):
+                with pytest.raises(errors.InstallError, match="executable ownership is unproved"):
+                    operation(ctx)
             assert carrier.read_text() == content
             invoked.assert_not_called()
 

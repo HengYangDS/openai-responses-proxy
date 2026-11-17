@@ -90,11 +90,12 @@ def selected_payload_executable(executable: Path) -> Path:
     loaded = freeze_loaded_payload(executable)
     if loaded is None:
         raise ValueError("loaded payload identity is unavailable")
-    control_root = (
-        loaded.root.parent.parent
-        if loaded.root.parent.name == PAYLOAD_GENERATIONS_DIRNAME
-        else loaded.root
-    )
+    store = loaded.root.parent
+    if store.name != PAYLOAD_GENERATIONS_DIRNAME or not is_payload_generation_name(
+        loaded.root.name
+    ):
+        raise ValueError("loaded payload is outside the payload generation store")
+    control_root = store.parent
     selected = read_payload_selection(control_root / PAYLOAD_SELECTOR_FILENAME)
     candidate = (
         control_root / PAYLOAD_GENERATIONS_DIRNAME / selected.active / "bin" / executable.name

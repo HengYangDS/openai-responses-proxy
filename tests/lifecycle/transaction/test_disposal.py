@@ -21,8 +21,9 @@ from openai_responses_proxy.serving import identity as listener_identity
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
+from tests.lifecycle.fixtures import listing_with_digests
 from tests.lifecycle.fixtures import released_artifact
-from tests.lifecycle.transaction.fixtures import _project_as_legacy_flat_install
+from tests.lifecycle.fixtures import root_level_payload
 from tests.lifecycle.transaction.fixtures import _recover_without_binding
 from tests.lifecycle.transaction.fixtures import _retained_carrier_snapshot
 from tests.lifecycle.transaction.fixtures import recover_transaction
@@ -201,17 +202,51 @@ def test_purge_recovery_uses_its_inventory_in_a_fresh_process(
     assert records.status(ctx) is None
 
 
-def test_purge_accepts_a_verified_flat_payload_without_installed_state(
+@pytest.mark.parametrize(
+    ("content", "refusal"),
+    [
+        ("root-level payload", "holds no payload generation that this product owns"),
+        ("empty control root", "holds no payload generation that this product owns"),
+        ("generations alone", "have neither a selector nor an installed record"),
+    ],
+)
+def test_purge_refuses_a_control_root_without_an_owned_generation(
+    tmp_path: Path, content: str, refusal: str, *, mocker: MockerFixture
+) -> None:
+    """A manifest alone proves no removal: nothing is recorded and every byte stays."""
+    ctx = install_context(tmp_path)
+    if content == "root-level payload":
+        ctx = root_level_payload(ctx, mocker=mocker)
+        records.installed_path(ctx).unlink()
+    elif content == "generations alone":
+        install_payload(ctx, mocker=mocker)
+        records.installed_path(ctx).unlink()
+        payload_generation.clear(ctx)
+    else:
+        Path(ctx.install_dir).mkdir(parents=True)
+    before = listing_with_digests(tmp_path)
+
+    with pytest.raises(errors.InstallError, match=refusal) as refused:
+        transaction_completion.purge(ctx)
+
+    assert "preserved" in str(refused.value)
+    assert listing_with_digests(tmp_path) == before
+    assert records.status(ctx) is None
+
+
+def test_purge_of_a_selected_generation_reads_its_release_from_its_own_manifest(
     tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
-    """A preserved complete manifest proves removal without a selected generation."""
+    """A lost installed record does not keep an operator from removing a selected payload."""
     ctx = install_context(tmp_path)
-    installed = install_payload(ctx, mocker=mocker)
-    _project_as_legacy_flat_install(ctx, installed)
-    payload_generation.root(ctx).rmdir()
+    install_payload(ctx, "1.2.3", mocker=mocker)
     records.installed_path(ctx).unlink()
 
-    assert transaction_completion.purge(ctx)["state"] == "purged"
+    assert transaction_completion.purge(ctx) == {
+        "transaction_id": mocker.ANY,
+        "version": "1.2.3",
+        "state": "purged",
+    }
     assert not Path(ctx.install_dir).exists()
     assert records.status(ctx) is None
 

@@ -237,10 +237,11 @@ def installed_names(
         return False
     selection = generation.read(ctx)
     return (
-        installed.get("version") == committed.release
+        selection is not None
+        and installed.get("version") == committed.release
         and installed.get("receipt_sha256") == committed.release_receipt_sha256
         and installed.get("command") == ctx.command
-        and (selection is None or installed.get("transaction_id") == selection.active)
+        and installed.get("transaction_id") == selection.active
     )
 
 
@@ -477,7 +478,8 @@ def rollback(
             and active_identity is not None
             and active_identity.release == to_release
             and installed.get("receipt_sha256") == active_identity.release_receipt_sha256
-            and (selection is None or installed.get("transaction_id") == selection.active)
+            and selection is not None
+            and installed.get("transaction_id") == selection.active
         ):
             raise errors.RollbackStateError(
                 "requested rollback release is installed but not proven active"
