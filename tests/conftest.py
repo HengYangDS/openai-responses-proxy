@@ -10,6 +10,11 @@ The product's default logs are those of the host's operator, and a thread that o
 test logs to the default. Each session therefore gives the product a state directory of its
 own before a product module computes a path, and a log line to a path outside the temporary
 root of the run is refused before any file operation.
+
+The same directory holds the session's temporary base. This repository keeps no temporary
+directory after its test, and under that policy pytest does not lock a session's numbered base
+in the user's shared root: a session that ends removes the unlocked bases that it finds there,
+a running session's among them.
 """
 
 from __future__ import annotations
@@ -132,8 +137,8 @@ def _append(
     _APPEND(path, message, max_bytes=max_bytes, backup_count=backup_count, mirror=mirror)
 
 
-def _bind_logs(config: pytest.Config, patch: pytest.MonkeyPatch) -> None:
-    """Give the session its own state directory and admit a log below the run's roots only.
+def _bind_session(config: pytest.Config, patch: pytest.MonkeyPatch) -> None:
+    """Give the session its own state directory and temporary base, and guard its logs.
 
     The environment carries the binding, not a module attribute, because a module that is loaded
     again computes its paths again. The two names of a log file would override the directory.
@@ -143,6 +148,10 @@ def _bind_logs(config: pytest.Config, patch: pytest.MonkeyPatch) -> None:
     patch.setenv(runtime_config.STATE_HOME_ENV, str(session / "state"))
     patch.delenv(runtime_config.PROXY_LOG_ENV, raising=False)
     patch.delenv(runtime_config.WATCHDOG_LOG_ENV, raising=False)
+    if config.getoption("basetemp", None) is None:
+        # A base that the session names is not one of the shared root's numbered directories,
+        # so no other session's end can remove it; it leaves with the session's directory.
+        patch.setattr(config.option, "basetemp", str(session / "base"))
     basetemp = config.getoption("basetemp", None)
     roots = [tempfile.gettempdir(), *([] if basetemp is None else [basetemp])]
     patch.setattr(_LOGS, "session", session)
@@ -157,7 +166,7 @@ def pytest_configure(config: pytest.Config) -> None:
     patch.setattr(socket.socket, "connect", _connect)
     patch.setattr(socket.socket, "connect_ex", _connect_ex)
     config.add_cleanup(patch.undo)
-    _bind_logs(config, patch)
+    _bind_session(config, patch)
 
 
 @pytest.fixture(autouse=True)

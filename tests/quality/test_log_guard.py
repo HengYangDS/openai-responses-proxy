@@ -56,6 +56,8 @@ def test_logs_below_the_temporary_directory():
 
 
 def test_logs_below_the_basetemp(tmp_path):
+    # The base that the caller named stays the session's base.
+    assert tmp_path.is_relative_to(Path(__file__).resolve().parent / "basetemp")
     log(tmp_path / "proxy.log")
     assert (tmp_path / "proxy.log").is_file()
 
