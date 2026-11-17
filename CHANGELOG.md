@@ -8,6 +8,33 @@ publication authority.
 
 ## [Unreleased]
 
+## [6.0.3] - 2026-11-17
+
+### Removed
+
+- An installed payload is read only through the generation that the selector
+  names. Payload files at the installation directory's own level, which no
+  release of this product has written since 4.0.0, are no longer read as an
+  installation: a runtime carrier, an executable, a launch agent's executable
+  or a manifest there is not this product's. `uninstall --purge` preserves every
+  byte of such a directory and fails with "the install directory holds no
+  payload generation that this product owns; its content is preserved".
+
+### Changed
+
+- `status` of an installation directory without a selected generation reports
+  `payload_integrity.detail` as "no payload generation is selected", with `ok`
+  false. Before, it reported "installed payload manifest is unavailable", or,
+  for payload files at the directory's own level, a verified payload. No other
+  field, state or exit status changes.
+- `uninstall` reads the payload generations before it removes the native
+  service, so an installation whose generation store is invalid is refused
+  before anything is removed. Before, the service was removed first. On Linux
+  and Windows it ends the watchdogs of every generation that the store holds.
+- A first installation's command record names the executable of the
+  generation that it installs. The record keeps its form, and a record that
+  6.0.2 wrote during an interrupted first installation is read as before.
+
 ## [6.0.2] - 2026-11-17
 
 ### Changed

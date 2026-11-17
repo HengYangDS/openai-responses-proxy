@@ -37,9 +37,9 @@
 
 ## 4. Specification and release
 
-- [ ] 4.1 The delta of `runtime-upgrade` validates strictly, and a simulated archive leaves the main
+- [x] 4.1 The delta of `runtime-upgrade` validates strictly, and a simulated archive leaves the main
       specification valid.
-- [ ] 4.2 `VERSION` and `CHANGELOG.md` name 6.0.3 with the removal under its own heading.
+- [x] 4.2 `VERSION` and `CHANGELOG.md` name 6.0.3 with the removal under its own heading.
 
 ## 5. Verification
 
