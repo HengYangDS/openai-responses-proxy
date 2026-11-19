@@ -31,8 +31,12 @@ command = [
   "--report",
   "{native_output}/quality-nox.json",
 ]
-verification_providers = ["ethos.adapters.gates.python_quality:static_report"]
-dimensions = ["static-analysis", "types", "structure", "coverage"]
+# The quality session's 3.12 suite run is the proof's 3.12 behaviour evidence.
+verification_providers = [
+  "ethos.adapters.gates.python_quality:static_report",
+  "ethos.adapters.gates.python_quality:behavior_report",
+]
+dimensions = ["static-analysis", "types", "structure", "coverage", "behavior"]
 execution_mode = "subprocess"
 evidence_class = "proof"
 trust_bearing = true
@@ -58,6 +62,21 @@ python = "3.12"
 configuration = ".config/checks/ruff/ruff.toml"
 dependency_groups = ["quality"]
 
+[[proof.gates.native_outputs]]
+path = "quality-3.12.xml"
+format = "junit-xml"
+sessions = ["quality-3.12"]
+
+[[proof.gates.native_outputs]]
+path = "quality-3.12-pytest.jsonl"
+format = "pytest-jsonl"
+sessions = ["quality-3.12"]
+
+[[proof.gates.native_outputs]]
+path = "quality-3.12-coverage.xml"
+format = "cobertura-xml"
+sessions = ["quality-3.12"]
+
 [[proof.gates]]
 id = "python-matrix"
 kind = "test"
@@ -75,7 +94,8 @@ command = [
   "python",
   "nox",
   "-s",
-  "tests",
+  "tests-3.13",
+  "tests-3.14",
   "--report",
   "{native_output}/matrix-nox.json",
 ]
@@ -91,30 +111,7 @@ writes_files = true
 [[proof.gates.native_outputs]]
 path = "matrix-nox.json"
 format = "nox-json"
-sessions = ["tests-3.12", "tests-3.13", "tests-3.14"]
-
-[[proof.gates.native_outputs]]
-path = "tests-3.12.xml"
-format = "junit-xml"
-sessions = ["tests-3.12"]
-
-[[proof.gates.native_outputs]]
-path = "tests-3.12-pytest.jsonl"
-format = "pytest-jsonl"
-sessions = ["tests-3.12"]
-
-[[proof.gates.native_outputs]]
-path = "tests-3.12-coverage.xml"
-format = "cobertura-xml"
-sessions = ["tests-3.12"]
-
-[[proof.gates.native_outputs]]
-path = "tests-3.12-runtime.json"
-format = "python-runtime-json"
-sessions = ["tests-3.12"]
-python = "3.12"
-configuration = ".config/checks/pytest/pytest.toml"
-dependency_groups = ["quality"]
+sessions = ["tests-3.13", "tests-3.14"]
 
 [[proof.gates.native_outputs]]
 path = "tests-3.13.xml"
