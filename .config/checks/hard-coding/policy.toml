@@ -100,8 +100,15 @@ id = "dependency-proposals"
 kind = "policy-parameter"
 owner = ".config/checks/renovate/renovate.json5"
 invariant = "Every dependency update proposal comes from one Forge-neutral policy that reads each pinned input from its authored owner."
-rationale = "Release ages, grouping, security handling, and auto-merge criteria form one repository policy; a Forge-native updater or a second configuration would open competing proposals."
-projections = [".config/mise/config.toml", "docs/", "tests/"]
+rationale = "Grouping, security handling, and auto-merge criteria form one repository policy, which holds the release age that the Mise configuration declares and the fix command fills in; a Forge-native updater or a second configuration would open competing proposals."
+projections = [
+  ".config/mise/config.toml",
+  ".config/mise/uv.toml",
+  ".config/npm/npmrc",
+  "docs/",
+  "tests/",
+  "tools/quality/",
+]
 
 [[controls]]
 id = "ci-proof-graph"

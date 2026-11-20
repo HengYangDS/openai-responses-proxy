@@ -28,7 +28,7 @@
   "semanticCommitType": "build",
   "semanticCommitScope": "toolchain",
   "ignoreUnstable": true,
-  "minimumReleaseAge": "0 hours",
+  "minimumReleaseAge": "24 hours",
   "minimumReleaseAgeBehaviour": "timestamp-required",
   "internalChecksFilter": "strict",
   "prCreation": "immediate",

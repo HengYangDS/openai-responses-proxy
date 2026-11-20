@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import subprocess
@@ -134,7 +135,8 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
     run = mocker.patch.object(
         governance.subprocess,
         "run",
-        side_effect=[tracked, tracked, *([completed] * 15)],
+        # The two listings of tracked inputs, then every command of the graph, however many.
+        side_effect=itertools.chain((tracked, tracked), itertools.repeat(completed)),
     )
 
     governance.audit(online_links=False)
@@ -229,6 +231,7 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
             "README.md",
         ),
         (governance.sys.executable, "-m", "tools.release.metadata"),
+        (governance.sys.executable, "-m", "tools.quality.release_age"),
         (governance.sys.executable, "-m", "tools.quality.hard_coding"),
         (governance.sys.executable, "-m", "tools.quality.repository"),
     ]

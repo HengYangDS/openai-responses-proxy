@@ -308,7 +308,10 @@ class TestVerificationContracts:
         )
 
         toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
-        assert toolchain["settings"] == {
+        settings = dict(toolchain["settings"])
+        # The release age is declared here, in whole hours; its own tests read what it fills.
+        assert re.fullmatch(r"(0|[1-9]\d*)h", settings.pop("minimum_release_age"))
+        assert settings == {
             "idiomatic_version_file_enable_tools": [],
             "locked": True,
             "not_found_system_fallback": False,

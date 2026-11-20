@@ -11,6 +11,7 @@ from tests.forge.workflows.fixtures import _mapping
 from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _strings
 from tests.quality.fixtures import ROOT
+from tools.quality import release_age
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -176,9 +177,10 @@ def test_uv_required_version_is_read_with_the_uv_group() -> None:
 def test_release_age_vulnerability_and_automerge_admission() -> None:
     policy = _policy()
     rules = _rules(policy, "packageRules")
-    # The owner's setting of 2026-11-13: the release age is one value in hours that a later
-    # change edits in one place. These assertions read where an age is declared and in which
-    # unit, never how long it is; only the security-fix rule names an age of its own, zero.
+    # The release age is one value in hours, declared in the Mise configuration and filled in
+    # here by the fix command (tests/quality/test_release_age.py). These assertions read where
+    # the policy holds an age and in which unit, never how long it is; only the security-fix
+    # rule names an age of its own, zero.
     assert re.fullmatch(r"(0|[1-9]\d*) hours", str(policy["minimumReleaseAge"]))
     assert policy["minimumReleaseAgeBehaviour"] == "timestamp-required"
     assert sorted(_declared_ages(policy)) == [
@@ -201,10 +203,9 @@ def test_release_age_vulnerability_and_automerge_admission() -> None:
         "automerge",
         "vulnerabilityFixStrategy",
     }
-    # The package managers have age settings of their own; one of them would hold a lock
-    # refresh that the policy does not see.
-    assert "exclude-newer" not in (ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8")
-    assert "min-release-age" not in (ROOT / ".config/npm/npmrc").read_text(encoding="utf-8")
+    # The package managers have age settings of their own, which hold a lock refresh that the
+    # policy does not see: each holds the declared age and no other.
+    assert release_age.gaps() == ()
     # Without their own concurrency limits, security fixes skip the proposal queue, as
     # Renovate does by default.
     assert not {"prConcurrentLimit", "branchConcurrentLimit"} & vulnerability.keys()

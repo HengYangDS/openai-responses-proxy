@@ -194,6 +194,7 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
         ),
         ("lychee", "--config", LINK_POLICY, *link_mode, *markdown),
         (sys.executable, "-m", "tools.release.metadata"),
+        (sys.executable, "-m", "tools.quality.release_age"),
         (sys.executable, "-m", "tools.quality.hard_coding"),
         (sys.executable, "-m", "tools.quality.repository"),
     )

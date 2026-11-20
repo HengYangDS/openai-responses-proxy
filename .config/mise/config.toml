@@ -3,6 +3,9 @@ min_version = "2026.9.11"
 [settings]
 idiomatic_version_file_enable_tools = []
 locked = true
+# The repository's release age, in whole hours: a release younger than this is not taken. This
+# line is the one declaration; `mise run fix` fills Renovate's, uv's and npm's own settings from it.
+minimum_release_age = "24h"
 not_found_system_fallback = false
 # Locked installs must not query Mise's optional version-index service.
 use_versions_host = false

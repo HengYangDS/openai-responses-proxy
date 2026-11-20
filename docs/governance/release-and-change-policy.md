@@ -141,16 +141,25 @@ GitLab peer's images. The generated Forge workflows are projections, so neither
 Forge's native updater owns proposals, and the repository has no Dependabot or
 Forge-discovered Renovate configuration.
 
-- The policy declares the repository's release age once, in hours, for every
-  update it proposes. It is zero today, so a stable release may be taken at
-  publication, and one value raises it. Above zero, Renovate adds its default
-  buffer of 30 minutes, and a registry that publishes no release time, such as
-  GitHub's container registry, leaves its releases held: a refresh takes one
-  after reading its age from the publisher's release record.
+- The repository declares its release age once, in whole hours: Mise's own
+  `minimum_release_age` in `.config/mise/config.toml`. `mise run fix` fills the
+  policy's root age, uv's `exclude-newer` and npm's `min-release-age` from it,
+  and refreshes `uv.lock`, which uv checks against its age; `mise run check`
+  fails while one of the three differs. To change the age, edit that one line
+  and run `mise run fix`. npm counts whole days, so it holds a release for the
+  days that cover the declared hours, and an age of zero leaves uv's and npm's
+  lines out.
+- Above zero, Renovate adds its default buffer of 30 minutes, and a registry
+  that publishes no release time, such as GitHub's container registry, leaves
+  its releases held: a refresh takes one after reading its age from the
+  publisher's release record.
 - Packages that only a lock pins, as dependencies of declared ones, get no
-  proposal. A lock refresh moves them and applies the declared age itself.
+  proposal. A lock refresh moves them, and uv and npm apply the age themselves.
 - A security fix skips the release age and the proposal queue. It still needs
-  signatures, the current-commit tests and Change admission.
+  signatures, the current-commit tests and Change admission. uv and npm know no
+  advisory, so the change that takes a fix younger than the age names that
+  package in uv's `exclude-newer-package`, or resolves it in npm with the age
+  set aside for that one command.
 - Python packages and npm tools form separate groups. uv moves with its required
   version and the GitLab images that carry it. The development runtime moves
   with the release Python image and stays on Python 3.14.

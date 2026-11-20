@@ -140,7 +140,17 @@ def governance(session: nox.Session) -> None:
 
 @nox.session(python=False)
 def fix(session: nox.Session) -> None:
-    """Apply the repository formatters to every input that check verifies."""
+    """Fill the declared release age, refresh uv's lock under it and apply the formatters."""
+    session.run(
+        sys.executable,
+        "-m",
+        "tools.quality.release_age",
+        "--fix",
+        external=True,
+        env=_environment(),
+    )
+    # uv checks its lock against its release age; a lock that agrees with both is left as it is.
+    session.run("uv", "lock", external=True, env=_environment())
     session.run(
         "ruff",
         "format",

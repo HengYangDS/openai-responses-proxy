@@ -403,7 +403,7 @@ def test_every_session_pytest_run_binds_the_explicit_configuration(
     assert not (ROOT / "pytest.ini").exists()
 
 
-def test_fix_formats_python_then_text_through_their_owners(
+def test_fix_fills_the_release_age_then_formats_python_and_text_through_their_owners(
     mocker: MockerFixture, nox_configuration: ModuleType
 ) -> None:
     session = mocker.Mock(posargs=[])
@@ -411,6 +411,9 @@ def test_fix_formats_python_then_text_through_their_owners(
     nox_configuration.fix(session)
 
     assert [call.args for call in session.run.call_args_list] == [
+        # The declared release age reaches every resolver, and uv's lock follows uv's age.
+        (sys.executable, "-m", "tools.quality.release_age", "--fix"),
+        ("uv", "lock"),
         (
             "ruff",
             "format",
