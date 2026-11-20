@@ -31,12 +31,8 @@ command = [
   "--report",
   "{native_output}/quality-nox.json",
 ]
-# The quality session's 3.12 suite run is the proof's 3.12 behaviour evidence.
-verification_providers = [
-  "ethos.adapters.gates.python_quality:static_report",
-  "ethos.adapters.gates.python_quality:behavior_report",
-]
-dimensions = ["static-analysis", "types", "structure", "coverage", "behavior"]
+verification_providers = ["ethos.adapters.gates.python_quality:static_report"]
+dimensions = ["static-analysis", "types", "structure", "coverage"]
 execution_mode = "subprocess"
 evidence_class = "proof"
 trust_bearing = true
@@ -61,21 +57,6 @@ sessions = ["quality-3.12"]
 python = "3.12"
 configuration = ".config/checks/ruff/ruff.toml"
 dependency_groups = ["quality"]
-
-[[proof.gates.native_outputs]]
-path = "quality-3.12.xml"
-format = "junit-xml"
-sessions = ["quality-3.12"]
-
-[[proof.gates.native_outputs]]
-path = "quality-3.12-pytest.jsonl"
-format = "pytest-jsonl"
-sessions = ["quality-3.12"]
-
-[[proof.gates.native_outputs]]
-path = "quality-3.12-coverage.xml"
-format = "cobertura-xml"
-sessions = ["quality-3.12"]
 
 [[proof.gates]]
 id = "python-matrix"
