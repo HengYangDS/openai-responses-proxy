@@ -419,6 +419,10 @@ def test_a_line_separator_inside_a_json_string_does_not_end_a_line(tmp_path: Pat
     ]
 
 
+# One of uv's indexes, as an array of tables holds it.
+_INDEX = '[[index]]\nurl = "https://mirror.test/simple"\n'
+
+
 @pytest.mark.parametrize(
     ("path", "written", "key"),
     [
@@ -429,6 +433,9 @@ def test_a_line_separator_inside_a_json_string_does_not_end_a_line(tmp_path: Pat
         (UV, 'exclude-newer-span = "PT1H"', "exclude-newer-span"),
         (UV, '[pip]\nexclude-newer = "1 week"', "pip.exclude-newer"),
         (UV, "[pip.exclude-newer-package]\ncertifi = false", "pip.exclude-newer-package"),
+        # One index's own age, which uv reads in place of the top-level one for that index.
+        (UV, f'{_INDEX}exclude-newer = "0 days"', "index[].exclude-newer"),
+        (UV, f"{_INDEX}exclude-newer = false", "index[].exclude-newer"),
     ],
 )
 def test_another_age_rule_is_refused_by_file_and_key(

@@ -93,6 +93,10 @@ def _uv_others(table: dict[str, object], path: str = "") -> list[str]:
     for key, value in table.items():
         if key.startswith(_UV_AGE):
             found += [] if not path and key in _UV_ADMITTED else [path + key]
+        elif isinstance(value, list):
+            # An array of tables, such as uv's indexes, each of which may hold an age of its own.
+            for item in value:
+                found += _uv_others(_table(item), f"{path}{key}[].")
         else:
             found += _uv_others(_table(value), f"{path}{key}.")
     return found

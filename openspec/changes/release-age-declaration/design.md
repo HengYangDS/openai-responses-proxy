@@ -97,6 +97,10 @@ dependency's version.
   its lock against, so adding or removing it fails `uv lock --check` until a refresh; an entry of `false`, which
   only sets the age aside for that package, leaves the lock's options as they are, and `uv lock --check` passes
   with or without it. What a refresh does to a still-young release whose exemption is gone was not measured.
+- The fill writes a file with line feeds and one final newline, as the repository's text layout asks of every
+  tracked text file; a file that held other line endings or trailing blank lines is brought to that form.
+- uv also reads an age that one index holds of its own (`[[index]]` with `exclude-newer`); the check names it as
+  another rule, at any depth of uv's configuration.
 
 ## Migration Plan
 

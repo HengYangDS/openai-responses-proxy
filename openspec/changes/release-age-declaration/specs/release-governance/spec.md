@@ -38,8 +38,8 @@ the age.
 - **THEN** the same change SHALL carry uv's refreshed lock
 - **AND** a package that only the lock pins and that is younger than the age SHALL give way to the newest release
   that has passed it
-- **AND** a release that the manifest pins exactly and that is younger than the age SHALL make the refresh fail,
-  naming the package, until it has aged or is exempted as a security fix.
+- **AND** a release that the manifest pins exactly and that is younger than the age SHALL NOT be taken by the
+  refresh until it has aged or is exempted as a security fix.
 
 #### Scenario: Another age rule is written
 
