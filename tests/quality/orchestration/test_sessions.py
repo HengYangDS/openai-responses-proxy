@@ -424,6 +424,10 @@ def test_fix_fills_the_release_age_then_formats_python_and_text_through_their_ow
         ),
         (sys.executable, "-m", "tools.quality.governance", "--fix"),
     ]
+    # uv reads its release age from the configuration that the session environment names, so a
+    # refresh outside that environment would follow another configuration's age, or none.
+    (refresh,) = [call for call in session.run.call_args_list if call.args == ("uv", "lock")]
+    assert refresh.kwargs["env"] == nox_configuration._environment()
 
 
 def test_governance_reuses_the_admitted_interpreter(

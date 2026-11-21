@@ -2,8 +2,8 @@
 
 Since 2026-11-19 every repository that ETHOS governs holds a new release for 24 hours before it takes it, and
 writes that age itself; a security fix skips it. This repository's age is still zero, and it is written in one
-place only, the dependency proposal policy, which governs what Renovate proposes. A lock refresh by hand, a tool
-that Mise resolves and an npm resolution each follow no age at all.
+place only, the dependency proposal policy, which governs what Renovate proposes. A lock refresh by hand under uv
+or npm therefore follows no age.
 
 The owner's design rule of 2026-11-20 asks that a fact has one source and that what repeats it is derived or
 filled from that source, never kept beside it.

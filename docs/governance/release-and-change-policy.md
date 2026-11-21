@@ -157,9 +157,13 @@ Forge-discovered Renovate configuration.
   proposal. A lock refresh moves them, and uv and npm apply the age themselves.
 - A security fix skips the release age and the proposal queue. It still needs
   signatures, the current-commit tests and Change admission. uv and npm know no
-  advisory, so the change that takes a fix younger than the age names that
-  package in uv's `exclude-newer-package`, or resolves it in npm with the age
-  set aside for that one command.
+  advisory, so the change that takes a fix younger than the age names every
+  young package that the fix needs in uv's `exclude-newer-package`, or resolves
+  it in npm with the age set aside for that one command. uv checks its lock
+  against an exemption that gives a package a time of its own, not against one
+  that only sets the age aside (`false`). Its maintainer removes it at the
+  first refresh after those releases have passed the age. It is the only other
+  age setting that `mise run check` admits in uv's or npm's configuration.
 - Python packages and npm tools form separate groups. uv moves with its required
   version and the GitLab images that carry it. The development runtime moves
   with the release Python image and stays on Python 3.14.

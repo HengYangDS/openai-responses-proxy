@@ -204,7 +204,9 @@ def test_release_age_vulnerability_and_automerge_admission() -> None:
         "vulnerabilityFixStrategy",
     }
     # The package managers have age settings of their own, which hold a lock refresh that the
-    # policy does not see: each holds the declared age and no other.
+    # policy does not see. Read as uv and npm read them, each holds the declared age, and
+    # neither file holds another rule that holds or admits releases: only uv's exemption of
+    # single packages, which a security fix younger than the age needs, may stand beside it.
     assert release_age.gaps() == ()
     # Without their own concurrency limits, security fixes skip the proposal queue, as
     # Renovate does by default.

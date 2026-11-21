@@ -3,8 +3,10 @@ min_version = "2026.9.11"
 [settings]
 idiomatic_version_file_enable_tools = []
 locked = true
-# The repository's release age, in whole hours: a release younger than this is not taken. This
-# line is the one declaration; `mise run fix` fills Renovate's, uv's and npm's own settings from it.
+# The repository's release age, in whole hours. This line is the one declaration: `mise run fix`
+# fills Renovate's, uv's and npm's own settings from it, and those three hold a younger release
+# back. Mise itself applies the age only to a version that is neither exact nor locked, and every
+# tool below is exact and locked.
 minimum_release_age = "24h"
 not_found_system_fallback = false
 # Locked installs must not query Mise's optional version-index service.
@@ -80,7 +82,7 @@ description = "Run the editing feedback loop"
 run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s quick'
 
 [tasks.fix]
-description = "Apply the repository formatters to every input that check verifies"
+description = "Fill the declared release age, refresh uv's lock and apply the repository formatters"
 run = 'uv run --locked --no-sync --python "{{tools.python.path}}" nox -s fix'
 
 [tasks.check]

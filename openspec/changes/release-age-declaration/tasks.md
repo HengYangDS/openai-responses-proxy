@@ -10,6 +10,11 @@
       the governance composition test lists the check once and `mise run fix` restores an edited npm line.
 - [ ] 1.4 Replace the dependency policy test's refusal of an age in uv's and npm's configuration with the
       declared one. Done when the dependency policy tests pass.
+- [ ] 1.5 Hold each setting by the value that its resolver reads, and refuse another age rule in uv's or npm's
+      configuration. Done when the module's tests pass: a filled text is read again before any write and refused
+      unless it holds the declared age, a setting written twice or where its resolver does not read it is
+      refused, a missing uv line goes above the first table, and the check names `before`,
+      `min-release-age-exclude` and any uv age key other than `exclude-newer` and `exclude-newer-package`.
 
 ## 2. Documents
 
