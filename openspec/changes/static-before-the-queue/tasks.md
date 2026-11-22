@@ -11,4 +11,4 @@
 
 - [x] 2.1 Pass `mise run check` on the lane head.
 - [ ] 2.2 Pass a full proof of the lane head inside a host ticket, with the readiness tier ending in seconds.
-- [ ] 2.3 Pass the proposal's hosted checks on both forges.
+- [x] 2.3 Pass the proposal's hosted checks on both forges (GitHub PR 218; GitLab !126, pipeline 17332).
