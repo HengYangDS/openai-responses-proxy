@@ -109,7 +109,7 @@ def test_native_helper_supply_refuses_unsupplied_or_invalid_requirements(
 def _native_session(
     name: str, tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
 ) -> tuple[Path, object]:
-    """Run one session of the 3.12 floor with native output selected; return the output and the session."""
+    """Run one 3.12 session with native output selected; return the output and the session."""
     output = tmp_path / "reports"
     output.mkdir()
     work = tmp_path / "work"

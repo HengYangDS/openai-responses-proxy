@@ -5,9 +5,9 @@ that is neither a `test` nor a `package` gate and depends on none, and runs it "
 plane reference); the test and package gates then run inside the host ticket. This repository declares two code
 gates in `.ethos/profile.toml`:
 
-| Gate             | Kind     | Command                       | Duration on 2026-11-22 (proof of `1155935d`) |
-| ---------------- | -------- | ----------------------------- | -------------------------------------------- |
-| `python-quality` | `static` | `nox -s quality` (3.12)       | 231 s                                        |
+| Gate             | Kind     | Command                        | Duration on 2026-11-22 (proof of `1155935d`) |
+| ---------------- | -------- | ------------------------------ | -------------------------------------------- |
+| `python-quality` | `static` | `nox -s quality` (3.12)        | 231 s                                        |
 | `python-matrix`  | `test`   | `nox -s tests-3.13 tests-3.14` | 394 s                                        |
 
 `nox -s quality` runs `python_quality.static` and then `python_quality.behavior(require_coverage=True)`, the whole

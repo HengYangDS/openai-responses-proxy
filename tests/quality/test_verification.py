@@ -433,8 +433,8 @@ class TestVerificationContracts:
         assert "uv sync --locked --only-group quality" not in quality_job
         assert "uv sync --locked --group quality --python python --no-python-downloads" in gitlab
         assert (
-            "uv run --locked --no-sync --python python --no-python-downloads nox -s quality coverage"
-            in gitlab
+            "uv run --locked --no-sync --python python --no-python-downloads"
+            " nox -s quality coverage" in gitlab
         )
         assert "fetch-depth: 0" in quality_job
         assert "fetch-tags: true" in quality_job
