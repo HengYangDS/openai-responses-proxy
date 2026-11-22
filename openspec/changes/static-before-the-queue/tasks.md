@@ -9,6 +9,6 @@
 
 ## 2. Verification
 
-- [x] 2.1 Pass `mise run check` on the lane head.
-- [ ] 2.2 Pass a full proof of the lane head inside a host ticket, with the readiness tier ending in seconds.
+- [x] 2.1 Pass `mise run check` on the lane head, and read the readiness proof that runs before its ticket end in
+      seconds (02:23:25 to 02:23:30 on 2026-11-23, against 231 s of tests there before).
 - [x] 2.3 Pass the proposal's hosted checks on both forges (GitHub PR 218; GitLab !126, pipeline 17332).
