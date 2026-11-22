@@ -75,6 +75,7 @@ command = [
   "python",
   "nox",
   "-s",
+  "coverage",
   "tests-3.13",
   "tests-3.14",
   "--report",
@@ -92,7 +93,30 @@ writes_files = true
 [[proof.gates.native_outputs]]
 path = "matrix-nox.json"
 format = "nox-json"
-sessions = ["tests-3.13", "tests-3.14"]
+sessions = ["coverage-3.12", "tests-3.13", "tests-3.14"]
+
+[[proof.gates.native_outputs]]
+path = "coverage.xml"
+format = "junit-xml"
+sessions = ["coverage-3.12"]
+
+[[proof.gates.native_outputs]]
+path = "coverage-pytest.jsonl"
+format = "pytest-jsonl"
+sessions = ["coverage-3.12"]
+
+[[proof.gates.native_outputs]]
+path = "coverage-coverage.xml"
+format = "cobertura-xml"
+sessions = ["coverage-3.12"]
+
+[[proof.gates.native_outputs]]
+path = "coverage-runtime.json"
+format = "python-runtime-json"
+sessions = ["coverage-3.12"]
+python = "3.12"
+configuration = ".config/checks/pytest/pytest.toml"
+dependency_groups = ["quality"]
 
 [[proof.gates.native_outputs]]
 path = "tests-3.13.xml"

@@ -34,11 +34,11 @@ def test_nox_console_discovers_the_repository_sessions_without_pythonpath() -> N
         timeout=30,
     )
     sessions = {item["session"] for item in json.loads(result.stdout)}
-    assert {"quality", "tests-3.12", "tests-3.13", "tests-3.14"} <= sessions
+    assert {"quality", "coverage", "tests-3.12", "tests-3.13", "tests-3.14"} <= sessions
 
 
 @pytest.mark.parametrize(
-    "session_name", ["quick", "tests", "quality", "release_asset", "release", "performance"]
+    "session_name", ["quick", "tests", "coverage", "release_asset", "release", "performance"]
 )
 @pytest.mark.parametrize(
     ("system", "machine", "release_platform"),
@@ -180,6 +180,7 @@ def test_full_acceptance_schedules_each_required_environment_once(
     assert [call.args[0] for call in session.notify.call_args_list] == [
         "governance",
         "quality",
+        "coverage",
         "tests-3.13",
         "tests-3.14",
     ]

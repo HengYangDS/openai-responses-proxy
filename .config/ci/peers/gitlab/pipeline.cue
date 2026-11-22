@@ -140,7 +140,7 @@ gitlab: {
 			]])
 			script: [
 				"uv sync --locked --group quality --python python --no-python-downloads",
-				"uv run --locked --no-sync --python python --no-python-downloads nox -s \(#VerificationJobs.quality.session)",
+				"uv run --locked --no-sync --python python --no-python-downloads nox -s \(#VerificationJobs.quality.session) \(#VerificationJobs.coverage.session)",
 			]
 		}
 		"verify-performance": {

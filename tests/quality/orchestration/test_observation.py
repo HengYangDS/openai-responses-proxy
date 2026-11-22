@@ -106,8 +106,27 @@ def test_native_helper_supply_refuses_unsupplied_or_invalid_requirements(
     session.install.assert_not_called()
 
 
+def _native_session(
+    name: str, tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
+) -> tuple[Path, object]:
+    """Run one session of the 3.12 floor with native output selected; return the output and the session."""
+    output = tmp_path / "reports"
+    output.mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    session = mocker.Mock(python="3.12", bin=str(tmp_path))
+    session.name = name
+    session.env = {}
+    session.create_tmp.return_value = str(work)
+    mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(output)})
+    for helper in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
+        mocker.patch.object(nox_configuration, helper)
+    getattr(nox_configuration, name)(session)
+    return output, session
+
+
 @pytest.mark.parametrize(("platform_name", "ruff_name"), [("posix", "ruff"), ("nt", "ruff.exe")])
-def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
+def test_quality_reports_bind_the_static_checker_and_run_no_test_case(
     platform_name: str,
     ruff_name: str,
     tmp_path: Path,
@@ -115,24 +134,13 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     nox_configuration: ModuleType,
 ) -> None:
     """This interpreter has no ETHOS, so a parent import would fail the session."""
-    output = tmp_path / "reports"
-    output.mkdir()
-    work = tmp_path / "work"
-    work.mkdir()
-    session = mocker.Mock(python="3.12", bin=str(tmp_path))
-    session.name = "quality"
-    session.env = {}
-    session.create_tmp.return_value = str(work)
-    mocker.patch.dict(os.environ, {"ETHOS_NATIVE_OUTPUT_DIR": str(output)})
     mocker.patch.object(
         nox_configuration.python_quality,
         "os",
         SimpleNamespace(name=platform_name, environ=os.environ),
     )
-    for name in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
-        mocker.patch.object(nox_configuration, name)
 
-    nox_configuration.quality(session)
+    output, session = _native_session("quality", tmp_path, mocker, nox_configuration)
 
     custody = [
         call for call in session.run.call_args_list if "ethos.domain.quality.nox" in call.args
@@ -160,17 +168,26 @@ def test_quality_reports_bind_checkers_and_preserve_outer_attempt(
     assert "--verbose" in ruff
     assert ruff[ruff.index("--output-format") + 1] == "sarif"
     assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.sarif")
+    assert [call for call in session.run.call_args_list if "pytest" in call.args] == []
+
+
+def test_coverage_reports_bind_the_behavior_run_and_preserve_outer_attempt(
+    tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
+) -> None:
+    output, session = _native_session("coverage", tmp_path, mocker, nox_configuration)
+
+    assert [call for call in session.run.call_args_list if "ruff" in call.args] == []
     behavior, nested = [call for call in session.run.call_args_list if "pytest" in call.args]
-    assert behavior.args[behavior.args.index("--ethos-native-session") + 1] == "quality-3.12"
+    assert behavior.args[behavior.args.index("--ethos-native-session") + 1] == "coverage-3.12"
     assert behavior.args[behavior.args.index("--ethos-runtime-output") + 1] == str(
-        output / "quality-runtime.json"
+        output / "coverage-runtime.json"
     )
     assert behavior.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
     assert nested.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
     assert "--ethos-runtime-output" not in nested.args
     assert nested.args[-2:] == ("-m", "native_observer")
     assert any(
-        "--xml" in call.args and call.args[-1] == str(output / "quality-coverage.xml")
+        "--xml" in call.args and call.args[-1] == str(output / "coverage-coverage.xml")
         for call in session.run.call_args_list
     )
 

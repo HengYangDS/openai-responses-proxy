@@ -479,6 +479,27 @@ def test_every_declared_marker_is_selected_by_a_gate_session_that_runs_its_cases
         assert _unselected(frozenset({name}), forced, withdrawn | loop, admitted) == {}
 
 
+def test_a_gate_that_runs_before_the_host_ticket_runs_no_test_case(
+    tmp_path: Path,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    nox_configuration: ModuleType,
+) -> None:
+    """ETHOS runs every gate that is neither a test nor a package gate before admission."""
+    run = _recorder(tmp_path, mocker, monkeypatch, nox_configuration)
+    gates = tomllib.loads(PROFILE.read_text(encoding="utf-8"))["proof"]["gates"]
+    ready = [gate for gate in gates if gate["kind"] not in {"test", "package"}]
+    admitted = [gate for gate in gates if gate["kind"] in {"test", "package"}]
+
+    def cases(gate: Mapping[str, object]) -> list[Command]:
+        sessions = set(SESSION.findall(" ".join(str(part) for part in gate["command"])))
+        return [command for command in run(sessions, proof=True) if "pytest" in command]
+
+    assert ready
+    assert {gate["id"]: cases(gate) for gate in ready} == {gate["id"]: [] for gate in ready}
+    assert any(cases(gate) for gate in admitted)
+
+
 @pytest.mark.parametrize(
     "spelling", ["{}", "./{}", f"{ROOT}/{{}}"], ids=["relative", "dotted", "absolute"]
 )

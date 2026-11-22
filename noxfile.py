@@ -94,13 +94,19 @@ def tests(session: nox.Session) -> None:
 
 @nox.session(python=MIN_PYTHON)
 def quality(session: nox.Session) -> None:
-    """Run static analysis and branch-aware coverage at the compatibility floor."""
+    """Run the static analysis at the compatibility floor; it runs no test case."""
+    _prepare_product_session(session)
+    python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
+
+
+@nox.session(python=MIN_PYTHON)
+def coverage(session: nox.Session) -> None:
+    """Run the behavior inventory under branch-aware coverage at the compatibility floor."""
     _prepare_product_session(session)
     environment: dict[str, str | None] = {
         **_environment(),
         product_identity.environment_name("EXECUTABLE"): str(_installed_executable(session)),
     }
-    python_quality.static(session, environment=_environment(), minimum_python=MIN_PYTHON)
     python_quality.behavior(session, environment=environment, require_coverage=True)
     if os.environ.get("ETHOS_NATIVE_OUTPUT_DIR", ""):
         session.run(
@@ -176,6 +182,7 @@ def full(session: nox.Session) -> None:
     """Run governance, strict quality, and every remaining supported interpreter."""
     session.notify("governance")
     session.notify("quality")
+    session.notify("coverage")
     for python in PYTHONS[1:]:
         session.notify(f"tests-{python}")
 

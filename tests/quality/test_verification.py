@@ -429,11 +429,11 @@ class TestVerificationContracts:
         github = (ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
         gitlab = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
         quality_job = github.split("  python-quality:", 1)[1].split("  native-assets:", 1)[0]
-        assert "uv run --locked --group quality nox -s quality" in quality_job
+        assert "uv run --locked --group quality nox -s quality coverage" in quality_job
         assert "uv sync --locked --only-group quality" not in quality_job
         assert "uv sync --locked --group quality --python python --no-python-downloads" in gitlab
         assert (
-            "uv run --locked --no-sync --python python --no-python-downloads nox -s quality"
+            "uv run --locked --no-sync --python python --no-python-downloads nox -s quality coverage"
             in gitlab
         )
         assert "fetch-depth: 0" in quality_job

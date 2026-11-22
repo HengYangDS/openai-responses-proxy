@@ -10,6 +10,7 @@ import "strings"
 
 #VerificationJobs: {
 	quality: session:       "quality"
+	coverage: session:      "coverage"
 	compatibility: session: "tests"
 	performance: session:   "performance"
 	governance: module:     "tools.quality.governance"

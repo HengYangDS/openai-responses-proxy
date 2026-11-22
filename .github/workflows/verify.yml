@@ -313,7 +313,7 @@ jobs:
           install: true
           cache: true
       - name: Verify lint, format, types, structure, docstrings, and product branch coverage
-        run: uv run --locked --group quality nox -s quality
+        run: uv run --locked --group quality nox -s quality coverage
     env:
       UV_CONFIG_FILE: .config/mise/uv.toml
       UV_NO_CONFIG: "false"

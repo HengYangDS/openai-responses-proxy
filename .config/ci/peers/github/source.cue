@@ -250,7 +250,7 @@ import "list"
 			}
 		}, {
 			name: "Verify lint, format, types, structure, docstrings, and product branch coverage"
-			run:  "uv run --locked --group quality nox -s \(#VerificationJobs.quality.session)"
+			run:  "uv run --locked --group quality nox -s \(#VerificationJobs.quality.session) \(#VerificationJobs.coverage.session)"
 		}]
 	}
 	performance: {

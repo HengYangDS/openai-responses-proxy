@@ -68,7 +68,7 @@ verify-python-quality:
     - git fetch --tags --force --prune --prune-tags origin
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
-    - uv run --locked --no-sync --python python --no-python-downloads nox -s quality
+    - uv run --locked --no-sync --python python --no-python-downloads nox -s quality coverage
 verify-performance:
   stage: verify
   tags:
@@ -162,7 +162,7 @@ verify-python-quality-accepted:
     - git fetch --tags --force --prune --prune-tags origin
   script:
     - uv sync --locked --group quality --python python --no-python-downloads
-    - uv run --locked --no-sync --python python --no-python-downloads nox -s quality
+    - uv run --locked --no-sync --python python --no-python-downloads nox -s quality coverage
 verify-performance-accepted:
   stage: verify
   tags:
