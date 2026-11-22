@@ -108,8 +108,11 @@ def test_native_helper_supply_refuses_unsupplied_or_invalid_requirements(
 
 def _native_session(
     name: str, tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
-) -> tuple[Path, object]:
-    """Run one 3.12 session with native output selected; return the output and the session."""
+) -> tuple[Path, list[tuple[tuple[str, ...], dict[str, object]]]]:
+    """Run one 3.12 session with native output selected.
+
+    Returns the output directory and each command that the session ran, with its options.
+    """
     output = tmp_path / "reports"
     output.mkdir()
     work = tmp_path / "work"
@@ -122,7 +125,17 @@ def _native_session(
     for helper in ("_install_tools", "_build_wheel", "_install_wheel", "_assert_installed_product"):
         mocker.patch.object(nox_configuration, helper)
     getattr(nox_configuration, name)(session)
-    return output, session
+    return output, [
+        (tuple(str(part) for part in call.args), dict(call.kwargs))
+        for call in session.run.call_args_list
+    ]
+
+
+def _native_output_of(options: dict[str, object]) -> object:
+    """Read the native output directory that one command's environment selects."""
+    environment = options["env"]
+    assert isinstance(environment, dict)
+    return environment["ETHOS_NATIVE_OUTPUT_DIR"]
 
 
 @pytest.mark.parametrize(("platform_name", "ruff_name"), [("posix", "ruff"), ("nt", "ruff.exe")])
@@ -140,13 +153,11 @@ def test_quality_reports_bind_the_static_checker_and_run_no_test_case(
         SimpleNamespace(name=platform_name, environ=os.environ),
     )
 
-    output, session = _native_session("quality", tmp_path, mocker, nox_configuration)
+    output, calls = _native_session("quality", tmp_path, mocker, nox_configuration)
 
-    custody = [
-        call for call in session.run.call_args_list if "ethos.domain.quality.nox" in call.args
-    ]
+    custody = [args for args, _options in calls if "ethos.domain.quality.nox" in args]
     assert len(custody) == 1
-    checker = custody[0].args
+    checker = custody[0]
     assert checker[:6] == (
         "python",
         "-B",
@@ -168,27 +179,27 @@ def test_quality_reports_bind_the_static_checker_and_run_no_test_case(
     assert "--verbose" in ruff
     assert ruff[ruff.index("--output-format") + 1] == "sarif"
     assert ruff[ruff.index("--output-file") + 1] == str(output / "quality-ruff.sarif")
-    assert [call for call in session.run.call_args_list if "pytest" in call.args] == []
+    assert [args for args, _options in calls if "pytest" in args] == []
 
 
 def test_coverage_reports_bind_the_behavior_run_and_preserve_outer_attempt(
     tmp_path: Path, mocker: MockerFixture, nox_configuration: ModuleType
 ) -> None:
-    output, session = _native_session("coverage", tmp_path, mocker, nox_configuration)
+    output, calls = _native_session("coverage", tmp_path, mocker, nox_configuration)
 
-    assert [call for call in session.run.call_args_list if "ruff" in call.args] == []
-    behavior, nested = [call for call in session.run.call_args_list if "pytest" in call.args]
-    assert behavior.args[behavior.args.index("--ethos-native-session") + 1] == "coverage-3.12"
-    assert behavior.args[behavior.args.index("--ethos-runtime-output") + 1] == str(
+    assert [args for args, _options in calls if "ruff" in args] == []
+    behavior, nested = [(args, options) for args, options in calls if "pytest" in args]
+    assert behavior[0][behavior[0].index("--ethos-native-session") + 1] == "coverage-3.12"
+    assert behavior[0][behavior[0].index("--ethos-runtime-output") + 1] == str(
         output / "coverage-runtime.json"
     )
-    assert behavior.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
-    assert nested.kwargs["env"]["ETHOS_NATIVE_OUTPUT_DIR"] is None
-    assert "--ethos-runtime-output" not in nested.args
-    assert nested.args[-2:] == ("-m", "native_observer")
+    assert _native_output_of(behavior[1]) is None
+    assert _native_output_of(nested[1]) is None
+    assert "--ethos-runtime-output" not in nested[0]
+    assert nested[0][-2:] == ("-m", "native_observer")
     assert any(
-        "--xml" in call.args and call.args[-1] == str(output / "coverage-coverage.xml")
-        for call in session.run.call_args_list
+        "--xml" in args and args[-1] == str(output / "coverage-coverage.xml")
+        for args, _options in calls
     )
 
 

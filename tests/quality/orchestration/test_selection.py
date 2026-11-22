@@ -491,8 +491,8 @@ def test_a_gate_that_runs_before_the_host_ticket_runs_no_test_case(
     ready = [gate for gate in gates if gate["kind"] not in {"test", "package"}]
     admitted = [gate for gate in gates if gate["kind"] in {"test", "package"}]
 
-    def cases(gate: Mapping[str, object]) -> list[Command]:
-        sessions = set(SESSION.findall(" ".join(str(part) for part in gate["command"])))
+    def cases(gate: Mapping[str, list[str]]) -> list[Command]:
+        sessions = set(SESSION.findall(" ".join(gate["command"])))
         return [command for command in run(sessions, proof=True) if "pytest" in command]
 
     assert ready
