@@ -53,10 +53,11 @@ mise install --locked
 mise run bootstrap
 ```
 
-`.config/mise/config.toml` and `.config/mise/mise.lock` own language runtimes and
-standalone executables. `.config/miserc.toml` keeps parent and global mise
-configuration out of this checkout, and the toolchain binds npm to
-`.config/npm/npmrc`.
+`.config/mise/config.toml` and `.config/mise/mise.lock` own language runtimes,
+standalone executables and the npm that installs the Node tools; the toolchain
+binds npm to `.config/npm/npmrc`. `.config/miserc.toml` limits parent discovery,
+but Mise reads the operator's global configuration at startup, before it, so
+every tool that the repository runs is selected here, npm included.
 The native uv configuration is `.config/mise/uv.toml`; Mise, Nox and both CUE
 projections select it instead of discovering operator configuration. GitHub's
 setup action reads its version requirement from the same file. External ETHOS

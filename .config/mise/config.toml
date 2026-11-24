@@ -12,9 +12,16 @@ not_found_system_fallback = false
 # Locked installs must not query Mise's optional version-index service.
 use_versions_host = false
 
+[tool_alias]
+# The package manager that installs the locked Node tools; its native name keeps its place before
+# Node's bundled npm on every platform.
+npm = "npm:npm"
+
 [tools]
 # Language runtimes
 node = "26.13.1"
+# The package manager of the Node tools; package.json and package-lock.json own the tools.
+npm = "12.2.3"
 python = "3.14.10"
 
 # Dependency management

@@ -164,7 +164,7 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
 
 
 def test_node_repository_tools_have_one_locked_owner() -> None:
-    """Install Node tools from the repository lock, never the mise npm backend."""
+    """Install Node tools from the repository lock with the npm that Mise selects and locks."""
     package = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     dev_dependencies = package["packages"][""]["devDependencies"]
     manifest = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
@@ -174,24 +174,47 @@ def test_node_repository_tools_have_one_locked_owner() -> None:
         assert re.fullmatch(r"\d+\.\d+\.\d+", version)
         assert package["packages"][f"node_modules/{name}"]["version"] == version
 
+    # The package manager itself is the one tool of Mise's npm backend, under its own name.
     mise = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
-    assert all(not name.startswith("npm:") for name in mise["tools"])
+    aliases = mise.get("tool_alias", {})
+    backends = {name: aliases.get(name, name) for name in mise["tools"]}
+    assert [name for name, backend in backends.items() if backend.startswith("npm:")] == ["npm"]
+    assert backends["npm"] == "npm:npm"
+    version = mise["tools"]["npm"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version)
+    lock = tomllib.loads((ROOT / ".config/mise/mise.lock").read_text(encoding="utf-8"))
+    (locked,) = lock["tools"]["npm"]
+    assert (locked["backend"], locked["version"]) == ("npm:npm", version)
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", locked["aube"]["digest"])
 
-    github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])[
-        "source-and-governance"
-    ]
-    github_steps = tuple(_mapping(step) for step in _sequence(_mapping(github)["steps"]))
-    github_script = "\n".join(str(step.get("run", "")) for step in github_steps)
-    assert "npm ci --ignore-scripts" in github_script
-    assert "npm audit signatures" in github_script
+    # Every job that installs the Node tools runs that npm: Mise installs it first.
+    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
+    installing = {
+        name: _mapping(job)
+        for name, job in gitlab.items()
+        if isinstance(job, dict) and "npm ci --ignore-scripts" in job.get("before_script", [])
+    }
+    assert installing
+    for job in installing.values():
+        steps = _strings(job["before_script"])
+        assert steps.index("mise install --locked") < steps.index("npm ci --ignore-scripts")
+        enabled = _string(_mapping(job["variables"])["MISE_ENABLE_TOOLS"]).split(",")
+        assert "npm" in enabled
 
-    tag = _mapping(
-        _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])["tag-metadata"]
-    )
-    tag_steps = tuple(_mapping(step) for step in _sequence(tag["steps"]))
-    tag_script = "\n".join(str(step.get("run", "")) for step in tag_steps)
-    assert "npm ci --ignore-scripts" in tag_script
-    assert "npm audit signatures" in tag_script
+    jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+    for name in ("source-and-governance", "tag-metadata"):
+        steps = tuple(_mapping(step) for step in _sequence(_mapping(jobs[name])["steps"]))
+        runs = [str(step.get("run", "")) for step in steps]
+        install = runs.index("npm ci --ignore-scripts")
+        assert "npm audit signatures" in runs[install:]
+        mise_steps = [
+            index
+            for index, step in enumerate(steps)
+            if str(step.get("uses", "")).startswith("jdx/mise-action@")
+        ]
+        assert mise_steps
+        assert mise_steps[0] < install
+        assert str(_mapping(steps[mise_steps[0]]["with"])["install"]).lower() == "true"
 
 
 def test_github_python_quality_installs_its_declared_projection_toolchain() -> None:

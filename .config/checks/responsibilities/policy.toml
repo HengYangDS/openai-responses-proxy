@@ -198,6 +198,8 @@ files = [
   "pyproject.toml",
   "uv.lock",
 ]
+# Mise writes the integrity lock of each npm-backend tool here, one folder per version.
+prefixes = [".config/mise/locks/"]
 
 [[roles]]
 id = "source-control-configuration"

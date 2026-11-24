@@ -283,6 +283,12 @@ url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-darwin-x64.tar.gz"
 checksum = "sha256:e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f1f7"
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
+[[tools.npm]]
+version = "12.2.3"
+aube = { path = "locks/npm/12.2.3", digest = "sha256:0b9cf97a4915aa77144036b59e533db3fa3b3fd1f572816a6c1a9603d866f34f" }
+backend = "npm:npm"
+specifiers = ["12.2.3"]
+
 [[tools.python]]
 version = "3.14.10"
 backend = "core:python"
