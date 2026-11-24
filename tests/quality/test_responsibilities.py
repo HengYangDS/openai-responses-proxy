@@ -297,7 +297,7 @@ def test_formatter_inputs_have_complete_declared_roles(
         for path, role in report["assignments"].items()
         if role in roles
         and path.endswith(suffixes)
-        and not path.startswith("openspec/changes/archive/")
+        and not path.startswith(governance.FORMATTER_EXCLUDED)
     }
 
     selected = set(governance._tracked_current(suffixes))

@@ -5,10 +5,10 @@ The proposal gives the gap. Three facts bear on the design, read on 2026-11-24 i
 - `mise exec --locked -- npm --version` prints 12.2.3 on the owner's host. `mise ls --current` names its source as
   `~/.config/mise/config.toml`, the operator's global configuration; the project selects no npm. Node 26.13.1's own
   `lib/node_modules/npm` is 11.20.0.
-- `.config/miserc.toml` lists the global configuration under `ignored_config_paths`, yet `mise settings get
-  ignored_config_paths` and `mise settings get ceiling_paths` both read `[]` (Mise 2026.11.13), and `mise config ls`
-  lists the global file. AIGW's CONTRIBUTING records the same limit: a project `miserc.toml` "cannot retroactively
-  exclude global or system configuration read at startup".
+- `.config/miserc.toml` lists the global configuration under `ignored_config_paths`, yet
+  `mise settings get ignored_config_paths` and `mise settings get ceiling_paths` both read `[]` (Mise 2026.11.13), and
+  `mise config ls` lists the global file. AIGW's CONTRIBUTING records the same limit: a project `miserc.toml`
+  "cannot retroactively exclude global or system configuration read at startup".
 - AIGW pins the same npm the same way (`[tool_alias] npm = "npm:npm"`, `npm = "12.2.3"`, an integrity lock under
   `.config/mise/locks/npm/`), and its hosted jobs on both Forges pass with it.
 
@@ -31,7 +31,8 @@ one owner, the npm lock); editing the operator's global Mise configuration; repa
   installs the repository's Node graph; the alias keeps the tool's name `npm`, so the existing refusal of `npm:` tool
   keys still keeps every repository tool in the npm lock. AIGW runs the same form on both Forges.
 - **Applies to:** `.config/mise/config.toml`, `.config/mise/mise.lock` and the folder `.config/mise/locks/` that Mise
-  writes for it (owned by the responsibility map's `toolchain` role), `.config/ci/graph/toolchains.cue`,
+  writes for it (owned by the responsibility map's `toolchain` role, and left out of the formatters' inputs beside
+  OpenSpec's archive, because Mise checks its bytes against their digest), `.config/ci/graph/toolchains.cue`,
   `tests/forge/workflows/test_supply.py`.
 
 ## Risks / Trade-offs

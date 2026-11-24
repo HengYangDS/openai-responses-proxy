@@ -24,6 +24,9 @@ PYTEST_CONFIG = ".config/checks/pytest/pytest.toml"
 DEPENDENCY_POLICY = ROOT / ".config/checks/deptry/policy.toml"
 # A staged index entry's metadata is its mode, object name and stage.
 _INDEX_ENTRY_FIELDS = 3
+# Tracked files that no formatter owns: OpenSpec's archived history is immutable, and Mise writes each
+# dependency lock under `.config/mise/locks/` byte for byte and checks it against its digest in `mise.lock`.
+FORMATTER_EXCLUDED = ("openspec/changes/archive/", ".config/mise/locks/")
 
 
 def _tracked_current(suffixes: tuple[str, ...]) -> tuple[str, ...]:
@@ -54,7 +57,7 @@ def _tracked_current(suffixes: tuple[str, ...]) -> tuple[str, ...]:
         tag, _, record = entry.partition(" ")
         metadata, separator, relative = record.partition("\t")
         relative = record if tag == "?" or not separator else relative
-        if not relative.endswith(suffixes) or relative.startswith("openspec/changes/archive/"):
+        if not relative.endswith(suffixes) or relative.startswith(FORMATTER_EXCLUDED):
             continue
         if tag == "?":
             raise GovernanceError(f"formatter_input_untracked:{relative}")
