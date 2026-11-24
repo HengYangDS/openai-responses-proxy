@@ -196,7 +196,7 @@ def test_node_repository_tools_have_one_locked_owner() -> None:
         if "aube" in entry
     }
     held = {
-        str(folder.relative_to(ROOT / ".config/mise"))
+        folder.relative_to(ROOT / ".config/mise").as_posix()
         for folder in (ROOT / ".config/mise/locks").glob("*/*")
         if folder.is_dir()
     }

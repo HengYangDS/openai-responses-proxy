@@ -1,6 +1,6 @@
-# The oldest Mise known here to read the integrity lock (`aube`) of an npm-backend tool: AIGW
-# has required it with the same lock on the CI guests that this repository shares.
-min_version = "2026.10.25"
+# Not above the Mise that ETHOS's CI supply pins and runs in this repository for commit admission
+# (2026.10.14 on 2026-11-24): a higher floor makes that Mise refuse the checkout.
+min_version = "2026.10.14"
 
 [settings]
 idiomatic_version_file_enable_tools = []

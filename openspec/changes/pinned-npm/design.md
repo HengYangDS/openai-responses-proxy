@@ -10,8 +10,10 @@ The proposal gives the gap. Three facts bear on the design, read on 2026-11-24 i
   measured this on a temporary tree, with the file and without it). AIGW's CONTRIBUTING records the same limit: a
   project `miserc.toml` "cannot retroactively exclude global or system configuration read at startup".
 - AIGW pins the same npm the same way (`[tool_alias] npm = "npm:npm"`, `npm = "12.2.3"`, an integrity lock under
-  `.config/mise/locks/npm/`); its hosted jobs pass with it on both Forges, and its `min_version` of 2026.10.25 reads
-  that lock entry on the CI guests that this repository's native jobs share.
+  `.config/mise/locks/npm/`); its hosted jobs pass with it on both Forges.
+- ETHOS's CI supply pins its own Mise (2026.10.14 on 2026-11-24) and runs it in this repository for commit admission on
+  both Forges; a `min_version` above it made that Mise refuse the checkout (GitLab job 77705, GitHub's native commit
+  admission of run 45419676297).
 
 ## Goals / Non-Goals
 
@@ -36,7 +38,8 @@ the operator's global Mise configuration.
   npm lock. A passing `npm ci` does not tell the two npm versions apart, so governance runs `tools.quality.npm_supply`
   first: it compares `npm --version` with the version that `.config/mise/config.toml` selects and refuses any other,
   on the owner's host and in every source job of both Forges.
-- **Applies to:** `.config/mise/config.toml` (and its `min_version`, raised to 2026.10.25 with the reason above),
+- **Applies to:** `.config/mise/config.toml` (and its `min_version`, 2026.10.14: not above the Mise that ETHOS's CI
+  supply pins and runs here for commit admission, which refused 2026.10.25 on both Forges),
   `.config/mise/mise.lock` and the folder `.config/mise/locks/` that Mise writes for it (owned by the responsibility
   map's `toolchain` role, and left out of the formatters' inputs beside OpenSpec's archive, because Mise checks its
   bytes against their digest), `.config/ci/graph/toolchains.cue`, `tools/quality/npm_supply.py`,
@@ -57,7 +60,9 @@ the operator's global Mise configuration.
   `mise install --locked` before it and npm among Mise's tools. The fresh review's five breaking cases each fail them
   now. A command that starts npm by another spelling than `npm …` or `mise exec … -- npm …` is not seen; the governance
   check is the second line.
-- Both Forges run Mise 2026.11.8; this lane measured Mise 2026.11.13 on the host. The governance check on the Forges is
+- Both Forges' own jobs run Mise 2026.11.8; this lane measured Mise 2026.11.13 on the host. The floor of 2026.10.14
+  admits ETHOS's commit admission, which installs no npm; whether Mise 2026.10.14 reads the npm integrity lock is not
+  measured. The governance check on the Forges is
   what shows that the pin holds there.
 - An npm update is a supply change that moves `npm` in `.config/mise/config.toml` and runs `mise lock`, which writes
   the new lock folder and digest. The supply test refuses a lock folder that `mise.lock` does not name, so the old
