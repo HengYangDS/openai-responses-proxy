@@ -35,7 +35,12 @@ def running() -> str:
         raise NpmSupplyError(message)
     try:
         completed = subprocess.run(
-            (executable, "--version"), capture_output=True, text=True, check=True, timeout=60
+            (executable, "--version"),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+            timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as error:
         message = "npm_unavailable: `npm --version` did not run"
