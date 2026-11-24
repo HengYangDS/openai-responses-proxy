@@ -24,8 +24,9 @@ PYTEST_CONFIG = ".config/checks/pytest/pytest.toml"
 DEPENDENCY_POLICY = ROOT / ".config/checks/deptry/policy.toml"
 # A staged index entry's metadata is its mode, object name and stage.
 _INDEX_ENTRY_FIELDS = 3
-# Tracked files that no formatter owns: OpenSpec's archived history is immutable, and Mise writes each
-# dependency lock under `.config/mise/locks/` byte for byte and checks it against its digest in `mise.lock`.
+# Tracked files that no formatter owns: OpenSpec's archived history is immutable, and Mise
+# writes each dependency lock under `.config/mise/locks/` byte for byte and checks it against
+# its digest in `mise.lock`.
 FORMATTER_EXCLUDED = ("openspec/changes/archive/", ".config/mise/locks/")
 
 
