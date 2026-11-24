@@ -1,2 +1,4 @@
 registry=https://registry.npmjs.org/
+# npm 12 notes each `npm exec` on stderr; successful runs stay quiet, and warnings still show.
+loglevel=warn
 min-release-age=1

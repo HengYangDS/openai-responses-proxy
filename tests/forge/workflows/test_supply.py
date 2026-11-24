@@ -187,34 +187,97 @@ def test_node_repository_tools_have_one_locked_owner() -> None:
     assert (locked["backend"], locked["version"]) == ("npm:npm", version)
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", locked["aube"]["digest"])
 
-    # Every job that installs the Node tools runs that npm: Mise installs it first.
-    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
-    installing = {
-        name: _mapping(job)
-        for name, job in gitlab.items()
-        if isinstance(job, dict) and "npm ci --ignore-scripts" in job.get("before_script", [])
+    # Mise's lock folder holds exactly the locks that mise.lock names: a version left behind
+    # by an update is refused as well as a missing one.
+    named = {
+        entry["aube"]["path"]
+        for entries in lock["tools"].values()
+        for entry in entries
+        if "aube" in entry
     }
-    assert installing
-    for job in installing.values():
-        steps = _strings(job["before_script"])
-        assert steps.index("mise install --locked") < steps.index("npm ci --ignore-scripts")
-        enabled = _string(_mapping(job["variables"])["MISE_ENABLE_TOOLS"]).split(",")
-        assert "npm" in enabled
+    held = {
+        str(folder.relative_to(ROOT / ".config/mise"))
+        for folder in (ROOT / ".config/mise/locks").glob("*/*")
+        if folder.is_dir()
+    }
+    assert held == named
 
-    jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
-    for name in ("source-and-governance", "tag-metadata"):
-        steps = tuple(_mapping(step) for step in _sequence(_mapping(jobs[name])["steps"]))
-        runs = [str(step.get("run", "")) for step in steps]
-        install = runs.index("npm ci --ignore-scripts")
-        assert "npm audit signatures" in runs[install:]
-        mise_steps = [
-            index
-            for index, step in enumerate(steps)
-            if str(step.get("uses", "")).startswith("jdx/mise-action@")
+
+_MISE_ACTION = "jdx/mise-action@"
+
+
+def _runs_npm(line: str) -> bool:
+    """Whether a shell line starts npm, directly or through `mise exec`."""
+    return re.match(r"\s*npm\s", line) is not None or " -- npm " in line
+
+
+def _mise_selects_npm(*environments: object) -> bool:
+    """Whether no environment leaves npm out of the tools that Mise provides."""
+    for environment in environments:
+        if not isinstance(environment, dict):
+            continue
+        enabled = environment.get("MISE_ENABLE_TOOLS")
+        if enabled is not None and "npm" not in str(enabled).split(","):
+            return False
+        if "npm" in str(environment.get("MISE_DISABLE_TOOLS", "")).split(","):
+            return False
+    return True
+
+
+def test_every_github_job_that_runs_npm_runs_the_selected_one() -> None:
+    """Select jobs by what they run, and require Mise's npm before the first npm command."""
+    selected = 0
+    for workflow in (".github/workflows/verify.yml", ".github/workflows/admission.yml"):
+        document = _mapping(_load_yaml(ROOT / workflow))
+        for name, raw in _mapping(document["jobs"]).items():
+            job = _mapping(raw)
+            steps = tuple(_mapping(step) for step in _sequence(job.get("steps", [])))
+            npm = [
+                index
+                for index, step in enumerate(steps)
+                if any(_runs_npm(line) for line in str(step.get("run", "")).splitlines())
+            ]
+            if not npm:
+                continue
+            selected += 1
+            uses = [str(step.get("uses", "")) for step in steps]
+            mise = [index for index, used in enumerate(uses) if used.startswith(_MISE_ACTION)]
+            assert mise, name
+            assert mise[0] < npm[0], name
+            options = _mapping(steps[mise[0]]["with"])
+            assert str(options["install"]).lower() == "true", name
+            assert "npm" in str(options.get("install_args", "npm")).split(), name
+            assert not any(used.startswith("actions/setup-node@") for used in uses), name
+            environments = (
+                document.get("env"),
+                job.get("env"),
+                *(step.get("env") for step in steps),
+            )
+            assert _mise_selects_npm(*environments), name
+    assert selected
+
+
+def test_every_gitlab_job_that_runs_npm_runs_the_selected_one() -> None:
+    """Select jobs by what they run, and require `mise install` before the first npm command."""
+    pipeline = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml"))
+    selected = 0
+    for name, raw in pipeline.items():
+        if not isinstance(raw, dict) or not ({"script", "before_script"} & raw.keys()):
+            continue
+        job = _mapping(raw)
+        lines = [
+            line
+            for key in ("before_script", "script")
+            for entry in _strings(job.get(key, []))
+            for line in entry.splitlines()
         ]
-        assert mise_steps
-        assert mise_steps[0] < install
-        assert str(_mapping(steps[mise_steps[0]]["with"])["install"]).lower() == "true"
+        npm = [index for index, line in enumerate(lines) if _runs_npm(line)]
+        if not npm:
+            continue
+        selected += 1
+        assert "mise install --locked" in lines[: npm[0]], name
+        assert _mise_selects_npm(pipeline.get("variables"), job.get("variables")), name
+    assert selected
 
 
 def test_github_python_quality_installs_its_declared_projection_toolchain() -> None:

@@ -16,3 +16,8 @@ that the Node runtime bundles. The Node tools themselves SHALL stay owned by the
 - **WHEN** the tool configuration selects npm
 - **THEN** it SHALL name one exact version with an integrity-locked entry, and no Node tool of the repository SHALL be
   selected through the tool configuration instead of the npm lock
+
+#### Scenario: Another npm is on PATH
+
+- **WHEN** the repository's checks run and the npm on PATH is not the version that the tool configuration selects
+- **THEN** they SHALL fail before any Node tool runs, naming both versions

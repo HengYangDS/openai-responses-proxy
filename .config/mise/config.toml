@@ -1,4 +1,6 @@
-min_version = "2026.9.11"
+# The oldest Mise known here to read the integrity lock (`aube`) of an npm-backend tool: AIGW
+# has required it with the same lock on the CI guests that this repository shares.
+min_version = "2026.10.25"
 
 [settings]
 idiomatic_version_file_enable_tools = []
@@ -13,8 +15,8 @@ not_found_system_fallback = false
 use_versions_host = false
 
 [tool_alias]
-# The package manager that installs the locked Node tools; its native name keeps its place before
-# Node's bundled npm on every platform.
+# The package manager that installs the locked Node tools. Mise puts its folder before Node's own
+# on PATH; governance's npm check refuses any other npm where it runs.
 npm = "npm:npm"
 
 [tools]

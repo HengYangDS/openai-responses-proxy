@@ -301,6 +301,15 @@ def test_formatter_inputs_have_complete_declared_roles(
     }
 
     selected = set(governance._tracked_current(suffixes))
+    # An exclusion other than OpenSpec's immutable archive holds no input of a role that this
+    # formatter owns: widening it to such a folder would otherwise pass unseen.
+    for prefix in governance.FORMATTER_EXCLUDED:
+        owned = {
+            role
+            for path, role in report["assignments"].items()
+            if path.startswith(prefix) and path.endswith(suffixes)
+        }
+        assert prefix == "openspec/changes/archive/" or not owned & roles, (prefix, owned & roles)
 
     assert selected
     assert selected == declared, {

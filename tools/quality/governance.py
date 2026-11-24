@@ -140,6 +140,8 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
     markdown = tuple(path for path in markdown_yaml if path.endswith(".md"))
     toml = _tracked_current((".toml",))
     return (
+        # Before any npm runs: the npm on PATH is the one that the tool configuration selects.
+        (sys.executable, "-m", "tools.quality.npm_supply"),
         *_formatter_commands(markdown_yaml, toml, write=False),
         ("cue", "fmt", "--check", "--files", *model_inputs()),
         ("cue", "vet", *model_inputs()),

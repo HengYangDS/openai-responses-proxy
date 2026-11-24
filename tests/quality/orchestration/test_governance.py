@@ -143,6 +143,7 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
 
     commands = [tuple(call.args[0]) for call in run.call_args_list[2:]]
     assert commands == [
+        (governance.sys.executable, "-m", "tools.quality.npm_supply"),
         (
             "npm",
             "exec",
