@@ -70,10 +70,10 @@
 
 ## 8. Local gates
 
-- [ ] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. Passed on `8e678746`
-      (2026-11-26 00:06), before the GitLab macOS job left the Change.
-- [ ] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. Passed on `8e678746`
-      (2026-11-26 00:11), before the GitLab macOS job left the Change.
+- [x] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. Passed on `44506faf`
+      (2026-11-26 00:48).
+- [x] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. Passed on `44506faf`
+      (2026-11-26 00:51).
 - [x] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
       code or in the design. Its findings 1 to 6 are answered in `8e678746`.
 
