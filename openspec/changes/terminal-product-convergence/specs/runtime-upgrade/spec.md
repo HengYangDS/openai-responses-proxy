@@ -2,7 +2,7 @@
 
 ### Requirement: Supported native lifecycles are behaviorally symmetric
 
-macOS, Linux, and Windows SHALL expose the same public install, status, doctor,
+macOS and Linux SHALL expose the same public install, status, doctor,
 reload, rollback, recover, upgrade, and uninstall semantics while native adapters
 own only their operating-system service operations. Each platform SHALL prove
 the complete lifecycle using its own released artifact; a container, mock,
@@ -105,18 +105,6 @@ SHALL wait for that completion.
 - **AND** a replaced file, linked carrier, or digest mismatch leaves all retained
   transaction state and unrelated commands unchanged.
 
-#### Scenario: Windows cannot observe the exact scheduled task
-
-- **WHEN** the exact local task query fails, times out, or returns malformed task
-  XML
-- **THEN** native status and recovery preserve unknown service state and refuse
-  native disposal
-- **AND** only `HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)` or
-  `HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND)` from that query establishes task
-  absence, independent of the display language
-- **AND** running classification uses owned watchdog processes, not localized
-  status text.
-
 ### Requirement: Capable handoff preserves request admission
 
 A runtime-to-runtime handoff SHALL transfer listener ownership without changing
@@ -164,7 +152,7 @@ operator deadline. Every supported platform SHALL use this one path.
 
 #### Scenario: The supervisor declaration survived a restart
 
-- **WHEN** a `stopped` installation is reloaded on macOS, Linux, or Windows
+- **WHEN** a `stopped` installation is reloaded on macOS or Linux
 - **THEN** native supervision is bound and its configured executable is proved
   to be the lifecycle control executable
 - **AND** one accepting, non-draining listener proves the selected payload's
@@ -273,17 +261,9 @@ outside the default product data root on every supported platform, so that no
 lifecycle command creates content in the root that installation and purge
 verify.
 
-#### Scenario: A fresh Windows host uses the default roots
-
-- **WHEN** no root override is set on Windows
-- **THEN** the data root is `%LOCALAPPDATA%\openai-responses-proxy` and the
-  state root is `%LOCALAPPDATA%\openai-responses-proxy-state`
-- **AND** taking the lifecycle lock before a fresh `install` leaves the data
-  root absent.
-
 #### Scenario: Every platform default is disjoint
 
-- **WHEN** the product resolves its default roots on macOS, Linux or Windows
+- **WHEN** the product resolves its default roots on macOS or Linux
 - **THEN** taking the lifecycle lock creates content only beneath the state root.
 
 ### Requirement: Lifecycle control admits only a local native controller

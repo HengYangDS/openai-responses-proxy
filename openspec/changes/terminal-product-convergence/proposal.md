@@ -28,7 +28,7 @@ what left its scope on 2026-11-14.
   resource ownership and no persistent test or runtime residue.
 - Correct the native no-Python acceptance model so it preserves the host
   execution substrate, isolates all Proxy-owned state, and uses the same
-  semantic owner on macOS, Linux, and Windows.
+  semantic owner on macOS and Linux.
 - Replace scattered quality rules with one positively declared repository
   model covering source, tests, tools, configuration, specifications,
   documentation, CI projections, generated assets, and root files.

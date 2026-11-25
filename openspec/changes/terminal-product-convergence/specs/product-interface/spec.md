@@ -226,8 +226,7 @@ when it is unknown.
 declaration binds the lifecycle control executable but differs from the
 installed release's projection, and SHALL report the installation as `degraded`
 when a running supervisor's declaration does not bind that executable. macOS
-and Linux SHALL compare the owned definition exactly; Windows SHALL compare the
-registered task action.
+and Linux SHALL compare the owned definition exactly.
 
 #### Scenario: The running supervisor's definition differs from this release's
 
@@ -244,12 +243,6 @@ registered task action.
   executable
 - **THEN** `status` reports `degraded` with service `running`
 - **AND** `doctor` names `status --json`.
-
-#### Scenario: Task Scheduler normalizes an exported task
-
-- **WHEN** an exported Windows task differs from the rendered task only outside
-  its action
-- **THEN** its projection remains current.
 
 ### Requirement: The log names how each admitted response ended
 

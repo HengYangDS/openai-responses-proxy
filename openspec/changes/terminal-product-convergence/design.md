@@ -332,13 +332,11 @@ acceptance to those contracts instead of implementing a second command runner.
 Partial environments, Windows `SystemRoot` exceptions, and platform environment
 allow-lists are deleted.
 
-### One lifecycle state machine, three native adapters
+### One lifecycle state machine, two native adapters
 
 The lifecycle core owns prepare, verify, commit, observe, rollback, recovery,
-and retirement. macOS launchd, Linux systemd user services, and Windows
-Task Scheduler adapters translate only native service operations. The Windows
-projection belongs to the current user, not a machine-wide Service Control
-Manager service or administrator-owned installation. Creation and teardown
+and retirement. The macOS launchd and Linux systemd user-service adapters
+translate only native service operations. Creation and teardown
 consume the same exact service target, paths, executable identity, process
 generation, and transaction. Successful, failed, timed-out, and interrupted
 tests prove no net native-resource growth and preserve unrelated canonical
@@ -361,11 +359,7 @@ command restoration first, then hands its verified candidate context to the
 native teardown operation shared with installation compensation. That operation
 removes only a service whose configured executable is the candidate's; a missing
 configured identity is usable only with independently proved native absence.
-Mismatched or unproved supervision preserves recovery authority. Windows queries
-the exact local task with `schtasks /hresult`: only
-`HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)` and
-`HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND)` mean absent, while other errors,
-malformed XML, and timeouts preserve unknown state.
+Mismatched or unproved supervision preserves recovery authority.
 
 Controller rollback, interrupted materialization, and serving-generation
 recovery share one prior-projection restoration operation. It admits only the
@@ -386,13 +380,9 @@ Unknown content or a changed replacement keeps the journal open for deliberate
 resolution. Public recovery and repeated purge consume this one disposal owner;
 there is no separate uninstall log, retry engine, or inferred recursive deletion.
 
-Windows can reject a delete while a native image or external handle is still
-mapped after the process-exit barrier, and a later empty holder snapshot does
-not prove what held the file. The same purge owner therefore allows only native
-delete-access and sharing errors one shared five-second retry window, under the
-revalidation that "Native payload disposal revalidates a bounded sharing retry"
-requires. A replacement stops disposal even with equal bytes, and no background
-deletion or error suppression is added.
+Disposal revalidates each file as "Native payload disposal revalidates each
+owned file" requires. A replacement stops disposal even with equal bytes, and no
+background deletion, retry or error suppression is added.
 
 Process termination keeps each unproved outcome distinct, as "Unproved process
 exit retains its exact failure phase" requires, instead of rolling back or
@@ -442,9 +432,7 @@ port or a foreign listener. It does not erase retained state through purge.
 
 `status` observes native projection through the adapter. An owned declaration
 bound to the control executable but differing from installed rendering is
-`outdated`; `doctor` selects reload. macOS/Linux compare carrier bytes. Windows
-compares the task action because Task Scheduler normalizes exported task XML,
-so other Windows definition drift remains outside that observation. A mismatched
+`outdated`; `doctor` selects reload. macOS/Linux compare carrier bytes. A mismatched
 executable is `degraded`, not restart authority. launchd enforces label exclusion
 between user and GUI domains; binding replaces an owned registration in the
 unselected domain rather than treating both domains as independent services.
@@ -482,12 +470,11 @@ mechanism.
 GitHub and GitLab are optional peer publication planes. Local source remains
 fully buildable and installable without either. The same signed local commit and
 tag object are pushed unchanged; each Forge supplies independent authentication,
-CI, Release records, and asset transport. A missing GitLab Windows runner does
-not erase Windows evidence already proved by the GitHub native runner, but the
-GitLab projection must state that it does not provide that platform proof.
+CI, Release records, and asset transport. A platform that one Forge does not
+run is not proved by that Forge's projection.
 
 Runner admission binds the actual execution OS and architecture to the CUE
-target. A macOS ARM64 Docker host does not prove Linux x86_64 or Windows.
+target. A macOS ARM64 Docker host does not prove Linux x86_64.
 Historical CI runs remain Forge evidence, not standing proof of current source.
 
 ### Evidence and documentation are reader paths, not residue stores

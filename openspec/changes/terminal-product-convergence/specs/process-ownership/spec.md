@@ -54,26 +54,25 @@ extending deadlines or weakening identity admission.
 - **AND** it fails without deleting the corresponding payload or the outer
   native test root.
 
-### Requirement: Native payload disposal revalidates a bounded sharing retry
+### Requirement: Native payload disposal revalidates each owned file
 
 After native-service absence and owned-process exit are proved, the existing
-purge owner SHALL allow a bounded retry for Windows delete access or sharing
-errors. Every attempt SHALL revalidate the exact regular-file identity,
-no-follow ancestry, and recorded payload digest. It SHALL NOT change
-permissions, terminate an unproved holder, or remove unknown content.
-Persistent failure SHALL retain the native error and recovery journal.
+purge owner SHALL revalidate the exact regular-file identity, no-follow
+ancestry, and recorded payload digest of each manifest-owned file immediately
+before deleting it. It SHALL NOT change permissions, terminate an unproved
+holder, retry a failed deletion, or remove unknown content. A failed deletion
+SHALL retain the native error and recovery journal.
 
-#### Scenario: A transient Windows file mapping is released
+#### Scenario: An owned file is replaced before its deletion
 
-- **WHEN** deletion of one manifest-owned file fails with a native access or
-  sharing error and that obstruction clears within the disposal deadline
-- **THEN** the existing purge operation revalidates and removes only that file
-- **AND** it changes neither file permissions nor unrelated content.
+- **WHEN** the file, its ancestor, or its recorded bytes are replaced after the
+  purge captured them
+- **THEN** disposal fails with the applicable identity error
+- **AND** replacement content and the recovery journal remain protected.
 
-#### Scenario: A sharing retry outlives its authority
+#### Scenario: A native deletion fails
 
-- **WHEN** the file, its ancestor, or its recorded bytes are replaced, or the
-  native deletion failure persists until the deadline
-- **THEN** disposal fails with the applicable identity or native error
-- **AND** replacement content and the recovery journal remain protected
-- **AND** non-Windows or unrelated native errors are not retried.
+- **WHEN** deletion of one manifest-owned file fails with a native error
+- **THEN** disposal fails at once with that native error
+- **AND** it changes neither file permissions nor unrelated content
+- **AND** the recovery journal remains.
