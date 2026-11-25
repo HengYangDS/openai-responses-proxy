@@ -28,6 +28,10 @@ not mirror each other on macOS. The inventory (2026-11-25) is kept at
 
 ## Capabilities
 
+### New Capabilities
+
+None.
+
 ### Modified Capabilities
 
 - `ci-diagnostics`, `runtime-upgrade`, `product-interface`, `process-ownership`, `quality-boundaries`: no Windows
