@@ -59,8 +59,9 @@ def native_process_environment(
 
 
 def _is_runtime_state(name: str) -> bool:
-    """Return whether an inherited variable belongs to isolated runtime state."""
-    normalized = name.upper()
-    return normalized.startswith(_PRODUCT_NAMESPACE) or normalized.startswith(
-        _PYTHON_RUNTIME_NAMESPACES
-    )
+    """Return whether an inherited variable belongs to isolated runtime state.
+
+    Environment names are case-sensitive on every supported host, as Python and the product
+    read them.
+    """
+    return name.startswith((_PRODUCT_NAMESPACE, *_PYTHON_RUNTIME_NAMESPACES))

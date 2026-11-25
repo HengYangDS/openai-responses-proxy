@@ -226,7 +226,10 @@ The product supports macOS on ARM64 and Linux. Releases publish the
 `src/openai_responses_proxy/product_identity.py` declares;
 `.config/ci/graph/platforms.cue` names each platform's runner on each Forge.
 Windows and Intel macOS are not supported from 7.0.0 on; 6.0.3 is the last
-release with a Windows asset.
+release with a Windows asset. `RELEASE_PLATFORMS_SINCE` declares that version:
+publication verification of an earlier release checks the supported platforms'
+assets and ignores the others, and from that version on a release carries
+exactly the supported set.
 
 ## Release identity
 

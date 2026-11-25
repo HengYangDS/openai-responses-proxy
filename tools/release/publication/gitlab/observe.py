@@ -151,11 +151,7 @@ def normalize(
             "draft": False,
             "prerelease": False,
         },
-        "assets": release_assets.release_digests(
-            assets,
-            identity.version_from_tag(tag),
-            release_assets.release_platforms(set(assets), identity.version_from_tag(tag)),
-        ),
+        "assets": release_assets.published_release_digests(assets, identity.version_from_tag(tag)),
     }
 
 

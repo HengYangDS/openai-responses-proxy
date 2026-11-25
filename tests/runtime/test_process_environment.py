@@ -42,16 +42,36 @@ def test_isolation_removes_ambient_python_runtime_state(tmp_path: Path) -> None:
         state_root=tmp_path / "state",
         inherited={
             "PYTHONHOME": str(tmp_path / "foreign-python"),
-            "PythonPath": str(tmp_path / "foreign-packages"),
+            "PYTHONPATH": str(tmp_path / "foreign-packages"),
             "PYTHONSTARTUP": str(tmp_path / "startup.py"),
             "PYINSTALLER_RESET_ENVIRONMENT": "0",
             "_PYI_ARCHIVE_FILE": str(tmp_path / "foreign.pkg"),
         },
     )
 
-    assert not any(
-        name.upper().startswith(("PYTHON", "PYINSTALLER_", "_PYI_")) for name in environment
+    assert not any(name.startswith(("PYTHON", "PYINSTALLER_", "_PYI_")) for name in environment)
+
+
+def test_isolation_matches_runtime_state_names_exactly(tmp_path: Path) -> None:
+    """Environment names are case-sensitive, as Python and the product read them."""
+    product = product_identity.environment_name("HOME")
+    inherited = {
+        "PYTHONPATH": "foreign-packages",
+        "PythonPath": "not read by Python",
+        product: "retired",
+        product.lower(): "not read by the product",
+    }
+    environment = native_process_environment(
+        user_home=tmp_path / "home",
+        install_root=tmp_path / "payload",
+        state_root=tmp_path / "state",
+        inherited=inherited,
     )
+
+    assert "PYTHONPATH" not in environment
+    assert environment["PythonPath"] == inherited["PythonPath"]
+    assert environment[product] == str(tmp_path / "payload")
+    assert environment[product.lower()] == inherited[product.lower()]
 
 
 def test_isolation_accepts_an_explicit_empty_command_search_path(tmp_path: Path) -> None:

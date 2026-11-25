@@ -32,8 +32,9 @@ from the same job declaration, with its own default-image and default-tag overri
 required. Native assets, the release lifecycle and assembly stay on GitHub, where they run today; they are not an
 overlap. The declaration is `.config/ci/graph/platforms.cue`: each platform's release asset, its GitHub runner and its
 GitLab tags per role, with `required: false` for the GitLab macOS job, which the pipeline renders as
-`allow_failure: true` until task 5.3 measures the guest. The GitLab job inherits no default, so neither the Linux image
-nor the Linux tags reach it, and its cache key names `macos-arm64`.
+`allow_failure: true` until task 5.3 measures the guest. The GitLab job inherits neither the default nor the global
+variables, so no Linux image, tag, cache key or target reaches it; it sets its own uv cache directories and its target
+`macos-arm64`, which names its cache.
 
 **D3. Code.** `lifecycle/supervision/windows.py` (Task Scheduler) and its tests leave; the supervision adapter choice is
 launchd or systemd. Every `sys.platform`/`os.name` Windows branch, `InstallationContext.windows` and the `windows=`
@@ -43,21 +44,30 @@ and its `listener_share_b64` field, the watchdog's detach flags, the kernel32 pr
 Windows-style member names stays: it guards untrusted input, whatever host reads it. The handoff protocol keeps
 version 2, because a POSIX parent never sent `listener_share_b64`. The `ctypes` PyInstaller hook stays: the bundle
 still reaches `ctypes` through `rich._windows` and the standard library's `platform` module, whose imports PyInstaller
-follows statically (read in the locked packages, 2026-11-25).
+follows statically (read in the locked packages, 2026-11-25). Two POSIX readings change with the Windows code: a root
+override that starts with `~\` is no longer the home directory, and a backslash in an override is a filename character,
+not a separator; and the child-environment filter matches product and Python variable names case-sensitively, as POSIX
+Python and the product read them. The CHANGELOG states the first, and tests pin both.
 
 **D4. Published predecessors.** Releases up to 6.0.3 carry a Windows asset. A command that verifies such a release
 (the published-release compatibility check and any upgrade from it) verifies the platforms the current product
 declares and ignores assets outside them without treating them as an error; the evaluator's "exactly the declared set"
-rule applies to releases built from this Change on. The code already does this: the installer reads only its own
-archive's and manifest's entries in `SHA256SUMS`, and the hosted predecessor jobs download only their platform's
-files. A test pins that a signed inventory that also names a Windows asset admits the macOS or Linux archive.
+rule applies to releases built from this Change on. A release is recognised by its own version: `RELEASE_PLATFORMS_SINCE`
+beside `RELEASE_PLATFORMS` in `product_identity.py` declares 7.0.0 once, and a release before it predates the set. The
+installer already reads only its own archive's and manifest's entries in `SHA256SUMS`, and the hosted predecessor jobs
+download only their platform's files. Publication verification follows one owner, `published_release_digests` in
+`tools/release/artifact/format.py`: for a predecessor, the signed checksum manifest must name a complete platform
+inventory that includes the supported platforms; their assets are verified, and the other platforms' assets and
+checksum lines are ignored, unread. Both observers use it, GitHub leaves a predecessor's other assets undownloaded,
+and the evaluator compares the supported assets alone. From 7.0.0 on, both observers and the evaluator require exactly
+the supported set, GitHub's asset list included. Tests pin both cases, deriving the versions from the declaration.
 
 **D5. Locks.** `uv.lock` and Mise's lock are restricted to the supported platforms by each tool's own environment or
 platform setting; the diff removes Windows and Intel macOS entries and changes no kept version, hash or URL. Which
 setting does it is measured with the locked tools before the lock is written. Measured on 2026-11-25: uv 0.13.8 refuses
 `environments` in `.config/mise/uv.toml` ("only applicable in the context of a project"), so it is `[tool.uv]` in
 `pyproject.toml`; `uv lock --offline` then removes colorama, pefile and pywin32-ctypes, the Windows and Intel macOS
-wheels and also coverage's two Android wheels, and rewrites two markers to forms equivalent on the supported
+wheels and also coverage's four Android wheels, and rewrites two markers to forms equivalent on the supported
 platforms. `mise lock --platform` alone changes no entry (dry run: 0 of 50); Mise's `lockfile_platforms` setting makes
 `mise lock` remove the 18 `macos-x64` and `windows-x64` rows. A comparison of both locks before and after found no
 kept version, hash or URL changed.

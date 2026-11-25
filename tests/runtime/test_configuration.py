@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import cast
 
@@ -91,6 +92,16 @@ class TestRuntimeConfiguration:
         }
         assert runtime_config.data_dir(environment) == "/portable/home/payload"
         assert runtime_config.state_dir(environment) == "/portable/home/state"
+
+    def test_root_overrides_read_a_backslash_as_a_filename_character(self) -> None:
+        """POSIX paths: a tilde before a backslash names no home, and a backslash no separator."""
+        environment = {
+            "HOME": "/portable/home",
+            runtime_config.HOME_ENV: "~\\payload",
+            runtime_config.STATE_HOME_ENV: "~/state\\logs",
+        }
+        assert runtime_config.data_dir(environment) == str(Path.cwd() / "~\\payload")
+        assert runtime_config.state_dir(environment) == "/portable/home/state\\logs"
 
     def test_runtime_settings_expose_only_the_owned_configuration_model(self) -> None:
         assert set(runtime_config.Settings.__dataclass_fields__) == {

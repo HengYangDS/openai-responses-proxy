@@ -180,7 +180,7 @@ def test_a_test_whose_refusal_is_swallowed_fails_when_it_ends(tmp_path: Path) ->
     named = tmp_path / "named"
     environment = {
         **os.environ,
-        **dict.fromkeys(("TMPDIR", "TEMP", "TMP"), str(temporary)),
+        "TMPDIR": str(temporary),
         runtime_config.STATE_HOME_ENV: str(named),
         runtime_config.PROXY_LOG_ENV: str(named / "proxy.log"),
         runtime_config.WATCHDOG_LOG_ENV: str(named / "watchdog.log"),

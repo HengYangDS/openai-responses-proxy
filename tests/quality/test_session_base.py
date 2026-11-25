@@ -73,7 +73,7 @@ def test_a_session_keeps_its_base_while_another_session_of_the_user_ends(
     ending = _session(tmp_path / "ending", _ENDING, pytestconfig)
     temporary = tmp_path / "temporary"
     temporary.mkdir()
-    environment = {**os.environ, **dict.fromkeys(("TMPDIR", "TEMP", "TMP"), str(temporary))}
+    environment = {**os.environ, "TMPDIR": str(temporary)}
     command = [sys.executable, "-m", "pytest", "-q", "--rootdir", "."]
 
     first = subprocess.Popen(

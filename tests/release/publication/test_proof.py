@@ -9,7 +9,10 @@ from typing import cast
 
 import pytest
 
+from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import artifact
+from tests.release.artifact.fixtures import RETIRED_PLATFORM
+from tests.release.artifact.fixtures import version_before
 from tests.release.publication.fixtures import VERIFY_ARGUMENTS
 from tests.release.publication.fixtures import VerifyArguments
 from tests.release.publication.fixtures import forge_evidence
@@ -29,25 +32,21 @@ def _forge(
     tag_object_oid: str,
     commit_oid: str,
     tree: str = "c" * 40,
+    version: str = "1.2.3",
+    platforms: tuple[str, ...] = product_assets.RELEASE_PLATFORMS,
 ) -> dict[str, object]:
     return {
         "provider": provider,
         "repository": repository,
-        "tag": "v1.2.3",
+        "tag": f"v{version}",
         "tag_object_oid": tag_object_oid,
         "commit_oid": commit_oid,
         "tree_oid": tree,
         "anchor_sha256": "f" * 64,
         "signature_verified": True,
         "assets": {
-            **{
-                f"openai-responses-proxy-1.2.3-{platform}.tar.gz": "1" * 64
-                for platform in product_assets.RELEASE_PLATFORMS
-            },
-            **{
-                f"openai-responses-proxy-{platform}.manifest.json": "2" * 64
-                for platform in product_assets.RELEASE_PLATFORMS
-            },
+            **{product_assets.archive_name(version, platform): "1" * 64 for platform in platforms},
+            **{product_assets.manifest_name(platform): "2" * 64 for platform in platforms},
             "SHA256SUMS": "3" * 64,
             "SHA256SUMS.sig": "4" * 64,
         },
@@ -58,9 +57,9 @@ def _forge(
         },
         "release": {
             "id": 99,
-            "tag": "v1.2.3",
+            "tag": f"v{version}",
             "commit_oid": commit_oid,
-            "name": "OpenAI Responses Proxy v1.2.3",
+            "name": f"OpenAI Responses Proxy v{version}",
             "draft": False,
             "prerelease": False,
         },
@@ -87,8 +86,54 @@ def _github_forge(*, tree: str = "c" * 40) -> dict[str, object]:
     )
 
 
+def _release_forge(
+    provider: str, version: str, platforms: tuple[str, ...] = product_assets.RELEASE_PLATFORMS
+) -> dict[str, object]:
+    """Return matching evidence of one release version that carries the given platforms."""
+    return _forge(
+        provider,
+        repository=f"example/{provider}",
+        tag_object_oid="a" * 40,
+        commit_oid="d" * 40,
+        version=version,
+        platforms=platforms,
+    )
+
+
 class PublicationProofContracts:
     """Admit only complete independent publications of one source tree."""
+
+    @pytest.mark.parametrize("retired", [True, False], ids=["retired-assets", "supported-only"])
+    def test_a_predecessor_verifies_its_supported_platforms(self, *, retired: bool) -> None:
+        """A release before RELEASE_PLATFORMS_SINCE may also carry a retired platform (D4)."""
+        version = version_before(product_identity.RELEASE_PLATFORMS_SINCE)
+        carried = (*product_assets.RELEASE_PLATFORMS, *((RETIRED_PLATFORM,) if retired else ()))
+
+        result = evaluator.evaluate(
+            f"v{version}",
+            _release_forge("gitlab", version, carried),
+            _release_forge("github", version),
+        )
+
+        assert result["verified"], result["reasons"]
+        forges = cast("dict[str, dict[str, object]]", result["forges"])
+        assert set(cast("dict[str, str]", forges["gitlab"]["assets"])) == (
+            product_assets.release_asset_names(version, product_assets.RELEASE_PLATFORMS)
+        )
+
+    def test_a_release_from_the_platform_set_on_refuses_another_platform(self) -> None:
+        version = product_identity.RELEASE_PLATFORMS_SINCE
+        carried = (*product_assets.RELEASE_PLATFORMS, RETIRED_PLATFORM)
+        exact = _release_forge("github", version)
+
+        assert evaluator.evaluate(f"v{version}", _release_forge("gitlab", version), exact)[
+            "verified"
+        ]
+        result = evaluator.evaluate(
+            f"v{version}", _release_forge("gitlab", version, carried), exact
+        )
+        assert not result["verified"]
+        assert result["reasons"] == ["gitlab.invalid_evidence"]
 
     def test_valid_proof_remains_evidence_only(self) -> None:
         result = evaluator.evaluate("v1.2.3", _gitlab_forge(), _github_forge())

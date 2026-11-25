@@ -192,17 +192,23 @@ def _evaluate_forge(
 
 
 def _validated_assets(provider: str, tag: str, assets: object) -> Mapping[str, object] | None:
-    """Return the exact complete release inventory declared by the product SSOT."""
+    """Return the release inventory of the supported platforms that the product SSOT declares.
+
+    A release built from RELEASE_PLATFORMS_SINCE on carries exactly that inventory; an earlier
+    release may also carry other platforms' assets, which are left out.
+    """
     del provider
     if not isinstance(assets, Mapping):
         return None
     typed_assets = cast("Mapping[str, object]", assets)
-    expected_assets = product_assets.release_asset_names(
-        identity.version_from_tag(tag),
-        product_assets.RELEASE_PLATFORMS,
-    )
-    if set(typed_assets) != expected_assets:
+    version = identity.version_from_tag(tag)
+    expected_assets = product_assets.release_asset_names(version, product_assets.RELEASE_PLATFORMS)
+    if not expected_assets <= set(typed_assets) or (
+        set(typed_assets) != expected_assets
+        and not product_assets.predates_release_platforms(version)
+    ):
         return None
+    typed_assets = {name: typed_assets[name] for name in expected_assets}
     if any(not is_sha256(typed_assets.get(name)) for name in expected_assets):
         return None
     return typed_assets

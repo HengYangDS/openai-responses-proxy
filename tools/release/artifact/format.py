@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle.records import is_version
+from openai_responses_proxy.lifecycle.records import version_key
 from openai_responses_proxy.serving.digest import is_sha256
 
 if TYPE_CHECKING:
@@ -245,13 +246,50 @@ def release_digests(
         raise AssetError("release asset set is incomplete or contains unknown files")
     signed_assets = expected_names - {CHECKSUM_NAME, SIGNATURE_NAME}
     verify({name: files[name] for name in signed_assets}, files[CHECKSUM_NAME])
+    _verify_platform_archives(files, version, platforms)
+    return {name: hashlib.sha256(content).hexdigest() for name, content in sorted(files.items())}
+
+
+def predates_release_platforms(version: str) -> bool:
+    """Return whether a release predates RELEASE_PLATFORMS and may carry other platforms."""
+    return version_key(version) < version_key(product_identity.RELEASE_PLATFORMS_SINCE)
+
+
+def published_release_digests(files: Mapping[str, bytes], version: str) -> dict[str, str]:
+    """Verify one published release for the supported platforms and identify their assets.
+
+    A release from RELEASE_PLATFORMS_SINCE on carries exactly RELEASE_PLATFORMS. An earlier release
+    whose signed checksum manifest names a complete inventory that includes them may also carry
+    other platforms: their assets and checksum lines are ignored, unread, and only the supported
+    platforms' assets are verified and identified.
+    """
+    if not predates_release_platforms(version):
+        return release_digests(files, version, RELEASE_PLATFORMS)
+    names = release_asset_names(version, RELEASE_PLATFORMS)
+    if CHECKSUM_NAME not in files:
+        raise AssetError("release asset set is incomplete or contains unknown files")
+    listed = parse_checksums(files[CHECKSUM_NAME])
+    published = {*listed, CHECKSUM_NAME, SIGNATURE_NAME}
+    carried = release_platforms(published, version)
+    if not set(RELEASE_PLATFORMS) <= set(carried) or not names <= set(files) <= published:
+        raise AssetError("release asset set is incomplete or contains unknown files")
+    signed_assets = names - {CHECKSUM_NAME, SIGNATURE_NAME}
+    if any(listed[name] != hashlib.sha256(files[name]).hexdigest() for name in signed_assets):
+        raise AssetError("release assets do not match SHA256SUMS")
+    _verify_platform_archives(files, version, RELEASE_PLATFORMS)
+    return {name: hashlib.sha256(files[name]).hexdigest() for name in sorted(names)}
+
+
+def _verify_platform_archives(
+    files: Mapping[str, bytes], version: str, platforms: tuple[str, ...]
+) -> None:
+    """Verify each selected platform's archive against its manifest, version and platform."""
     for platform in platforms:
         document = verify_platform_archive(
             files[archive_name(version, platform)], files[manifest_name(platform)]
         )
         if document["version"] != version or document["platform"] != platform:
             raise AssetError("release manifest differs from the selected version or platform")
-    return {name: hashlib.sha256(content).hexdigest() for name, content in sorted(files.items())}
 
 
 def release_asset_names(

@@ -18,6 +18,14 @@ publication authority.
   installation on macOS or Linux, and an upgrade to this release from 6.0.3 or
   earlier there, are unchanged.
 
+### Changed
+
+- A root override (`OPENAI_RESPONSES_PROXY_HOME` or
+  `OPENAI_RESPONSES_PROXY_STATE_HOME`) that starts with `~\` is no longer read
+  as the home directory, and a backslash in an override is a filename character,
+  not a separator, as POSIX paths read them. Before, both were read as on
+  Windows.
+
 ## [6.0.3] - 2026-11-17
 
 ### Removed

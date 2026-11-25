@@ -35,6 +35,20 @@ def release_bundle(
     return {**unsigned, assets.SIGNATURE_NAME: b"fixture-signature\n"}
 
 
+# A platform that releases before RELEASE_PLATFORMS_SINCE also carried.
+RETIRED_PLATFORM = "windows-x86_64"
+
+
+def version_before(version: str) -> str:
+    """Return a strict release version below ``version``."""
+    major, minor, patch = (int(part) for part in version.split("."))
+    if patch:
+        return f"{major}.{minor}.{patch - 1}"
+    if minor:
+        return f"{major}.{minor - 1}.0"
+    return f"{major - 1}.0.0"
+
+
 def native_inputs(root: Path) -> tuple[Path, ...]:
     """Write one complete set of platform build outputs for assembly tests."""
     inputs: list[Path] = []

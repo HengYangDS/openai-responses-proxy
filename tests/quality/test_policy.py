@@ -134,6 +134,8 @@ def test_quality_policy_has_one_explicit_owner_per_concern() -> None:
         "S101",
         "SLF001",
         "PLR2004",
+        "S314",
+        "S318",
     ]
     assert per_file["tools/release/hooks/*"] == ["INP001"]
     named = {path for path in per_file if not any(char in path for char in "*?[")}

@@ -64,7 +64,7 @@ setup action reads its version requirement from the same file. External ETHOS
 source preparation retains its own uv configuration, not this product's.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
-GitHub, and GitLab use the same repository installation. Mise's
+GitHub and GitLab use the same repository installation. Mise's
 `lockfile_platforms` setting and uv's `environments` setting keep both locks to
 the [supported platforms](docs/governance/release-and-change-policy.md#supported-platforms);
 uv reads `environments` only from `pyproject.toml`, never from a `uv.toml` file.

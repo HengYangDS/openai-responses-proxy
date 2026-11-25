@@ -8,7 +8,11 @@ from typing import cast
 
 import pytest
 
+from openai_responses_proxy import product_identity
+from tests.release.artifact.fixtures import RETIRED_PLATFORM
 from tests.release.artifact.fixtures import release_bundle
+from tests.release.artifact.fixtures import version_before
+from tools.release.artifact import format as release_assets
 from tools.release.publication.github import observe as github
 
 if TYPE_CHECKING:
@@ -226,6 +230,79 @@ class GitHubObservationContracts:
             github.collect(
                 repository="owner/repo", tag="v1.2.3", tag_object_oid=tag_object, commit_oid=commit
             )
+
+    @pytest.mark.parametrize("current", [False, True], ids=["predecessor", "current"])
+    def test_github_collection_of_a_release_that_carries_a_retired_platform(
+        self, *, current: bool, mocker: MockerFixture
+    ) -> None:
+        """A predecessor's retired assets stay undownloaded; a current release refuses them (D4)."""
+        since = product_identity.RELEASE_PLATFORMS_SINCE
+        version = since if current else version_before(since)
+        tag, commit, tag_object = f"v{version}", "a" * 40, "b" * 40
+        published = release_bundle(
+            (*release_assets.RELEASE_PLATFORMS, RETIRED_PLATFORM), version=version
+        )
+        records = [
+            {"name": name, "url": f"https://api.example/assets/{index}"}
+            for index, name in enumerate(published, 1)
+        ]
+        content = {record["url"]: published[record["name"]] for record in records}
+        run = {
+            "id": 1,
+            "name": "Verify",
+            "path": ".github/workflows/verify.yml",
+            "event": "push",
+            "head_branch": tag,
+            "head_sha": commit,
+            "status": "completed",
+            "conclusion": "success",
+        }
+        jobs = [
+            {"name": name, "status": "completed", "conclusion": "success"}
+            for name in github.DEFAULT_REQUIRED_JOBS
+        ]
+        release = {
+            "id": 3,
+            "tag_name": tag,
+            "name": product_identity.release_title(tag),
+            "draft": False,
+            "prerelease": False,
+            "published_at": "2026-07-29T00:00:00Z",
+            "assets": records,
+        }
+        mocker.patch.object(github.hosted, "executable", return_value="gh")
+        mocker.patch.object(
+            github,
+            "_api",
+            side_effect=[
+                {"ref": f"refs/tags/{tag}", "object": {"type": "tag", "sha": tag_object}},
+                {"tag": tag, "sha": tag_object, "object": {"type": "commit", "sha": commit}},
+            ],
+        )
+        mocker.patch.object(
+            github,
+            "_api_pages",
+            side_effect=[[{"workflow_runs": [run]}], [{"jobs": jobs}], [[release]]],
+        )
+        download = mocker.patch.object(
+            github.hosted, "api_bytes", side_effect=lambda command, **_: content[command[-1]]
+        )
+
+        def collect() -> dict[str, object]:
+            return github.collect(
+                repository="owner/repo", tag=tag, tag_object_oid=tag_object, commit_oid=commit
+            )
+
+        if current:
+            with pytest.raises(github.GitHubProofError, match="unknown files"):
+                collect()
+            download.assert_not_called()
+            return
+        supported = release_assets.release_asset_names(version, release_assets.RELEASE_PLATFORMS)
+        assert set(cast("dict[str, str]", collect()["assets"])) == supported
+        assert {call.args[0][-1] for call in download.call_args_list} == {
+            record["url"] for record in records if record["name"] in supported
+        }
 
     def test_github_malformed_boundaries_and_hosted_transport_fail_closed(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture

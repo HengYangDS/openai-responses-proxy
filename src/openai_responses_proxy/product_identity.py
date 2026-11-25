@@ -11,6 +11,9 @@ SERVICE_ID = f"{PRODUCT_SLUG}.watchdog"
 RELEASE_NAMESPACE = f"{PRODUCT_SLUG}-release"
 RELEASE_PRINCIPAL = RELEASE_NAMESPACE
 RELEASE_PLATFORMS = ("linux-x86_64", "macos-arm64")
+# The first release whose assets are exactly RELEASE_PLATFORMS. An earlier release also carries
+# platforms that the product no longer supports; its verification covers RELEASE_PLATFORMS alone.
+RELEASE_PLATFORMS_SINCE = "7.0.0"
 _NATIVE_RELEASE_PLATFORMS = {
     ("Darwin", "arm64"): "macos-arm64",
     ("Linux", "x86_64"): "linux-x86_64",

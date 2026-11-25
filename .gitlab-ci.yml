@@ -190,6 +190,7 @@ verify-python-macos:
   stage: verify
   inherit:
     default: false
+    variables: false
   parallel:
     matrix:
       - PYTHON_VERSION:
@@ -199,15 +200,18 @@ verify-python-macos:
   variables:
     GIT_DEPTH: "0"
     MISE_ENABLE_TOOLS: python,uv
+    OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
     UV_CONFIG_FILE: .config/mise/uv.toml
     UV_NO_CONFIG: "false"
+    UV_PYTHON_INSTALL_DIR: $CI_PROJECT_DIR/.cache/uv/python
   tags:
     - macos-latest
     - review
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
   cache:
-    key: uv-macos-arm64
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
     paths:
       - .cache/uv/
   allow_failure: true
@@ -223,6 +227,7 @@ verify-python-macos-accepted:
   stage: verify
   inherit:
     default: false
+    variables: false
   parallel:
     matrix:
       - PYTHON_VERSION:
@@ -232,15 +237,18 @@ verify-python-macos-accepted:
   variables:
     GIT_DEPTH: "0"
     MISE_ENABLE_TOOLS: python,uv
+    OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
     UV_CONFIG_FILE: .config/mise/uv.toml
     UV_NO_CONFIG: "false"
+    UV_PYTHON_INSTALL_DIR: $CI_PROJECT_DIR/.cache/uv/python
   tags:
     - macos-latest
     - protected
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
   cache:
-    key: uv-macos-arm64
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
     paths:
       - .cache/uv/
   allow_failure: true

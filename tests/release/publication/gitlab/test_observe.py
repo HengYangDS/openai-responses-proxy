@@ -7,7 +7,9 @@ from typing import cast
 
 import pytest
 
+from tests.release.artifact.fixtures import RETIRED_PLATFORM
 from tests.release.artifact.fixtures import release_bundle
+from tools.release.artifact import format as release_assets
 from tools.release.publication.gitlab import observe as gitlab
 
 if TYPE_CHECKING:
@@ -73,7 +75,7 @@ class GitLabObservationContracts:
             ),
             "evidences": [{"sha": "f" * 40}],
         }
-        return (pipeline, jobs, release, release_bundle(("linux-x86_64",)))
+        return (pipeline, jobs, release, release_bundle())
 
     def test_gitlab_requires_exact_tag_pipeline_jobs_and_release(self) -> None:
         commit = "a" * 40
@@ -84,6 +86,19 @@ class GitLabObservationContracts:
         jobs[-1]["allow_failure"] = True
         with pytest.raises(gitlab.GitLabProofError):
             self._normalize_gitlab(commit, (pipeline, jobs, release, assets))
+
+    def test_gitlab_leaves_out_a_predecessor_s_retired_platform(self) -> None:
+        """The fixture's 1.2.3 predates RELEASE_PLATFORMS_SINCE (D4)."""
+        commit = "a" * 40
+        pipeline, jobs, release, _ = self._gitlab_fixture(commit)
+        assert release_assets.predates_release_platforms("1.2.3")
+        published = release_bundle((*release_assets.RELEASE_PLATFORMS, RETIRED_PLATFORM))
+
+        result = self._normalize_gitlab(commit, (pipeline, jobs, release, published))
+
+        assert set(cast("dict[str, str]", result["assets"])) == release_assets.release_asset_names(
+            "1.2.3", release_assets.RELEASE_PLATFORMS
+        )
 
     def test_gitlab_collection_and_malformed_boundaries_fail_closed(
         self, *, mocker: MockerFixture

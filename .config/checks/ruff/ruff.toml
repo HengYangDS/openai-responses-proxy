@@ -42,11 +42,6 @@ ignore = [
   # Ruff flags each subprocess call whose argument list is computed; every flagged call passes
   # an argument list, never a shell string, built by its owner from validated values.
   "S603",
-  # No product code parses XML; tests parse their own fixtures and reports. ElementTree and
-  # minidom resolve no external entities, and Expat limits entity expansion on every supported
-  # Python (Python documentation, "XML vulnerabilities").
-  "S314",
-  "S318",
   # Ruff marks the pathlib fix unsafe: no pathlib form makes a path absolute and removes ".."
   # without resolving links, as the lexical install and process identities require.
   "PTH100",
@@ -152,4 +147,10 @@ ignore = [
   "SLF001",
   # A test's comparison literal is the expected value that the test specifies.
   "PLR2004",
+  # Tests parse their own XML fixtures and reports with ElementTree and minidom, which resolve no
+  # external entities; Expat limits entity expansion on every supported Python (Python
+  # documentation, "XML vulnerabilities"). Product code parses only the macOS launch-agent
+  # plist, with plistlib, which these rules do not cover.
+  "S314",
+  "S318",
 ]

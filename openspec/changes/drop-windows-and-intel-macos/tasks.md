@@ -27,8 +27,9 @@
       job names, `tools/quality` and `tools/performance` follow the supported set, and delete the `ctypes`
       PyInstaller hook if nothing in the bundle needs it (D1, D3). Done when no tool module names Windows outside
       archive input validation and the release tests that start no build pass.
-- [x] 3.2 Pin by test that a predecessor whose signed checksum manifest also names a Windows asset is installed and
-      verified for its own platform without error (D4). Done when that test passes.
+- [x] 3.2 Verify a predecessor whose signed checksum manifest also names a Windows asset for the supported platforms
+      alone, in installation and in publication verification on both Forges, and keep the exact set from
+      `RELEASE_PLATFORMS_SINCE` on (D4). Done when tests of both cases pass, with versions derived from the declaration.
 
 ## 4. Tests
 

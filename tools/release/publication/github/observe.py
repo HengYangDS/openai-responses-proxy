@@ -174,9 +174,7 @@ def normalize(
             "draft": False,
             "prerelease": False,
         },
-        "assets": release_assets.release_digests(
-            assets, identity.version_from_tag(tag), release_assets.RELEASE_PLATFORMS
-        ),
+        "assets": release_assets.published_release_digests(assets, identity.version_from_tag(tag)),
     }
 
 
@@ -236,9 +234,15 @@ def collect(
     matches = [release for release in releases if release.get("tag_name") == tag]
     typed_release = _one(matches, "GitHub release record is missing or ambiguous")
     asset_records = _mappings(typed_release.get("assets"), "GitHub release assets are malformed")
-    expected_names = release_assets.release_asset_names(
-        identity.version_from_tag(tag), release_assets.RELEASE_PLATFORMS
-    )
+    version = identity.version_from_tag(tag)
+    expected_names = release_assets.release_asset_names(version, release_assets.RELEASE_PLATFORMS)
+    published_names = {record.get("name") for record in asset_records}
+    # A release built from RELEASE_PLATFORMS_SINCE on carries exactly the supported assets; an
+    # earlier one may also carry other platforms', which are left undownloaded.
+    if not expected_names <= published_names or (
+        published_names != expected_names and not release_assets.predates_release_platforms(version)
+    ):
+        raise GitHubProofError("GitHub release asset set is incomplete or contains unknown files")
     selected_assets = {
         str(record.get("name")): hosted.api_bytes(
             (

@@ -261,7 +261,15 @@ def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
     tags = {}
     for suffix in ("", "-accepted"):
         job = _mapping(gitlab[f"verify-python-macos{suffix}"])
-        assert str(_mapping(job["inherit"])["default"]).lower() == "false"
+        inherited = _mapping(job["inherit"])
+        assert {key: str(value).lower() for key, value in inherited.items()} == {
+            "default": "false",
+            "variables": "false",
+        }
+        target = _string(_mapping(job["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"])
+        assert target in product_identity.RELEASE_PLATFORMS
+        assert target != _mapping(gitlab["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"]
+        assert _mapping(job["cache"])["key"] == "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
         assert "image" not in job
         assert not any("apt-get" in command for command in _strings(job["before_script"]))
         assert _mapping(job["parallel"]) == _mapping(linux["parallel"])

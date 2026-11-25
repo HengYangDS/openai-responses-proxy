@@ -11,7 +11,9 @@ from typing import Literal
 import pytest
 
 from openai_responses_proxy import product_identity
+from tests.release.artifact.fixtures import RETIRED_PLATFORM
 from tests.release.artifact.fixtures import release_bundle
+from tests.release.artifact.fixtures import version_before
 from tools.release.artifact import format as assets
 
 
@@ -220,3 +222,43 @@ def test_asset_paths_modes_and_names_must_be_canonical() -> None:
         assets.archive_name("not-version", "linux-x86_64")
     with pytest.raises(assets.AssetError, match="incomplete"):
         assets.release_platforms(set(), "1.2.3")
+
+
+def test_a_predecessor_verifies_its_supported_platforms_and_ignores_the_others() -> None:
+    """A release before RELEASE_PLATFORMS_SINCE may also carry a retired platform (D4)."""
+    version = version_before(product_identity.RELEASE_PLATFORMS_SINCE)
+    assert assets.predates_release_platforms(version)
+    published = release_bundle((*assets.RELEASE_PLATFORMS, RETIRED_PLATFORM), version=version)
+    supported = assets.release_asset_names(version, assets.RELEASE_PLATFORMS)
+    retired = set(published) - supported
+    expected = {name: hashlib.sha256(published[name]).hexdigest() for name in supported}
+
+    # GitLab downloads every asset; GitHub leaves the retired ones undownloaded.
+    assert assets.published_release_digests(published, version) == expected
+    downloaded = {name: content for name, content in published.items() if name in supported}
+    assert assets.published_release_digests(downloaded, version) == expected
+    # Retired assets are not read, so their bytes or modes do not matter.
+    unreadable = {**published, **dict.fromkeys(retired, b"not an archive")}
+    assert assets.published_release_digests(unreadable, version) == expected
+
+    first = assets.RELEASE_PLATFORMS[0]
+    missing = {assets.archive_name(version, first), assets.manifest_name(first)}
+    for defect in (
+        {name: content for name, content in published.items() if name not in missing},
+        {**published, "notes.txt": b"unknown"},
+        {**published, assets.archive_name(version, assets.RELEASE_PLATFORMS[0]): b"changed"},
+    ):
+        with pytest.raises(assets.AssetError):
+            assets.published_release_digests(defect, version)
+
+
+def test_a_release_from_the_platform_set_on_carries_exactly_it() -> None:
+    version = product_identity.RELEASE_PLATFORMS_SINCE
+    assert not assets.predates_release_platforms(version)
+    exact = release_bundle(version=version)
+
+    assert set(assets.published_release_digests(exact, version)) == set(exact)
+    with pytest.raises(assets.AssetError, match="incomplete or contains unknown files"):
+        assets.published_release_digests(
+            release_bundle((*assets.RELEASE_PLATFORMS, RETIRED_PLATFORM), version=version), version
+        )
