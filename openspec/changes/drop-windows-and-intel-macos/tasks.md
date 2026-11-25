@@ -79,13 +79,14 @@
 
 ## 9. Exact-HEAD proof
 
-- [ ] 9.1 Pass the ETHOS full proof of the lane head.
+- [x] 9.1 Pass the ETHOS full proof of the lane head. Passed on `bfc2f89f` (2026-11-26 01:14); later commits change
+      only this Change's records.
 
 ## 10. Hosted CI
 
-- [ ] 10.1 Pass the proposal's GitHub checks, and read the macOS version and architecture from the first `macos-latest`
-      job's log.
-- [ ] 10.2 Pass the proposal's GitLab pipeline on the Linux runners.
+- [x] 10.1 Pass the proposal's GitHub checks, and read the macOS version and architecture from the first `macos-latest`
+      job's log. PR 220 passed (2026-11-26 01:3x); `macos-latest` ran `macos-26-arm64`.
+- [x] 10.2 Pass the proposal's GitLab pipeline on the Linux runners. Pipeline 18208 passed at 01:25.
 
 ## 11. Publication
 
