@@ -1,14 +1,15 @@
 ## Why
 
 On 2026-11-26 the owner asked that every Mise pin of every repository ETHOS governs move to the latest stable Mise
-(05:48 and 05:49, confirmed at 06:08). The proxy's CI runs Mise 2026.11.8 on both forges, and GitHub installs it through
-`jdx/mise-action` v5.2.9. The latest stable Mise is 2026.11.14, published 2026-11-24T11:00:43Z, and the latest
-mise-action is v5.3.0, published 2026-11-21T17:01:38Z; both are older than the repository's 24-hour release age.
+(05:48 and 05:49, confirmed at 06:08). The repository's own Mise jobs run Mise 2026.11.8 on both forges, and GitHub
+installs it through `jdx/mise-action` v5.2.9. The latest stable Mise is 2026.11.14, published 2026-11-24T11:00:43Z,
+and the latest mise-action is v5.3.0, published 2026-11-21T17:01:38Z; both are older than the repository's 24-hour
+release age.
 
 ## What Changes
 
-- GitLab's jobs run the Debian image of Mise 2026.11.14, pinned by its OCI index digest, in place of 2026.11.8. GitHub's
-  mise-action installs the same release, which the CUE supply contract derives from that image's tag.
+- GitLab's Mise jobs run the Debian image of Mise 2026.11.14, pinned by its OCI index digest, in place of 2026.11.8.
+  GitHub's mise-action installs the same release, which the CUE supply contract derives from that image's tag.
 - `jdx/mise-action` moves from v5.2.9 to v5.3.0, pinned by its commit.
 - Both forge pipelines are generated again from the CUE supply contract.
 - The Mise floor in `.config/mise/config.toml` stays 2026.10.14. It is not a pin: it is the oldest Mise that may run the
@@ -36,7 +37,14 @@ action revision. This Change declares `skip_specs: true`.
   at or above the floor, so only the hosted jobs on both forges exercise the new release.
 - **Publication, installation and runtime:** the release assets contain no Mise; installation and the running proxy do
   not change.
-- **Authority boundary:** `#Toolchains` in the CUE graph owns the CI supply, and the two pipelines are its projections.
+- **Authority boundary:** `#Toolchains` in the CUE graph owns the executors of the repository's own CI jobs, and the
+  two pipelines are its projections. `#EthosSupply` owns the ETHOS commit that commit admission builds.
   `.config/mise/mise.lock` owns the tools that Mise installs; this Change does not edit it.
 - **Non-goals:** the Mise floor; the tools that Mise installs and their versions; the runner-installed Mise of the GitLab
   macOS job that Change `gitlab-macos-python-job` adds; the released program.
+- **Non-goal, with its next step:** the Mise that ETHOS's commit admission installs (GitLab's `commit-admission` and
+  `commit-admission-accepted` jobs, GitHub's "Native commit admission" job) is selected by `#EthosSupply` and stays at
+  2026.10.14 in this Change. It moves when ETHOS takes Mise 2026.11.14, which the ETHOS product-build session said on
+  2026-11-26 at 06:11 it will do in ETHOS's first lane after its tag of 2026-11-28; this repository's `#EthosSupply`
+  then follows in its own supply Change, owned by the session that coordinates AIGW and the proxy. The floor can rise
+  after that.

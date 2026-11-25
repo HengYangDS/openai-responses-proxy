@@ -10,18 +10,20 @@
 ## 2. Lock and record
 
 - [x] 2.1 Run `mise install --locked` in the lane with Mise 2026.11.14. Done when it passes and
-      `.config/mise/mise.lock` is byte-identical to the base. It passed into an empty private data directory (11 tools
-      installed) and with the shared one; `mise lock --check` passes too.
+      `.config/mise/mise.lock` is byte-identical to the base. It passed into an empty private data directory and with
+      the shared one; `mise lock --check` passes too, on 10 tool versions and 50 platform entries.
 - [x] 2.2 Add an entry under `## [Unreleased]` in `CHANGELOG.md`. Done when Prettier's check of it passes.
 
 ## 3. Local verification
 
-- [x] 3.1 Pass the supply and admission tests of `tests/forge/workflows`, with the `repository_toolchain` cases, as
-      light work. 51 passed, 22 of them `repository_toolchain`.
+- [x] 3.1 Pass the tests of `tests/forge/workflows`, with the `repository_toolchain` cases, as light work. 51 passed,
+      22 of them `repository_toolchain`.
 - [x] 3.2 Pass `openspec validate mise-2026-11-14 --strict`.
-- [ ] 3.3 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue.
-- [ ] 3.4 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
-      code or in the design.
+- [x] 3.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. Reviewed 06:40 (aigw-cli's
+      `build/evidence/lane-proxy-20261125-mise/independent-review.md`); its six findings are answered in the proposal,
+      the design, these tasks and `CHANGELOG.md`.
+- [ ] 3.4 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue.
 
 ## 4. Exact-HEAD proof
 
