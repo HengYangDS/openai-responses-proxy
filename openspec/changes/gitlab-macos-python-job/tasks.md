@@ -49,5 +49,8 @@
 
 ## 7. Publication
 
-- [ ] 7.1 Before the first `dev` push to GitLab, read the proxy's two macOS runners back: online, assigned to the
-      project, tagged as the declaration names them, and the protected one limited to protected refs.
+- [x] 7.1 Before the first `dev` push to GitLab, read the proxy's two macOS runners back: online, assigned to the
+      project, tagged as the declaration names them, and the protected one limited to protected refs. ETHOS 仓库纳管,
+      2026-11-26 07:39 (relayed): both online, unpaused, assigned to this project only and locked, untagged jobs off;
+      `macos-latest` + `review` not protected, `macos-latest` + `protected` ref_protected; each runs under its own
+      account, whose home (mode 700) the other cannot read.
