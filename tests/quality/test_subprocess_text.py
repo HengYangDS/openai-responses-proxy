@@ -1,7 +1,7 @@
 """A subprocess read in text mode names its encoding.
 
-Without one, Python decodes a child's output with the locale's encoding, which is cp1252 on
-Windows runners, so UTF-8 output from Ruff, ty or Git fails there. Ruff's PLW1514 covers only
+Without one, Python decodes a child's output with the locale's encoding, which a host need not
+set to UTF-8, so UTF-8 output from Ruff, ty or Git can fail there. Ruff's PLW1514 covers only
 open() and its relatives, not subprocess.
 """
 

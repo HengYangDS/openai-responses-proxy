@@ -127,18 +127,22 @@ class TestVerificationContracts:
         assert gitlab.count(f"ghcr.io/astral-sh/uv:{uv_version}-python") == 2
         pipeline = _load_yaml(ROOT / ".gitlab-ci.yml")
         job_scripts = {
-            job: tuple(value.get("before_script", ()))
+            job: (tuple(value.get("before_script", ())), value.get("variables", {}))
             for job, value in pipeline.items()
             if isinstance(value, dict) and "before_script" in value
         }
         assert job_scripts
-        for scripts in job_scripts.values():
+        for scripts, variables in job_scripts.values():
             if scripts[0] == "mise install --locked":
-                assert scripts[:3] == (
-                    "mise install --locked",
-                    "npm ci --ignore-scripts",
-                    "npm audit signatures",
-                )
+                # A Mise job that enables the Node tools installs and audits them first.
+                if "npm" in variables["MISE_ENABLE_TOOLS"].split(","):
+                    assert scripts[:3] == (
+                        "mise install --locked",
+                        "npm ci --ignore-scripts",
+                        "npm audit signatures",
+                    )
+                else:
+                    assert not any(command.startswith("npm ") for command in scripts)
                 continue
             native_check = "uv tree --frozen --offline --universal --depth 0"
             assert scripts.count(native_check) == 1
@@ -299,7 +303,8 @@ class TestVerificationContracts:
         uv = tomllib.loads((ROOT / ".config/mise/uv.toml").read_text(encoding="utf-8"))
         assert re.fullmatch(r"==\d+\.\d+\.\d+", uv["required-version"])
         assert uv["link-mode"] == "copy"
-        assert "uv" not in metadata["tool"]
+        # uv refuses `environments` in a uv.toml file and reads it only from the project.
+        assert set(metadata["tool"].get("uv", {})) <= {"environments"}
         lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
         resolved = {package["name"]: package.get("version") for package in lock["package"]}
         assert all(
@@ -311,6 +316,9 @@ class TestVerificationContracts:
         settings = dict(toolchain["settings"])
         # The release age is declared here, in whole hours; its own tests read what it fills.
         assert re.fullmatch(r"(0|[1-9]\d*)h", settings.pop("minimum_release_age"))
+        # The lock's platforms; the supply tests compare the lock with them.
+        platforms = settings.pop("lockfile_platforms")
+        assert platforms == sorted(set(platforms))
         assert settings == {
             "idiomatic_version_file_enable_tools": [],
             "locked": True,

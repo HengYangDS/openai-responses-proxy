@@ -18,8 +18,7 @@ class ProductError(RuntimeError):
 
 def os_error_detail(error: OSError) -> str:
     """Return the bounded native error number of one operating-system failure."""
-    native = getattr(error, "winerror", None)
-    code = native if type(native) is int else error.errno
+    code = error.errno
     return f" (OS error {code})" if type(code) is int else ""
 
 

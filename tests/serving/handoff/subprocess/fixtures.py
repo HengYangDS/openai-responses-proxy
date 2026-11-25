@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 import urllib.error
 import urllib.request
 from contextlib import ExitStack
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
     from openai_responses_proxy.lifecycle import context as runtime_context
 
 PACKAGED_SUCCESSOR_TIMEOUT_SECONDS = 60
-PAYLOAD_UNLOCK_TIMEOUT_SECONDS = 5
 
 
 class SubprocessFixture:
@@ -84,15 +82,7 @@ class SubprocessFixture:
             owned.pid for owned in owned_processes.values() if process.owned_process_alive(owned)
         }
         assert not remaining, f"orphaned proxy children for {proxy_script}: {remaining}"
-        deadline = time.monotonic() + PAYLOAD_UNLOCK_TIMEOUT_SECONDS
-        while True:
-            try:
-                temporary.cleanup()
-                break
-            except PermissionError:
-                if time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.05)
+        temporary.cleanup()
 
     def _post_responses(self, port: int, *, timeout: float = 15) -> bytes:
         request = urllib.request.Request(

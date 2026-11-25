@@ -18,9 +18,9 @@ from openai_responses_proxy.lifecycle.transaction import completion as transacti
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import control_root
-from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 from tests.lifecycle.fixtures import released_artifact
@@ -163,7 +163,7 @@ def test_retained_predecessor_rejects_corruption_before_mutation(
     successor.activate()
     successor.finalize({"pid": 2})
     retained = retained_rollback(ctx)
-    executable = retained.root / executable_relative()
+    executable = retained.root / inventory.EXECUTABLE
     executable.write_bytes(b"corrupt")
     before = Path(ctx.executable).read_bytes()
 

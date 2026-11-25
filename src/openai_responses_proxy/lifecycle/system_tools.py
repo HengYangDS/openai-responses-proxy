@@ -1,21 +1,19 @@
 """Resolve the host tools that lifecycle trusts from system locations, never a caller's PATH.
 
-Release verification and native supervision run ``ssh-keygen``, ``systemctl``, ``launchctl``,
-``plutil`` and ``schtasks``. A PATH lookup would let any directory earlier in the caller's PATH,
-or on Windows the current directory, supply the binary that decides whether an asset is accepted
-or a service is installed. These tools therefore resolve only from fixed system locations.
+Release verification and native supervision run ``ssh-keygen``, ``systemctl``, ``launchctl``
+and ``plutil``. A PATH lookup would let any directory earlier in the caller's PATH supply the
+binary that decides whether an asset is accepted or a service is installed. These tools therefore
+resolve only from fixed system locations.
 """
 
 from __future__ import annotations
 
-import ctypes
 import os
 import stat
 from pathlib import Path
 from pathlib import PurePath
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
-from typing import cast
 
 from openai_responses_proxy import errors
 
@@ -24,8 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 # POSIX system tools live in these directories; NixOS links its system profile's tools from
-# /run/current-system/sw/bin. No directory comes from the environment. They are POSIX paths on
-# every host; only the Linux and macOS adapters resolve tools from them.
+# /run/current-system/sw/bin. No directory comes from the environment.
 TRUSTED_POSIX_DIRECTORIES = (
     PurePosixPath("/usr/bin"),
     PurePosixPath("/bin"),
@@ -72,25 +69,8 @@ def posix_tool(
     return None
 
 
-def windows_system_directory() -> Path:
-    """Return the Windows system directory that the kernel reports, never a search path."""
-    load_library: object = getattr(ctypes, "WinDLL", None)
-    if not callable(load_library):
-        raise errors.UnsupportedPlatformError("Windows system libraries are unavailable")
-    kernel32 = cast("Callable[..., ctypes.CDLL]", load_library)("kernel32", use_last_error=True)
-    buffer = ctypes.create_unicode_buffer(32768)
-    length = kernel32.GetSystemDirectoryW(buffer, len(buffer))
-    if not 0 < length < len(buffer):
-        raise errors.InstallError("Windows system directory is unavailable")
-    return Path(buffer.value)
-
-
 def ssh_keygen() -> str:
     """Return the trusted ssh-keygen that verifies release-asset signatures."""
-    if os.name == "nt":
-        candidate = windows_system_directory() / "OpenSSH" / "ssh-keygen.exe"
-        if candidate.is_file():
-            return str(candidate)
-    elif (resolved := posix_tool("ssh-keygen")) is not None:
+    if (resolved := posix_tool("ssh-keygen")) is not None:
         return resolved
     raise errors.InstallError("ssh-keygen is required to verify release assets")

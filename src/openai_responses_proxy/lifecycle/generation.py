@@ -46,9 +46,7 @@ def context(
     ctx: runtime_context.InstallationContext, generation: str
 ) -> runtime_context.RuntimeContext:
     """Project one immutable generation through the stable runtime settings."""
-    return ctx.for_executable(
-        inventory.installed_executable(str(path(ctx, generation)), windows=ctx.windows)
-    )
+    return ctx.for_executable(inventory.installed_executable(str(path(ctx, generation))))
 
 
 def read(ctx: runtime_context.InstallationContext) -> Selection | None:

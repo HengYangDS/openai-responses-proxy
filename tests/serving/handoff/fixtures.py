@@ -422,7 +422,7 @@ def write_installed_payload(
 ) -> runtime_context.RuntimeContext:
     """Build one selector-bound temporary generation without touching source."""
     ctx = verification.install_private_generation(
-        control_root(root, windows=os.name == "nt"),
+        control_root(root),
         Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"]),
         port=port,
         release=release,

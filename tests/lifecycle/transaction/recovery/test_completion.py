@@ -140,14 +140,13 @@ def test_activated_rollback_retries_terminal_binding_without_replaying_handoff(
 
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["upgrade", "retained-rollback"])
-@pytest.mark.parametrize("windows", [False, True], ids=["posix-link", "windows-launcher"])
 @pytest.mark.parametrize("phase", ["materialized", "activated"])
 def test_recovery_retries_command_restoration_after_selection_is_restored(
-    tmp_path: Path, *, reverse: bool, windows: bool, phase: str, mocker: MockerFixture
+    tmp_path: Path, *, reverse: bool, phase: str, mocker: MockerFixture
 ) -> None:
-    ctx = install_context(tmp_path, windows=windows)
+    ctx = install_context(tmp_path)
     predecessor = install_payload(ctx, "1.2.2", mocker=mocker)
-    candidate = begin_transaction(ctx, released_artifact("1.2.3", windows=windows), mocker=mocker)
+    candidate = begin_transaction(ctx, released_artifact("1.2.3"), mocker=mocker)
     candidate.commit_projection()
     if reverse:
         candidate.activate()

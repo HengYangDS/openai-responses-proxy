@@ -35,16 +35,9 @@ PLATFORM = "linux-x86_64"
 NAMESPACE = "openai-responses-proxy-release"
 
 
-def _release_files(
-    platform: str = PLATFORM,
-) -> dict[str, product_assets.ArchiveFile | bytes]:
-    executable = (
-        "bin/openai-responses-proxy.exe"
-        if platform.startswith("windows-")
-        else "bin/openai-responses-proxy"
-    )
+def _release_files() -> dict[str, product_assets.ArchiveFile | bytes]:
     return {
-        executable: product_assets.ArchiveFile(b"native-executable", 0o755),
+        inventory.EXECUTABLE: product_assets.ArchiveFile(b"native-executable", 0o755),
         "providers.toml": b"version = 1\n",
         "LICENSE": b"MIT\n",
     }
@@ -52,7 +45,7 @@ def _release_files(
 
 def _write_asset_set(tmp_path: Path, platform: str = PLATFORM) -> dict[str, Path]:
     tmp_path.mkdir(parents=True, exist_ok=True)
-    files = _release_files(platform)
+    files = _release_files()
     archive_name = product_assets.archive_name(VERSION, platform)
     archive_bytes = product_assets.archive_bytes(files, VERSION, platform)
     manifest_bytes = product_assets.asset_manifest(
@@ -249,7 +242,7 @@ def _members(
     platform: str = PLATFORM,
 ) -> tuple[tuple[str, bytes, int, bytes | None], ...]:
     prefix = f"openai-responses-proxy-{VERSION}-{platform}/"
-    files = _release_files(platform)
+    files = _release_files()
     return tuple(
         (
             f"{prefix}{name}",
@@ -337,6 +330,32 @@ def test_real_signature_admission_mints_exact_native_artifact(tmp_path: Path) ->
     assert candidate.receipt["verification_scope"] == "signed-native-release-asset"
     assert candidate.receipt["archive"] == paths["archive"].name
     assert candidate.sidecar["receipt_sha256"] == candidate.receipt_sha256
+
+
+def test_admission_ignores_another_platform_named_by_the_signed_inventory(
+    tmp_path: Path,
+) -> None:
+    """A published predecessor's signed inventory also names its Windows asset (D4)."""
+    paths = _write_asset_set(tmp_path)
+    foreign = {
+        product_assets.archive_name(VERSION, "windows-x86_64"): b"predecessor archive",
+        product_assets.manifest_name("windows-x86_64"): b"predecessor manifest",
+    }
+    paths["checksums"].write_bytes(
+        product_assets.checksums(
+            {
+                paths["archive"].name: paths["archive"].read_bytes(),
+                paths["manifest"].name: paths["manifest"].read_bytes(),
+                **foreign,
+            }
+        )
+    )
+    _sign_asset_set(paths)
+
+    candidate = artifact.admit(paths["archive"], trust_anchor=paths["anchor"])
+
+    assert candidate.version == VERSION
+    assert tuple(blob.path for blob in candidate.peek_blobs()) == runtime_files()
 
 
 @pytest.mark.parametrize("missing", ["manifest", "checksums", "signature"])

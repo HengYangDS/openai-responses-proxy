@@ -19,7 +19,6 @@ def freeze(
     session: nox.Session, work: Path, *, root: Path, environment: Mapping[str, str]
 ) -> tuple[Path, Path]:
     """Build one native directory bundle with only release-owned data."""
-    name = product_identity.executable_name(windows=os.name == "nt")
     dist = work / "dist"
     command = (
         "pyinstaller",
@@ -51,7 +50,7 @@ def freeze(
     )
     session.run(*command, env=environment)
     bundle = dist / product_identity.PRODUCT_SLUG
-    executable = bundle / name
+    executable = bundle / product_identity.COMMAND_NAME
     if not executable.is_file():
         session.error(f"native executable was not produced: {executable}")
     return bundle, executable

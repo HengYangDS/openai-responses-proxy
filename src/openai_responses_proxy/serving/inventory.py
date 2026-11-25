@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import posixpath
 from typing import TYPE_CHECKING
 from typing import Final
 
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import digest
 
 if TYPE_CHECKING:
@@ -18,18 +18,9 @@ RELEASE_RECEIPT_FILENAME = "release-asset-receipt.json"
 INSTALLED_RELEASE_STATE_FILENAME = "release-install-state.json"
 RUNTIME_CONFIG_FILENAME = "runtime-config.json"
 PROVIDER_MANIFEST = "providers.toml"
-EXECUTABLE = f"bin/{product_identity.executable_name(windows=False)}"
-WINDOWS_EXECUTABLE = f"bin/{product_identity.executable_name(windows=True)}"
-
-
-def executable_name(*, windows: bool = False) -> str:
-    """Return the platform archive member owned by the runtime."""
-    return WINDOWS_EXECUTABLE if windows else EXECUTABLE
-
-
-def required_runtime_files(*, windows: bool = False) -> frozenset[str]:
-    """Return members required in every native bundle for one platform."""
-    return frozenset((executable_name(windows=windows), PROVIDER_MANIFEST))
+EXECUTABLE = f"bin/{product_identity.COMMAND_NAME}"
+# The members that every native bundle holds.
+REQUIRED_RUNTIME_FILES = frozenset((EXECUTABLE, PROVIDER_MANIFEST))
 
 
 def is_runtime_file(relative: str) -> bool:
@@ -37,16 +28,15 @@ def is_runtime_file(relative: str) -> bool:
     return relative == PROVIDER_MANIFEST or relative.startswith("bin/")
 
 
-def installed_executable(root: str, *, windows: bool = False) -> str:
-    """Return the platform executable below an installed data root."""
-    return config.path_join(root, *executable_name(windows=windows).split("/"))
+def installed_executable(root: str) -> str:
+    """Return the executable below an installed data root."""
+    return posixpath.join(root, EXECUTABLE)
 
 
 def validated_serving_payload_sha256(file_digests: Mapping[str, str]) -> str:
     """Return the aggregate only for the exact serving file set."""
     paths = set(file_digests)
-    windows = WINDOWS_EXECUTABLE in paths
-    if not required_runtime_files(windows=windows).issubset(paths) or any(
+    if not REQUIRED_RUNTIME_FILES.issubset(paths) or any(
         not is_runtime_file(relative) for relative in paths
     ):
         raise digest.PayloadDigestError("serving payload files do not match the declared inventory")

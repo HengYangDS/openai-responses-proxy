@@ -107,12 +107,11 @@ def _platform_adapters() -> tuple[tuple[str, ModuleType], ...]:
     try:
         from openai_responses_proxy.lifecycle.supervision import linux
         from openai_responses_proxy.lifecycle.supervision import macos
-        from openai_responses_proxy.lifecycle.supervision import windows
     except ImportError as error:
         raise errors.ProductAssemblyError(
             "product installation is incomplete; reinstall the verified release"
         ) from error
-    return (("darwin", macos), ("linux", linux), ("win", windows))
+    return (("darwin", macos), ("linux", linux))
 
 
 def adapter() -> NativeServiceAdapter:

@@ -7,7 +7,6 @@ source_dirs = ["tools"]
 product = [
   "src/openai_responses_proxy",
   ".nox/*/lib/python*/site-packages/openai_responses_proxy",
-  ".nox/*/Lib/site-packages/openai_responses_proxy",
 ]
 
 [report]

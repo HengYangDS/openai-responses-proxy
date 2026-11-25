@@ -213,11 +213,10 @@ def owned_process_contexts(
 
 def private_installation(home: Path, state: Path) -> runtime_context.InstallationContext:
     """Project a private control root whose data and state roots the caller owns."""
-    windows = os.name == "nt"
     return runtime_context.InstallationContext(
         user_home=str(home.parent),
         install_dir=str(home),
-        command=str(home.parent / "commands" / product_identity.executable_name(windows=windows)),
+        command=str(home.parent / "commands" / product_identity.COMMAND_NAME),
         log_dir=str(state),
     )
 
@@ -318,8 +317,7 @@ def cleanup_runtime(ctx: runtime_context.InstallationContext) -> None:
     configured = service.configured_executable(ctx)
     process_contexts = owned_contexts
     if configured is not None and all(
-        os.path.normcase(os.path.abspath(owned_ctx.executable))
-        != os.path.normcase(os.path.abspath(configured))
+        os.path.abspath(owned_ctx.executable) != os.path.abspath(configured)
         for owned_ctx in process_contexts
     ):
         configured_path = Path(configured).resolve()
@@ -379,7 +377,7 @@ def materialize_published_bundle(
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(blob.content)
         target.chmod(0o755 if blob.mode == "100755" else 0o644)
-    executable = bundle / "bin" / product_identity.executable_name(windows=os.name == "nt")
+    executable = bundle / "bin" / product_identity.COMMAND_NAME
     if not executable.is_file():
         session.error("published release executable was not materialized")
     return executable.parent, executable

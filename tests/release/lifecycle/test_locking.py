@@ -37,7 +37,7 @@ def test_native_lifecycle_rejects_competing_writers_without_blocking_readers(
     lock_path = state / "lifecycle.lock"
 
     with FileLock(lock_path, timeout=0, fallback_to_soft=False, preserve_lock_file=True):
-        # Observe identity without reading the byte range that Windows exclusively locks.
+        # Observe identity through its metadata alone, without reading the locked file.
         lock_metadata = lock_path.stat()
         for arguments in (
             ("install", "--asset", str(tmp_path / "absent.tar.gz"), "--trust-anchor", str(home)),

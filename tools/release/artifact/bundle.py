@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import io
-import os
 import platform
 import tarfile
 from pathlib import Path
@@ -43,14 +42,6 @@ def normalize(packages: Path) -> None:
         writer.writerows(row for row in rows if row[0] not in provenance)
 
 
-def _is_within(bundle: Path, member: Path) -> bool:
-    """Return whether two resolved paths share the host's bundle identity."""
-    canonical_bundle = os.path.normcase(str(bundle))
-    canonical_member = os.path.normcase(str(member))
-    shared = os.path.normcase(os.path.commonpath((canonical_bundle, canonical_member)))
-    return shared == canonical_bundle
-
-
 def bundle_files(bundle: Path) -> tuple[tuple[Path, Path], ...]:
     """Return logical bundle files after safely materializing internal links."""
     files: list[tuple[Path, Path]] = []
@@ -58,10 +49,9 @@ def bundle_files(bundle: Path) -> tuple[tuple[Path, Path], ...]:
     def visit(logical: Path, source: Path, ancestors: frozenset[Path]) -> None:
         try:
             resolved = source.resolve(strict=True)
-            within = _is_within(bundle, resolved)
-        except (OSError, ValueError) as error:
+        except OSError as error:
             raise SystemExit("native bundle symlink escapes the bundle") from error
-        if not within:
+        if not resolved.is_relative_to(bundle):
             raise SystemExit("native bundle symlink escapes the bundle")
         if resolved.is_file():
             if logical.parent.name.endswith(".dist-info") and logical.name in INSTALLER_PROVENANCE:
@@ -89,19 +79,18 @@ def pack(*, bundle: Path, platform: str, output: Path) -> None:
     if not bundle.is_dir():
         raise SystemExit("native bundle must be a directory")
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
-    executable_name = product_identity.executable_name(windows=platform.startswith("windows-"))
-    executable = bundle / executable_name
+    executable = bundle / product_identity.COMMAND_NAME
     if not executable.is_file() or executable.is_symlink():
         raise SystemExit("native bundle executable is unavailable")
     files: dict[str, bytes | assets.ArchiveFile] = {
-        f"bin/{executable_name}": assets.ArchiveFile(executable.read_bytes(), 0o755),
+        f"bin/{product_identity.COMMAND_NAME}": assets.ArchiveFile(executable.read_bytes(), 0o755),
         "providers.toml": (
             ROOT / "src/openai_responses_proxy/providers/manifest.toml"
         ).read_bytes(),
         "LICENSE": (ROOT / "LICENSE").read_bytes(),
     }
     for relative, source in bundle_files(bundle):
-        if relative == Path(executable_name):
+        if relative == Path(product_identity.COMMAND_NAME):
             continue
         files[f"bin/{relative.as_posix()}"] = source.read_bytes()
     archive_name = assets.archive_name(version, platform)

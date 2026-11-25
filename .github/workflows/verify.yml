@@ -141,35 +141,7 @@ jobs:
     name: Python ${{ matrix.python-version }}
     if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
     needs: python-matrix
-    runs-on: macos-26
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ${{ fromJSON(needs.python-matrix.outputs.versions) }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
-        with:
-          cache-suffix: ${{ github.job }}-${{ strategy.job-index }}
-          version-file: .config/mise/uv.toml
-      - name: Compile and test
-        run: uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"
-    env:
-      UV_CONFIG_FILE: .config/mise/uv.toml
-      UV_NO_CONFIG: "false"
-  python-windows:
-    name: Python ${{ matrix.python-version }} (Windows)
-    if: (github.event_name == 'pull_request' && github.base_ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
-    needs: python-matrix
-    runs-on: windows-2025
+    runs-on: macos-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -358,9 +330,7 @@ jobs:
       matrix:
         include:
           - platform: macos-arm64
-            runner: macos-26
-          - platform: windows-x86_64
-            runner: windows-2025
+            runner: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -484,9 +454,7 @@ jobs:
       matrix:
         include:
           - platform: macos-arm64
-            runner: macos-26
-          - platform: windows-x86_64
-            runner: windows-2025
+            runner: macos-latest
           - platform: linux-x86_64
             runner: ubuntu-24.04
     steps:
@@ -576,7 +544,7 @@ jobs:
         env:
           RELEASE_ASSET_SIGNING_KEY_PATH: ${{ runner.temp }}/release-asset-signing-key
           RELEASE_ASSET_TRUST: ${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}
-        run: uv run --locked --no-sync python -m tools.release.artifact assemble --input "$RUNNER_TEMP/native/native-linux-x86_64" --input "$RUNNER_TEMP/native/native-macos-arm64" --input "$RUNNER_TEMP/native/native-windows-x86_64" --output "$RUNNER_TEMP/release-assets" --sign
+        run: uv run --locked --no-sync python -m tools.release.artifact assemble --input "$RUNNER_TEMP/native/native-linux-x86_64" --input "$RUNNER_TEMP/native/native-macos-arm64" --output "$RUNNER_TEMP/release-assets" --sign
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-assets
@@ -596,9 +564,7 @@ jobs:
       matrix:
         include:
           - platform: macos-arm64
-            runner: macos-26
-          - platform: windows-x86_64
-            runner: windows-2025
+            runner: macos-latest
           - platform: linux-x86_64
             runner: ubuntu-24.04
     steps:
@@ -660,7 +626,6 @@ jobs:
       - source-and-governance
       - python-matrix
       - python
-      - python-windows
       - python-quality
       - performance
       - native-assets
@@ -681,7 +646,7 @@ jobs:
       - name: Reject missing branch proof
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          BRANCH_ADMISSION_RULES: '[{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility"]},{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"main"},"jobs":["commit-admission","promotion"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-windows","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/main"},"jobs":["commit-admission","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF_TYPE":"tag"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"release"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"workflow_dispatch"},"jobs":[]}]'
+          BRANCH_ADMISSION_RULES: '[{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility"]},{"when":{"GITHUB_EVENT_NAME":"pull_request","GITHUB_BASE_REF":"main"},"jobs":["commit-admission","promotion"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/dev"},"jobs":["commit-admission","source-and-governance","python-matrix","python","python-quality","performance","native-assets","native-linux","native-linux-lifecycle","release-compatibility","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF":"refs/heads/main"},"jobs":["commit-admission","accepted-source"]},{"when":{"GITHUB_EVENT_NAME":"push","GITHUB_REF_TYPE":"tag"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"release"},"jobs":[]},{"when":{"GITHUB_EVENT_NAME":"workflow_dispatch"},"jobs":[]}]'
         run: python -m tools.ci.admission
     env:
       UV_CONFIG_FILE: .config/mise/uv.toml

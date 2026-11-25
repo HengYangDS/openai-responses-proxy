@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import tempfile
@@ -25,9 +24,9 @@ class SignatureError(RuntimeError):
 
 @contextmanager
 def _signing_key(key: Path) -> Generator[Path]:
-    """Preserve provider-owned key identity unless POSIX newline repair is needed."""
+    """Preserve provider-owned key identity unless a missing terminal newline needs repair."""
     content = key.read_bytes()
-    if content.endswith(b"\n") or os.name != "posix":
+    if content.endswith(b"\n"):
         yield key
         return
     with tempfile.TemporaryDirectory(

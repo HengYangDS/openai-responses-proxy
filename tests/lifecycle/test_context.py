@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import ntpath
 import os
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -95,11 +94,6 @@ class TestRuntimeContext:
                 f"/opt/proxy/generations/{'5' * 32}/bin/openai-responses-proxy",
                 f"/opt/proxy/generations/{'5' * 32}",
             ),
-            (
-                r"C:\proxy",
-                rf"C:\proxy\generations\{'5' * 32}\bin\openai-responses-proxy.exe",
-                rf"C:\proxy\generations\{'5' * 32}",
-            ),
         ):
             with subtests.test(executable=executable):
                 projected = context.RuntimeContext(
@@ -120,7 +114,6 @@ class TestRuntimeContext:
 
         assert type(projected) is context.InstallationContext
         assert projected.install_dir == "/portable/payload"
-        assert projected.windows == (os.name == "nt")
         assert projected.log_dir == "/portable/state"
         assert projected.user_home == "/portable/home"
         assert projected.port == 8808
@@ -224,29 +217,7 @@ class TestRuntimeContext:
         with pytest.raises(errors.InstallError, match="absolute HTTP\\(S\\) URL"):
             context.create(upstream_base_url="https://user:secret@api.openai.com/v1")
 
-    def test_posix_projection_is_not_reinterpreted_by_a_windows_host(
-        self, tmp_path: Path, *, mocker: MockerFixture
-    ) -> None:
-        install_dir = tmp_path / "posix-payload"
-        projected = context.RuntimeContext(
-            install_dir=str(install_dir),
-            executable=generation_executable(install_dir),
-            command=str(tmp_path / "bin" / "openai-responses-proxy"),
-            log_dir=str(tmp_path / "posix-state"),
-        )
-        mocker.patch.object(config.os, "path", ntpath)
-        mocker.patch.object(config, "home_dir", return_value="/portable/home")
-        mocker.patch.object(config, "data_dir", return_value="/portable/payload")
-        mocker.patch.object(config, "state_dir", return_value="/portable/state")
-        environment = runtime_spec.environment(runtime_spec.write(projected))
-        created = context.create()
-        assert environment[config.PROXY_LOG_ENV] == str(tmp_path / "posix-state" / "proxy.log")
-        assert created.install_dir == "/portable/payload"
-
-    def test_path_projection_preserves_windows_roots_and_absolutizes_relative_overrides(
-        self,
-    ) -> None:
-        assert config.path_join(r"C:\portable\proxy", "state") == r"C:\portable\proxy\state"
+    def test_a_relative_root_override_is_made_absolute(self) -> None:
         relative = config._absolute_override({config.HOME_ENV: "payload"}, config.HOME_ENV)
         assert relative == str((Path.cwd() / "payload").resolve())
 
@@ -259,7 +230,7 @@ class TestRuntimeContext:
         mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
         projected = generation.context(context.create(port=8808), FIXTURE_GENERATION)
 
-        assert projected.executable == generation_executable(payload, windows=os.name == "nt")
+        assert projected.executable == generation_executable(payload)
         assert "python" not in projected.__dataclass_fields__
         assert "proxy_script" not in projected.__dataclass_fields__
         assert "watchdog_script" not in projected.__dataclass_fields__

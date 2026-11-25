@@ -13,8 +13,11 @@ def release_bundle(
 ) -> dict[str, bytes]:
     platform_assets: dict[str, bytes] = {}
     for platform in platforms:
-        executable = product_identity.executable_name(windows=platform.startswith("windows-"))
-        files = {f"bin/{executable}": assets.ArchiveFile(f"native-{platform}".encode(), mode=0o755)}
+        files = {
+            f"bin/{product_identity.COMMAND_NAME}": assets.ArchiveFile(
+                f"native-{platform}".encode(), mode=0o755
+            )
+        }
         archive_name = assets.archive_name(version, platform)
         archive = assets.archive_bytes(files, version, platform)
         platform_assets[archive_name] = archive

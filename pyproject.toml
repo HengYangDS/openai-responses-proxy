@@ -48,3 +48,11 @@ include = ["/src/openai_responses_proxy", "/VERSION", "/README.md", "/LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openai_responses_proxy"]
+
+[tool.uv]
+# The platforms that CI, releases and development run on: macOS ARM64 and Linux. uv reads this
+# setting only from the project, not from .config/mise/uv.toml.
+environments = [
+  "sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "sys_platform == 'linux'",
+]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
@@ -82,7 +81,7 @@ def _installed_payload(root: Path) -> Path:
     """Install a fixture bundle as a committed private generation; return its executable."""
     bundle = root / "bundle"
     (bundle / "_internal").mkdir(parents=True)
-    source = bundle / product_identity.executable_name(windows=os.name == "nt")
+    source = bundle / product_identity.COMMAND_NAME
     source.write_bytes(b"native fixture")
     (bundle / "_internal" / "library.zip").write_bytes(b"library fixture")
     ctx = verification.install_private_generation(

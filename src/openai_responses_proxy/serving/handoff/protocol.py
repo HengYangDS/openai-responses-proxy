@@ -7,9 +7,7 @@ transfer, and the loopback health proof used at the commit barrier.
 
 from __future__ import annotations
 
-import base64
 import json
-import os
 import queue
 import socket
 import subprocess
@@ -21,8 +19,6 @@ from collections.abc import Mapping
 from typing import IO
 from typing import TYPE_CHECKING
 from typing import Protocol
-from typing import TypedDict
-from typing import cast
 
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime import loopback
@@ -33,19 +29,6 @@ if TYPE_CHECKING:
 
 type JsonObject = dict[str, object]
 type ReadOnlyJsonObject = Mapping[str, object]
-
-
-class _PopenKwargs(TypedDict, total=False):
-    """Keyword arguments for a binary handoff child process."""
-
-    stdin: int
-    stdout: int
-    stderr: int
-    close_fds: bool
-    creationflags: int
-    pass_fds: tuple[int, ...]
-    start_new_session: bool
-    env: dict[str, str]
 
 
 class ChildProcessContext(Protocol):
@@ -69,26 +52,6 @@ HANDOFF_STARTUP_TIMEOUT_SECONDS = 30.0
 
 class HandoffError(RuntimeError):
     """A bounded rolling-handoff operation could not be completed safely."""
-
-
-def popen_kwargs(listener_fd: int | None, *, is_windows: bool) -> _PopenKwargs:
-    """Return platform-specific, pipe-only child process settings."""
-    kwargs: _PopenKwargs = {
-        "stdin": subprocess.PIPE,
-        "stdout": subprocess.PIPE,
-        "stderr": subprocess.DEVNULL,
-        "close_fds": True,
-    }
-    if is_windows:
-        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
-            subprocess, "DETACHED_PROCESS", 0
-        )
-    else:
-        if listener_fd is None:
-            raise HandoffError("POSIX handoff requires a listener fd")
-        kwargs["pass_fds"] = (listener_fd,)
-        kwargs["start_new_session"] = True
-    return kwargs
 
 
 def _encode_control_message(message: ReadOnlyJsonObject, error: str) -> bytes:
@@ -237,22 +200,23 @@ def spawn_child(
     expected: ReadOnlyJsonObject,
     context: ChildProcessContext,
     *,
-    is_windows: bool | None = None,
     startup_timeout_seconds: float = HANDOFF_STARTUP_TIMEOUT_SECONDS,
 ) -> HandoffChild:
-    """Spawn a replacement, bind its runtime PID, and send PREPARE."""
-    windows = os.name == "nt" if is_windows is None else bool(is_windows)
-    listener_fd = None if windows else listener.fileno()
-    kwargs = popen_kwargs(listener_fd, is_windows=windows)
-    env = native_process_environment(
-        install_root=context.executable.parent.parent,
-        state_root=context.state_root,
-        restart_frozen_runtime=True,
-    )
-    kwargs["env"] = env
+    """Spawn a replacement that inherits only the listener, bind its runtime PID, send PREPARE."""
+    listener_fd = listener.fileno()
     process: subprocess.Popen[bytes] = subprocess.Popen(
         [str(context.executable), "--internal-handoff-child"],
-        **kwargs,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+        pass_fds=(listener_fd,),
+        start_new_session=True,
+        env=native_process_environment(
+            install_root=context.executable.parent.parent,
+            state_root=context.state_root,
+            restart_frozen_runtime=True,
+        ),
     )
     child = HandoffChild(process)
     message = {
@@ -270,12 +234,8 @@ def spawn_child(
         },
     }
     try:
-        runtime_pid = child.await_runtime(startup_timeout_seconds)
-        if windows:
-            shared = _share_listener(listener, runtime_pid)
-            message["listener_share_b64"] = base64.b64encode(shared).decode("ascii")
-        else:
-            message["listener_fd"] = listener_fd
+        child.await_runtime(startup_timeout_seconds)
+        message["listener_fd"] = listener_fd
         child.send_message(message)
     except Exception:
         if not child.terminate_bounded(HANDOFF_CHILD_EXIT_TIMEOUT_SECONDS):
@@ -284,31 +244,8 @@ def spawn_child(
     return child
 
 
-def _share_listener(listener: socket.socket, runtime_pid: int) -> bytes:
-    """Duplicate the listening socket for one Windows child process."""
-    share: object = getattr(listener, "share", None)
-    if not callable(share):
-        raise HandoffError("Windows listener sharing is unavailable")
-    try:
-        return cast("Callable[[int], bytes]", share)(runtime_pid)
-    except OSError as exc:
-        raise HandoffError("Windows listener sharing failed") from exc
-
-
 def listener_from_prepare(message: ReadOnlyJsonObject) -> socket.socket:
-    """Reconstruct the already-listening socket from a validated PREPARE."""
-    if "listener_share_b64" in message:
-        encoded = message.get("listener_share_b64")
-        if not isinstance(encoded, str) or len(encoded) > HANDOFF_CONTROL_MAX_BYTES:
-            raise HandoffError("invalid Windows listener share")
-        fromshare: object = getattr(socket, "fromshare", None)
-        if not callable(fromshare):
-            raise HandoffError("Windows listener reconstruction is unavailable")
-        try:
-            shared = base64.b64decode(encoded.encode("ascii"), validate=True)
-            return cast("Callable[[bytes], socket.socket]", fromshare)(shared)
-        except (OSError, ValueError) as exc:
-            raise HandoffError("Windows listener reconstruction failed") from exc
+    """Reconstruct the inherited listening socket from a validated PREPARE."""
     listener_fd = message.get("listener_fd")
     if not isinstance(listener_fd, int) or listener_fd < 0:
         raise HandoffError("invalid inherited listener fd")

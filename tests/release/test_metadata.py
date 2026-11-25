@@ -399,7 +399,6 @@ def test_native_bundle_has_one_runtime_and_one_signer() -> None:
             "linux-release-image: ${{ steps.versions.outputs.linux-release-image }}",
             "container: ${{ needs.python-matrix.outputs.linux-release-image }}",
             "platform: macos-arm64",
-            "platform: windows-x86_64",
             "python -m tools.release.artifact assemble",
             "--sign",
         ),

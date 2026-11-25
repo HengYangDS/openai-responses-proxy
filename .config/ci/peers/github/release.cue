@@ -1,6 +1,9 @@
 package ci
 
-import "list"
+import (
+	"list"
+	"strings"
+)
 
 // Tagged assets and published predecessors have separate admission boundaries.
 #ReleaseJobs: {
@@ -8,7 +11,7 @@ import "list"
 		name:              "Tag metadata and governance"
 		if:                #Conditions.tagPush
 		needs:             "python-matrix"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -56,15 +59,9 @@ import "list"
 		"timeout-minutes": 30
 		strategy: {
 			"fail-fast": false
-			matrix: include: [{
-				platform: "macos-arm64"
-				runner:   "macos-26"
-			}, {
-				platform: "windows-x86_64"
-				runner:   "windows-2025"
-			}, {
-				platform: "linux-x86_64"
-				runner:   "ubuntu-24.04"
+			matrix: include: [for _, target in #Platforms {
+				platform: target.release
+				runner:   target.github
 			}]
 		}
 		steps: list.Concat([[{
@@ -104,7 +101,7 @@ import "list"
 			name: "Bind the exact predecessor asset"
 			run:  "python -c \"import glob, os; matches = glob.glob(r'${{ runner.temp }}/previous-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); assert len(matches) == 1, matches; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + matches[0] + '\\n')\""
 		}], [for step in #LinuxUserManagerSteps {
-			step & {if: "matrix.platform == 'linux-x86_64'"}
+			step & {if: "matrix.platform == '\(#Platforms.linux.release)'"}
 		}], [{
 			name: "Prove published predecessor upgrade and rollback"
 			env: {
@@ -119,7 +116,7 @@ import "list"
 		name: "Release assets"
 		if:   #Conditions.tagPush
 		needs: ["commit-admission", "python-matrix", "tag-metadata", "native-assets", "native-linux", "native-linux-lifecycle"]
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -148,7 +145,11 @@ import "list"
 				RELEASE_ASSET_SIGNING_KEY_PATH: "${{ runner.temp }}/release-asset-signing-key"
 				RELEASE_ASSET_TRUST:            "${{ vars.OPENAI_RESPONSES_PROXY_RELEASE_ASSET_TRUST }}"
 			}
-			run: "uv run --locked --no-sync python -m tools.release.artifact assemble --input \"$RUNNER_TEMP/native/native-linux-x86_64\" --input \"$RUNNER_TEMP/native/native-macos-arm64\" --input \"$RUNNER_TEMP/native/native-windows-x86_64\" --output \"$RUNNER_TEMP/release-assets\" --sign"
+			run: strings.Join(list.Concat([
+				["uv run --locked --no-sync python -m tools.release.artifact assemble"],
+				[for platform in #ReleasePlatforms {"--input \"$RUNNER_TEMP/native/native-\(platform)\""}],
+				["--output \"$RUNNER_TEMP/release-assets\" --sign"],
+			]), " ")
 		}, {
 			uses: #Toolchains.githubActions.upload
 			with: {
@@ -166,15 +167,9 @@ import "list"
 		"timeout-minutes": 30
 		strategy: {
 			"fail-fast": false
-			matrix: include: [{
-				platform: "macos-arm64"
-				runner:   "macos-26"
-			}, {
-				platform: "windows-x86_64"
-				runner:   "windows-2025"
-			}, {
-				platform: "linux-x86_64"
-				runner:   "ubuntu-24.04"
+			matrix: include: [for _, target in #Platforms {
+				platform: target.release
+				runner:   target.github
 			}]
 		}
 		steps: list.Concat([[{
@@ -215,7 +210,7 @@ import "list"
 			name: "Bind the exact published assets"
 			run:  "python -c \"import glob, os; current = glob.glob(r'${{ runner.temp }}/current-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); previous = glob.glob(r'${{ runner.temp }}/previous-release/openai-responses-proxy-*-${{ matrix.platform }}.tar.gz'); assert len(current) == len(previous) == 1, (current, previous); open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write('OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSET=' + current[0] + '\\nOPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET=' + previous[0] + '\\n')\""
 		}], [for step in #LinuxUserManagerSteps {
-			step & {if: "matrix.platform == 'linux-x86_64'"}
+			step & {if: "matrix.platform == '\(#Platforms.linux.release)'"}
 		}], [{
 			name: "Prove the published release lifecycle"
 			env: {

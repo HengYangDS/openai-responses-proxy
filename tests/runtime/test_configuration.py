@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ntpath
 from typing import TYPE_CHECKING
 from typing import cast
 
@@ -27,28 +26,20 @@ class TestRuntimeConfiguration:
         cases = (
             (
                 {"OPENAI_RESPONSES_PROXY_HOME": "~/payload"},
-                {"os.name": "posix", "sys.platform": "linux"},
+                "linux",
                 ("payload", ".local/state/openai-responses-proxy"),
             ),
             (
                 {"OPENAI_RESPONSES_PROXY_STATE_HOME": "~/state"},
-                {"os.name": "posix", "sys.platform": "darwin"},
+                "darwin",
                 ("Library/Application Support/openai-responses-proxy", "state"),
-            ),
-            (
-                {"LOCALAPPDATA": "/portable/local"},
-                {"os.name": "nt", "sys.platform": "win32"},
-                (
-                    "/portable/local/openai-responses-proxy",
-                    "/portable/local/openai-responses-proxy-state",
-                ),
             ),
             (
                 {
                     "XDG_DATA_HOME": "/portable/data",
                     "XDG_STATE_HOME": "/portable/state",
                 },
-                {"os.name": "posix", "sys.platform": "linux"},
+                "linux",
                 (
                     "/portable/data/openai-responses-proxy",
                     "/portable/state/openai-responses-proxy",
@@ -57,8 +48,7 @@ class TestRuntimeConfiguration:
         )
         for environment, platform, expected in cases:
             mocker.patch.dict(runtime_config.os.environ, environment, clear=True)
-            mocker.patch.object(runtime_config.os, "name", platform["os.name"])
-            mocker.patch.object(runtime_config.sys, "platform", platform["sys.platform"])
+            mocker.patch.object(runtime_config.sys, "platform", platform)
             mocker.patch.object(runtime_config, "home_dir", return_value="/home/tester")
             with subtests.test(platform=platform):
                 assert runtime_config.data_dir().endswith(expected[0])
@@ -69,14 +59,10 @@ class TestRuntimeConfiguration:
     ) -> None:
         """Keep the native macOS path branch covered on every CI host."""
         mocker.patch.dict(runtime_config.os.environ, {}, clear=True)
-        mocker.patch.object(runtime_config.os, "name", "posix")
         mocker.patch.object(runtime_config.sys, "platform", "darwin")
-        home = runtime_config.path_join("/", "portable", "user")
-        mocker.patch.object(runtime_config, "home_dir", return_value=home)
+        mocker.patch.object(runtime_config, "home_dir", return_value="/portable/user")
 
-        assert runtime_config.state_dir() == runtime_config.path_join(
-            home, "Library", "Logs", "openai-responses-proxy"
-        )
+        assert runtime_config.state_dir() == "/portable/user/Library/Logs/openai-responses-proxy"
 
     def test_runtime_configuration_is_loopback_only_and_rejects_invalid_ports(
         self, subtests: pytest.Subtests
@@ -105,18 +91,6 @@ class TestRuntimeConfiguration:
         }
         assert runtime_config.data_dir(environment) == "/portable/home/payload"
         assert runtime_config.state_dir(environment) == "/portable/home/state"
-
-    def test_posix_overrides_are_not_reinterpreted_by_a_windows_host(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        environment = {
-            "HOME": "/portable/home",
-            runtime_config.HOME_ENV: "~/payload",
-            runtime_config.STATE_HOME_ENV: "/portable/state",
-        }
-        mocker.patch.object(runtime_config.os, "path", ntpath)
-        assert runtime_config.data_dir(environment) == "/portable/home/payload"
-        assert runtime_config.state_dir(environment) == "/portable/state"
 
     def test_runtime_settings_expose_only_the_owned_configuration_model(self) -> None:
         assert set(runtime_config.Settings.__dataclass_fields__) == {

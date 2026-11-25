@@ -42,11 +42,11 @@ def _forge(
         "assets": {
             **{
                 f"openai-responses-proxy-1.2.3-{platform}.tar.gz": "1" * 64
-                for platform in ("linux-x86_64", "macos-arm64", "windows-x86_64")
+                for platform in product_assets.RELEASE_PLATFORMS
             },
             **{
                 f"openai-responses-proxy-{platform}.manifest.json": "2" * 64
-                for platform in ("linux-x86_64", "macos-arm64", "windows-x86_64")
+                for platform in product_assets.RELEASE_PLATFORMS
             },
             "SHA256SUMS": "3" * 64,
             "SHA256SUMS.sig": "4" * 64,
@@ -150,7 +150,7 @@ class PublicationProofContracts:
     def test_rejects_incomplete_forge_asset_inventory(self) -> None:
         gitlab = _gitlab_forge()
         assets = cast("dict[str, str]", gitlab["assets"])
-        for platform in ("macos-arm64", "windows-x86_64"):
+        for platform in product_assets.RELEASE_PLATFORMS[1:]:
             assets.pop(f"openai-responses-proxy-1.2.3-{platform}.tar.gz")
             assets.pop(f"openai-responses-proxy-{platform}.manifest.json")
 

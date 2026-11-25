@@ -2,10 +2,12 @@
 
 import re
 
+from openai_responses_proxy import product_identity
 from tests.forge.workflows.fixtures import _load_yaml
 from tests.forge.workflows.fixtures import _mapping
 from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _string
+from tests.forge.workflows.fixtures import _strings
 from tests.quality.fixtures import ROOT
 
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
@@ -19,14 +21,10 @@ def _assert_github_required_tokens(text: str) -> None:
         'GIT_CONFIG_COUNT: "1"',
         "GIT_CONFIG_KEY_0: init.defaultBranch",
         "GIT_CONFIG_VALUE_0: main",
-        "runs-on: macos-26",
-        "runs-on: ubuntu-24.04",
         "actions/checkout@",
         "uv run --locked --no-sync python -m tools.quality.python_matrix",
         "python-version: ${{ fromJSON(needs.python-matrix.outputs.versions) }}",
         'uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"',
-        "python-windows:",
-        "windows-2025",
         "actions/setup-python@",
         "fetch-tags: true",
         "if: github.event_name == 'push' && github.ref_type == 'tag'",
@@ -44,10 +42,7 @@ def _assert_github_required_tokens(text: str) -> None:
         "tests/release/publication",
         "native-assets:",
         "name: Native asset (${{ matrix.platform }})",
-        "platform: macos-arm64",
-        "platform: windows-x86_64",
         "native-linux:",
-        "name: Native asset (linux-x86_64)",
         "container: ${{ needs.python-matrix.outputs.linux-release-image }}",
         'uv run --locked --no-sync nox -s release -- "${{ runner.temp }}/native-assets"',
         "actions/upload-artifact@",
@@ -107,30 +102,20 @@ def _assert_github_matrix_contract(text: str) -> None:
 
 def _assert_github_platform_contract(text: str) -> None:
     mac_start = text.index("\n  python:")
-    windows_start = text.index("\n  python-windows:")
     governance_start = text.index("\n  accepted-source:")
-    mac_block = text[mac_start:windows_start]
-    windows_block = text[windows_start:governance_start]
+    mac_block = text[mac_start:governance_start]
     setup_uv = "astral-sh/setup-uv@"
     if mac_block.count(setup_uv) != 1:
         raise AssertionError("macOS Python matrix must use exactly one setup-uv action")
+    if mac_block.count("actions/setup-python@") != 1:
+        raise AssertionError("macOS Python matrix must use exactly one pinned setup-python action")
     test_owner = 'uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"'
     if test_owner not in mac_block:
         raise AssertionError(f"macOS Python matrix must run {test_owner}")
-    for token in (
-        "runs-on: windows-2025",
-        "python-version: ${{ fromJSON(needs.python-matrix.outputs.versions) }}",
-        "actions/checkout@",
-        "actions/setup-python@",
-        'uv run --locked --group quality nox -s "tests-${{ matrix.python-version }}"',
-    ):
-        if token not in windows_block:
-            raise AssertionError(f"Windows Python matrix must contain {token!r}")
     jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
     host_native_jobs = (
         "source-and-governance",
         "python",
-        "python-windows",
         "accepted-source",
         "promotion",
         "tag-metadata",
@@ -145,10 +130,6 @@ def _assert_github_platform_contract(text: str) -> None:
             _string(_mapping(step).get("uses", "")).startswith("actions/setup-python@")
             for step in steps
         ), f"{job_id} must use pinned setup-python"
-    if windows_block.count("actions/setup-python@") != 1:
-        raise AssertionError("Windows verification must use exactly one pinned setup-python action")
-    if windows_block.count(setup_uv) != 1:
-        raise AssertionError("Windows Python matrix must use exactly one setup-uv action")
     quality_start = text.index("\n  python-quality:")
     quality_end = text.index("\n  native-assets:", quality_start)
     quality_block = text[quality_start:quality_end]
@@ -186,21 +167,14 @@ def _assert_github_governance_contract(text: str) -> None:
 
 
 def _assert_github_native_and_forbidden_contract(text: str) -> None:
-    windows_start = text.index("\n  python-windows:")
-    governance_start = text.index("\n  accepted-source:")
-    windows_block = text[windows_start:governance_start]
     jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
     for job_id in ("native-assets", "native-linux"):
         for step in _sequence(_mapping(jobs[job_id])["steps"]):
             native_step = _mapping(step)
             assert "shell" not in native_step
             assert "set -euo pipefail" not in _string(native_step.get("run", ""))
-    if "shell:" in windows_block or re.search(r"(?:^|\s)\S+\.sh(?:\s|$)", windows_block):
-        raise AssertionError("Windows verification must not depend on Bash or POSIX shell scripts")
-    if "secrets:" in windows_block or "permissions:" in windows_block:
-        raise AssertionError(
-            "Windows verification must inherit the read-only, secret-free workflow contract"
-        )
+    if re.search(r"(?:^|\s)\S+\.sh(?:\s|$)", text):
+        raise AssertionError("GitHub verification must not depend on repository shell scripts")
     for forbidden in (
         "self-hosted",
         "openai-responses-proxy-github-macos-arm64",
@@ -245,3 +219,57 @@ def test_gitlab_pytest_invocations_preserve_repository_module_resolution() -> No
     if f"{GITLAB_LOCKED_PYTHON} pytest" in text:
         raise AssertionError("GitLab must not invoke the pytest console script directly")
     assert f"{GITLAB_LOCKED_PYTHON} pytest" not in text
+
+
+def _legs(job: object) -> dict[str, str]:
+    """Return a platform matrix job's legs as platform to runner."""
+    legs = _sequence(_mapping(_mapping(_mapping(job)["strategy"])["matrix"])["include"])
+    return {_string(_mapping(leg)["platform"]): _string(_mapping(leg)["runner"]) for leg in legs}
+
+
+def test_every_released_platform_has_one_runner_in_every_github_job() -> None:
+    """Platforms come from the product inventory and runners from one declaration."""
+    jobs = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+    runners = _legs(jobs["release-compatibility"])
+    assert set(runners) == set(product_identity.RELEASE_PLATFORMS)
+    assert _legs(jobs["published-release-compatibility"]) == runners
+    native_names = {
+        _string(_mapping(jobs["native-assets"])["name"]).replace("${{ matrix.platform }}", leg)
+        for leg in _legs(jobs["native-assets"])
+    } | {_string(_mapping(jobs["native-linux"])["name"])}
+    assert native_names == {
+        f"Native asset ({platform})" for platform in product_identity.RELEASE_PLATFORMS
+    }
+    for platform, runner in _legs(jobs["native-assets"]).items():
+        assert runner == runners[platform]
+    fixed = {
+        job_id: _string(_mapping(job)["runs-on"])
+        for job_id, job in jobs.items()
+        if "${{" not in _string(_mapping(job)["runs-on"])
+    }
+    assert set(fixed.values()) <= set(runners.values()), fixed
+    assert fixed["python"] in set(runners.values()) - {fixed["native-linux"]}
+
+
+def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
+    """GitLab renders GitHub's macOS Python job from the same declaration (D2)."""
+    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
+    versions = (ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").split()
+    linux = _mapping(gitlab["verify-python"])
+    linux_matrix = _mapping(_sequence(_mapping(linux["parallel"])["matrix"])[0])
+    assert _sequence(linux_matrix["PYTHON_VERSION"]) == versions
+    tags = {}
+    for suffix in ("", "-accepted"):
+        job = _mapping(gitlab[f"verify-python-macos{suffix}"])
+        assert str(_mapping(job["inherit"])["default"]).lower() == "false"
+        assert "image" not in job
+        assert not any("apt-get" in command for command in _strings(job["before_script"]))
+        assert _mapping(job["parallel"]) == _mapping(linux["parallel"])
+        assert job["rules"] == _mapping(gitlab[f"verify-python{suffix}"])["rules"]
+        session = 'nox -s "tests-$PYTHON_VERSION"'
+        assert any(command.endswith(session) for command in _strings(job["script"]))
+        assert _strings(job["before_script"])[0] == "mise install --locked"
+        tags[suffix] = _strings(job["tags"])
+    review, protected = tags[""], tags["-accepted"]
+    assert len(review) == len(protected)
+    assert len(set(review) ^ set(protected)) == 2, "the roles differ by their trust tag alone"

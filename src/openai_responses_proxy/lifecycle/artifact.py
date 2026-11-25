@@ -392,15 +392,10 @@ def _archive_blobs(archive: bytes, document: JsonObject) -> tuple[ArtifactFile, 
     ):
         raise errors.InstallError("release archive inventory is invalid")
     files = dict(raw_files)
-    executable_name = (
-        f"bin/{product_identity.executable_name(windows=True)}"
-        if platform.startswith("windows-")
-        else f"bin/{product_identity.executable_name(windows=False)}"
-    )
     expected = set(files)
     if (
         not expected
-        or not {executable_name, "providers.toml", "LICENSE"}.issubset(expected)
+        or not {*inventory.REQUIRED_RUNTIME_FILES, "LICENSE"}.issubset(expected)
         or any(
             relative != "LICENSE" and not inventory.is_runtime_file(relative)
             for relative in expected
@@ -430,7 +425,7 @@ def _archive_blobs(archive: bytes, document: JsonObject) -> tuple[ArtifactFile, 
                 if relative == "LICENSE":
                     continue
                 target = relative
-                is_executable = target == executable_name
+                is_executable = target == inventory.EXECUTABLE
                 expected_mode = 0o755 if is_executable else 0o644
                 if member.mode != expected_mode:
                     raise errors.InstallError("release archive member mode is invalid")

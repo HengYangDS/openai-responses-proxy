@@ -45,14 +45,14 @@ def test_native_service_selection_is_total_for_supported_hosts(
         ("darwin", "macos"),
         ("linux", "linux"),
         ("linux2", "linux"),
-        ("win32", "windows"),
     ):
         mocker.patch.object(sys, "platform", platform)
         with subtests.test(platform=platform):
             assert native_service.adapter().__name__.rsplit(".", 1)[-1] == expected
-    mocker.patch.object(sys, "platform", "plan9")
-    with pytest.raises(RuntimeError, match="unsupported platform: plan9"):
-        native_service.adapter()
+    for unsupported in ("win32", "plan9"):
+        mocker.patch.object(sys, "platform", unsupported)
+        with pytest.raises(RuntimeError, match=f"unsupported platform: {unsupported}"):
+            native_service.adapter()
 
 
 def test_native_service_selection_reports_incomplete_product(*, mocker: MockerFixture) -> None:

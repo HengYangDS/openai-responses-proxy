@@ -45,7 +45,6 @@ def test_nox_console_discovers_the_repository_sessions_without_pythonpath() -> N
     [
         ("Darwin", "arm64", "macos-arm64"),
         ("Linux", "x86_64", "linux-x86_64"),
-        ("Windows", "AMD64", "windows-x86_64"),
     ],
 )
 def test_sessions_accept_built_artifacts_before_publication(
@@ -67,7 +66,7 @@ def test_sessions_accept_built_artifacts_before_publication(
             machine=lambda: machine,
         ),
     )
-    executable_name = nox_configuration.product_identity.executable_name(windows=os.name == "nt")
+    executable_name = nox_configuration.product_identity.COMMAND_NAME
     packages = tmp_path / "site-packages"
     packages.mkdir()
     Path(orchestration_session.bin, executable_name).touch()

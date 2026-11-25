@@ -132,10 +132,9 @@ def signed_asset(
 ) -> Path:
     """Build one route-controlled asset from exact native bundle bytes."""
     platform_id = product_identity.native_release_platform(platform.system(), platform.machine())
-    executable_name = product_identity.executable_name(windows=platform_id.startswith("windows-"))
-    executable = bundle / executable_name
+    executable = bundle / product_identity.COMMAND_NAME
     files: dict[str, bytes | product_assets.ArchiveFile] = {
-        f"bin/{executable_name}": product_assets.ArchiveFile(executable.read_bytes(), 0o755),
+        f"bin/{executable.name}": product_assets.ArchiveFile(executable.read_bytes(), 0o755),
         "providers.toml": (
             (ROOT / "src/openai_responses_proxy/providers/manifest.toml").read_bytes()
             if preserve_manifest
@@ -198,15 +197,12 @@ def runtime_context_for(
         install_root=install,
         state_root=state,
     )
-    windows = platform.system() == "Windows"
-
     ctx = runtime_context.InstallationContext(
         user_home=str(home),
         install_dir=str(install),
-        command=str(command.path(str(home), environment, windows=windows)),
+        command=str(command.path(str(home), environment)),
         log_dir=str(state),
         port=port,
-        windows=windows,
     )
     verification.retain_context(ctx)
     return ctx
@@ -244,26 +240,7 @@ def stop_native_supervision(
     removing and reloading it also ended the detached listener on the hosted runner.
     """
     service = native_service.adapter()
-    if sys.platform == "win32":
-        operations = [("/change", "/disable")]
-        if not keep_runtime:
-            operations.append(("/end",))
-        for arguments in operations:
-            subprocess.run(
-                ["schtasks", *arguments, "/tn", ctx.service_id],
-                check=True,
-                capture_output=True,
-                text=True,
-                encoding="locale",
-                stdin=subprocess.DEVNULL,
-                timeout=30,
-            )
-        if keep_runtime:
-            control = generation.require_control_context(ctx)
-            watchdog = {serving_roles.WATCHDOG_MODE}
-            for pid in process.pids_naming_executable(control.executable, roles=watchdog):
-                assert process.terminate_executable(pid, control.executable, roles=watchdog)
-    elif keep_runtime and sys.platform.startswith("linux"):
+    if keep_runtime and sys.platform.startswith("linux"):
         subprocess.run(
             ["systemctl", "--user", "stop", f"{ctx.service_id}.service"],
             check=True,

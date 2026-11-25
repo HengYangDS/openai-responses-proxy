@@ -18,9 +18,7 @@ from tools.release.publication import hosted
 DEFAULT_REQUIRED_JOBS: Final = (
     "Resolve supported Python versions",
     "Tag metadata and governance",
-    "Native asset (linux-x86_64)",
-    "Native asset (macos-arm64)",
-    "Native asset (windows-x86_64)",
+    *(f"Native asset ({platform})" for platform in product_identity.RELEASE_PLATFORMS),
     "Release assets",
 )
 

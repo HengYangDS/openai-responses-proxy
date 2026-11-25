@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
+from openai_responses_proxy import product_identity
 from tests.forge.workflows.fixtures import _load_yaml
 from tests.forge.workflows.fixtures import _mapping
 from tests.forge.workflows.fixtures import _sequence
@@ -172,20 +173,10 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
     assert compatibility["runs-on"] == "${{ matrix.runner }}"
     assert compatibility["needs"] == ["python-matrix", "native-assets", "native-linux"]
     matrix = _sequence(_mapping(_mapping(compatibility["strategy"])["matrix"])["include"])
-    assert matrix == [
-        {
-            "platform": "macos-arm64",
-            "runner": "macos-26",
-        },
-        {
-            "platform": "windows-x86_64",
-            "runner": "windows-2025",
-        },
-        {
-            "platform": "linux-x86_64",
-            "runner": "ubuntu-24.04",
-        },
-    ]
+    assert sorted(_string(_mapping(leg)["platform"]) for leg in matrix) == sorted(
+        product_identity.RELEASE_PLATFORMS
+    )
+    assert all(set(_mapping(leg)) == {"platform", "runner"} for leg in matrix)
     steps = tuple(_mapping(step) for step in _sequence(compatibility["steps"]))
     candidate = next(
         step for step in steps if str(step.get("uses", "")).startswith("actions/download-artifact@")
@@ -256,11 +247,8 @@ def test_published_release_bytes_run_the_full_native_journey_on_each_platform() 
         "github.event_name == 'release' || github.event_name == 'workflow_dispatch'"
     )
     assert job["runs-on"] == "${{ matrix.runner }}"
-    assert _sequence(_mapping(_mapping(job["strategy"])["matrix"])["include"]) == [
-        {"platform": "macos-arm64", "runner": "macos-26"},
-        {"platform": "windows-x86_64", "runner": "windows-2025"},
-        {"platform": "linux-x86_64", "runner": "ubuntu-24.04"},
-    ]
+    compatibility = _mapping(_mapping(workflow["jobs"])["release-compatibility"])
+    assert _mapping(job["strategy"])["matrix"] == _mapping(compatibility["strategy"])["matrix"]
     steps = tuple(_mapping(step) for step in _sequence(job["steps"]))
     checkout = next(
         step for step in steps if str(step.get("uses", "")).startswith("actions/checkout@")

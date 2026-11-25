@@ -6,7 +6,6 @@ import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
@@ -34,13 +33,8 @@ class Snapshot:
     inode: int = 0
 
 
-def path(home: str, environment: Mapping[str, str], *, windows: bool) -> Path:
-    """Return the current user's platform-native command path."""
-    if windows:
-        local = environment.get("LOCALAPPDATA") or str(PureWindowsPath(home) / "AppData" / "Local")
-        return Path(
-            str(PureWindowsPath(local) / "Microsoft" / "WindowsApps" / f"{COMMAND_NAME}.cmd")
-        )
+def path(home: str, environment: Mapping[str, str]) -> Path:
+    """Return the current user's command path."""
     configured = environment.get("XDG_BIN_HOME", "")
     if configured:
         directory = Path(configured).expanduser()
@@ -115,7 +109,7 @@ def read_snapshot(root: Path, *, expected_sha256: str | None = None) -> Snapshot
         or not target
         or not Path(target).is_absolute()
         or not isinstance(kind, str)
-        or kind not in {"", "symlink", "launcher"}
+        or kind not in {"", "symlink"}
         or type(device) is not int
         or type(inode) is not int
         or (state == "absent" and any((kind, device, inode)))
@@ -147,10 +141,7 @@ def project(command_path: Path, target: Path, previous: Snapshot | None = None) 
     command_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = command_path.with_name(f".{command_path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
     try:
-        if command_path.suffix.casefold() == ".cmd":
-            temporary.write_bytes(windows_launcher(target))
-        else:
-            temporary.symlink_to(target)
+        temporary.symlink_to(target)
         temporary.replace(command_path)
     except OSError as exc:
         if previous is not None and previous_path != command_path and previous.state == "owned":
@@ -250,27 +241,13 @@ def _classify(command_path: Path, target: Path) -> tuple[str, str]:
     if not os.path.lexists(command_path):
         return "absent", ""
     try:
-        if command_path.is_symlink():
-            return (
-                ("owned", "symlink")
-                if command_path.resolve(strict=False) == target.resolve(strict=False)
-                else ("foreign", "")
-            )
-        if (
-            command_path.suffix.casefold() == ".cmd"
-            and command_path.is_file()
-            and command_path.read_bytes() == windows_launcher(target)
+        if command_path.is_symlink() and command_path.resolve(strict=False) == target.resolve(
+            strict=False
         ):
-            return "owned", "launcher"
+            return "owned", "symlink"
     except OSError:
         pass
     return "foreign", ""
-
-
-def windows_launcher(target: Path) -> bytes:
-    """Return the canonical Windows command that preserves an onedir payload."""
-    executable = str(target).replace("%", "%%")
-    return f'@echo off\r\n@"{executable}" %*\r\n'.encode()
 
 
 def _remove_snapshot(command_path: Path, previous: Snapshot) -> None:
@@ -286,12 +263,9 @@ def _restore_snapshot(command_path: Path, target: Path, previous: Snapshot) -> N
     command_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = command_path.with_name(f".{command_path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
     try:
-        if previous.kind == "launcher":
-            temporary.write_bytes(windows_launcher(target))
-        elif previous.kind == "symlink":
-            temporary.symlink_to(target)
-        else:
+        if previous.kind != "symlink":
             raise errors.InstallError("command snapshot kind is invalid")
+        temporary.symlink_to(target)
         temporary.replace(command_path)
     except OSError as exc:
         raise errors.InstallError("native command restoration failed") from exc

@@ -64,7 +64,7 @@ class TestHandoffControlHandler:
     def test_handler_keeps_commit_after_ready_response_disconnect(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
-        """Every form of a client's close: a reset can end a write on Windows as an abort."""
+        """Every form of a client's close leaves the commit to run."""
         expected = expected_metadata()
         prepared = {"child": mocker.Mock(runtime_pid=999), "expected": expected}
         mocker.patch.object(handoff_module, "disk_payload_matches_expected", return_value=True)

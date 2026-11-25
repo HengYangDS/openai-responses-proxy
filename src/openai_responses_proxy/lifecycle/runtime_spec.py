@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
+import posixpath
 from pathlib import Path
 from pathlib import PurePosixPath
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 from typing import Protocol
 
@@ -119,8 +119,8 @@ def _project(value: JsonObject) -> dict[str, str]:
         config.HOME_ENV: install_dir,
         config.STATE_HOME_ENV: log_dir,
         config.PROXY_PORT_ENV: str(value["port"]),
-        config.PROXY_LOG_ENV: config.path_join(log_dir, "proxy.log"),
-        config.WATCHDOG_LOG_ENV: config.path_join(log_dir, "watchdog.log"),
+        config.PROXY_LOG_ENV: posixpath.join(log_dir, "proxy.log"),
+        config.WATCHDOG_LOG_ENV: posixpath.join(log_dir, "watchdog.log"),
         config.PROXY_LOG_MAX_BYTES_ENV: str(value["proxy_log_max_bytes"]),
         config.PROXY_LOG_BACKUP_COUNT_ENV: str(value["proxy_log_backup_count"]),
         config.WATCHDOG_LOG_MAX_BYTES_ENV: str(value["watchdog_log_max_bytes"]),
@@ -184,9 +184,9 @@ def _read(target: Path) -> JsonObject:
             raise errors.InstallError("upstream must be canonical")
     install_dir = value.get("install_dir")
     log_dir = value.get("log_dir")
-    if not isinstance(install_dir, str) or not _absolute(install_dir):
+    if not isinstance(install_dir, str) or not PurePosixPath(install_dir).is_absolute():
         raise errors.InstallError("native runtime configuration install_dir is invalid")
-    if not isinstance(log_dir, str) or not _absolute(log_dir):
+    if not isinstance(log_dir, str) or not PurePosixPath(log_dir).is_absolute():
         raise errors.InstallError("native runtime configuration log_dir is invalid")
     if not _owned_carrier_location(target, install_dir):
         raise errors.InstallError(
@@ -199,10 +199,6 @@ def _read(target: Path) -> JsonObject:
     return value
 
 
-def _absolute(value: str) -> bool:
-    return PurePosixPath(value).is_absolute() or PureWindowsPath(value).is_absolute()
-
-
 def _owned_carrier_location(target: Path, install_dir: str) -> bool:
     """Return whether the carrier lies in one generation of its own install directory."""
     store = normalized_path(Path(install_dir, identity.PAYLOAD_GENERATIONS_DIRNAME))
@@ -211,4 +207,4 @@ def _owned_carrier_location(target: Path, install_dir: str) -> bool:
 
 def normalized_path(value: str | os.PathLike[str]) -> str:
     """Return one host-semantic canonical path identity."""
-    return os.path.normcase(os.path.realpath(os.path.abspath(os.fspath(value))))
+    return os.path.realpath(os.path.abspath(os.fspath(value)))

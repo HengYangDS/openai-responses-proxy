@@ -11,7 +11,6 @@ import (
 	"source-and-governance",
 	"python-matrix",
 	"python",
-	"python-windows",
 	"python-quality",
 	"performance",
 	"native-assets",
@@ -59,7 +58,7 @@ githubAdmission: {
 			name:      "Admission"
 			needs:     "verify"
 			if:        "always()"
-			"runs-on": "ubuntu-24.04"
+			"runs-on": #Platforms.linux.github
 			steps: [{
 				name: "Require completed branch verification"
 				env: VERIFY_RESULT: "${{ needs.verify.result }}"
@@ -74,7 +73,7 @@ githubAdmission: {
 		name: "Branch proof"
 		if:   "always()"
 		needs: list.Concat([#ProductProofJobs, ["accepted-source", "promotion"]])
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 5
 		steps: [{
 			uses: #Toolchains.githubActions.checkout

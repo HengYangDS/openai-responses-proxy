@@ -294,7 +294,7 @@ def release_compatibility(session: nox.Session) -> None:
         env=_environment(),
     )
     bundle = candidate / "bin"
-    executable = bundle / product_identity.executable_name(windows=os.name == "nt")
+    executable = bundle / product_identity.COMMAND_NAME
     verification.accept(
         session,
         (
@@ -493,7 +493,7 @@ def _assert_installed_product(session: nox.Session, work: Path) -> None:
 
 def _installed_executable(session: nox.Session) -> Path:
     """Return the console executable installed from this session's built wheel."""
-    name = product_identity.executable_name(windows=os.name == "nt")
+    name = product_identity.COMMAND_NAME
     executable = Path(session.bin) / name
     if not executable.is_file():
         session.error(f"installed console executable was not produced: {executable}")

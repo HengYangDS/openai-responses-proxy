@@ -83,9 +83,9 @@ def _written(calls: list[tuple[object, ...]]) -> bytes:
 
 
 def _unpacked(value: object) -> tuple[int, int]:
-    """Read the option as the platform's own structure: whether it lingers, and for how long."""
+    """Read the option as its two ints: whether it lingers, and for how long."""
     assert isinstance(value, bytes)
-    on, seconds = struct.unpack("HH" if sys.platform == "win32" else "ii", value)
+    on, seconds = struct.unpack("ii", value)
     assert isinstance(on, int)
     assert isinstance(seconds, int)
     return on, seconds
@@ -252,9 +252,6 @@ class TestWhatTheOtherEndSees:
 
         - Linux 7.2 (measured 2026-11-16): the whole request, then the reset.
         - macOS 27.2 (measured 2026-11-16): the whole request, then the reset.
-        - Windows: not measured when this was written. It may deliver the request or any
-          part of it first, and it may give the listener no connection at all, by an accept
-          that fails or that finds nothing: such a listener never receives the request.
         """
         request = _request(listening.getsockname()[1])
         connection = loopback.connect_reset_on_close(request, timeout_seconds=0.2)
@@ -263,10 +260,7 @@ class TestWhatTheOtherEndSees:
             loopback.open_request_on(connection, request)
 
         accepted = _accept(listening)
-        if accepted is None:
-            # Only where the platform takes a reset connection out of the queue again.
-            assert sys.platform == "win32"
-            return
+        assert accepted is not None
         with accepted:
             received, ending = _read_to_the_end(accepted)
         assert ending == "reset"
@@ -306,8 +300,7 @@ class TestWhatTheOtherEndSees:
         """The kernel closes the connection of a process that ends, and that close is a reset.
 
         A child process opens the connection as the controller does, writes the beginning of
-        a request and ends without closing anything, as a killed controller ends. On Windows
-        the listener may get no connection at all, as after a request that was given up.
+        a request and ends without closing anything, as a killed controller ends.
         """
         ended = subprocess.run(
             [
@@ -326,9 +319,7 @@ class TestWhatTheOtherEndSees:
         assert (ended.returncode, ended.stderr) == (0, b"")
 
         accepted = _accept(listening)
-        if accepted is None:
-            assert sys.platform == "win32"
-            return
+        assert accepted is not None
         with accepted:
             received, ending = _read_to_the_end(accepted)
         assert ending == "reset"

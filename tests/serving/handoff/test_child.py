@@ -5,7 +5,6 @@ They cover launch arguments, the child, its listener and control framing.
 
 from __future__ import annotations
 
-import base64
 import io
 import json
 import os
@@ -32,18 +31,6 @@ if TYPE_CHECKING:
 class TestHandoffChild:
     def setup_method(self) -> None:
         self.p = handoff_protocol_module
-
-    def test_platform_popen_kwargs_are_minimal_and_inherit_only_the_listener(self) -> None:
-        posix = self.p.popen_kwargs(37, is_windows=False)
-        windows = self.p.popen_kwargs(None, is_windows=True)
-        assert posix["pass_fds"] == (37,)
-        assert "pass_fds" not in windows
-        projected = tuple(
-            (kwargs["close_fds"], kwargs["stdin"], kwargs["stdout"]) for kwargs in (posix, windows)
-        )
-        assert projected == ((True, subprocess.PIPE, subprocess.PIPE),) * 2
-        with pytest.raises(self.p.HandoffError, match="requires a listener fd"):
-            self.p.popen_kwargs(None, is_windows=False)
 
     def test_child_constructor_requires_both_control_pipes(self, *, mocker: MockerFixture) -> None:
         def reject_pipes(pipes: tuple[MockType | None, MockType | None]) -> None:
@@ -145,105 +132,60 @@ class TestHandoffChild:
         for case in cases:
             verify(case)
 
-    def test_spawn_projects_only_the_platform_listener_capability(
-        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+    def test_spawn_inherits_only_the_listener_and_sends_its_descriptor(
+        self, *, mocker: MockerFixture
     ) -> None:
         expected = expected_metadata(transaction_id="txn-platform", release_receipt_sha256="e" * 64)
-        for is_windows, pid in ((False, 4242), (True, 5150)):
-            with subtests.test(is_windows=is_windows):
-                process = mocker.Mock(
-                    pid=pid,
-                    stdin=mocker.Mock(),
-                    stdout=io.BytesIO(json.dumps({"type": "started", "pid": pid}).encode() + b"\n"),
-                )
-                listener = mocker.Mock()
-                listener.fileno.return_value = 37
-                listener.share.return_value = b"opaque-share-bytes"
-                popen = mocker.patch("subprocess.Popen", return_value=process)
-                child = self.p.spawn_child(
-                    listener,
-                    expected,
-                    entrypoint_module._handoff_context(),
-                    is_windows=is_windows,
-                )
-                assert child.process is process
-                args, kwargs = popen.call_args
-                assert args[0] == [
-                    str(entrypoint_module._handoff_context().executable),
-                    "--internal-handoff-child",
-                ]
-                environment = kwargs["env"]
-                assert "PYTHONPATH" not in environment
-                assert environment["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
-                assert environment[self.p.runtime_config.HOME_ENV] == str(
-                    entrypoint_module._handoff_context().executable.parent.parent
-                )
-                assert environment[self.p.runtime_config.STATE_HOME_ENV]
-                written = b"".join(call.args[0] for call in process.stdin.write.call_args_list)
-                if is_windows:
-                    assert "pass_fds" not in kwargs
-                    assert b"opaque-share-bytes" not in str(args).encode()
-                    assert "opaque-share-bytes" not in json.dumps(kwargs.get("env") or {})
-                    listener.share.assert_called_once_with(pid)
-                    assert (
-                        base64.b64decode(json.loads(written.splitlines()[0])["listener_share_b64"])
-                        == b"opaque-share-bytes"
-                    )
-                    continue
-                assert kwargs["pass_fds"] == (37,)
-                assert b"listener_share_b64" not in written
+        process = mocker.Mock(
+            pid=4242,
+            stdin=mocker.Mock(),
+            stdout=io.BytesIO(json.dumps({"type": "started", "pid": 4242}).encode() + b"\n"),
+        )
+        listener = mocker.Mock()
+        listener.fileno.return_value = 37
+        popen = mocker.patch("subprocess.Popen", return_value=process)
+        child = self.p.spawn_child(listener, expected, entrypoint_module._handoff_context())
+        assert child.process is process
+        args, kwargs = popen.call_args
+        assert args[0] == [
+            str(entrypoint_module._handoff_context().executable),
+            "--internal-handoff-child",
+        ]
+        assert (
+            kwargs["pass_fds"],
+            kwargs["close_fds"],
+            kwargs["stdin"],
+            kwargs["stdout"],
+            kwargs["start_new_session"],
+        ) == ((37,), True, subprocess.PIPE, subprocess.PIPE, True)
+        environment = kwargs["env"]
+        assert "PYTHONPATH" not in environment
+        assert environment["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+        assert environment[self.p.runtime_config.HOME_ENV] == str(
+            entrypoint_module._handoff_context().executable.parent.parent
+        )
+        assert environment[self.p.runtime_config.STATE_HOME_ENV]
+        written = b"".join(call.args[0] for call in process.stdin.write.call_args_list)
+        assert json.loads(written.splitlines()[0])["listener_fd"] == 37
 
     def test_spawn_binds_protocol_identity_to_the_runtime_not_the_launcher(
-        self, subtests: pytest.Subtests, *, mocker: MockerFixture
+        self, *, mocker: MockerFixture
     ) -> None:
         expected = expected_metadata(transaction_id="txn-runtime-pid")
         launcher_pid = 4242
         runtime_pid = 5150
-        for is_windows in (False, True):
-            with subtests.test(is_windows=is_windows):
-                process = mocker.Mock(
-                    pid=launcher_pid,
-                    stdin=io.BytesIO(),
-                    stdout=io.BytesIO(
-                        json.dumps({"type": "started", "pid": runtime_pid}).encode() + b"\n"
-                    ),
-                )
-                listener = mocker.Mock()
-                listener.fileno.return_value = 37
-                listener.share.return_value = b"opaque-share-bytes"
-                mocker.patch("subprocess.Popen", return_value=process)
-                child = self.p.spawn_child(
-                    listener,
-                    expected,
-                    entrypoint_module._handoff_context(),
-                    is_windows=is_windows,
-                )
-
-                assert child.process.pid == launcher_pid
-                assert child.runtime_pid == runtime_pid
-                if is_windows:
-                    listener.share.assert_called_once_with(runtime_pid)
-
-    def test_windows_share_failure_terminates_the_owned_child(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        fake_process = mocker.Mock(
-            pid=5150,
-            stdin=mocker.Mock(),
-            stdout=io.BytesIO(b'{"type":"started","pid":5150}\n'),
+        process = mocker.Mock(
+            pid=launcher_pid,
+            stdin=io.BytesIO(),
+            stdout=io.BytesIO(json.dumps({"type": "started", "pid": runtime_pid}).encode() + b"\n"),
         )
         listener = mocker.Mock()
-        listener.share.side_effect = OSError("sharing failed")
-        mocker.patch("subprocess.Popen", return_value=fake_process)
-        terminate = mocker.patch.object(self.p.HandoffChild, "terminate_bounded", return_value=True)
-        with pytest.raises(self.p.HandoffError, match="listener sharing failed"):
-            self.p.spawn_child(
-                listener,
-                expected_metadata(transaction_id="txn-platform", release_receipt_sha256="e" * 64),
-                entrypoint_module._handoff_context(),
-                is_windows=True,
-            )
-        terminate.assert_called_once()
+        listener.fileno.return_value = 37
+        mocker.patch("subprocess.Popen", return_value=process)
+        child = self.p.spawn_child(listener, expected, entrypoint_module._handoff_context())
+
+        assert child.process.pid == launcher_pid
+        assert child.runtime_pid == runtime_pid
 
     def test_spawn_write_failure_escalates_from_terminate_to_kill(
         self, *, mocker: MockerFixture
@@ -266,32 +208,25 @@ class TestHandoffChild:
                 listener,
                 expected_metadata(transaction_id="txn-platform", release_receipt_sha256="e" * 64),
                 entrypoint_module._handoff_context(),
-                is_windows=False,
             )
         terminate.assert_called_once()
         kill.assert_called_once()
 
-    def test_listener_reconstruction_uses_the_platform_specific_projection(
+    def test_listener_reconstruction_uses_the_inherited_descriptor(
         self, *, mocker: MockerFixture
     ) -> None:
         fake_socket = mocker.Mock()
-        share = base64.b64encode(b"share-bytes").decode("ascii")
-        ctor = mocker.patch.object(socket, "fromshare", create=True, return_value=fake_socket)
-        assert self.p.listener_from_prepare({"listener_share_b64": share}) is fake_socket
-        ctor.assert_called_once_with(b"share-bytes")
         ctor = mocker.patch.object(socket, "socket", return_value=fake_socket)
         assert self.p.listener_from_prepare({"listener_fd": 37}) is fake_socket
         ctor.assert_called_once_with(fileno=37)
 
-    def test_listener_reconstruction_rejects_invalid_platform_payloads(self) -> None:
+    def test_listener_reconstruction_rejects_an_invalid_descriptor(self) -> None:
         def reject(message: Mapping[str, object]) -> None:
             with pytest.raises(self.p.HandoffError):
                 self.p.listener_from_prepare(message)
 
         invalid = (
-            {"listener_share_b64": 7},
-            {"listener_share_b64": "x" * (self.p.HANDOFF_CONTROL_MAX_BYTES + 1)},
-            {"listener_share_b64": "not base64!"},
+            {},
             {"listener_fd": -1},
             {"listener_fd": "37"},
         )

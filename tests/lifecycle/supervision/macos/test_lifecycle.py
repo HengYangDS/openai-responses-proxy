@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class TestMacosLifecycle:
     @pytest.fixture(autouse=True)
     def _isolate_launch_agents(self, tmp_path: Path, *, mocker: MockerFixture) -> None:
-        mocker.patch.object(macos.config, "home_dir", return_value=str(tmp_path))
+        mocker.patch.object(runtime_config, "home_dir", return_value=str(tmp_path))
         mocker.patch.object(
             macos.system_tools, "posix_tool", side_effect=lambda name: f"/native/{name}"
         )
@@ -64,7 +64,7 @@ class TestMacosLifecycle:
             service_id="openai-responses-proxy.watchdog.fixture",
             user_home=str(owned_home),
         )
-        mocker.patch.object(macos.config, "home_dir", return_value=str(ambient_home))
+        mocker.patch.object(runtime_config, "home_dir", return_value=str(ambient_home))
 
         assert macos._plist_path(context) == str(
             owned_home
@@ -388,7 +388,7 @@ class TestMacosLifecycle:
         with _temporary_context("log_dir") as ctx:
             rendered = macos.render_plist(ctx)
         assert "<key>StandardErrorPath</key>\n  <string>/dev/null</string>" not in rendered
-        stderr_log = runtime_config.path_join(ctx.log_dir, "watchdog.stderr.log")
+        stderr_log = str(Path(ctx.log_dir) / "watchdog.stderr.log")
         assert f"<string>{stderr_log}</string>" in rendered
 
     def test_status_and_uninstall(self, *, mocker: MockerFixture) -> None:

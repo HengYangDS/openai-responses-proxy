@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
@@ -87,9 +86,7 @@ _IDENTITY = {
 }
 # The stand-in runs the interpreter image that this process runs, as the
 # watchdog runs the declared executable itself, so the launched process is the
-# one that serves health and that the process owner identifies. Started through
-# sys.executable it is not: a Windows virtual environment's launcher runs the
-# interpreter as its child.
+# one that serves health and that the process owner identifies.
 _INTERPRETER = Path(psutil.Process().exe())
 _LAUNCHED: list[subprocess.Popen[bytes]] = []
 
@@ -157,9 +154,8 @@ def _launches(
 def _gone(child: subprocess.Popen[bytes]) -> bool:
     """Whether a stand-in has exited and no process still runs under its PID.
 
-    Waiting on the PID returns at once for a process that has exited, even one
-    whose object a held launch handle keeps visible on Windows; a PID that is
-    no longer visible at all is gone as well.
+    Waiting on the PID returns at once for a process that has exited; a PID
+    that is no longer visible at all is gone as well.
     """
     if child.returncode is None:
         return False
@@ -179,9 +175,7 @@ def _gone(child: subprocess.Popen[bytes]) -> bool:
 def test_a_stand_in_is_gone_once_its_exit_is_observed(
     returncode: int | None, observed: str, *, gone: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # On Windows the launch handle that a test holds keeps an exited process's
-    # object, so its PID can stay visible for a moment after the exit; only a
-    # process that still runs under that PID makes a stand-in not gone.
+    # Only a process that still runs under that PID makes a stand-in not gone.
     class _Process:
         def __init__(self, pid: int) -> None:
             if observed == "missing":
@@ -201,8 +195,7 @@ def test_a_stand_in_is_gone_once_its_exit_is_observed(
 def test_startup_stops_at_the_first_complete_health_body(monkeypatch: pytest.MonkeyPatch) -> None:
     # The stand-in binds after 0.3 s, and its teardown takes 0.8 s longer than
     # usual: the clock must include the first and exclude the second. Both sides
-    # read the benchmark's own high-resolution clock; on Windows time.monotonic
-    # advances in ~16 ms steps, which made the teardown look a few ms short.
+    # read the benchmark's own high-resolution clock.
     listener, children = _launches(monkeypatch, bind_delay=0.3)
     retire = benchmark._retire
     teardown: list[float] = []
@@ -342,7 +335,7 @@ def _private_generation(root: Path, port: int) -> runtime_context.RuntimeContext
     """Install a fixture bundle as the selected private generation under root."""
     bundle = root / "bundle"
     bundle.mkdir()
-    source = bundle / product_identity.executable_name(windows=os.name == "nt")
+    source = bundle / product_identity.COMMAND_NAME
     source.write_bytes(b"native fixture")
     (bundle / "_internal").mkdir()
     (bundle / "_internal" / "library.zip").write_bytes(b"library fixture")

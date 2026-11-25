@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sysconfig
 import venv
 from concurrent.futures import Future
 from contextlib import chdir
 from pathlib import Path
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -74,7 +72,7 @@ def test_installed_product_probe_distinguishes_environment_from_source_checkout(
         (package / "unused.py").unlink()
     work = checkout / "build"
     work.mkdir(parents=True)
-    python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python = environment / "bin/python"
     session = mocker.Mock()
     session.chdir.side_effect = chdir
     session.run.side_effect = lambda *args, **_kwargs: subprocess.run(
@@ -384,23 +382,17 @@ def test_upgrade_wait_continues_while_the_predecessor_serves(
     )
 
 
-def test_runtime_context_uses_the_native_command_projection(
-    tmp_path: Path, *, mocker: MockerFixture
-) -> None:
+def test_runtime_context_uses_the_native_command_projection(tmp_path: Path) -> None:
     """Build release-test paths through the same owner as production."""
-    mocker.patch("tests.release.fixtures.platform.system", return_value="Windows")
     home = tmp_path / "home"
     install = tmp_path / "payload"
     ctx = runtime_context_for(home, install, tmp_path / "state", 43210)
 
     assert type(ctx) is runtime_context.InstallationContext
-    assert ctx.windows
-    assert PureWindowsPath(generation.context(ctx, "1" * 32).executable) == PureWindowsPath(
-        install / "generations" / ("1" * 32) / "bin" / "openai-responses-proxy.exe"
+    assert Path(generation.context(ctx, "1" * 32).executable) == (
+        install / "generations" / ("1" * 32) / "bin" / "openai-responses-proxy"
     )
-    assert PureWindowsPath(ctx.command) == PureWindowsPath(
-        home / "AppData" / "Local" / "Microsoft" / "WindowsApps" / "openai-responses-proxy.cmd"
-    )
+    assert Path(ctx.command) == home / ".local" / "bin" / "openai-responses-proxy"
 
 
 @pytest.mark.parametrize("invalid", [None, "python:3.14.7-bookworm@sha256:a"])
@@ -449,11 +441,7 @@ def test_predecessor_acceptance_consumes_the_built_candidate_without_rebuilding(
     prepare = mocker.patch.object(nox_configuration, "_prepare_product_session", return_value=work)
     mocker.patch.object(nox_configuration, "_assert_release_runtime")
     session = mocker.Mock(posargs=[])
-    executable = (
-        work
-        / "candidate/bin"
-        / nox_configuration.product_identity.executable_name(windows=os.name == "nt")
-    )
+    executable = work / "candidate/bin" / nox_configuration.product_identity.COMMAND_NAME
 
     def execute(*arguments: str, **_kwargs: object) -> None:
         if "materialize" in arguments:

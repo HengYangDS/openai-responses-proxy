@@ -39,10 +39,9 @@ def validate(
         raise errors.InstallError("released payload receipt version mismatch")
     actual_paths = tuple(blob.path for blob in blobs)
     actual_set = set(actual_paths)
-    windows = inventory.WINDOWS_EXECUTABLE in actual_set
     if (
         len(actual_set) != len(actual_paths)
-        or not inventory.required_runtime_files(windows=windows).issubset(actual_set)
+        or not inventory.REQUIRED_RUNTIME_FILES.issubset(actual_set)
         or any(not inventory.is_runtime_file(path) for path in actual_set)
     ):
         raise errors.InstallError("released payload file set mismatch")

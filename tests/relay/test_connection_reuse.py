@@ -262,9 +262,8 @@ class TestConnectionReuse:
         assert sorted(_shape(upstream)) == [1, 2]
 
     def test_an_expired_idle_connection_is_not_reused(self, *, mocker: MockerFixture) -> None:
-        # A negative lifetime expires every idle connection whatever the clock's resolution:
-        # before Python 3.13, time.monotonic() on Windows advances in 15.6 ms steps, so a short
-        # sleep under a zero lifetime could leave the age at 0.0 and reuse the connection.
+        # A negative lifetime expires every idle connection whatever the clock's resolution, so
+        # no sleep under a zero lifetime can leave the age at 0.0 and reuse the connection.
         mocker.patch("openai_responses_proxy.relay.connections.IDLE_SECONDS", -1.0)
         with _upstream() as upstream:
             assert _get(upstream.url) == OK

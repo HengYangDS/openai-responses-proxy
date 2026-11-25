@@ -42,9 +42,9 @@ ignore = [
   # Ruff flags each subprocess call whose argument list is computed; every flagged call passes
   # an argument list, never a shell string, built by its owner from validated values.
   "S603",
-  # The only product XML is the Windows Task Scheduler's own export and tests parse fixtures;
-  # ElementTree and minidom resolve no external entities, and Expat limits entity expansion
-  # on every supported Python (Python documentation, "XML vulnerabilities").
+  # No product code parses XML; tests parse their own fixtures and reports. ElementTree and
+  # minidom resolve no external entities, and Expat limits entity expansion on every supported
+  # Python (Python documentation, "XML vulnerabilities").
   "S314",
   "S318",
   # Ruff marks the pathlib fix unsafe: no pathlib form makes a path absolute and removes ".."

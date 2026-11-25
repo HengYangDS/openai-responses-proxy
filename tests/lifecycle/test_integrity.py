@@ -23,7 +23,6 @@ from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import control_root
-from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import released_artifact
 from tests.lifecycle.fixtures import runtime_files
@@ -259,7 +258,7 @@ class TestPayloadValidation:
             ),
             (lambda value: value.pop("release"), "manifest is incomplete"),
             (
-                lambda value: value["files"].pop(executable_relative()),
+                lambda value: value["files"].pop(inventory.EXECUTABLE),
                 "manifest file set mismatch",
             ),
             (
@@ -267,7 +266,7 @@ class TestPayloadValidation:
                 "manifest serving file set mismatch",
             ),
             (
-                lambda value: value["files"].update({executable_relative(): "short"}),
+                lambda value: value["files"].update({inventory.EXECUTABLE: "short"}),
                 "invalid digest",
             ),
             (

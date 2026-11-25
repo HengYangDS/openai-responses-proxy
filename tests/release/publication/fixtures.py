@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import TypedDict
 
+from openai_responses_proxy import product_identity
 from tools.release.publication import verification as publication
 
 if TYPE_CHECKING:
@@ -47,11 +48,11 @@ def forge_evidence(*, items: list[dict[str, object]] | None = None) -> dict[str,
         "assets": {
             **{
                 f"openai-responses-proxy-1.2.3-{platform}.tar.gz": "1" * 64
-                for platform in ("linux-x86_64", "macos-arm64", "windows-x86_64")
+                for platform in product_identity.RELEASE_PLATFORMS
             },
             **{
                 f"openai-responses-proxy-{platform}.manifest.json": "2" * 64
-                for platform in ("linux-x86_64", "macos-arm64", "windows-x86_64")
+                for platform in product_identity.RELEASE_PLATFORMS
             },
             "SHA256SUMS": "3" * 64,
             "SHA256SUMS.sig": "4" * 64,

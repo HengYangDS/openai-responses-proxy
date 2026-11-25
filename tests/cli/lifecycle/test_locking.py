@@ -20,13 +20,9 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-@pytest.mark.parametrize(
-    ("os_name", "system"),
-    [("posix", "linux"), ("posix", "darwin"), ("nt", "win32")],
-)
+@pytest.mark.parametrize("system", ["linux", "darwin"])
 def test_lifecycle_lock_leaves_a_fresh_default_installation_root_absent(
     tmp_path: Path,
-    os_name: str,
     system: str,
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -34,11 +30,10 @@ def test_lifecycle_lock_leaves_a_fresh_default_installation_root_absent(
 ) -> None:
     """Take the writer lock outside the default installation root on every platform."""
     home = tmp_path / "home"
-    environment = {"HOME": str(home), "LOCALAPPDATA": str(home / "AppData" / "Local")}
+    environment = {"HOME": str(home)}
     mocker.patch.object(config, "home_dir", return_value=str(home))
     with monkeypatch.context() as platform:
         platform.setattr(config.os, "environ", environment)
-        platform.setattr(config.os, "name", os_name)
         platform.setattr(config.sys, "platform", system)
         roots = config.data_dir(), config.state_dir()
     install_root, state_root = map(Path, roots)

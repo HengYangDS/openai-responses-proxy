@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import math
-import ntpath
 import os
 import posixpath
 import sys
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 from typing import Final
 
@@ -130,23 +128,14 @@ def home_dir() -> str:
     return os.path.expanduser("~")
 
 
-def path_join(root: str, *parts: str) -> str:
-    """Join an owned path without reinterpreting its existing platform syntax."""
-    if PureWindowsPath(root).drive or "\\" in root:
-        return ntpath.join(root, *parts)
-    return posixpath.join(root, *parts)
-
-
 def _absolute_override(source: Mapping[str, str], name: str) -> str | None:
     raw = source.get(name, "")
     if not raw:
         return None
-    if raw == "~" or raw.startswith(("~/", "~\\")):
-        home = source.get("HOME") or source.get("USERPROFILE") or home_dir()
-        raw = path_join(home, raw[2:].replace("\\", "/")) if len(raw) > 1 else home
-    if PurePosixPath(raw).is_absolute() or PureWindowsPath(raw).is_absolute():
-        return raw
-    return os.path.abspath(raw)
+    if raw == "~" or raw.startswith("~/"):
+        home = source.get("HOME") or home_dir()
+        raw = posixpath.join(home, raw[2:]) if len(raw) > 1 else home
+    return raw if PurePosixPath(raw).is_absolute() else os.path.abspath(raw)
 
 
 def data_dir(environment: Mapping[str, str] | None = None) -> str:
@@ -161,13 +150,10 @@ def default_data_dir(environment: Mapping[str, str] | None = None) -> str:
     """Return the platform data root without consulting the product override."""
     source = os.environ if environment is None else environment
     home = home_dir()
-    if os.name == "nt":
-        base = source.get("LOCALAPPDATA", path_join(home, "AppData", "Local"))
-        return path_join(base, product_identity.PRODUCT_SLUG)
     if sys.platform == "darwin":
-        return path_join(home, "Library", "Application Support", product_identity.PRODUCT_SLUG)
-    base = source.get("XDG_DATA_HOME", path_join(home, ".local", "share"))
-    return path_join(base, product_identity.PRODUCT_SLUG)
+        return posixpath.join(home, "Library", "Application Support", product_identity.PRODUCT_SLUG)
+    base = source.get("XDG_DATA_HOME", posixpath.join(home, ".local", "share"))
+    return posixpath.join(base, product_identity.PRODUCT_SLUG)
 
 
 def state_dir(environment: Mapping[str, str] | None = None) -> str:
@@ -180,13 +166,10 @@ def state_dir(environment: Mapping[str, str] | None = None) -> str:
     if (override := _absolute_override(source, STATE_HOME_ENV)) is not None:
         return override
     home = home_dir()
-    if os.name == "nt":
-        base = source.get("LOCALAPPDATA", path_join(home, "AppData", "Local"))
-        return path_join(base, f"{product_identity.PRODUCT_SLUG}-state")
     if sys.platform == "darwin":
-        return path_join(home, "Library", "Logs", product_identity.PRODUCT_SLUG)
-    base = source.get("XDG_STATE_HOME", path_join(home, ".local", "state"))
-    return path_join(base, product_identity.PRODUCT_SLUG)
+        return posixpath.join(home, "Library", "Logs", product_identity.PRODUCT_SLUG)
+    base = source.get("XDG_STATE_HOME", posixpath.join(home, ".local", "state"))
+    return posixpath.join(base, product_identity.PRODUCT_SLUG)
 
 
 def listener_host() -> str:
@@ -238,13 +221,13 @@ def listener_port(environment: Mapping[str, str] | None = None) -> int:
 def proxy_log_path(environment: Mapping[str, str] | None = None) -> str:
     """Return the proxy log path owned by the portable state root."""
     source = os.environ if environment is None else environment
-    return source.get(PROXY_LOG_ENV, path_join(state_dir(source), "proxy.log"))
+    return source.get(PROXY_LOG_ENV, posixpath.join(state_dir(source), "proxy.log"))
 
 
 def watchdog_log_path(environment: Mapping[str, str] | None = None) -> str:
     """Return the watchdog log path owned by the portable state root."""
     source = os.environ if environment is None else environment
-    return source.get(WATCHDOG_LOG_ENV, path_join(state_dir(source), "watchdog.log"))
+    return source.get(WATCHDOG_LOG_ENV, posixpath.join(state_dir(source), "watchdog.log"))
 
 
 def load(environment: Mapping[str, str] | None = None) -> Settings:

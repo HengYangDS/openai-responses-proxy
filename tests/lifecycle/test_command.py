@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import replace
 from pathlib import Path
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,45 +13,30 @@ from openai_responses_proxy.lifecycle import command
 from tests.lifecycle.fixtures import install_context
 
 if TYPE_CHECKING:
+    import os
+
     from pytest_mock import MockerFixture
 
 
-def test_posix_command_path_uses_absolute_xdg_bin_home_or_user_local_bin(
+def test_command_path_uses_absolute_xdg_bin_home_or_user_local_bin(
     tmp_path: Path,
 ) -> None:
     home = tmp_path / "home"
     explicit = tmp_path / "commands"
 
-    assert command.path(str(home), {"XDG_BIN_HOME": str(explicit)}, windows=False) == (
-        explicit / "openai-responses-proxy"
+    assert command.path(str(home), {"XDG_BIN_HOME": str(explicit)}) == (
+        explicit / command.COMMAND_NAME
     )
-    assert command.path(str(home), {}, windows=False) == (
-        home / ".local" / "bin" / "openai-responses-proxy"
-    )
+    assert command.path(str(home), {}) == (home / ".local" / "bin" / command.COMMAND_NAME)
     with pytest.raises(errors.InstallError, match="XDG_BIN_HOME must be absolute"):
-        command.path(str(home), {"XDG_BIN_HOME": "relative/bin"}, windows=False)
-
-
-def test_windows_command_path_uses_the_user_application_alias_directory() -> None:
-    home = PureWindowsPath("C:/Users/example")
-
-    projected = command.path(
-        str(home),
-        {"LOCALAPPDATA": str(home / "AppData" / "Local")},
-        windows=True,
-    )
-
-    assert PureWindowsPath(projected) == (
-        home / "AppData" / "Local" / "Microsoft" / "WindowsApps" / "openai-responses-proxy.cmd"
-    )
+        command.path(str(home), {"XDG_BIN_HOME": "relative/bin"})
 
 
 def assert_native_projection(command_path: Path, target: Path) -> None:
-    """Assert the selected projection owns the exact installed executable."""
-    expected_kind = "launcher" if command_path.suffix.casefold() == ".cmd" else "symlink"
+    """Assert the projection is a link to the exact installed executable."""
     assert command.status(command_path, target) == {
         "state": "owned",
-        "kind": expected_kind,
+        "kind": "symlink",
         "path": str(command_path),
     }
 
@@ -146,7 +129,6 @@ def test_restore_rechecks_foreign_ownership_after_admission(
     replacement.assert_not_called()
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX symlink behavior")
 def test_status_reports_exact_owned_link(tmp_path: Path) -> None:
     target = tmp_path / "payload" / "openai-responses-proxy"
     target.parent.mkdir(parents=True)
@@ -227,52 +209,34 @@ def test_project_rejects_invalid_target_and_reports_native_failures(
     assert not list(command_path.parent.glob(".*.tmp-*"))
 
 
-def test_windows_projection_launches_the_complete_onedir_payload(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "payload" / f"{command.COMMAND_NAME}.exe"
-    target.parent.mkdir(parents=True)
-    target.write_text("runtime", encoding="utf-8")
-    command_path = tmp_path / "commands" / f"{command.COMMAND_NAME}.cmd"
-
-    command.project(command_path, target)
-
-    assert command_path.read_bytes() == command.windows_launcher(target)
-    assert command.status(command_path, target) == {
-        "state": "owned",
-        "kind": "launcher",
-        "path": str(command_path),
-    }
-
-
-def test_windows_transition_restores_the_previous_launcher_when_projection_fails(
+def test_transition_restores_the_previous_link_when_projection_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    legacy_target = tmp_path / "legacy" / f"{command.COMMAND_NAME}.exe"
-    current_target = tmp_path / "current" / f"{command.COMMAND_NAME}.exe"
+    legacy_target = tmp_path / "legacy" / command.COMMAND_NAME
+    current_target = tmp_path / "current" / command.COMMAND_NAME
     legacy_target.parent.mkdir(parents=True)
     current_target.parent.mkdir(parents=True)
     legacy_target.write_bytes(b"legacy onedir executable")
     current_target.write_bytes(b"current onedir executable")
-    command_root = tmp_path / "WindowsApps"
-    legacy_command = command_root / f"legacy-{command.COMMAND_NAME}.cmd"
-    current_command = command_root / f"{command.COMMAND_NAME}.cmd"
+    command_root = tmp_path / "commands"
+    legacy_command = command_root / f"legacy-{command.COMMAND_NAME}"
+    current_command = command_root / command.COMMAND_NAME
     command.project(legacy_command, legacy_target)
     previous = command.snapshot(legacy_command, legacy_target)
-    real_write_bytes = Path.write_bytes
+    real_symlink_to = Path.symlink_to
 
-    def fail_current_projection(self: Path, data: bytes) -> int:
+    def fail_current_projection(self: Path, target: Path) -> None:
         if self.parent == command_root and self.name.startswith(f".{current_command.name}.tmp-"):
             raise OSError("projection unavailable")
-        return real_write_bytes(self, data)
+        real_symlink_to(self, target)
 
-    monkeypatch.setattr(Path, "write_bytes", fail_current_projection)
+    monkeypatch.setattr(Path, "symlink_to", fail_current_projection)
 
     with pytest.raises(errors.InstallError, match="native command projection failed"):
         command.project(current_command, current_target, previous=previous)
 
     assert not current_command.exists()
-    assert legacy_command.read_bytes() == command.windows_launcher(legacy_target)
+    assert_native_projection(legacy_command, legacy_target)
 
 
 def test_projection_and_restore_reject_changed_snapshot_ownership(

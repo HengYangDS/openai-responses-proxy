@@ -1,7 +1,6 @@
 """Locked runner and repository-tool supply in each Forge projection."""
 
 import json
-import os
 import re
 import subprocess
 import tomllib
@@ -44,6 +43,25 @@ def test_uv_consumers_share_the_integrity_locked_version() -> None:
             r"-trixie-slim@sha256:[0-9a-f]{64}",
             _string(variables[f"UV_PYTHON_{name}_IMAGE"]),
         )
+
+
+def test_each_lock_holds_only_the_platforms_that_its_tool_declares() -> None:
+    """Mise's and uv's own settings name the platforms that their locks hold."""
+    settings = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())["settings"]
+    lock = tomllib.loads((ROOT / ".config/mise/mise.lock").read_text())
+    declared = set(settings["lockfile_platforms"])
+    locked = {
+        name.removeprefix("platforms.")
+        for entries in lock["tools"].values()
+        for entry in entries
+        for name in entry
+        if name.startswith("platforms.")
+    }
+    assert locked == declared
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    uv_lock = tomllib.loads((ROOT / "uv.lock").read_text())
+    assert len(uv_lock["supported-markers"]) == len(project["tool"]["uv"]["environments"])
+    assert uv_lock["resolution-markers"] == uv_lock["supported-markers"]
 
 
 @pytest.mark.repository_toolchain
@@ -383,7 +401,6 @@ def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
 
 
 @pytest.mark.repository_toolchain
-@pytest.mark.skipif(os.name == "nt", reason="Both selected Forge jobs execute POSIX sh")
 @pytest.mark.parametrize("peer", ["github", "gitlab"])
 @pytest.mark.parametrize(
     ("trust", "expected_exit"),

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import platform
 from pathlib import Path
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
@@ -88,10 +87,7 @@ def _materialize_native_bundle(candidate: artifact.VerifiedArtifact, output: Pat
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(blob.content)
         target.chmod(0o755 if blob.mode == "100755" else 0o644)
-    platform_id = product_identity.native_release_platform(platform.system(), platform.machine())
-    executable = output / product_identity.executable_name(
-        windows=platform_id.startswith("windows-")
-    )
+    executable = output / product_identity.COMMAND_NAME
     assert executable.is_file()
     return output
 
@@ -114,8 +110,6 @@ def admitted_predecessor(
         published_predecessor,
         tmp_path / "published-predecessor-bundle",
     )
-    previous_executable = previous_bundle / product_identity.executable_name(
-        windows=platform.system() == "Windows"
-    )
+    previous_executable = previous_bundle / product_identity.COMMAND_NAME
 
     return published_predecessor, previous_version, previous_executable

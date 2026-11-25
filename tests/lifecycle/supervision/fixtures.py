@@ -31,7 +31,7 @@ def capture_generation(pid: int, expected_path: str) -> process.OwnedProcess | N
         return None
     return process.OwnedProcess(
         pid,
-        os.path.normcase(os.path.realpath(os.path.abspath(expected_path))),
+        os.path.realpath(os.path.abspath(expected_path)),
         created_at,
     )
 
@@ -47,15 +47,13 @@ def completed(
 
 
 @contextmanager
-def temporary_context(
-    attribute: str, *, windows: bool = False
-) -> Generator[runtime_context.RuntimeContext]:
+def temporary_context(attribute: str) -> Generator[runtime_context.RuntimeContext]:
     """Yield a service context whose host-owned paths share one temporary root."""
     with tempfile.TemporaryDirectory() as directory:
-        context = install_context(Path(directory), windows=windows)
+        context = install_context(Path(directory))
         setattr(context, attribute, directory)
         if attribute == "install_dir":
-            context.executable = generation_executable(Path(directory), windows=windows)
+            context.executable = generation_executable(Path(directory))
         yield context
 
 

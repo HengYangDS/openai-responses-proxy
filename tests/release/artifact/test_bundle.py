@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import runpy
 import tempfile
 from pathlib import Path
@@ -221,7 +220,6 @@ class BundleContracts:
                 require_signature=False,
             )
 
-    @pytest.mark.skipif(os.name == "nt", reason="models POSIX bundle symlink semantics")
     def test_asset_command_materializes_safe_bundle_symlinks(
         self, tmp_path: Path, mocker: MockerFixture
     ) -> None:
@@ -254,24 +252,6 @@ class BundleContracts:
             hashlib.sha256(b"framework-resources").hexdigest()
         )
 
-    def test_bundle_files_uses_platform_canonical_path_identity(
-        self, mocker: MockerFixture
-    ) -> None:
-        bundle = Path("C:/Product/Proxy")
-        member = Path("c:/product/proxy/_internal/runtime.dat")
-        commonpath = os.path.commonpath
-        mocker.patch("os.path.normcase", lambda value: value.casefold().replace("\\", "/"))
-        mocker.patch(
-            "os.path.commonpath",
-            lambda paths: (
-                "c:\\product\\proxy"
-                if tuple(paths) == ("c:/product/proxy", "c:/product/proxy/_internal/runtime.dat")
-                else commonpath(paths)
-            ),
-        )
-
-        assert asset_command._is_within(bundle, member)
-
     def test_asset_command_rejects_bundle_symlinks_outside_the_bundle(
         self, tmp_path: Path, mocker: MockerFixture
     ) -> None:
@@ -302,10 +282,10 @@ def test_materialization_uses_only_complete_current_platform_assets(
     source.mkdir()
     output = tmp_path / "runtime"
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
-    platform = "windows-x86_64" if os.name == "nt" else "macos-arm64"
-    mocker.patch("platform.system", return_value="Windows" if os.name == "nt" else "Darwin")
-    mocker.patch("platform.machine", return_value="AMD64" if os.name == "nt" else "arm64")
-    executable = "openai-responses-proxy.exe" if os.name == "nt" else "openai-responses-proxy"
+    platform = "macos-arm64"
+    mocker.patch("platform.system", return_value="Darwin")
+    mocker.patch("platform.machine", return_value="arm64")
+    executable = "openai-responses-proxy"
     selected_version = "0.0.0" if defect in {"version", "renamed-version"} else version
     selected_platform = "linux-x86_64" if defect in {"platform", "renamed-platform"} else platform
     files = {
@@ -351,8 +331,7 @@ def test_materialization_uses_only_complete_current_platform_assets(
         assert (output / "bin" / executable).read_bytes() == b"exact candidate"
         assert (output / "bin/_internal/runtime.dat").read_bytes() == b"runtime dependency"
         assert (output / "providers.toml").read_bytes() == files["providers.toml"]
-        if os.name != "nt":
-            assert (output / "bin" / executable).stat().st_mode & 0o777 == 0o755
+        assert (output / "bin" / executable).stat().st_mode & 0o777 == 0o755
     assert {p.name: p.read_bytes() for p in source.iterdir()} == before
 
 

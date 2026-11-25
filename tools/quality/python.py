@@ -181,7 +181,7 @@ def _static_report(
     environment: Mapping[str, str],
 ) -> None:
     """Run the supplied observer in this session's child, never in the Nox parent."""
-    binary = Path(session.bin) / ("ruff.exe" if os.name == "nt" else "ruff")
+    binary = Path(session.bin) / "ruff"
     session.run(
         "python",
         "-B",
@@ -228,7 +228,7 @@ def native_helper_requirement() -> str:
     selected = urlsplit(requirement.removeprefix("ethos @ "))
     digest = selected.fragment.removeprefix("sha256=")
     path = unquote(selected.path, errors="strict")
-    wheel = Path(path.removeprefix("/") if os.name == "nt" else path)
+    wheel = Path(path)
     if (
         not requirement.startswith("ethos @ ")
         or selected.scheme != "file"

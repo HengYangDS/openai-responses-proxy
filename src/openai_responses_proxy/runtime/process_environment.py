@@ -26,14 +26,11 @@ def native_process_environment(
 ) -> dict[str, str]:
     """Preserve the host substrate while replacing product and Python state."""
     source = os.environ if inherited is None else inherited
-    inherited_path = next(
-        (value for name, value in source.items() if name.upper() == "PATH"),
-        os.defpath,
-    )
+    inherited_path = source.get("PATH", os.defpath)
     environment = {
         name: value
         for name, value in source.items()
-        if name.upper() != "PATH" and not _is_runtime_state(name)
+        if name != "PATH" and not _is_runtime_state(name)
     }
     environment.update(
         {
@@ -48,10 +45,7 @@ def native_process_environment(
         user_root = Path(user_home).absolute()
         environment.update(
             {
-                "APPDATA": os.fspath(user_root / "AppData" / "Roaming"),
                 "HOME": os.fspath(user_root),
-                "LOCALAPPDATA": os.fspath(user_root / "AppData" / "Local"),
-                "USERPROFILE": os.fspath(user_root),
                 "XDG_BIN_HOME": os.fspath(user_root / ".local" / "bin"),
                 "XDG_CACHE_HOME": os.fspath(user_root / ".cache"),
                 "XDG_CONFIG_HOME": os.fspath(user_root / ".config"),

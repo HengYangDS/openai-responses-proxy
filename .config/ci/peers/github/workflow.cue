@@ -51,7 +51,6 @@ githubVerify: {
 		"source-and-governance":           #SourceJobs."source-and-governance"
 		"commit-admission":                #SourceJobs."commit-admission"
 		python:                            #SourceJobs.python
-		"python-windows":                  #SourceJobs."python-windows"
 		"accepted-source":                 #SourceJobs."accepted-source"
 		promotion:                         #SourceJobs.promotion
 		"tag-metadata":                    #ReleaseJobs."tag-metadata"

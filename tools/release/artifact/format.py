@@ -173,13 +173,7 @@ def verify_platform_archive(archive: bytes, manifest: bytes) -> dict[str, object
                 if not _safe_relative(relative) or relative in actual:
                     raise AssetError("release archive contains an invalid member")
                 expected_mode = (
-                    0o755
-                    if relative
-                    in {
-                        f"bin/{product_identity.executable_name(windows=False)}",
-                        f"bin/{product_identity.executable_name(windows=True)}",
-                    }
-                    else 0o644
+                    0o755 if relative == f"bin/{product_identity.COMMAND_NAME}" else 0o644
                 )
                 if member.mode != expected_mode:
                     raise AssetError("release archive member mode is invalid")

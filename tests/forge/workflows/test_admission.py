@@ -92,7 +92,6 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
     for job_id in (
         "source-and-governance",
         "python",
-        "python-windows",
         "python-quality",
         "performance",
     ):
@@ -107,7 +106,6 @@ def test_forge_workflows_partition_review_accepted_and_release_proof() -> None:
         "python-matrix",
         "source-and-governance",
         "python",
-        "python-windows",
         "python-quality",
         "performance",
         "native-assets",

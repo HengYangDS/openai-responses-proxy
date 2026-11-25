@@ -22,14 +22,14 @@ def test_isolation_preserves_the_host_execution_substrate(tmp_path: Path) -> Non
         state_root=tmp_path / "state",
         inherited={
             "PATH": host_path,
-            "SystemRoot": r"C:\Windows",
+            "TMPDIR": "/private/var/folders/host",
             "HOST_EXECUTION_CONTEXT": "preserved",
             product_identity.environment_name("STALE"): "retired",
         },
     )
 
     assert environment["PATH"] == host_path
-    assert environment["SystemRoot"] == r"C:\Windows"
+    assert environment["TMPDIR"] == "/private/var/folders/host"
     assert environment["HOST_EXECUTION_CONTEXT"] == "preserved"
     assert product_identity.environment_name("STALE") not in environment
 
@@ -78,8 +78,7 @@ def test_isolation_redirects_every_user_and_product_root(tmp_path: Path) -> None
         install_root=install,
         state_root=state,
         inherited={
-            "APPDATA": "foreign-app-data",
-            "LOCALAPPDATA": "foreign-local-app-data",
+            "HOME": "foreign-home",
             "XDG_BIN_HOME": "foreign-bin",
             "XDG_CACHE_HOME": "foreign-cache",
             "XDG_CONFIG_HOME": "foreign-config",
@@ -90,10 +89,7 @@ def test_isolation_redirects_every_user_and_product_root(tmp_path: Path) -> None
 
     assert environment[product_identity.environment_name("HOME")] == str(install)
     assert environment[product_identity.environment_name("STATE_HOME")] == str(state)
-    assert environment["APPDATA"] == str(home / "AppData" / "Roaming")
     assert environment["HOME"] == str(home)
-    assert environment["LOCALAPPDATA"] == str(home / "AppData" / "Local")
-    assert environment["USERPROFILE"] == str(home)
     assert environment["XDG_BIN_HOME"] == str(home / ".local" / "bin")
     assert environment["XDG_CACHE_HOME"] == str(home / ".cache")
     assert environment["XDG_CONFIG_HOME"] == str(home / ".config")
@@ -108,11 +104,10 @@ def test_product_process_keeps_the_user_root_and_projects_runtime_roots(
     environment = native_process_environment(
         install_root=tmp_path / "payload",
         state_root=tmp_path / "state",
-        inherited={"HOME": "/Users/operator", "USERPROFILE": r"C:\Users\operator"},
+        inherited={"HOME": "/Users/operator"},
     )
 
     assert environment["HOME"] == "/Users/operator"
-    assert environment["USERPROFILE"] == r"C:\Users\operator"
     assert environment[product_identity.environment_name("HOME")] == str(tmp_path / "payload")
     assert environment[product_identity.environment_name("STATE_HOME")] == str(tmp_path / "state")
 

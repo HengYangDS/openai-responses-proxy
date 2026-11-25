@@ -13,11 +13,8 @@ import "list"
 		strategy: {
 			"fail-fast": false
 			matrix: include: [{
-				platform: "macos-arm64"
-				runner:   "macos-26"
-			}, {
-				platform: "windows-x86_64"
-				runner:   "windows-2025"
+				platform: #Platforms.macos.release
+				runner:   #Platforms.macos.github
 			}]
 		}
 		steps: [{
@@ -49,10 +46,10 @@ import "list"
 		}]
 	}
 	"native-linux": {
-		name:              "Native asset (linux-x86_64)"
+		name:              "Native asset (\(#Platforms.linux.release))"
 		if:                #Conditions.nativeProof
 		needs:             "python-matrix"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		container:         "${{ needs.python-matrix.outputs.linux-release-image }}"
 		"timeout-minutes": 20
 		steps: [{
@@ -75,7 +72,7 @@ import "list"
 		}, {
 			name:                "Build the native release asset"
 			"working-directory": "/workspace"
-			run:                 "uv run --locked --no-sync --python python --no-python-downloads nox -s release_asset -- \"$GITHUB_WORKSPACE/.release-assets/linux-x86_64\""
+			run:                 "uv run --locked --no-sync --python python --no-python-downloads nox -s release_asset -- \"$GITHUB_WORKSPACE/.release-assets/\(#Platforms.linux.release)\""
 		}, {
 			name: "Retire the canonical release source root"
 			if:   "always() && steps.release-source.outcome == 'success'"
@@ -83,18 +80,18 @@ import "list"
 		}, {
 			uses: #Toolchains.githubActions.upload
 			with: {
-				name:                "native-linux-x86_64"
-				path:                "${{ github.workspace }}/.release-assets/linux-x86_64"
+				name:                "native-\(#Platforms.linux.release)"
+				path:                "${{ github.workspace }}/.release-assets/\(#Platforms.linux.release)"
 				"if-no-files-found": "error"
 				"retention-days":    7
 			}
 		}]
 	}
 	"native-linux-lifecycle": {
-		name: "Native lifecycle (linux-x86_64)"
+		name: "Native lifecycle (\(#Platforms.linux.release))"
 		if:   #Conditions.nativeProof
 		needs: ["python-matrix", "native-linux"]
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: list.Concat([[{
 			uses: #Toolchains.githubActions.checkout
@@ -111,7 +108,7 @@ import "list"
 		}, {
 			uses: #Toolchains.githubActions.download
 			with: {
-				name: "native-linux-x86_64"
+				name: "native-\(#Platforms.linux.release)"
 				path: "${{ runner.temp }}/native-linux"
 			}
 		}, {
@@ -119,7 +116,7 @@ import "list"
 			run:  "install -d \"$RUNNER_TEMP/native-linux/runtime\""
 		}, {
 			name: "Materialize the Linux executable"
-			run:  "tar -xzf \"$RUNNER_TEMP\"/native-linux/openai-responses-proxy-*-linux-x86_64.tar.gz --strip-components=1 -C \"$RUNNER_TEMP/native-linux/runtime\""
+			run:  "tar -xzf \"$RUNNER_TEMP\"/native-linux/openai-responses-proxy-*-\(#Platforms.linux.release).tar.gz --strip-components=1 -C \"$RUNNER_TEMP/native-linux/runtime\""
 		}, {
 			name: "Install the locked release tool environment"
 			run:  "uv sync --locked --group quality"

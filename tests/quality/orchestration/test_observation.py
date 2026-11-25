@@ -138,21 +138,12 @@ def _native_output_of(options: dict[str, object]) -> object:
     return environment["ETHOS_NATIVE_OUTPUT_DIR"]
 
 
-@pytest.mark.parametrize(("platform_name", "ruff_name"), [("posix", "ruff"), ("nt", "ruff.exe")])
 def test_quality_reports_bind_the_static_checker_and_run_no_test_case(
-    platform_name: str,
-    ruff_name: str,
     tmp_path: Path,
     mocker: MockerFixture,
     nox_configuration: ModuleType,
 ) -> None:
     """This interpreter has no ETHOS, so a parent import would fail the session."""
-    mocker.patch.object(
-        nox_configuration.python_quality,
-        "os",
-        SimpleNamespace(name=platform_name, environ=os.environ),
-    )
-
     output, calls = _native_session("quality", tmp_path, mocker, nox_configuration)
 
     custody = [args for args, _options in calls if "ethos.domain.quality.nox" in args]
@@ -174,7 +165,7 @@ def test_quality_reports_bind_the_static_checker_and_run_no_test_case(
         nox_configuration.python_quality.RUFF_CONFIG
     )
     ruff = list(checker[checker.index("--") + 1 :])
-    assert ruff[0] == str(tmp_path / ruff_name)
+    assert ruff[0] == str(tmp_path / "ruff")
     assert ruff[1] == "check"
     assert "--verbose" in ruff
     assert ruff[ruff.index("--output-format") + 1] == "sarif"

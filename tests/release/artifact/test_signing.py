@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -46,8 +45,7 @@ def test_sign_and_verify_preserves_complete_provider_key_path(
     assert temporary.call_count == 1  # Verification trust anchor only.
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file-variable newline repair")
-def test_sign_and_verify_accepts_posix_file_variable_key_without_final_newline(
+def test_sign_and_verify_accepts_a_file_variable_key_without_final_newline(
     tmp_path: Path,
 ) -> None:
     key, assets = tmp_path / "signing", tmp_path / "assets"
@@ -61,34 +59,6 @@ def test_sign_and_verify_accepts_posix_file_variable_key_without_final_newline(
     signing.sign_and_verify(assets=assets, key=key, trust=trust)
 
     assert (assets / "SHA256SUMS.sig").is_file()
-
-
-def test_sign_and_verify_does_not_rewrite_incomplete_windows_key(
-    tmp_path: Path, mocker: MockerFixture
-) -> None:
-    key, assets = tmp_path / "signing", tmp_path / "assets"
-    key.write_bytes(b"incomplete-private-key")
-    assets.mkdir()
-    (assets / "SHA256SUMS").write_text("abc\n", encoding="ascii")
-    run = mocker.patch.object(
-        signing.subprocess,
-        "run",
-        side_effect=subprocess.CalledProcessError(255, ("ssh-keygen", "-Y", "sign")),
-    )
-    temporary = mocker.patch.object(
-        signing.tempfile,
-        "TemporaryDirectory",
-        side_effect=AssertionError("Windows key ACL must remain provider-owned"),
-    )
-    mocker.patch.object(signing.shutil, "which", return_value="ssh-keygen")
-    mocker.patch.object(signing.os, "name", "nt")
-    mocker.patch.object(signing, "verify")
-
-    with pytest.raises(signing.SignatureError, match="OpenSSH rejected"):
-        signing.sign_and_verify(assets=assets, key=key, trust="release trust")
-
-    assert run.call_args.args[0][5] == str(key)
-    temporary.assert_not_called()
 
 
 def test_sign_and_verify_rejects_missing_key_and_wrong_trust(tmp_path: Path) -> None:

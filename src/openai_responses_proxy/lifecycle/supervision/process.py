@@ -44,7 +44,7 @@ def capture_executable(
             return None
         return OwnedProcess(
             pid,
-            os.path.normcase(os.path.realpath(os.path.abspath(expected_path))),
+            os.path.realpath(os.path.abspath(expected_path)),
             _created_at(candidate),
         )
     except (OSError, TypeError, psutil.Error):
@@ -177,8 +177,8 @@ def argv_names_executable(
     """Bind a native process to one exact executable and optional private role."""
     if not argv:
         return False
-    expected = os.path.normcase(os.path.realpath(os.path.abspath(expected_path)))
-    actual = os.path.normcase(os.path.realpath(os.path.abspath(argv[0])))
+    expected = os.path.realpath(os.path.abspath(expected_path))
+    actual = os.path.realpath(os.path.abspath(argv[0]))
     if actual != expected:
         return False
     return roles is None or bool(roles.intersection(argv[1:]))
@@ -224,8 +224,8 @@ def _kernel_executable_matches(candidate: psutil.Process, expected_path: str) ->
         actual_path = _executable(candidate)
     except (OSError, TypeError, psutil.Error):
         return False
-    expected = os.path.normcase(os.path.realpath(os.path.abspath(expected_path)))
-    actual = os.path.normcase(os.path.realpath(os.path.abspath(actual_path)))
+    expected = os.path.realpath(os.path.abspath(expected_path))
+    actual = os.path.realpath(os.path.abspath(actual_path))
     return actual == expected
 
 

@@ -110,7 +110,7 @@ def measured_report(coverage: Coverage) -> dict[str, object]:
 
 
 def _semantic_package(path: str, package_marker: str) -> str | None:
-    parts = PurePosixPath(path.replace("\\", "/")).parts
+    parts = PurePosixPath(path).parts
     if parts[-1] == f"{package_marker}.py":
         return "root"
     try:

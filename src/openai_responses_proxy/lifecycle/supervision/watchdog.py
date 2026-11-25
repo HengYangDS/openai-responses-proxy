@@ -31,7 +31,6 @@ LISTENER_MODE = serving_roles.LISTENER_MODE
 CHECK_INTERVAL = SETTINGS.watchdog_interval
 MAX_BACKOFF = SETTINGS.watchdog_max_backoff
 LOG_PATH = SETTINGS.watchdog_log.path
-_WINDOWS_DETACH_FLAGS = 0x00000008 | 0x00000200
 
 
 LOG_MAX_BYTES = SETTINGS.watchdog_log.max_bytes
@@ -60,8 +59,7 @@ def spawn_proxy(executable: str) -> subprocess.Popen[bytes] | None:
     """Start the proxy detached from this watchdog so it outlives us.
 
     Uses the exact installed executable path. Detaches via ``start_new_session``
-    on POSIX and ``DETACHED_PROCESS`` on Windows so a watchdog restart never
-    signals the proxy.
+    so a watchdog restart never signals the proxy.
     """
     if not os.path.exists(executable):
         _log("event=listener_spawn_refused reason=executable_missing")
@@ -73,26 +71,15 @@ def spawn_proxy(executable: str) -> subprocess.Popen[bytes] | None:
             state_root=runtime_config.state_dir(),
             restart_frozen_runtime=True,
         )
-        if os.name == "nt":
-            proc = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                close_fds=True,
-                creationflags=_WINDOWS_DETACH_FLAGS,
-                env=environment,
-            )
-        else:
-            proc = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                close_fds=True,
-                env=environment,
-                start_new_session=True,
-            )
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+            env=environment,
+            start_new_session=True,
+        )
         _log(f"event=listener_spawned pid={proc.pid}")
     except OSError as exc:
         _log(f"event=listener_spawn_failed exception={exc.__class__.__name__}")

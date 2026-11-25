@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import ntpath
 import os
-import posixpath
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import fields
-from pathlib import PureWindowsPath
 
 from openai_responses_proxy import errors
 from openai_responses_proxy import product_identity
@@ -30,17 +27,12 @@ def service_id(install_dir: str) -> str:
     alternate root receives a deterministic suffix so isolated validation and
     parallel installations cannot unload or replace the user's live service.
     """
-    installed = os.path.normcase(os.path.abspath(install_dir))
-    canonical = os.path.normcase(os.path.abspath(config.default_data_dir()))
+    installed = os.path.abspath(install_dir)
+    canonical = os.path.abspath(config.default_data_dir())
     if installed == canonical:
         return SERVICE_ID
     suffix = hashlib.sha256(installed.encode("utf-8")).hexdigest()[:12]
     return f"{SERVICE_ID}.{suffix}"
-
-
-def _host_is_windows() -> bool:
-    """Return whether this host installs the Windows payload."""
-    return config.os.name == "nt"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -54,8 +46,6 @@ class InstallationContext:
     command: str
     log_dir: str
     user_home: str = field(default_factory=config.home_dir)
-    # The platform whose payload this control root holds: the host's, unless a test models another.
-    windows: bool = field(default_factory=_host_is_windows)
     port: int = config.DEFAULT_PORT
     proxy_log_max_bytes: int = config.DEFAULT_PROXY_LOG_MAX_BYTES
     proxy_log_backup_count: int = config.DEFAULT_PROXY_LOG_BACKUP_COUNT
@@ -96,8 +86,7 @@ class RuntimeContext(InstallationContext):
     @property
     def payload_dir(self) -> str:
         """Return the payload root that owns this context's executable."""
-        path = ntpath if PureWindowsPath(self.executable).drive else posixpath
-        return path.dirname(path.dirname(self.executable))
+        return os.path.dirname(os.path.dirname(self.executable))
 
 
 def validate_port(port: int) -> int:
@@ -131,7 +120,7 @@ def create(
     projected = InstallationContext(
         user_home=config.home_dir(),
         install_dir=config.data_dir(),
-        command=str(command.path(config.home_dir(), config.os.environ, windows=_host_is_windows())),
+        command=str(command.path(config.home_dir(), config.os.environ)),
         log_dir=config.state_dir(),
         port=validate_port(port),
         proxy_log_max_bytes=validate_log_retention(

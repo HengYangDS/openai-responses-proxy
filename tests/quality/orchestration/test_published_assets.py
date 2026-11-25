@@ -21,9 +21,7 @@ def _select_released_host(
     nox_configuration: ModuleType,
 ) -> str:
     """Bind artifact-unit tests to the released host for this OS family."""
-    if nox_configuration.os.name == "nt":
-        system, machine = "Windows", "AMD64"
-    elif nox_configuration.verification.platform.system() == "Darwin":
+    if nox_configuration.verification.platform.system() == "Darwin":
         system, machine = "Darwin", "arm64"
     else:
         system, machine = "Linux", "x86_64"
@@ -96,9 +94,7 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
 ) -> None:
     """Preserve admitted bytes and modes while requiring the native executable."""
     platform_id = _select_released_host(mocker, nox_configuration)
-    executable_name = nox_configuration.product_identity.executable_name(
-        windows=nox_configuration.os.name == "nt"
-    )
+    executable_name = nox_configuration.product_identity.COMMAND_NAME
     blobs = [SimpleNamespace(path="providers.toml", content=b"version = 1\n", mode="100644")]
     if include_executable:
         blobs.append(
@@ -139,6 +135,5 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
     assert executable.read_bytes() == b"native"
     providers = work / "published-release" / "providers.toml"
     assert providers.read_bytes() == b"version = 1\n"
-    if nox_configuration.os.name != "nt":
-        assert executable.stat().st_mode & 0o777 == 0o755
-        assert providers.stat().st_mode & 0o777 == 0o644
+    assert executable.stat().st_mode & 0o777 == 0o755
+    assert providers.stat().st_mode & 0o777 == 0o644

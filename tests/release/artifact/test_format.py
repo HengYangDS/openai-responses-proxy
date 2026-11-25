@@ -23,7 +23,6 @@ class FormatContracts:
         [
             ("Darwin", "arm64", "macos-arm64"),
             ("Linux", "x86_64", "linux-x86_64"),
-            ("Windows", "AMD64", "windows-x86_64"),
         ],
     )
     def test_native_platform_identity_has_one_release_owner(
@@ -34,7 +33,7 @@ class FormatContracts:
 
     @pytest.mark.parametrize(
         ("system", "machine"),
-        [("Darwin", "x86_64"), ("Linux", "riscv64"), ("Plan9", "x86_64")],
+        [("Darwin", "x86_64"), ("Windows", "AMD64"), ("Linux", "riscv64"), ("Plan9", "x86_64")],
     )
     def test_native_platform_identity_rejects_unreleased_hosts(
         self, system: str, machine: str

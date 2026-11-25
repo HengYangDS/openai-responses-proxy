@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -199,27 +198,22 @@ class TestSignedNativeLifecycle:
             assert post_response(port, route="upstream") == (
                 b'{"id":"after-rebind","status":"completed"}'
             )
-            if sys.platform != "win32":
-                write_drifted_native_projection(ctx)
-                outdated = run_command(
-                    executable, environment, "status", "--port", str(port), "--json"
-                )
-                assert outdated["state"] == "degraded"
-                assert outdated["service"] == "outdated"
-                diagnosed = run_command(
-                    executable, environment, "doctor", "--port", str(port), "--json", expected=1
-                )
-                assert diagnosed["next"] == "openai-responses-proxy reload"
-                assert (
-                    run_command(executable, environment, "reload", "--port", str(port), "--json")[
-                        "state"
-                    ]
-                    == "reloaded"
-                )
-                current = run_command(
-                    executable, environment, "status", "--port", str(port), "--json"
-                )
-                assert (current["state"], current["service"]) == ("running", "running")
+            write_drifted_native_projection(ctx)
+            outdated = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert outdated["state"] == "degraded"
+            assert outdated["service"] == "outdated"
+            diagnosed = run_command(
+                executable, environment, "doctor", "--port", str(port), "--json", expected=1
+            )
+            assert diagnosed["next"] == "openai-responses-proxy reload"
+            assert (
+                run_command(executable, environment, "reload", "--port", str(port), "--json")[
+                    "state"
+                ]
+                == "reloaded"
+            )
+            current = run_command(executable, environment, "status", "--port", str(port), "--json")
+            assert (current["state"], current["service"]) == ("running", "running")
             stop_native_supervision(ctx, keep_runtime=True)
             orphaned = run_command(executable, environment, "status", "--port", str(port), "--json")
             assert orphaned["service"] == "installed"

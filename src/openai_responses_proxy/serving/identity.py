@@ -68,11 +68,9 @@ def runtime_payload_matches(runtime: Mapping[str, object], expected: Mapping[str
 def freeze_loaded_payload(executable: Path) -> LoadedPayloadIdentity | None:
     """Validate and freeze the manifest-owned files loaded by this process."""
     try:
-        root, windows = _runtime_root(executable)
+        root = _runtime_root(executable)
         manifest = _read_manifest(root / inventory.MANIFEST_FILENAME)
-        aggregate = _verify_runtime_files(
-            root, _digest_mapping(manifest, "serving_files"), windows=windows
-        )
+        aggregate = _verify_runtime_files(root, _digest_mapping(manifest, "serving_files"))
         return _identity(root, manifest, aggregate, require_receipt_file=False)
     except (
         IndexError,
@@ -150,10 +148,10 @@ def require_payload_generation_name(value: object) -> str:
 def committed_payload(executable: Path) -> LoadedPayloadIdentity | None:
     """Return the complete successor identity currently committed on disk."""
     try:
-        root, windows = _runtime_root(executable)
+        root = _runtime_root(executable)
         manifest = _read_manifest(root / inventory.MANIFEST_FILENAME)
         files = _serving_files(manifest)
-        aggregate = _verify_runtime_files(root, files, windows=windows)
+        aggregate = _verify_runtime_files(root, files)
         return _identity(root, manifest, aggregate, require_receipt_file=True)
     except (
         IndexError,
@@ -176,14 +174,12 @@ def _serving_files(manifest: Mapping[str, object]) -> dict[str, str]:
     return files
 
 
-def _runtime_root(executable: Path) -> tuple[Path, bool]:
+def _runtime_root(executable: Path) -> Path:
     resolved = executable.resolve(strict=True)
     root = resolved.parents[1]
-    if resolved == root / inventory.EXECUTABLE:
-        return root, False
-    if resolved == root / inventory.WINDOWS_EXECUTABLE:
-        return root, True
-    raise ValueError("executable is outside the installed runtime identity")
+    if resolved != root / inventory.EXECUTABLE:
+        raise ValueError("executable is outside the installed runtime identity")
+    return root
 
 
 def _digest_mapping(manifest: Mapping[str, object], field: str) -> dict[str, str]:
@@ -196,9 +192,9 @@ def _digest_mapping(manifest: Mapping[str, object], field: str) -> dict[str, str
     return cast("dict[str, str]", value)
 
 
-def _verify_runtime_files(root: Path, expected: Mapping[str, str], *, windows: bool) -> str:
+def _verify_runtime_files(root: Path, expected: Mapping[str, str]) -> str:
     paths = set(expected)
-    if not inventory.required_runtime_files(windows=windows).issubset(paths) or any(
+    if not inventory.REQUIRED_RUNTIME_FILES.issubset(paths) or any(
         not inventory.is_runtime_file(path) for path in paths
     ):
         raise ValueError("installed inventory does not match the executable platform")

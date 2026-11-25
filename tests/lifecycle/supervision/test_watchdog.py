@@ -166,18 +166,6 @@ class TestWatchdogLogging:
             mocker.patch.object(watchdog, "_log")
             assert watchdog.spawn_proxy(watchdog.EXECUTABLE) is None
             mocker.patch.object(watchdog, "EXECUTABLE", str(executable))
-            mocker.patch.object(watchdog.os, "name", "nt")
-            popen = mocker.patch.object(watchdog.subprocess, "Popen")
-            mocker.patch.object(watchdog, "_log")
-            popen.return_value.pid = 43
-            watchdog.spawn_proxy(str(executable))
-            assert popen.call_args.kwargs["creationflags"] == watchdog._WINDOWS_DETACH_FLAGS
-            windows_environment = popen.call_args.kwargs["env"]
-            assert windows_environment[watchdog.runtime_config.HOME_ENV]
-            assert windows_environment[watchdog.runtime_config.STATE_HOME_ENV]
-            assert windows_environment["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
-            assert "PYTHONPATH" not in windows_environment
-            mocker.patch.object(watchdog, "EXECUTABLE", str(executable))
             mocker.patch.object(watchdog.subprocess, "Popen", side_effect=OSError("denied"))
             logged = mocker.patch.object(watchdog, "_log")
             assert watchdog.spawn_proxy(str(executable)) is None

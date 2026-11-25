@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
 from pathlib import PurePath
 from pathlib import PurePosixPath
-from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING
 from typing import cast
 
@@ -32,13 +30,13 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_GENERATION = "5" * 32
 
 
-def generation_executable(install_dir: PurePath, *, windows: bool = False) -> str:
+def generation_executable(install_dir: PurePath) -> str:
     """Return the fixture generation's executable below one control root."""
     payload_dir = install_dir / generation.GENERATIONS_DIRNAME / FIXTURE_GENERATION
-    return inventory.installed_executable(str(payload_dir), windows=windows)
+    return inventory.installed_executable(str(payload_dir))
 
 
-def control_root(root: Path, *, windows: bool = False) -> runtime_context.InstallationContext:
+def control_root(root: Path) -> runtime_context.InstallationContext:
     """Build an isolated control root alone, for a state in which no generation is selected.
 
     It names no payload, so a read of ``executable`` or ``payload_dir`` raises.
@@ -46,20 +44,15 @@ def control_root(root: Path, *, windows: bool = False) -> runtime_context.Instal
     return runtime_context.InstallationContext(
         user_home=str(root),
         install_dir=str(root / "data" / "openai-responses-proxy"),
-        command=str(
-            root
-            / "commands"
-            / ("openai-responses-proxy.cmd" if windows else "openai-responses-proxy")
-        ),
+        command=str(root / "commands" / "openai-responses-proxy"),
         log_dir=str(root / "state" / "openai-responses-proxy"),
         port=8791,
-        windows=windows,
     )
 
 
-def install_context(root: Path, *, windows: bool = False) -> runtime_context.RuntimeContext:
-    """Build an isolated install context in the fixture generation of one modeled platform."""
-    return generation.context(control_root(root, windows=windows), FIXTURE_GENERATION)
+def install_context(root: Path) -> runtime_context.RuntimeContext:
+    """Build an isolated install context in the fixture generation."""
+    return generation.context(control_root(root), FIXTURE_GENERATION)
 
 
 def selected_context(ctx: runtime_context.InstallationContext) -> runtime_context.RuntimeContext:
@@ -69,68 +62,41 @@ def selected_context(ctx: runtime_context.InstallationContext) -> runtime_contex
     return selected
 
 
-def platform_context(port: int = 8791, *, windows: bool = False) -> runtime_context.RuntimeContext:
-    """Build a deterministic service-definition fixture for one modeled platform."""
-    if windows:
-        home = PureWindowsPath("C:/fixture-home")
-        install_dir = home / "AppData" / "Local" / "openai-responses-proxy"
-        log_dir = home / "AppData" / "Local" / "openai-responses-proxy-state"
-    else:
-        home = PurePosixPath("/fixture-home")
-        install_dir = home / ".local" / "share" / "openai-responses-proxy"
-        log_dir = home / ".local" / "state" / "openai-responses-proxy"
+def platform_context(port: int = 8791) -> runtime_context.RuntimeContext:
+    """Build a deterministic service-definition fixture."""
+    home = PurePosixPath("/fixture-home")
+    install_dir = home / ".local" / "share" / "openai-responses-proxy"
     return runtime_context.RuntimeContext(
         user_home=str(home),
         install_dir=str(install_dir),
-        executable=generation_executable(install_dir, windows=windows),
-        windows=windows,
-        command=str(
-            (
-                home
-                / "AppData"
-                / "Local"
-                / "Microsoft"
-                / "WindowsApps"
-                / "openai-responses-proxy.cmd"
-            )
-            if windows
-            else (home / ".local" / "bin" / "openai-responses-proxy")
-        ),
-        log_dir=str(log_dir),
+        executable=generation_executable(install_dir),
+        command=str(home / ".local" / "bin" / "openai-responses-proxy"),
+        log_dir=str(home / ".local" / "state" / "openai-responses-proxy"),
         port=port,
     )
 
 
-def runtime_files(*, windows: bool = False) -> tuple[str, ...]:
-    """Return the installed payload inventory for the modeled platform."""
-    return tuple(sorted(inventory.required_runtime_files(windows=windows)))
-
-
-def executable_relative(*, windows: bool = False) -> str:
-    """Return the installed executable member for the modeled platform."""
-    return inventory.executable_name(windows=windows)
+def runtime_files() -> tuple[str, ...]:
+    """Return the installed payload inventory."""
+    return tuple(sorted(inventory.REQUIRED_RUNTIME_FILES))
 
 
 def assert_private_log_mode(mode: int) -> None:
-    """Assert the strongest portable privacy bits exposed by the host."""
-    if os.name == "nt":
-        assert mode & 384 == 384
-    else:
-        assert mode == 384
+    """Assert that only the owner may read and write a log."""
+    assert mode == 0o600
 
 
 def released_artifact(
     version: str = "1.2.3",
     *,
     executable_content: bytes = b"native-executable-fixture",
-    windows: bool = False,
 ) -> artifact.VerifiedArtifact:
     """Build an admitted release artifact for lifecycle behavior tests."""
 
     def blob(relative: str) -> artifact.ArtifactFile:
         content = (
             executable_content
-            if relative in {inventory.EXECUTABLE, inventory.WINDOWS_EXECUTABLE}
+            if relative == inventory.EXECUTABLE
             else (ROOT / "src/openai_responses_proxy/providers/manifest.toml").read_bytes()
         )
         return artifact.ArtifactFile(
@@ -141,7 +107,7 @@ def released_artifact(
             content=content,
         )
 
-    files = runtime_files(windows=windows)
+    files = runtime_files()
     blobs = tuple(map(blob, files))
     serving = {item.path: item.sha256 for item in blobs if item.path in files}
     receipt = {
@@ -191,7 +157,7 @@ def install_payload(
     ctx: runtime_context.RuntimeContext, version: str = "1.2.3", *, mocker: MockerFixture
 ) -> payload_transaction.PayloadTransaction:
     """Install and finalize one released payload in the generation that the context names."""
-    candidate = released_artifact(version, windows=ctx.windows)
+    candidate = released_artifact(version)
     naming = mocker.patch.object(payload_transaction, "uuid")
     naming.uuid4.return_value.hex = Path(ctx.payload_dir).name
     try:
@@ -227,7 +193,7 @@ def root_level_payload(
     command.remove(Path(ctx.command), Path(ctx.executable))
     command.project(
         Path(ctx.command),
-        Path(inventory.installed_executable(ctx.install_dir, windows=ctx.windows)),
+        Path(inventory.installed_executable(ctx.install_dir)),
     )
     return control
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -369,20 +368,14 @@ def test_pristine_recover_and_uninstall_are_explicit_no_ops(
     uninstall.assert_called_once_with(ctx, purge=True)
 
 
-@pytest.mark.parametrize("windows", [False, True], ids=["unix", "windows"])
 @pytest.mark.parametrize("interruption", ["payload", "journal"])
 def test_public_recovery_reconstructs_context_after_interrupted_purge(
-    tmp_path: Path, interruption: str, *, windows: bool, mocker: MockerFixture
+    tmp_path: Path, interruption: str, *, mocker: MockerFixture
 ) -> None:
     """The public lifecycle reconstructs removal from declared roots, not old objects."""
-    ctx = install_context(tmp_path, windows=windows)
+    ctx = install_context(tmp_path)
     install_payload(ctx, mocker=mocker)
     config = application.runtime_context.config
-    mocker.patch.object(
-        config,
-        "os",
-        SimpleNamespace(name="nt" if windows else "posix", environ=config.os.environ),
-    )
     mocker.patch.object(config, "data_dir", return_value=ctx.install_dir)
     mocker.patch.object(config, "state_dir", return_value=ctx.log_dir)
     mocker.patch.object(config, "home_dir", return_value=ctx.user_home)

@@ -7,7 +7,7 @@ import "list"
 	"commit-admission": {
 		name:              "Native commit admission"
 		if:                "github.event_name == 'pull_request' || github.event_name == 'push'"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
 		env: {
 			ETHOS_COMMIT_ALLOWED_SIGNERS:       "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
@@ -47,7 +47,7 @@ import "list"
 	"python-matrix": {
 		name:              "Resolve supported Python versions"
 		if:                #Conditions.nativeProof
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 5
 		outputs: {
 			versions:              "${{ steps.versions.outputs.value }}"
@@ -73,7 +73,7 @@ import "list"
 	"source-and-governance": {
 		name:              "Source and governance"
 		if:                #Conditions.productProof
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -112,34 +112,7 @@ import "list"
 		name:              "Python ${{ matrix.python-version }}"
 		if:                #Conditions.productProof
 		needs:             "python-matrix"
-		"runs-on":         "macos-26"
-		"timeout-minutes": 15
-		strategy: {
-			"fail-fast": false
-			matrix: "python-version": "${{ fromJSON(needs.python-matrix.outputs.versions) }}"
-		}
-		steps: [{
-			uses: #Toolchains.githubActions.checkout
-			with: {
-				"fetch-depth": 0
-				"fetch-tags":  true
-				ref:           #Conditions.productSHA
-			}
-		}, {
-			uses: #Toolchains.githubActions.python
-			with: "python-version": "${{ matrix.python-version }}"
-		}, {
-			#UvSetup
-		}, {
-			name: "Compile and test"
-			run:  "uv run --locked --group quality nox -s \"\(#VerificationJobs.compatibility.session)-${{ matrix.python-version }}\""
-		}]
-	}
-	"python-windows": {
-		name:              "Python ${{ matrix.python-version }} (Windows)"
-		if:                #Conditions.productProof
-		needs:             "python-matrix"
-		"runs-on":         "windows-2025"
+		"runs-on":         #CompatibilityPlatform.github
 		"timeout-minutes": 15
 		strategy: {
 			"fail-fast": false
@@ -165,7 +138,7 @@ import "list"
 	"accepted-source": {
 		name:              "Accepted source"
 		if:                "github.event_name == 'push' && github.ref_type == 'branch'"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -192,7 +165,7 @@ import "list"
 	promotion: {
 		name:              "Promote dev to main"
 		if:                "github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev'"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -227,7 +200,7 @@ import "list"
 		name:              "Python quality"
 		if:                #Conditions.productProof
 		needs:             "python-matrix"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
@@ -257,7 +230,7 @@ import "list"
 		name:              "Performance"
 		if:                #Conditions.productProof
 		needs:             "python-matrix"
-		"runs-on":         "ubuntu-24.04"
+		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
 		steps: [{
 			uses: #Toolchains.githubActions.checkout

@@ -19,7 +19,6 @@ from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import control_root
-from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import listing_with_digests
 from tests.lifecycle.fixtures import root_level_payload
 
@@ -210,7 +209,7 @@ def test_purge_preserves_every_byte_of_a_payload_at_the_control_root(
     before = listing_with_digests(tmp_path)
     assert {name for name, _ in listing_with_digests(Path(ctx.install_dir))} == {
         "bin",
-        executable_relative(),
+        inventory.EXECUTABLE,
         inventory.PROVIDER_MANIFEST,
         inventory.MANIFEST_FILENAME,
         inventory.RELEASE_RECEIPT_FILENAME,

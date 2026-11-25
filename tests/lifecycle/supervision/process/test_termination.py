@@ -103,7 +103,7 @@ class TestTermination:
         assert owned is not None
         assert astuple(owned) == (
             123,
-            os.path.normcase(os.path.realpath("/installed/openai-responses-proxy")),
+            os.path.realpath("/installed/openai-responses-proxy"),
             42.0,
         )
         assert process.terminate_owned_process(owned, timeout_seconds=1.0)
@@ -123,7 +123,7 @@ class TestTermination:
         assert owned is not None
         assert astuple(owned) == (
             123,
-            os.path.normcase(os.path.realpath("/installed/openai-responses-proxy")),
+            os.path.realpath("/installed/openai-responses-proxy"),
             42.0,
         )
 

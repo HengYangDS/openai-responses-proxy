@@ -5,7 +5,6 @@ from __future__ import annotations
 import http.client
 import socket
 import struct
-import sys
 import urllib.request
 from contextlib import AbstractContextManager
 from contextlib import closing
@@ -58,10 +57,9 @@ def open_request(
 def reset_on_close() -> bytes:
     """Return the value of ``SO_LINGER`` that makes every close of a socket a reset.
 
-    Lingering is on, with zero seconds. Windows packs the two fields as unsigned shorts and
-    every other platform as ints.
+    Lingering is on, with zero seconds; both fields are ints.
     """
-    return struct.pack("HH" if sys.platform == "win32" else "ii", 1, 0)
+    return struct.pack("ii", 1, 0)
 
 
 def connect_reset_on_close(

@@ -30,7 +30,7 @@ gitlab: {
 		rules: [...{...}]
 	}
 	"commit-admission": #commitAdmission & {
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
+		tags: #Platforms.linux.gitlab.review
 		rules: [{
 			if: "$CI_PIPELINE_SOURCE == \"merge_request_event\""
 			variables: {
@@ -40,7 +40,7 @@ gitlab: {
 		}]
 	}
 	"commit-admission-accepted": #commitAdmission & {
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
+		tags: #Platforms.linux.gitlab.protected
 		rules: [{
 			if: "$CI_COMMIT_TAG"
 			variables: {
@@ -66,20 +66,22 @@ gitlab: {
 	}
 	default: {
 		image: name: "$UV_PYTHON_LATEST_IMAGE"
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
+		tags: #Platforms.linux.gitlab.protected
 		cache: {
 			key: "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
 			paths: [".cache/uv/"]
 		}
 	}
 
+	// Each role selects its runners from the platform declaration: review for merge requests and
+	// protected for dev.
 	#productRoles: [{
 		suffix: ""
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
+		runner: "review"
 		rules: [{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"dev\""}]
 	}, {
 		suffix: "-accepted"
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
+		runner: "protected"
 		rules: [{if: "$CI_COMMIT_BRANCH == \"dev\""}]
 	}]
 
@@ -157,13 +159,46 @@ gitlab: {
 			}
 		}
 	}
+
+	// The macOS Python job that GitHub runs as well: a shell runner reads no image and has no
+	// apt-get, so the job inherits no default and takes Python and uv from the locked Mise.
+	#compatibilityPlatformJob: {
+		stage: "verify"
+		inherit: default: false
+		parallel: matrix: [{PYTHON_VERSION: #RuntimeMatrix.python}]
+		variables: #RepositoryUvEnvironment & {
+			GIT_DEPTH:         "0"
+			MISE_ENABLE_TOOLS: "python,uv"
+		}
+		tags: [...string]
+		rules: [...{...}]
+		cache: {
+			key: "uv-\(#CompatibilityPlatform.release)"
+			paths: [".cache/uv/"]
+		}
+		allow_failure: !#CompatibilityPlatform.gitlab.required
+		before_script: [
+			"mise install --locked",
+			"git fetch --tags --force --prune --prune-tags origin",
+			"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
+			"mise exec --locked -- uv python install --no-bin $PYTHON_VERSION",
+		]
+		script: [
+			"mise exec --locked -- python --version",
+			"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads nox -s \"\(#VerificationJobs.compatibility.session)-$PYTHON_VERSION\"",
+		]
+	}
 	for role in #productRoles {
 		for id, job in #productJobs {
 			"\(id)\(role.suffix)": job & {
-				tags:      role.tags
+				tags:      #Platforms.linux.gitlab[role.runner]
 				rules:     role.rules
 				variables: #RepositoryUvEnvironment
 			}
+		}
+		"verify-python-macos\(role.suffix)": #compatibilityPlatformJob & {
+			tags:  #CompatibilityPlatform.gitlab[role.runner]
+			rules: role.rules
 		}
 	}
 	"verify-accepted-source": {
@@ -178,7 +213,7 @@ gitlab: {
 	}
 	"verify-promotion": {
 		stage: "verify"
-		tags: ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
+		tags:  #Platforms.linux.gitlab.review
 		rules: [{
 			if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == \"dev\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"main\""
 		}]

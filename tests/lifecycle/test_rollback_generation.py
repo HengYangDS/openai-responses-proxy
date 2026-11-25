@@ -394,23 +394,19 @@ def test_generation_cleanup_reports_exact_filesystem_failures(
     remove_store.assert_any_call(generation.root(empty_ctx))
 
 
-@pytest.mark.parametrize("native_code", [None, 5, 32, True, "private"])
 def test_generation_removal_reports_native_code_without_private_paths(
-    tmp_path: Path, *, native_code: int | str | bool | None, mocker: MockerFixture
+    tmp_path: Path, *, mocker: MockerFixture
 ) -> None:
     ctx = control_root(tmp_path)
     target = generation.path(ctx, "e" * 32)
     target.mkdir(parents=True)
     failure = PermissionError(13, "private native detail", str(target / "private-file"))
-    if native_code is not None:
-        mocker.patch.object(failure, "winerror", native_code, create=True)
     mocker.patch.object(generation.projection, "purge_owned_files", side_effect=failure)
 
     with pytest.raises(errors.InstallError) as raised:
         generation.remove(ctx, target.name, {})
 
-    expected = native_code if type(native_code) is int else 13
-    assert str(raised.value) == f"payload generation removal failed (OS error {expected})"
+    assert str(raised.value) == "payload generation removal failed (OS error 13)"
     assert raised.value.__cause__ is failure
     assert target.is_dir()
 

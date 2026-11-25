@@ -166,7 +166,7 @@ def _reset(client: socket.socket) -> None:
     client.setsockopt(
         socket.SOL_SOCKET,
         socket.SO_LINGER,
-        struct.pack("HH" if sys.platform == "win32" else "ii", 1, 0),
+        struct.pack("ii", 1, 0),
     )
     client.close()
 

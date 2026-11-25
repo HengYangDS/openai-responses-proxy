@@ -244,7 +244,7 @@ def _private_listener() -> _PackagedListener:
         root,
         identity.PAYLOAD_GENERATIONS_DIRNAME,
         selection.active,
-        inventory.executable_name(windows=os.name == "nt"),
+        inventory.EXECUTABLE,
     ).resolve(strict=True)
     committed = identity.committed_payload(executable)
     if committed is None:

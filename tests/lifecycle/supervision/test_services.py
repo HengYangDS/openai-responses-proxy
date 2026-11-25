@@ -7,16 +7,14 @@ from xml.dom import minidom
 
 from openai_responses_proxy.lifecycle.supervision import linux
 from openai_responses_proxy.lifecycle.supervision import macos
-from openai_responses_proxy.lifecycle.supervision import windows
 from tests.lifecycle.fixtures import platform_context
 from tests.lifecycle.supervision.fixtures import assert_fragments as _assert_fragments
 
 if TYPE_CHECKING:
     import pytest
 
-POSIX_CONTEXT = platform_context()
-WINDOWS_CONTEXT = platform_context(windows=True)
-EXECUTABLE = POSIX_CONTEXT.executable
+CONTEXT = platform_context()
+EXECUTABLE = CONTEXT.executable
 
 MACOS_CONTAINS = f"""<key>KeepAlive</key>
 <true/>
@@ -28,19 +26,6 @@ LINUX_CONTAINS = f"""Restart=always
 RestartSec=3
 WantedBy=default.target
 ExecStart="{EXECUTABLE}" --internal-watchdog""".splitlines()
-WINDOWS_TASK_CONTAINS = f"""<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-<LogonTrigger>
-<RestartOnFailure>
-<LogonType>InteractiveToken</LogonType>
-<RunLevel>LeastPrivilege</RunLevel>
-<TimeTrigger>
-<StartBoundary>{windows._SELF_HEAL_START_BOUNDARY}</StartBoundary>
-<Repetition>
-<Interval>PT1M</Interval>
-<StopAtDurationEnd>false</StopAtDurationEnd>
-<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-<Command>{WINDOWS_CONTEXT.executable}</Command>
-<Arguments>--internal-watchdog</Arguments>""".splitlines()
 
 
 class TestServiceDefinitions:
@@ -58,13 +43,6 @@ class TestServiceDefinitions:
         _assert_fragments(unit, LINUX_CONTAINS)
         assert "multi-user.target" not in unit
 
-    def test_windows_task(self) -> None:
-        rendered = windows.render_task_xml(WINDOWS_CONTEXT)
-        minidom.parseString(rendered)
-        xml = rendered.decode("utf-16")
-        _assert_fragments(xml, WINDOWS_TASK_CONTAINS)
-        _assert_fragments(xml.lower(), exclude=("cmd.exe", "comspec", "run-watchdog.cmd"))
-
     def test_service_definitions_never_persist_python_or_source_paths(
         self, subtests: pytest.Subtests
     ) -> None:
@@ -72,7 +50,6 @@ class TestServiceDefinitions:
         definitions = (
             macos.render_plist(ctx),
             linux.render_unit(ctx),
-            windows.render_task_xml(ctx).decode("utf-16"),
         )
         for definition in definitions:
             with subtests.test(definition=definition[:40]):
@@ -83,9 +60,8 @@ class TestServiceDefinitions:
         self, subtests: pytest.Subtests
     ) -> None:
         definitions = (
-            macos.render_plist(POSIX_CONTEXT),
-            linux.render_unit(POSIX_CONTEXT),
-            windows.render_task_xml(WINDOWS_CONTEXT).decode("utf-16"),
+            macos.render_plist(CONTEXT),
+            linux.render_unit(CONTEXT),
         )
         for definition in definitions:
             with subtests.test(definition=definition[:40]):

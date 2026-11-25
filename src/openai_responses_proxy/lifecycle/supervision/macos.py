@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import plistlib
+import posixpath
 import re
 import subprocess
 from dataclasses import dataclass
@@ -15,7 +16,6 @@ from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import system_tools
 from openai_responses_proxy.lifecycle.supervision import process
-from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
@@ -132,7 +132,7 @@ def render_plist(ctx: runtime_spec.NativeRuntimeContext) -> str:
         "KeepAlive": True,
         "ThrottleInterval": 5,
         "StandardOutPath": "/dev/null",
-        "StandardErrorPath": config.path_join(ctx.log_dir, "watchdog.stderr.log"),
+        "StandardErrorPath": posixpath.join(ctx.log_dir, "watchdog.stderr.log"),
         "EnvironmentVariables": {"HOME": ctx.user_home},
     }
     return plistlib.dumps(payload, fmt=plistlib.FMT_XML, sort_keys=False).decode()

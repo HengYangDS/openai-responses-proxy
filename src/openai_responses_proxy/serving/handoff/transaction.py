@@ -432,7 +432,6 @@ def serve_with_resume(
 def _valid_prepare(message: object, context: Context) -> bool:
     if not isinstance(message, dict):
         return False
-    listener_field = "listener_share_b64" if "listener_share_b64" in message else "listener_fd"
     expected = {
         "type": "prepare",
         "protocol_version": HANDOFF_PROTOCOL_VERSION,
@@ -440,7 +439,7 @@ def _valid_prepare(message: object, context: Context) -> bool:
         "serving_payload_sha256": context.serving_payload_sha256(),
         "release_receipt_sha256": context.release_receipt_sha256(),
         "manifest_sha256": context.payload_manifest_sha256(),
-        listener_field: message.get(listener_field),
+        "listener_fd": message.get("listener_fd"),
     }
     transaction_id = message.get("transaction_id")
     return (

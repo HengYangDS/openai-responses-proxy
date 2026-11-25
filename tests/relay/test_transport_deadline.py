@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="module")
 def tls_material(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
-    """Create one loopback identity per module; a cold hosted Windows openssl can exceed 10 s."""
+    """Create one loopback identity per module, not one per test."""
     directory = tmp_path_factory.mktemp("tls")
     certificate = directory / "certificate.pem"
     key = directory / "key.pem"

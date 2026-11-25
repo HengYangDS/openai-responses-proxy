@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from dataclasses import fields
 from pathlib import Path
@@ -144,11 +143,11 @@ class TestHandoffCleanup(SubprocessFixture):
             "cleanup",
         ]
 
-    def test_fixture_cleanup_retries_a_transient_native_payload_lock(
+    def test_fixture_cleanup_fails_at_once_when_payload_removal_fails(
         self, *, mocker: MockerFixture
     ) -> None:
         temporary = mocker.Mock()
-        temporary.cleanup.side_effect = [PermissionError("mapped module"), None]
+        temporary.cleanup.side_effect = PermissionError("payload is not removable")
         ctx = runtime_context.RuntimeContext(
             install_dir="/opt/owned",
             executable=_OWNED_EXECUTABLE,
@@ -160,9 +159,10 @@ class TestHandoffCleanup(SubprocessFixture):
         mocker.patch.object(native_service, "adapter", return_value=service)
         mocker.patch.object(process, "pids_naming_executable", return_value=[])
 
-        self._cleanup_installed_fixture(temporary, ctx, {})
+        with pytest.raises(PermissionError, match="payload is not removable"):
+            self._cleanup_installed_fixture(temporary, ctx, {})
 
-        assert temporary.cleanup.call_count == 2
+        temporary.cleanup.assert_called_once_with()
 
     def test_fixture_cleanup_uses_the_observed_successor_when_inventory_misses_it(
         self, *, mocker: MockerFixture
@@ -225,9 +225,7 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
     contexts.touch()
     monkeypatch.setenv(verification._TEST_ROOT, str(root))
     monkeypatch.setenv(verification._CONTEXTS, str(contexts))
-    source = (
-        tmp_path / "candidate" / "bin" / product_identity.executable_name(windows=os.name == "nt")
-    )
+    source = tmp_path / "candidate" / "bin" / product_identity.COMMAND_NAME
     source.parent.mkdir(parents=True)
     source.write_bytes(b"native candidate fixture")
     library = source.parent / "_internal" / "runtime.dat"

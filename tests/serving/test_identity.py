@@ -17,7 +17,6 @@ from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import FIXTURE_GENERATION
-from tests.lifecycle.fixtures import executable_relative
 from tests.lifecycle.fixtures import install_context
 from tests.lifecycle.fixtures import install_payload
 
@@ -81,9 +80,9 @@ class TestServiceIdentity:
         mutations = (
             lambda value: value.__setitem__("schema_version", 1),
             lambda value: value.__setitem__("files", []),
-            lambda value: value["files"].pop(executable_relative()),
+            lambda value: value["files"].pop(inventory.EXECUTABLE),
             lambda value: value["serving_files"].pop(inventory.PROVIDER_MANIFEST),
-            lambda value: value["files"].__setitem__(executable_relative(), "0" * 64),
+            lambda value: value["files"].__setitem__(inventory.EXECUTABLE, "0" * 64),
             lambda value: value["serving_files"].__setitem__(inventory.PROVIDER_MANIFEST, "0" * 64),
             lambda value: value.__setitem__("release_receipt_sha256", "invalid"),
         )
@@ -139,7 +138,7 @@ class TestServiceIdentity:
             else generation.root(ctx) / "not-a-generation"
         )
         shutil.copytree(ctx.payload_dir, outside, dirs_exist_ok=True)
-        loaded = outside / executable_relative()
+        loaded = outside / inventory.EXECUTABLE
         assert identity.freeze_loaded_payload(loaded) is not None
         read_selector = mocker.spy(identity, "read_payload_selection")
 
@@ -223,7 +222,7 @@ class TestServiceIdentity:
         with pytest.raises(ValueError, match=message):
             identity.selected_payload_executable(executable)
 
-    def test_loaded_identity_rejects_a_manifest_for_the_other_platform(
+    def test_loaded_identity_rejects_a_manifest_without_the_product_executable(
         self, *, mocker: MockerFixture, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
         ctx = install_context(tmp_path_factory.mktemp("case"))
@@ -231,16 +230,13 @@ class TestServiceIdentity:
         root = Path(ctx.payload_dir)
         manifest_path = Path(projection.payload_manifest_path(ctx))
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        windows_executable = root / inventory.WINDOWS_EXECUTABLE
-        windows_executable.write_bytes(Path(ctx.executable).read_bytes())
+        other_executable = root / "bin" / "another-executable"
+        other_executable.write_bytes(Path(ctx.executable).read_bytes())
         files = {
-            inventory.WINDOWS_EXECUTABLE: hashlib.sha256(
-                windows_executable.read_bytes()
-            ).hexdigest(),
+            "bin/another-executable": hashlib.sha256(other_executable.read_bytes()).hexdigest(),
             inventory.PROVIDER_MANIFEST: manifest["serving_files"][inventory.PROVIDER_MANIFEST],
         }
         manifest["serving_files"] = files
-        manifest["serving_payload_sha256"] = inventory.validated_serving_payload_sha256(files)
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
         assert identity.freeze_loaded_payload(Path(ctx.executable)) is None
@@ -259,7 +255,7 @@ def test_loaded_identity_accepts_only_exact_native_projection(subtests: pytest.S
         )
         files = {
             relative: digest.sha256_file(root / relative)
-            for relative in inventory.required_runtime_files()
+            for relative in inventory.REQUIRED_RUNTIME_FILES
         }
         manifest = {
             "release": "1.2.3",

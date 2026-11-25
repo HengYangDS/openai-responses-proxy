@@ -6,7 +6,6 @@ import contextlib
 import json
 import socket
 import struct
-import sys
 import tempfile
 import threading
 import time
@@ -147,7 +146,7 @@ class EmptyResponseTransportTests(EmptyResponseFixture):
                     sock.setsockopt(
                         socket.SOL_SOCKET,
                         socket.SO_LINGER,
-                        struct.pack("HH" if sys.platform == "win32" else "ii", 1, 0),
+                        struct.pack("ii", 1, 0),
                     )
                 sock.close()
                 release.set()

@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import fields
 from dataclasses import replace
 from pathlib import Path
-from pathlib import PurePath
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,7 +12,6 @@ import pytest
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle import generation
-from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import FIXTURE_GENERATION
 from tests.lifecycle.fixtures import control_root
@@ -25,11 +22,6 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 OTHER_GENERATION = "a" * 32
-
-
-def _name(executable: str) -> str:
-    """Return the file name of an executable path of either platform."""
-    return PurePath(executable.replace("\\", "/")).name
 
 
 def test_a_control_root_context_names_no_payload(tmp_path: Path) -> None:
@@ -65,61 +57,18 @@ def test_a_payload_context_is_the_control_root_with_one_executable(tmp_path: Pat
     assert other == control.for_executable(other.executable)
 
 
-@pytest.mark.parametrize("windows", [False, True], ids=["posix", "windows"])
-def test_the_platform_field_names_the_generation_executables_on_any_host(
-    tmp_path: Path, *, windows: bool
-) -> None:
-    ctx = control_root(tmp_path, windows=windows)
-    expected = "openai-responses-proxy.exe" if windows else "openai-responses-proxy"
+def test_every_generation_context_names_that_generation_executable(tmp_path: Path) -> None:
+    ctx = control_root(tmp_path)
     for name in (FIXTURE_GENERATION, OTHER_GENERATION):
         generation.path(ctx, name).mkdir(parents=True)
 
-    assert _name(generation.context(ctx, OTHER_GENERATION).executable) == expected
-    assert [_name(owned.executable) for owned in generation.owned_contexts(ctx)] == [
-        expected,
-        expected,
+    assert [owned.executable for owned in generation.owned_contexts(ctx)] == [
+        inventory.installed_executable(str(generation.path(ctx, name)))
+        for name in sorted((FIXTURE_GENERATION, OTHER_GENERATION))
     ]
     assert generation.context(ctx, OTHER_GENERATION).executable == (
-        inventory.installed_executable(str(generation.path(ctx, OTHER_GENERATION)), windows=windows)
+        inventory.installed_executable(str(generation.path(ctx, OTHER_GENERATION)))
     )
-
-
-def test_the_platform_field_decides_and_no_executable_name_or_file(tmp_path: Path) -> None:
-    """Neither a context's own executable nor a file at the control root names the platform."""
-    posix = control_root(tmp_path)
-    root_level = Path(posix.install_dir, inventory.WINDOWS_EXECUTABLE)
-    root_level.parent.mkdir(parents=True)
-    root_level.write_bytes(b"a file where no release writes one")
-    named_like_windows = posix.for_executable(str(root_level))
-    named_like_posix = control_root(tmp_path, windows=True).for_executable(
-        inventory.installed_executable(posix.install_dir)
-    )
-
-    assert _name(generation.context(posix, OTHER_GENERATION).executable) == (
-        "openai-responses-proxy"
-    )
-    assert _name(generation.context(named_like_windows, OTHER_GENERATION).executable) == (
-        "openai-responses-proxy"
-    )
-    assert _name(generation.context(named_like_posix, OTHER_GENERATION).executable) == (
-        "openai-responses-proxy.exe"
-    )
-
-
-@pytest.mark.parametrize(("host", "windows"), [("nt", True), ("posix", False)])
-def test_the_platform_defaults_to_the_host(
-    tmp_path: Path, host: str, *, windows: bool, mocker: MockerFixture
-) -> None:
-    mocker.patch.object(config, "os", SimpleNamespace(name=host, environ=config.os.environ))
-
-    ctx = runtime_context.InstallationContext(
-        user_home=str(tmp_path),
-        install_dir=str(tmp_path / "data"),
-        command=str(tmp_path / "commands" / "openai-responses-proxy"),
-        log_dir=str(tmp_path / "state"),
-    )
-
-    assert ctx.windows is windows
 
 
 def test_no_producer_returns_a_payload_context_without_a_selection(tmp_path: Path) -> None:

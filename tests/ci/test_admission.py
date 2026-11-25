@@ -19,7 +19,6 @@ PRODUCT_PROOF_JOBS = (
     "source-and-governance",
     "python-matrix",
     "python",
-    "python-windows",
     "python-quality",
     "performance",
     "native-assets",

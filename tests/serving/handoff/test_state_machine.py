@@ -155,10 +155,9 @@ class TestParentHandoffStateMachine(HandoffFixture):
             expected: Mapping[str, object],
             context: handoff_protocol_module.ChildProcessContext,
             *,
-            is_windows: bool | None = None,
             startup_timeout_seconds: float = HANDOFF_STARTUP_TIMEOUT_SECONDS,
         ) -> MockType:
-            del listener, expected, context, is_windows, startup_timeout_seconds
+            del listener, expected, context, startup_timeout_seconds
             release_spawn.wait(timeout=5)
             return child
 
@@ -465,7 +464,7 @@ class TestParentHandoffStateMachine(HandoffFixture):
         mocker.patch.object(handoff_protocol_module.subprocess, "Popen", return_value=mocker.Mock())
         mocker.patch.object(handoff_protocol_module, "HandoffChild", return_value=child)
         with pytest.raises(BrokenPipeError):
-            self.p.spawn_child(server.socket, expected, self.context, is_windows=False)
+            self.p.spawn_child(server.socket, expected, self.context)
         child.kill_bounded.assert_not_called()
 
         self.p._HANDOFF_SESSION["state"] = "idle"
