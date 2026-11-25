@@ -173,10 +173,10 @@ gitlab: {
 	}
 
 	// The macOS Python job that GitHub runs as well: a shell runner reads no image and has no
-	// apt-get, so the job inherits neither the Linux default nor the global variables. It runs the
-	// runner's Mise only at the declared release, keeps Mise's installs, cache and state inside the
-	// project directory, cached per target and interpreter, and runs every step through the locked
-	// Mise. A failure fails the pipeline.
+	// apt-get, so the job inherits neither the Linux default nor the global variables. The runner
+	// supplies Mise, which the repository's min_version bounds below; the job records which Mise ran,
+	// keeps Mise's installs, cache and state inside the project directory, cached per target and
+	// interpreter, and runs every step through the locked Mise. A failure fails the pipeline.
 	#compatibilityPlatformJob: {
 		stage:   "verify"
 		timeout: "\(#VerificationJobs.compatibility.timeoutMinutes)m"
@@ -197,7 +197,7 @@ gitlab: {
 			paths: list.Concat([default.cache.paths, [".cache/mise/"]])
 		}
 		before_script: list.Concat([[
-			#"observed="$(mise --version)"; case "$observed" in "\#(#Toolchains.miseVersion) "*) ;; *) printf 'Mise \#(#Toolchains.miseVersion) is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac"#,
+			"mise --version",
 			"mise install --locked",
 		], [for command in #compatibilitySteps.before_script {"mise exec --locked -- \(command)"}]])
 		script: [for command in #compatibilitySteps.script {"mise exec --locked -- \(command)"}]

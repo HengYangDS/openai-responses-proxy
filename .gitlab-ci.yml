@@ -220,7 +220,7 @@ verify-python-macos:
       - .cache/uv/
       - .cache/mise/
   before_script:
-    - observed="$(mise --version)"; case "$observed" in "2026.11.8 "*) ;; *) printf 'Mise 2026.11.8 is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac
+    - mise --version
     - mise install --locked
     - mise exec --locked -- git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
@@ -262,7 +262,7 @@ verify-python-macos-accepted:
       - .cache/uv/
       - .cache/mise/
   before_script:
-    - observed="$(mise --version)"; case "$observed" in "2026.11.8 "*) ;; *) printf 'Mise 2026.11.8 is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac
+    - mise --version
     - mise install --locked
     - mise exec --locked -- git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads

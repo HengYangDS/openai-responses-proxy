@@ -309,19 +309,17 @@ def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
     assert len(review ^ protected) == 2, "the roles differ by their trust tag alone"
 
 
-def test_gitlab_macos_steps_are_the_linux_steps_run_through_the_declared_mise() -> None:
-    """One step list: the Linux job runs it after its system bootstrap, macOS through Mise."""
+def test_gitlab_macos_steps_are_the_linux_steps_run_through_the_runner_s_mise() -> None:
+    """One step list: the Linux job runs it after its system bootstrap, macOS through Mise.
+
+    The shell runner supplies Mise; the job records which one ran, then installs the locked tools.
+    """
     jobs = _gitlab_jobs()
-    image = _string(_mapping(jobs["source-and-governance"]["image"])["name"])
-    declared = re.fullmatch(r"ghcr\.io/jdx/mise:([^-@]+)-debian@sha256:[0-9a-f]{64}", image)
-    assert declared is not None, "the GitLab Mise image names the declared Mise release"
     prefix = "mise exec --locked -- "
     for role, name in GITLAB_MACOS_JOBS.items():
         job, linux = jobs[name], jobs[GITLAB_LINUX_JOBS[role]]
-        check, install, *steps = _strings(job["before_script"])
-        assert "mise --version" in check
-        assert f'"{declared[1]} "*' in check, "the check admits the declared release alone"
-        assert "exit 1" in check
+        record, install, *steps = _strings(job["before_script"])
+        assert record == "mise --version"
         assert install == "mise install --locked"
         assert all(step.startswith(prefix) for step in (*steps, *_strings(job["script"])))
         linux_steps = _strings(linux["before_script"])

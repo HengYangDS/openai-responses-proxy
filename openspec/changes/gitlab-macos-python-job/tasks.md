@@ -10,11 +10,11 @@
 - [x] 2.1 Add `macos.gitlab` with the review and protected tag pairs to `.config/ci/graph/platforms.cue`, declare the
       compatibility job's timeout once in the verification contract, and render GitLab's macOS Python job for both
       roles from them, with no inherited default or variable, its own target, uv and Mise directories inside the project
-      and a cache key per target and interpreter, a check of the runner's Mise against the declared release, the Linux
-      job's steps run through the locked Mise, and no allowed failure (D1 to D4). Done when `python -m tools.ci.project` reports no drift and
-      the diff of `.gitlab-ci.yml` adds only the two macOS jobs.
+      and a cache key per target and interpreter, a record of the runner's Mise, the Linux job's steps run through the
+      locked Mise, and no allowed failure (D1 to D4). Done when `python -m tools.ci.project` reports no drift, the diff
+      of `.gitlab-ci.yml` adds only the two macOS jobs, and no GitLab step is inline shell.
 - [x] 2.2 Pin by test that GitLab's macOS job exists for both roles on the declared tag pairs, inherits nothing, is
-      required and mirrors GitHub's macOS Python job, that its steps are the Linux job's run through the declared Mise
+      required and mirrors GitHub's macOS Python job, that its steps are the Linux job's run through the runner's Mise
       and its tools stay inside the project cache, that a changed declaration moves its tags alone, and that every
       other GitLab job stays on its Linux runners. Done when the `tests/forge`, `tests/ci` and
       `tests/quality/test_verification.py` tests pass, the repository-toolchain ones included.

@@ -56,8 +56,8 @@ consumed by Nox and the GitHub matrix reader.
 
 - **WHEN** an admitted GitLab macOS runner starts the Python job with an empty
   project workspace
-- **THEN** the job fails, naming both releases, unless the runner's Mise is the
-  release that the CI graph declares
+- **THEN** the job records which Mise the runner supplies and installs the locked
+  tools with it
 - **AND** Mise takes UV and the primary Python runtime at the versions of its
   lock from data, cache and state directories inside the project workspace, and
   checks the checksum of each tool that it downloads

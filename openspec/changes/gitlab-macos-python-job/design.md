@@ -34,15 +34,23 @@ it on 2026-11-26.
 
 **D3. Interpreters.** The job takes uv and the development Python (3.14) from the repository's Mise lock; `mise` is on
 the runner shell's PATH and the guest reaches the network (ETHOS 仓库纳管 read a real DDWG job on the same guest at
-2026-11-26 00:1x). Before installing, the job compares `mise --version` with `#Toolchains.miseVersion`, the release
-that GitHub's mise-action and GitLab's Linux Mise image run, and fails naming both when they differ. Mise checks a
-tool's lock checksum when it downloads it; with its data inside the job's cache, a cache miss downloads afresh and a
-hit restores what an earlier job of the same cache stored. Mise's lock holds no 3.12 or 3.13, so the matrix version
-comes from `uv python install`, as on GitLab's Linux job; GitHub's macOS job takes it from `actions/setup-python`
-instead. The job runs `mise install --locked` on the repository's configuration as GitLab's Linux source job does with
-the same Mise release, with no trust step; that job runs in every merge-request pipeline into `dev`, and pipeline
-18208 passed (2026-11-26 01:25, the archived Change's task 10.2). Installing 3.12 and 3.13 on the guest is not yet
-measured; the first proposal pipeline measures it.
+2026-11-26 00:1x). On GitLab's macOS shell runner the runner supplies Mise: the guest's one shared Homebrew Mise,
+2026.11.12, which both proxy runner accounts run (`/opt/homebrew/bin/mise`, read by ETHOS 仓库纳管 at 2026-11-26 05:47). The
+repository's `min_version` in `.config/mise/config.toml` bounds it below, and Mise itself refuses a configuration whose
+`min_version` is above its own release (measured locally on 2026-11-26 with a floor of 2099.1.1: `mise install` failed
+with "mise version 2099.1.1 is required"). GitHub's mise-action and GitLab's Linux Mise image run the declared release,
+`#Toolchains.miseVersion`, which this job does not read. The job's first step, `mise --version`, records in the log
+which Mise ran. Whatever Mise runs, every tool comes from the lock with its checksums: Mise checks a tool's lock
+checksum when it downloads it; with its data inside the job's cache, a cache miss downloads afresh and a hit restores
+what an earlier job of the same cache stored. Mise's lock holds no 3.12 or 3.13, so the matrix version comes from `uv
+python install`, as on GitLab's Linux job; GitHub's macOS job takes it from `actions/setup-python` instead. The job runs
+`mise install --locked` on the repository's configuration with no trust step, as GitLab's Linux source job does with the
+image's Mise in every merge-request pipeline into `dev` (pipeline 18208 passed, 2026-11-26 01:25, the archived Change's
+task 10.2). Whether the guest's Mise needs no trust step either, and how long installing 3.12 and 3.13 takes there, are
+not yet measured; the first proposal pipeline measures both. Alternatives rejected: an exact version check, because it
+fails at every Homebrew upgrade of the shared guest and is inline shell, which the repository paradigm refuses; a
+runner-owned pinned Mise as aigw-cli's macOS runners have, because it is a guest change for the owner, and the CI and
+runner paradigm across ETHOS repositories is being designed by ETHOS 产品构建.
 
 **D4. Required at once.** The job is not allowed to fail. Alternative rejected: allow failure until a first pipeline
 measures it, then flip; that costs a second proposal round, and a failure of the first pipeline is read and fixed in
@@ -52,9 +60,9 @@ this lane either way.
 
 - The guest's Python installs may fail or be slow → the first proposal pipeline shows it; the lane fixes the bootstrap
   before landing.
-- The guest's Mise may be another release than the declared one → the version check fails the first job with both
-  releases named; the runner's Mise is then aligned by ETHOS 仓库纳管 or the declaration moves in its own supply
-  refresh.
+- The guest's shared Homebrew Mise moves with every Homebrew upgrade, apart from the release that the other jobs run →
+  each job logs the Mise it ran, the repository's `min_version` refuses one below the floor, and every tool still comes
+  from the lock with its checksums; a behaviour change of a newer Mise shows in the job's log.
 - The new runners have no maximum timeout, like the reference macOS runners → the job declares its own
   `timeout`, the verification contract's compatibility timeout, which GitHub's macOS job reads as well.
 - A proposal pipeline runs only the review role → the protected role first runs in the `dev` pipeline after landing,
