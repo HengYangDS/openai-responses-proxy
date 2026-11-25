@@ -81,5 +81,5 @@ They stay low until that assumption changes.
 | A crafted journal and command snapshot in the data root can make `recover` relink an absolute path.               | Product state may be written by another account.          |
 | `recover` reads the listener's `/healthz` without the process check that `status` performs.                       | Another account may bind the product port.                |
 | The lifecycle lock and state directory use the default `umask`; macOS `watchdog.stderr.log` is unbounded.         | A shared host or a long-running watchdog failure appears. |
-| Request headers have no read timeout, and Windows binds with `SO_REUSEADDR`.                                      | The listener is exposed beyond the loopback interface.    |
+| Request headers have no read timeout.                                                                             | The listener is exposed beyond the loopback interface.    |
 | The GitLab release publisher accepts an `http://` API base for its token.                                         | The internal GitLab Forge offers HTTPS.                   |

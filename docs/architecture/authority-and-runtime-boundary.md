@@ -331,10 +331,10 @@ prewarms that exact executable and requests listener handoff while rollback
 remains available. Only after the successor proves ownership of admission does
 the transaction rebind native supervision to that generation and prove both
 the configured and running executable identity. The handoff child owns listener
-transfer and runtime identity; it does not mutate launchd, systemd, or Task
-Scheduler state. A failed supervisor rebind preserves the transaction for
-recovery; recovery cannot delete that authority until the terminal generation's
-supervisor binding is proved.
+transfer and runtime identity; it does not mutate launchd or systemd state. A
+failed supervisor rebind preserves the transaction for recovery; recovery
+cannot delete that authority until the terminal generation's supervisor binding
+is proved.
 The same transaction projects one native user-command link and records its
 exact path in installed state. Rollback and uninstall therefore do not re-derive
 ownership from a later shell environment. Installation finalizes only after one

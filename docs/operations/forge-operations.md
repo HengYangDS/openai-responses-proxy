@@ -21,14 +21,14 @@ flowchart LR
     GH --> A
 ```
 
-| Plane             | Owns                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| Local             | Commit and tag objects, source proof, install, runtime proof                         |
-| Native builders   | One admitted asset pair for each supported platform                                  |
-| Product assembler | Complete platform inventory, one checksum manifest, one product signature            |
-| GitLab            | Peer-local review and tag verification, transport authentication, Release projection |
-| GitHub            | Peer-local review and tag verification, transport authentication, Release projection |
-| Audit             | Read-only comparison after publication                                               |
+| Plane             | Owns                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Local             | Commit and tag objects, source proof, install, runtime proof                                                          |
+| Native builders   | One admitted asset pair for each [supported platform](../governance/release-and-change-policy.md#supported-platforms) |
+| Product assembler | Complete platform inventory, one checksum manifest, one product signature                                             |
+| GitLab            | Peer-local review and tag verification, transport authentication, Release projection                                  |
+| GitHub            | Peer-local review and tag verification, transport authentication, Release projection                                  |
+| Audit             | Read-only comparison after publication                                                                                |
 
 The commit and annotated tag are signed once locally. The public signing key and
 product email must be accepted by each selected Forge. SSH keys or tokens used to

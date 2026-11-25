@@ -40,7 +40,8 @@ streaming, error, and installed-client journeys pass the same conformance bar.
 
 End users need only:
 
-- the native release asset for their platform;
+- the native release asset for their platform, one of the
+  [supported platforms](docs/governance/release-and-change-policy.md#supported-platforms);
 - the release trust anchor supplied by their organization;
 - a third-party Responses endpoint configured by their client control plane.
 
@@ -191,12 +192,10 @@ supervision to the lifecycle control executable, as an upgrade does, and
 proves the serving listener. It refuses before any change when the owned
 supervisor declaration does not bind that executable. `status` reports the
 service as `outdated` when a running supervisor's owned definition differs from
-the installed release's rendering, for example an edited launch agent;
-Windows compares only the scheduled task's action, because Task
-Scheduler normalizes the rest of an exported task. With a serving listener,
-`doctor` names `reload` when native supervision is declared but not running or
-outdated, `install --help` when it is absent, and `status --json` when it is
-unknown. Without a verified runtime, `doctor` names `reload` only for a
+the installed release's rendering, for example an edited launch agent. With a
+serving listener, `doctor` names `reload` when native supervision is declared
+but not running or outdated, `install --help` when it is absent, and
+`status --json` when it is unknown. Without a verified runtime, `doctor` names `reload` only for a
 `stopped` installation, `install --help` when native supervision is absent, and
 otherwise `status --json`.
 `rollback` returns

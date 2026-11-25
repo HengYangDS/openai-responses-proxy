@@ -219,6 +219,15 @@ One peer may publish while the other is unavailable. That is one-sided
 publication, not dual-Forge parity. Parity requires exact commit and tag objects,
 equal complete inventories and bytes, and the same product trust-anchor digest.
 
+## Supported platforms
+
+The product supports macOS on ARM64 and Linux. Releases publish the
+`macos-arm64` and `linux-x86_64` assets, which `RELEASE_PLATFORMS` in
+`src/openai_responses_proxy/product_identity.py` declares;
+`.config/ci/graph/platforms.cue` names each platform's runner on each Forge.
+Windows and Intel macOS are not supported from 7.0.0 on; 6.0.3 is the last
+release with a Windows asset.
+
 ## Release identity
 
 `VERSION` owns the strict SemVer release identity. `CHANGELOG.md` follows Keep

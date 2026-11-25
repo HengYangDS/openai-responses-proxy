@@ -235,3 +235,9 @@ eight per address and never outlive the process; no timer retires them
 earlier. Endpoint concordance moved with this release as well: the AIHubMix
 Provider now uses `https://api.inferera.com/v1`, the documented endpoint that
 AIGW declares, instead of `https://aihubmix.com/v1`.
+
+**Amendment, 2026-11-25: macOS ARM64 and Linux only.**
+
+The frozen executable that the Context names serves macOS ARM64 and Linux.
+Windows support left with the Change `drop-windows-and-intel-macos`; the
+decision is otherwise unchanged.

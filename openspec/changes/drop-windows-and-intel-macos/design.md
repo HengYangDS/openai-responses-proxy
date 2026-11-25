@@ -20,7 +20,8 @@ before it touches this repository; the CI guests and runner registration.
 **D1. The supported set.** `RELEASE_PLATFORMS` becomes `macos-arm64` and `linux-x86_64`. Assembly, the publication
 evaluator, the hosted job names that the proof expects, and `executable_name` follow it; `executable_name` loses its
 `windows` parameter. Alternative rejected: adding `linux-arm64` now, because no one asked for it and it widens the
-Change.
+Change. With no parameter left, `executable_name` is `COMMAND_NAME` itself, and the inventory's executable and
+required files are constants (D3's collapse rule).
 
 **D2. One platform declaration for CI.** A provider-neutral declaration in `.config/ci/graph/` names each platform's
 runner per forge: GitHub `macos-latest` and `ubuntu-24.04`; GitLab `macos-latest` with `review` for merge requests and
@@ -29,31 +30,50 @@ runner per forge: GitHub `macos-latest` and `ubuntu-24.04`; GitLab `macos-latest
 from the same job declaration, with its own default-image and default-tag override and a Mise bootstrap instead of
 `apt-get`; its interpreters come from Mise or `uv python install` as measured on the guest before the job is declared
 required. Native assets, the release lifecycle and assembly stay on GitHub, where they run today; they are not an
-overlap.
+overlap. The declaration is `.config/ci/graph/platforms.cue`: each platform's release asset, its GitHub runner and its
+GitLab tags per role, with `required: false` for the GitLab macOS job, which the pipeline renders as
+`allow_failure: true` until task 5.3 measures the guest. The GitLab job inherits no default, so neither the Linux image
+nor the Linux tags reach it, and its cache key names `macos-arm64`.
 
 **D3. Code.** `lifecycle/supervision/windows.py` (Task Scheduler) and its tests leave; the supervision adapter choice is
 launchd or systemd. Every `sys.platform`/`os.name` Windows branch, `InstallationContext.windows` and the `windows=`
 parameters, the `.cmd` launcher, `LOCALAPPDATA` defaults, `ntpath`/`PureWindowsPath`, the handoff `socket.share` path
 and its `listener_share_b64` field, the watchdog's detach flags, the kernel32 probe, `winerror` retries and the Windows
 `SO_LINGER` packing leave. A seam with one remaining implementation collapses into it. Archive validation that refuses
-Windows-style member names stays: it guards untrusted input, whatever host reads it.
+Windows-style member names stays: it guards untrusted input, whatever host reads it. The handoff protocol keeps
+version 2, because a POSIX parent never sent `listener_share_b64`. The `ctypes` PyInstaller hook stays: the bundle
+still reaches `ctypes` through `rich._windows` and the standard library's `platform` module, whose imports PyInstaller
+follows statically (read in the locked packages, 2026-11-25).
 
 **D4. Published predecessors.** Releases up to 6.0.3 carry a Windows asset. A command that verifies such a release
 (the published-release compatibility check and any upgrade from it) verifies the platforms the current product
 declares and ignores assets outside them without treating them as an error; the evaluator's "exactly the declared set"
-rule applies to releases built from this Change on.
+rule applies to releases built from this Change on. The code already does this: the installer reads only its own
+archive's and manifest's entries in `SHA256SUMS`, and the hosted predecessor jobs download only their platform's
+files. A test pins that a signed inventory that also names a Windows asset admits the macOS or Linux archive.
 
 **D5. Locks.** `uv.lock` and Mise's lock are restricted to the supported platforms by each tool's own environment or
 platform setting; the diff removes Windows and Intel macOS entries and changes no kept version, hash or URL. Which
-setting does it is measured with the locked tools before the lock is written.
+setting does it is measured with the locked tools before the lock is written. Measured on 2026-11-25: uv 0.13.8 refuses
+`environments` in `.config/mise/uv.toml` ("only applicable in the context of a project"), so it is `[tool.uv]` in
+`pyproject.toml`; `uv lock --offline` then removes colorama, pefile and pywin32-ctypes, the Windows and Intel macOS
+wheels and also coverage's two Android wheels, and rewrites two markers to forms equivalent on the supported
+platforms. `mise lock --platform` alone changes no entry (dry run: 0 of 50); Mise's `lockfile_platforms` setting makes
+`mise lock` remove the 18 `macos-x64` and `windows-x64` rows. A comparison of both locks before and after found no
+kept version, hash or URL changed.
 
 **D6. The open Change `terminal-product-convergence`.** Its open tasks 10.2, 12.5 and 13.5 and its four deltas name
 Windows; this Change edits them to the supported set in the same commit series, so that archiving either Change cannot
-reintroduce a Windows requirement. Its other open work is unchanged.
+reintroduce a Windows requirement. Its other open work is unchanged. Two of its blocks modified requirements that this
+Change removes or rewrites (`ci-diagnostics`' hosted fixtures and bootstrap); this Change carries their current text and
+the open Change no longer touches them, so the merged text does not depend on which Change is archived first. Its
+Windows sharing-retry requirement keeps its revalidation, permission and journal rules for macOS and Linux.
 
 **D7. Records.** Documents state the supported set once and link to it; decision records that name Windows as current
 behavior get a dated amendment line naming this Change and are cited by it; `docs/evidence/windows-real-machine-validation.md`
-stays as dated evidence. The release is 7.0.0 with a breaking entry in `CHANGELOG.md`.
+stays as dated evidence. The release is 7.0.0 with a breaking entry in `CHANGELOG.md`. One record names Windows as
+current behavior: DR-0006, which gets the amendment line. The supported set is stated once, in the release policy's
+"Supported platforms" section.
 
 **D8. Specifications.** As in aigw-cli's Change of the same name: a Windows-only requirement is REMOVED; a requirement
 that names Windows beside the other platforms is MODIFIED with every scenario name kept; a Windows-only scenario leaves

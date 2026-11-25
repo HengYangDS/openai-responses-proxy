@@ -8,6 +8,16 @@ publication authority.
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking:** Windows is no longer supported. A release publishes the
+  `macos-arm64` and `linux-x86_64` assets and no `windows-x86_64` asset, and the
+  product has no Task Scheduler supervision, `.cmd` command launcher or
+  `%LOCALAPPDATA%` default root; 6.0.3 is the last release with a Windows
+  asset. Intel macOS, which never had an asset, is not supported either. An
+  installation on macOS or Linux, and an upgrade to this release from 6.0.3 or
+  earlier there, are unchanged.
+
 ## [6.0.3] - 2026-11-17
 
 ### Removed

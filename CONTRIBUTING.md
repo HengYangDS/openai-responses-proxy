@@ -64,7 +64,10 @@ setup action reads its version requirement from the same file. External ETHOS
 source preparation retains its own uv configuration, not this product's.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
-GitHub, GitLab, POSIX, and Windows use the same repository installation.
+GitHub, and GitLab use the same repository installation. Mise's
+`lockfile_platforms` setting and uv's `environments` setting keep both locks to
+the [supported platforms](docs/governance/release-and-change-policy.md#supported-platforms);
+uv reads `environments` only from `pyproject.toml`, never from a `uv.toml` file.
 The mise tasks pass the exact mise Python installation to uv and bind the
 project environment to this worktree's `.venv`. An activated environment or
 inherited Python override does not select the development interpreter. Nox owns
