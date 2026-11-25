@@ -74,10 +74,12 @@
 
 ## 8. Local gates
 
-- [ ] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue.
-- [ ] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue.
-- [ ] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
-      code or in the design.
+- [x] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. Passed on `8e678746`
+      (2026-11-26 00:06).
+- [x] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. Passed on `8e678746`
+      (2026-11-26 00:11).
+- [x] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. Its findings 1 to 6 are answered in `8e678746`.
 
 ## 9. Exact-HEAD proof
 
@@ -92,13 +94,8 @@
 
 ## 11. Publication
 
-- [ ] 11.1 Before the first `dev` push to GitHub, remove the Windows checks from the required checks of `dev` and
-      `main`, keeping the other names. Done when both protections are read back.
+- [x] 11.1 Before the first `dev` push to GitHub, remove the Windows checks from the required checks of `dev` and
+      `main`, keeping the other names. Done when both protections are read back. Read 00:1x: both require only
+      `Admission`, so no Windows check is required and nothing changes.
 - [ ] 11.2 Before the first GitLab push, obtain ETHOS 仓库纳管's confirmation that the proxy's GitLab project has
       macOS runners tagged `macos-latest` with `review` and with `protected`.
-- [ ] 11.3 Tell ETHOS 仓库纳管 when this Change is on `dev` and `main` of both Forges, for its Windows guest step.
-
-## 12. Housekeeping
-
-- [ ] 12.1 Retire `build/evidence/proxy-windows-removal-inventory-20261125.md` in aigw-cli's main checkout once the
-      review of task 8.3 has used it. Done when the file is absent.

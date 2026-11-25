@@ -96,3 +96,7 @@ through REMOVED plus ADDED under a new name; requirement text stays within 500 c
 - The CI paradigm of ETHOS 产品构建 may rename the platform declaration later → the declaration is one place, so a
   later rename touches one file.
 - A user on Windows loses the supported program; 6.0.3 stays published.
+
+Telling ETHOS 仓库纳管 that this Change is on `dev` and `main` of both forges follows the publication, so it is the
+keeper's follow-up, not a task. The inventory under aigw-cli's `build/evidence/` stays as the evidence this design
+cites.
