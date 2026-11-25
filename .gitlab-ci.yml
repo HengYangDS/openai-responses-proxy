@@ -186,6 +186,80 @@ verify-performance-accepted:
     paths:
       - .performance/latency.json
       - .performance/memory.json
+verify-python-macos:
+  stage: verify
+  timeout: 15m
+  inherit:
+    default: false
+    variables: false
+  parallel:
+    matrix:
+      - PYTHON_VERSION:
+          - "3.12"
+          - "3.13"
+          - "3.14"
+  variables:
+    GIT_DEPTH: "0"
+    MISE_ENABLE_TOOLS: python,uv
+    OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
+    UV_CONFIG_FILE: .config/mise/uv.toml
+    UV_NO_CONFIG: "false"
+    UV_PYTHON_INSTALL_DIR: $CI_PROJECT_DIR/.cache/uv/python
+  tags:
+    - macos-latest
+    - review
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
+  cache:
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+    paths:
+      - .cache/uv/
+  before_script:
+    - mise install --locked
+    - git fetch --tags --force --prune --prune-tags origin
+    - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
+    - mise exec --locked -- uv python install --no-bin $PYTHON_VERSION
+  script:
+    - mise exec --locked -- python --version
+    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads nox -s "tests-$PYTHON_VERSION"
+verify-python-macos-accepted:
+  stage: verify
+  timeout: 15m
+  inherit:
+    default: false
+    variables: false
+  parallel:
+    matrix:
+      - PYTHON_VERSION:
+          - "3.12"
+          - "3.13"
+          - "3.14"
+  variables:
+    GIT_DEPTH: "0"
+    MISE_ENABLE_TOOLS: python,uv
+    OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
+    UV_CONFIG_FILE: .config/mise/uv.toml
+    UV_NO_CONFIG: "false"
+    UV_PYTHON_INSTALL_DIR: $CI_PROJECT_DIR/.cache/uv/python
+  tags:
+    - macos-latest
+    - protected
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+  cache:
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+    paths:
+      - .cache/uv/
+  before_script:
+    - mise install --locked
+    - git fetch --tags --force --prune --prune-tags origin
+    - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
+    - mise exec --locked -- uv python install --no-bin $PYTHON_VERSION
+  script:
+    - mise exec --locked -- python --version
+    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads nox -s "tests-$PYTHON_VERSION"
 workflow:
   rules:
     - if: $CI_COMMIT_TAG

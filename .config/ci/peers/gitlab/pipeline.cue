@@ -60,9 +60,14 @@ gitlab: {
 		DEBIAN_FRONTEND:                  "noninteractive"
 		UV_PYTHON_FLOOR_IMAGE:            "ghcr.io/astral-sh/uv:0.13.8-python3.12-trixie-slim@sha256:ee8a8854267a3bd09ac0364420803fb74a069068b5fb279a2cf1df664f7273db"
 		UV_PYTHON_LATEST_IMAGE:           "ghcr.io/astral-sh/uv:0.13.8-python3.14-trixie-slim@sha256:81a1340fea1e72ad4a8e9a016128b0c61041cf182ea49fd788023e52842bc147"
-		UV_CACHE_DIR:                     "$CI_PROJECT_DIR/.cache/uv"
-		UV_PYTHON_INSTALL_DIR:            "$CI_PROJECT_DIR/.cache/uv/python"
+		UV_CACHE_DIR:                     _uvCache.UV_CACHE_DIR
+		UV_PYTHON_INSTALL_DIR:            _uvCache.UV_PYTHON_INSTALL_DIR
 		OPENAI_RESPONSES_PROXY_CI_TARGET: "linux-arm64"
+	}
+	// Every job's uv cache lies in the project directory, which the job cache keeps.
+	_uvCache: {
+		UV_CACHE_DIR:          "$CI_PROJECT_DIR/.cache/uv"
+		UV_PYTHON_INSTALL_DIR: "$CI_PROJECT_DIR/.cache/uv/python"
 	}
 	default: {
 		image: name: "$UV_PYTHON_LATEST_IMAGE"
@@ -159,6 +164,40 @@ gitlab: {
 			}
 		}
 	}
+
+	// The macOS Python job that GitHub runs as well: a shell runner reads no image and has no
+	// apt-get, so the job inherits neither the Linux default nor the global variables, and takes
+	// uv and Python from the locked Mise. A failure fails the pipeline.
+	#compatibilityPlatformJob: {
+		stage:   "verify"
+		timeout: "\(#VerificationJobs.compatibility.timeoutMinutes)m"
+		inherit: {
+			default:   false
+			variables: false
+		}
+		parallel: matrix: [{PYTHON_VERSION: #RuntimeMatrix.python}]
+		variables: #RepositoryUvEnvironment & _uvCache & {
+			GIT_DEPTH:                        "0"
+			MISE_ENABLE_TOOLS:                "python,uv"
+			OPENAI_RESPONSES_PROXY_CI_TARGET: #CompatibilityPlatform.release
+		}
+		tags: [...string]
+		rules: [...{...}]
+		cache: {
+			key: "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
+			paths: [".cache/uv/"]
+		}
+		before_script: [
+			"mise install --locked",
+			"git fetch --tags --force --prune --prune-tags origin",
+			"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
+			"mise exec --locked -- uv python install --no-bin $PYTHON_VERSION",
+		]
+		script: [
+			"mise exec --locked -- python --version",
+			"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads nox -s \"\(#VerificationJobs.compatibility.session)-$PYTHON_VERSION\"",
+		]
+	}
 	for role in #productRoles {
 		for id, job in #productJobs {
 			"\(id)\(role.suffix)": job & {
@@ -166,6 +205,10 @@ gitlab: {
 				rules:     role.rules
 				variables: #RepositoryUvEnvironment
 			}
+		}
+		"verify-python-macos\(role.suffix)": #compatibilityPlatformJob & {
+			tags:  #CompatibilityPlatform.gitlab[role.runner]
+			rules: role.rules
 		}
 	}
 	"verify-accepted-source": {

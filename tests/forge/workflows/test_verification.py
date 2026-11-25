@@ -1,6 +1,10 @@
 """Shared verification graph, Python compatibility and syntax contracts."""
 
 import re
+from collections.abc import Mapping
+
+import pytest
+import yaml
 
 from openai_responses_proxy import product_identity
 from tests.forge.workflows.fixtures import _load_yaml
@@ -9,6 +13,7 @@ from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _string
 from tests.forge.workflows.fixtures import _strings
 from tests.quality.fixtures import ROOT
+from tools.ci.project import render
 
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
 
@@ -251,25 +256,96 @@ def test_every_released_platform_has_one_runner_in_every_github_job() -> None:
     assert fixed["python"] in set(runners.values()) - {fixed["native-linux"]}
 
 
-def test_gitlab_runs_linux_jobs_alone_and_github_runs_python_on_its_macos_builder() -> None:
-    """GitLab's macOS job waits for a later Change (D2); GitHub's reads the declared runner."""
+# GitLab's macOS Python job, by role: review for merge requests, protected for dev.
+GITLAB_MACOS_JOBS = {"review": "verify-python-macos", "protected": "verify-python-macos-accepted"}
+GITLAB_LINUX_JOBS = {"review": "verify-python", "protected": "verify-python-accepted"}
+
+
+def _gitlab_jobs() -> dict[str, Mapping[str, object]]:
+    """Return GitLab's jobs, the entries that name a stage."""
+    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
+    return {
+        name: _mapping(job)
+        for name, job in gitlab.items()
+        if isinstance(job, dict) and "stage" in job
+    }
+
+
+def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
+    """GitLab renders GitHub's macOS Python job from one declaration and requires it (D1-D4)."""
+    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
+    jobs = _gitlab_jobs()
+    github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+    github_python = _mapping(github["python"])
+    versions = (ROOT / ".config/ci/python-versions").read_text(encoding="utf-8").split()
+    # GitHub's matrix is the python-matrix job's reading of the same tracked projection.
+    assert github_python["needs"] == "python-matrix"
+    assert "needs.python-matrix.outputs.versions" in _string(
+        _mapping(_mapping(github_python["strategy"])["matrix"])["python-version"]
+    )
+    github_session = _string(_mapping(_sequence(github_python["steps"])[-1]).get("run", ""))
+    tags = {}
+    for role, name in GITLAB_MACOS_JOBS.items():
+        job = jobs[name]
+        inherited = _mapping(job["inherit"])
+        assert {key: str(value).lower() for key, value in inherited.items()} == {
+            "default": "false",
+            "variables": "false",
+        }
+        assert "allow_failure" not in job, "the macOS job is required"
+        assert "image" not in job
+        assert not any("apt-get" in command for command in _strings(job["before_script"]))
+        assert _strings(job["before_script"])[0] == "mise install --locked"
+        target = _string(_mapping(job["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"])
+        assert target in product_identity.RELEASE_PLATFORMS
+        assert target != _mapping(gitlab["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"]
+        assert _mapping(job["cache"])["key"] == "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
+        matrix = _mapping(_sequence(_mapping(job["parallel"])["matrix"])[0])
+        assert _sequence(matrix["PYTHON_VERSION"]) == versions
+        session = re.search(r'nox -s "(\w+)-', github_session)
+        assert session is not None
+        assert any(
+            command.endswith(f'nox -s "{session[1]}-$PYTHON_VERSION"')
+            for command in _strings(job["script"])
+        )
+        assert job["timeout"] == f"{github_python['timeout-minutes']}m"
+        assert job["rules"] == jobs[GITLAB_LINUX_JOBS[role]]["rules"]
+        tags[role] = set(_strings(job["tags"]))
+    review, protected = tags["review"], tags["protected"]
+    assert len(review) == len(protected)
+    assert len(review ^ protected) == 2, "the roles differ by their trust tag alone"
+
+
+def test_every_other_gitlab_job_stays_on_its_linux_runners() -> None:
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
     default = _mapping(gitlab["default"])
     linux_roles = {
         tuple(_strings(default["tags"])),
         tuple(_strings(_mapping(gitlab["commit-admission"])["tags"])),
     }
-    jobs = {
-        name: _mapping(job)
-        for name, job in gitlab.items()
-        if isinstance(job, dict) and "stage" in job
+    others = {
+        name: job for name, job in _gitlab_jobs().items() if name not in GITLAB_MACOS_JOBS.values()
     }
-    assert jobs
-    for name, job in jobs.items():
+    assert others
+    for name, job in others.items():
         assert "inherit" not in job, name
         assert "image" in job or "image" in default, name
         assert tuple(_strings(job.get("tags", default["tags"]))) in linux_roles, name
+    macos_tags = {
+        tag for name in GITLAB_MACOS_JOBS.values() for tag in _strings(_gitlab_jobs()[name]["tags"])
+    }
+    assert not macos_tags & {tag for role in linux_roles for tag in role}
 
+
+@pytest.mark.repository_toolchain
+def test_gitlab_macos_job_runs_on_the_declared_tag_pairs() -> None:
+    """The tags come from the platform declaration, one pair per role (D1)."""
+    declared = _mapping(yaml.safe_load(render("#Platforms.macos.gitlab")))
+    jobs = _gitlab_jobs()
+    assert set(declared) == set(GITLAB_MACOS_JOBS)
+    for role, name in GITLAB_MACOS_JOBS.items():
+        assert _strings(jobs[name]["tags"]) == _strings(declared[role])
     github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
-    (macos_runner,) = _legs(github["native-assets"]).values()
-    assert _mapping(github["python"])["runs-on"] == macos_runner
+    assert _mapping(github["python"])["runs-on"] == yaml.safe_load(
+        render("#CompatibilityPlatform.github")
+    )

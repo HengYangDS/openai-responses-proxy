@@ -9,12 +9,16 @@ import "strings"
 #PythonVersions: strings.Join(#RuntimeMatrix.python, "\n")
 
 #VerificationJobs: {
-	quality: session:       "quality"
-	coverage: session:      "coverage"
-	compatibility: session: "tests"
-	performance: session:   "performance"
-	governance: module:     "tools.quality.governance"
-	metadata: module:       "tools.release.metadata"
+	quality: session:  "quality"
+	coverage: session: "coverage"
+	// Every Forge's Python compatibility job binds this session and its time bound.
+	compatibility: {
+		session:        "tests"
+		timeoutMinutes: 15
+	}
+	performance: session: "performance"
+	governance: module:   "tools.quality.governance"
+	metadata: module:     "tools.release.metadata"
 }
 
 // Project jobs bind one native uv configuration; external suppliers keep theirs.

@@ -113,7 +113,7 @@ import "list"
 		if:                #Conditions.productProof
 		needs:             "python-matrix"
 		"runs-on":         #CompatibilityPlatform.github
-		"timeout-minutes": 15
+		"timeout-minutes": #VerificationJobs.compatibility.timeoutMinutes
 		strategy: {
 			"fail-fast": false
 			matrix: "python-version": "${{ fromJSON(needs.python-matrix.outputs.versions) }}"
