@@ -133,10 +133,14 @@ class TestVerificationContracts:
         }
         assert job_scripts
         for scripts, variables in job_scripts.values():
-            if scripts[0] == "mise install --locked":
-                # A Mise job that enables the Node tools installs and audits them first.
+            if "mise install --locked" in scripts:
+                # A Mise job installs its locked tools first, after a check of the runner's own
+                # Mise where the runner supplies it, and one that enables the Node tools then
+                # installs and audits them.
+                installed = scripts[scripts.index("mise install --locked") :]
+                assert all("mise --version" in command for command in scripts[: -len(installed)])
                 if "npm" in variables["MISE_ENABLE_TOOLS"].split(","):
-                    assert scripts[:3] == (
+                    assert installed[:3] == (
                         "mise install --locked",
                         "npm ci --ignore-scripts",
                         "npm audit signatures",

@@ -3,9 +3,6 @@
 import re
 from collections.abc import Mapping
 
-import pytest
-import yaml
-
 from openai_responses_proxy import product_identity
 from tests.forge.workflows.fixtures import _load_yaml
 from tests.forge.workflows.fixtures import _mapping
@@ -13,7 +10,6 @@ from tests.forge.workflows.fixtures import _sequence
 from tests.forge.workflows.fixtures import _string
 from tests.forge.workflows.fixtures import _strings
 from tests.quality.fixtures import ROOT
-from tools.ci.project import render
 
 GITLAB_LOCKED_PYTHON = "uv run --locked --no-sync --python python --no-python-downloads"
 
@@ -294,12 +290,9 @@ def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
         }
         assert "allow_failure" not in job, "the macOS job is required"
         assert "image" not in job
-        assert not any("apt-get" in command for command in _strings(job["before_script"]))
-        assert _strings(job["before_script"])[0] == "mise install --locked"
         target = _string(_mapping(job["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"])
         assert target in product_identity.RELEASE_PLATFORMS
         assert target != _mapping(gitlab["variables"])["OPENAI_RESPONSES_PROXY_CI_TARGET"]
-        assert _mapping(job["cache"])["key"] == "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
         matrix = _mapping(_sequence(_mapping(job["parallel"])["matrix"])[0])
         assert _sequence(matrix["PYTHON_VERSION"]) == versions
         session = re.search(r'nox -s "(\w+)-', github_session)
@@ -314,6 +307,53 @@ def test_both_forges_run_the_python_compatibility_job_on_macos() -> None:
     review, protected = tags["review"], tags["protected"]
     assert len(review) == len(protected)
     assert len(review ^ protected) == 2, "the roles differ by their trust tag alone"
+
+
+def test_gitlab_macos_steps_are_the_linux_steps_run_through_the_declared_mise() -> None:
+    """One step list: the Linux job runs it after its system bootstrap, macOS through Mise."""
+    jobs = _gitlab_jobs()
+    image = _string(_mapping(jobs["source-and-governance"]["image"])["name"])
+    declared = re.fullmatch(r"ghcr\.io/jdx/mise:([^-@]+)-debian@sha256:[0-9a-f]{64}", image)
+    assert declared is not None, "the GitLab Mise image names the declared Mise release"
+    prefix = "mise exec --locked -- "
+    for role, name in GITLAB_MACOS_JOBS.items():
+        job, linux = jobs[name], jobs[GITLAB_LINUX_JOBS[role]]
+        check, install, *steps = _strings(job["before_script"])
+        assert "mise --version" in check
+        assert f'"{declared[1]} "*' in check, "the check admits the declared release alone"
+        assert "exit 1" in check
+        assert install == "mise install --locked"
+        assert all(step.startswith(prefix) for step in (*steps, *_strings(job["script"])))
+        linux_steps = _strings(linux["before_script"])
+        assert [step.removeprefix(prefix) for step in steps] == linux_steps[-len(steps) :]
+        assert not any("apt-get" in step for step in steps)
+        assert [step.removeprefix(prefix) for step in _strings(job["script"])] == _strings(
+            linux["script"]
+        )
+
+
+def test_gitlab_macos_job_keeps_its_tools_inside_the_project_cache() -> None:
+    """Nothing the job runs comes from or goes to the runner account's home (D2)."""
+    gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
+    default_cache = _mapping(_mapping(gitlab["default"])["cache"])
+    for name in GITLAB_MACOS_JOBS.values():
+        job = _gitlab_jobs()[name]
+        variables = _mapping(job["variables"])
+        cache = _mapping(job["cache"])
+        paths = _strings(cache["paths"])
+        assert set(_strings(default_cache["paths"])) <= set(paths)
+        assert cache["key"] == f"{default_cache['key']}-$PYTHON_VERSION"
+        for variable in (
+            "UV_CACHE_DIR",
+            "UV_PYTHON_INSTALL_DIR",
+            "MISE_DATA_DIR",
+            "MISE_CACHE_DIR",
+            "MISE_STATE_DIR",
+        ):
+            value = _string(variables[variable])
+            assert value.startswith("$CI_PROJECT_DIR/"), variable
+            relative = value.removeprefix("$CI_PROJECT_DIR/") + "/"
+            assert any(relative.startswith(path) for path in paths), variable
 
 
 def test_every_other_gitlab_job_stays_on_its_linux_runners() -> None:
@@ -335,17 +375,3 @@ def test_every_other_gitlab_job_stays_on_its_linux_runners() -> None:
         tag for name in GITLAB_MACOS_JOBS.values() for tag in _strings(_gitlab_jobs()[name]["tags"])
     }
     assert not macos_tags & {tag for role in linux_roles for tag in role}
-
-
-@pytest.mark.repository_toolchain
-def test_gitlab_macos_job_runs_on_the_declared_tag_pairs() -> None:
-    """The tags come from the platform declaration, one pair per role (D1)."""
-    declared = _mapping(yaml.safe_load(render("#Platforms.macos.gitlab")))
-    jobs = _gitlab_jobs()
-    assert set(declared) == set(GITLAB_MACOS_JOBS)
-    for role, name in GITLAB_MACOS_JOBS.items():
-        assert _strings(jobs[name]["tags"]) == _strings(declared[role])
-    github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
-    assert _mapping(github["python"])["runs-on"] == yaml.safe_load(
-        render("#CompatibilityPlatform.github")
-    )

@@ -22,7 +22,8 @@ one job declaration, and a failure of either SHALL fail its pipeline.
 
 #### Scenario: GitLab verifies Python on macOS
 
-- **WHEN** GitLab runs its product jobs for a merge request or for `dev`
+- **WHEN** GitLab runs its product jobs for a merge request into `dev` or for
+  `dev`
 - **THEN** the macOS Python job runs once for each supported Python minor line on
   the runner that the declaration names for that role
 - **AND** the job inherits no Linux default image, runner tag or global variable
@@ -55,10 +56,14 @@ consumed by Nox and the GitHub matrix reader.
 
 - **WHEN** an admitted GitLab macOS runner starts the Python job with an empty
   project workspace
-- **THEN** Mise installs UV and the primary Python runtime at the versions and
-  checksums of its lock
+- **THEN** the job fails, naming both releases, unless the runner's Mise is the
+  release that the CI graph declares
+- **AND** Mise takes UV and the primary Python runtime at the versions of its
+  lock from data, cache and state directories inside the project workspace, and
+  checks the checksum of each tool that it downloads
 - **AND** the job installs repository dependencies from `uv.lock`
-- **AND** its cache key names the macOS target rather than a Linux one.
+- **AND** its cache key names the macOS target and the job's interpreter rather
+  than a Linux target.
 
 #### Scenario: A runner cache is empty or unavailable
 

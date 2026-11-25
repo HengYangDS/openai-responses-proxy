@@ -102,6 +102,20 @@ gitlab: {
 		"uv sync --locked --group quality --python python --no-python-downloads",
 	]])
 
+	// The Python compatibility job's own steps: GitLab's Linux job runs them after the system
+	// bootstrap, and its macOS job runs each through the locked Mise.
+	#compatibilitySteps: {
+		before_script: [
+			"git fetch --tags --force --prune --prune-tags origin",
+			"uv sync --locked --group quality --python python --no-python-downloads",
+			"uv python install --no-bin $PYTHON_VERSION",
+		]
+		script: [
+			"python --version",
+			"uv run --locked --no-sync --python python --no-python-downloads nox -s \"\(#VerificationJobs.compatibility.session)-$PYTHON_VERSION\"",
+		]
+	}
+
 	#productJobs: {
 		"source-and-governance": {
 			stage: "verify"
@@ -128,15 +142,8 @@ gitlab: {
 			stage: "verify"
 			parallel: matrix: [{PYTHON_VERSION: #RuntimeMatrix.python}]
 			variables: GIT_DEPTH: "0"
-			before_script: list.Concat([#systemBootstrap, [
-				"git fetch --tags --force --prune --prune-tags origin",
-				"uv sync --locked --group quality --python python --no-python-downloads",
-				"uv python install --no-bin $PYTHON_VERSION",
-			]])
-			script: [
-				"python --version",
-				"uv run --locked --no-sync --python python --no-python-downloads nox -s \"\(#VerificationJobs.compatibility.session)-$PYTHON_VERSION\"",
-			]
+			before_script: list.Concat([#systemBootstrap, #compatibilitySteps.before_script])
+			script: #compatibilitySteps.script
 		}
 		"verify-python-quality": {
 			stage: "verify"
@@ -166,8 +173,10 @@ gitlab: {
 	}
 
 	// The macOS Python job that GitHub runs as well: a shell runner reads no image and has no
-	// apt-get, so the job inherits neither the Linux default nor the global variables, and takes
-	// uv and Python from the locked Mise. A failure fails the pipeline.
+	// apt-get, so the job inherits neither the Linux default nor the global variables. It runs the
+	// runner's Mise only at the declared release, keeps Mise's installs, cache and state inside the
+	// project directory, cached per target and interpreter, and runs every step through the locked
+	// Mise. A failure fails the pipeline.
 	#compatibilityPlatformJob: {
 		stage:   "verify"
 		timeout: "\(#VerificationJobs.compatibility.timeoutMinutes)m"
@@ -176,27 +185,30 @@ gitlab: {
 			variables: false
 		}
 		parallel: matrix: [{PYTHON_VERSION: #RuntimeMatrix.python}]
-		variables: #RepositoryUvEnvironment & _uvCache & {
+		variables: #RepositoryUvEnvironment & _uvCache & _miseData & {
 			GIT_DEPTH:                        "0"
-			MISE_ENABLE_TOOLS:                "python,uv"
+			MISE_ENABLE_TOOLS:                #Toolchains.compatibility
 			OPENAI_RESPONSES_PROXY_CI_TARGET: #CompatibilityPlatform.release
 		}
 		tags: [...string]
 		rules: [...{...}]
 		cache: {
-			key: "uv-$OPENAI_RESPONSES_PROXY_CI_TARGET"
-			paths: [".cache/uv/"]
+			key: "\(default.cache.key)-$PYTHON_VERSION"
+			paths: list.Concat([default.cache.paths, [".cache/mise/"]])
 		}
-		before_script: [
+		before_script: list.Concat([[
+			#"observed="$(mise --version)"; case "$observed" in "\#(#Toolchains.miseVersion) "*) ;; *) printf 'Mise \#(#Toolchains.miseVersion) is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac"#,
 			"mise install --locked",
-			"git fetch --tags --force --prune --prune-tags origin",
-			"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
-			"mise exec --locked -- uv python install --no-bin $PYTHON_VERSION",
-		]
-		script: [
-			"mise exec --locked -- python --version",
-			"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads nox -s \"\(#VerificationJobs.compatibility.session)-$PYTHON_VERSION\"",
-		]
+		], [for command in #compatibilitySteps.before_script {"mise exec --locked -- \(command)"}]])
+		script: [for command in #compatibilitySteps.script {"mise exec --locked -- \(command)"}]
+	}
+
+	// Mise's installs, download cache and state lie in the project directory, which the job cache
+	// keeps, so no tool comes from or goes to the runner account's home.
+	_miseData: {
+		MISE_DATA_DIR:  "$CI_PROJECT_DIR/.cache/mise/data"
+		MISE_CACHE_DIR: "$CI_PROJECT_DIR/.cache/mise/cache"
+		MISE_STATE_DIR: "$CI_PROJECT_DIR/.cache/mise/state"
 	}
 	for role in #productRoles {
 		for id, job in #productJobs {

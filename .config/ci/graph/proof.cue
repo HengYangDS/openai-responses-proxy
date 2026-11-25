@@ -11,7 +11,8 @@ import "strings"
 #VerificationJobs: {
 	quality: session:  "quality"
 	coverage: session: "coverage"
-	// Every Forge's Python compatibility job binds this session and its time bound.
+	// Every Python compatibility job runs this session; the macOS jobs of both Forges also bind
+	// its time bound, and GitLab's Linux job keeps the runner's own.
 	compatibility: {
 		session:        "tests"
 		timeoutMinutes: 15

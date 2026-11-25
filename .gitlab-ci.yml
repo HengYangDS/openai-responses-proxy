@@ -200,7 +200,10 @@ verify-python-macos:
           - "3.14"
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: python,uv
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
     UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
     UV_CONFIG_FILE: .config/mise/uv.toml
@@ -212,12 +215,14 @@ verify-python-macos:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
   cache:
-    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET-$PYTHON_VERSION
     paths:
       - .cache/uv/
+      - .cache/mise/
   before_script:
+    - observed="$(mise --version)"; case "$observed" in "2026.11.8 "*) ;; *) printf 'Mise 2026.11.8 is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac
     - mise install --locked
-    - git fetch --tags --force --prune --prune-tags origin
+    - mise exec --locked -- git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
     - mise exec --locked -- uv python install --no-bin $PYTHON_VERSION
   script:
@@ -237,7 +242,10 @@ verify-python-macos-accepted:
           - "3.14"
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: python,uv
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     OPENAI_RESPONSES_PROXY_CI_TARGET: macos-arm64
     UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
     UV_CONFIG_FILE: .config/mise/uv.toml
@@ -249,12 +257,14 @@ verify-python-macos-accepted:
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
   cache:
-    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+    key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET-$PYTHON_VERSION
     paths:
       - .cache/uv/
+      - .cache/mise/
   before_script:
+    - observed="$(mise --version)"; case "$observed" in "2026.11.8 "*) ;; *) printf 'Mise 2026.11.8 is required; the runner has %s\n' "$observed" >&2; exit 1 ;; esac
     - mise install --locked
-    - git fetch --tags --force --prune --prune-tags origin
+    - mise exec --locked -- git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
     - mise exec --locked -- uv python install --no-bin $PYTHON_VERSION
   script:

@@ -169,6 +169,42 @@ def test_production_graph_changes_reach_both_peer_commands(
 
 
 @pytest.mark.repository_toolchain
+def test_gitlab_macos_runners_come_from_the_platform_declaration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A changed declaration moves GitLab's macOS jobs alone: no adapter names their tags."""
+    root = project.ROOT
+    for relative in (
+        ".config/mise/config.toml",
+        ".config/mise/mise.lock",
+        ".config/miserc.toml",
+        *(str(Path(path).relative_to(root)) for path in project.model_inputs()),
+    ):
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root / relative).read_bytes())
+    monkeypatch.setattr(project, "ROOT", tmp_path)
+    monkeypatch.setattr(project, "MODEL", tmp_path / ".config/ci")
+    declared = yaml.safe_load(project.render("#Platforms.macos.gitlab"))
+    before = yaml.safe_load(project.render("gitlab"))
+    moved = {role: [f"{tag}-moved" for tag in tags] for role, tags in declared.items()}
+    declaration = tmp_path / ".config/ci/graph/platforms.cue"
+    text = declaration.read_text(encoding="utf-8")
+    for role, tags in declared.items():
+        literal = f"{role}: [{', '.join(f'"{tag}"' for tag in tags)}]"
+        assert text.count(literal) == 1, literal
+        text = text.replace(literal, f"{role}: [{', '.join(f'"{tag}"' for tag in moved[role])}]")
+    declaration.write_text(text, encoding="utf-8")
+
+    after = yaml.safe_load(project.render("gitlab"))
+
+    jobs = {"review": "verify-python-macos", "protected": "verify-python-macos-accepted"}
+    assert {role: after[name]["tags"] for role, name in jobs.items()} == moved
+    for name in set(before) - set(jobs.values()):
+        assert after[name] == before[name], name
+
+
+@pytest.mark.repository_toolchain
 def test_native_cue_ignores_an_inherited_config_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
