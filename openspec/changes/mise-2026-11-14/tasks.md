@@ -23,7 +23,8 @@
       code or in the design. Reviewed 06:40 (aigw-cli's
       `build/evidence/lane-proxy-20261125-mise/independent-review.md`); its six findings are answered in the proposal,
       the design, these tasks and `CHANGELOG.md`.
-- [ ] 3.4 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue.
+- [x] 3.4 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. `a553c8ab`, 2026-11-26
+      07:43: 2,953 passed, 5 skipped.
 
 ## 4. Exact-HEAD proof
 
