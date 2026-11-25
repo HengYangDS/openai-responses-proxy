@@ -35,7 +35,8 @@ it on 2026-11-26.
 **D3. Interpreters.** The job takes uv and the development Python (3.14) from the repository's Mise lock; `mise` is on
 the runner shell's PATH and the guest reaches the network (ETHOS 仓库纳管 read a real DDWG job on the same guest at
 2026-11-26 00:1x). On GitLab's macOS shell runner the runner supplies Mise: the guest's one shared Homebrew Mise,
-2026.11.12, which both proxy runner accounts run (`/opt/homebrew/bin/mise`, read by ETHOS 仓库纳管 at 2026-11-26 05:47). The
+which both proxy runner accounts run (`/opt/homebrew/bin/mise`, 2026.11.12 when ETHOS 仓库纳管 read it at 2026-11-26 05:47,
+2026.11.14 after it upgraded the guest at 05:50 on the owner's word, read back 05:51). The
 repository's `min_version` in `.config/mise/config.toml` bounds it below, and Mise itself refuses a configuration whose
 `min_version` is above its own release (measured locally on 2026-11-26 with a floor of 2099.1.1: `mise install` failed
 with "mise version 2099.1.1 is required"). GitHub's mise-action and GitLab's Linux Mise image run the declared release,
