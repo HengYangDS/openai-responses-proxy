@@ -27,20 +27,25 @@
 
 ## 4. Local gates
 
-- [ ] 4.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue.
-- [ ] 4.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue.
-- [ ] 4.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
-      code or in the design.
+- [x] 4.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. `e8ffe570`, 2026-11-26
+      06:15: 2,956 passed, 5 skipped.
+- [x] 4.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. `e8ffe570`, 06:24: 74
+      passed, 1 skipped.
+- [x] 4.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. Seven findings answered in `14b5c4ba`; the readiness gap of its Mise check answered in
+      `8308254d` and `e8ffe570`.
 
 ## 5. Exact-HEAD proof
 
-- [ ] 5.1 Pass the ETHOS full proof of the lane head.
+- [x] 5.1 Pass the ETHOS full proof of the lane head. `e8ffe570`, 06:44: pass, proven.
 
 ## 6. Hosted CI
 
-- [ ] 6.1 Pass the proposal's GitHub checks.
-- [ ] 6.2 Pass the proposal's GitLab pipeline, its review-role macOS jobs included, and read from their logs how long
-      installing each Python version took on the guest (D3).
+- [x] 6.1 Pass the proposal's GitHub checks. Pull request 221 at `e8ffe570`, 07:37: 15 passed, 5 skipped.
+- [x] 6.2 Pass the proposal's GitLab pipeline, its review-role macOS jobs included, and read from their logs how long
+      installing each Python version took on the guest (D3). Pipeline 18231 at `e8ffe570`, 07:36: the runner's Mise
+      2026.11.14; `uv python install` 3.99 s (3.12), 4.05 s (3.13), 4.58 s (3.14); Mise's locked Python 3.14 8.2 s,
+      6.5 s and 100.4 s; jobs 256 s, 246 s and 399 s, one after another, with an empty first cache.
 
 ## 7. Publication
 
