@@ -7,70 +7,6 @@ and supervision invariants.
 
 ## Requirements
 
-### Requirement: Source-side upgrade authority
-
-Only the signed-asset installer SHALL admit a different release.
-
-#### Scenario: Complete requirement obligations are evaluated
-
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** The payload
-  transaction SHALL verify and prewarm the exact committed successor executable
-  inside the rollback domain before requesting handoff. Handoff readiness SHALL
-  use the configured bounded installation deadline without an independent,
-  shorter startup cap. Installed control SHALL observe, reload, recover, or remove
-  the current product but SHALL NOT accept arbitrary release bytes. Forge
-  availability SHALL NOT be an installation input. The payload transaction SHALL
-  coordinate the selected serving payload, installed-state record, and native
-  command as one rollback domain. The selector SHALL determine the active
-  serving generation and its sole predecessor. The command SHALL resolve to the
-  newest verified release among those selected generations so serving rollback
-  cannot downgrade lifecycle control. The command SHALL be a symbolic link on
-  POSIX and a `.cmd` launcher on Windows; each form SHALL be admitted only when it
-  identifies that exact control executable.
-
-#### Scenario: An operator installs a release
-
-- **WHEN** one signed native archive and its external trust anchor are supplied
-- **THEN** the installer verifies and applies the release locally
-- **AND** a Forge, Git, Python, uv, Nox, ETHOS, a client control plane, and a
-  source checkout are not runtime dependencies.
-
-#### Scenario: A fresh installation fails after payload projection
-
-- **WHEN** payload bytes and the platform-native command are projected
-- **AND** native service startup fails
-- **THEN** rollback removes the candidate payload and command
-- **AND** the pre-install absence is restored exactly.
-
-#### Scenario: An upgrade handoff fails
-
-- **WHEN** an existing release is upgraded and successor proof fails
-- **THEN** rollback restores the prior serving payload and stable command
-  ownership exactly
-- **AND** foreign content remains unchanged.
-
-#### Scenario: Windows projects the user command
-
-- **WHEN** installation runs on Windows
-- **THEN** the command path is a `.cmd` launcher whose exact bytes invoke the
-  exact control executable
-- **AND** status, rollback, and uninstall classify ownership by those exact bytes
-- **AND** no symbolic-link privilege or copied executable is required.
-
-#### Scenario: A cold native successor starts within the configured deadline
-
-- **WHEN** the committed successor needs more than ten seconds for its first start
-- **AND** it returns `READY` within the configured installation deadline
-- **THEN** the upgrade continues to exact successor identity proof
-- **AND** an arbitrary transport cap does not force rollback.
-
-#### Scenario: Exact successor prewarm fails
-
-- **WHEN** the executable committed to the candidate projection fails its bounded probe
-- **THEN** the transaction restores the prior projection and command ownership
-- **AND** the current verified listener remains available.
-
 ### Requirement: The installed payload has one current shape
 
 The installed payload SHALL contain one prewarmed native bundle under `bin/`,
@@ -301,7 +237,7 @@ copy port, host, log, or concurrency policy.
 ### Requirement: Native supervision is self-contained and portable
 
 The released executable SHALL install and inspect its user service through the
-native macOS, Linux, or Windows adapter without an ambient Python interpreter,
+native macOS or Linux adapter without an ambient Python interpreter,
 optional process utility, source path, user identity, or workstation-specific
 coordinate.
 
@@ -359,7 +295,7 @@ coordinate.
 
 #### Scenario: Isolated native verification ends
 
-- **WHEN** an isolated macOS, Linux, or Windows lifecycle completes or aborts
+- **WHEN** an isolated macOS or Linux lifecycle completes or aborts
 - **THEN** teardown addresses only its exact service identity and carrier
 - **AND** proves its owned watchdog, listener, and handoff processes have exited
 - **AND** leaves the canonical service and listener unchanged
@@ -473,7 +409,7 @@ or upstream payloads.
 - **WHEN** installation observes any supervisor target other than the canonical
   installed executable
 - **THEN** it rejects the upgrade before service or payload mutation
-- **AND** the same invariant applies on macOS, Linux, and Windows.
+- **AND** the same invariant applies on macOS and Linux.
 
 ### Requirement: Runtime carrier remains install-generation stable
 
@@ -674,11 +610,11 @@ successful platform command alone SHALL NOT establish convergence.
 
 #### Scenario: One runtime carrier projects to native service managers
 
-- **WHEN** a committed payload is installed on macOS, Linux, or Windows
+- **WHEN** a committed payload is installed on macOS or Linux
 - **THEN** the watchdog and native-service adapter reconstruct the same exact
   executable, installation root, log root, and service identity from
   `runtime-config.json`
-- **AND** launchd, systemd user services, or Task Scheduler contain only the
+- **AND** launchd or systemd user services contain only the
   native invocation and service-manager metadata
 - **AND** no platform definition becomes a second product configuration source.
 
@@ -1046,3 +982,58 @@ after the successor has proved accepting runtime identity.
 - **WHEN** an installation with a retained predecessor upgrades again
 - **THEN** the newly displaced release becomes the sole retained predecessor
 - **AND** no older rollback history remains.
+
+### Requirement: Only the signed-asset installer admits a different release
+
+Only the signed-asset installer SHALL admit a different release.
+
+#### Scenario: Complete requirement obligations are evaluated
+
+- **WHEN** this requirement is evaluated for implementation or acceptance
+- **THEN** The payload
+  transaction SHALL verify and prewarm the exact committed successor executable
+  inside the rollback domain before requesting handoff. Handoff readiness SHALL
+  use the configured bounded installation deadline without an independent,
+  shorter startup cap. Installed control SHALL observe, reload, recover, or remove
+  the current product but SHALL NOT accept arbitrary release bytes. Forge
+  availability SHALL NOT be an installation input. The payload transaction SHALL
+  coordinate the selected serving payload, installed-state record, and native
+  command as one rollback domain. The selector SHALL determine the active
+  serving generation and its sole predecessor. The command SHALL resolve to the
+  newest verified release among those selected generations so serving rollback
+  cannot downgrade lifecycle control. The command SHALL be a symbolic link,
+  admitted only when it identifies that exact control executable.
+
+#### Scenario: An operator installs a release
+
+- **WHEN** one signed native archive and its external trust anchor are supplied
+- **THEN** the installer verifies and applies the release locally
+- **AND** a Forge, Git, Python, uv, Nox, ETHOS, a client control plane, and a
+  source checkout are not runtime dependencies.
+
+#### Scenario: A fresh installation fails after payload projection
+
+- **WHEN** payload bytes and the platform-native command are projected
+- **AND** native service startup fails
+- **THEN** rollback removes the candidate payload and command
+- **AND** the pre-install absence is restored exactly.
+
+#### Scenario: An upgrade handoff fails
+
+- **WHEN** an existing release is upgraded and successor proof fails
+- **THEN** rollback restores the prior serving payload and stable command
+  ownership exactly
+- **AND** foreign content remains unchanged.
+
+#### Scenario: A cold native successor starts within the configured deadline
+
+- **WHEN** the committed successor needs more than ten seconds for its first start
+- **AND** it returns `READY` within the configured installation deadline
+- **THEN** the upgrade continues to exact successor identity proof
+- **AND** an arbitrary transport cap does not force rollback.
+
+#### Scenario: Exact successor prewarm fails
+
+- **WHEN** the executable committed to the candidate projection fails its bounded probe
+- **THEN** the transaction restores the prior projection and command ownership
+- **AND** the current verified listener remains available.

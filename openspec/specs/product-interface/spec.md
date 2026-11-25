@@ -17,8 +17,8 @@ not a wrapper, alias, shell-profile edit, or second copy.
 
 #### Scenario: A released product selects its native service adapter
 
-- **WHEN** the bundled executable runs `status` or begins installation on macOS,
-  Linux, or Windows
+- **WHEN** the bundled executable runs `status` or begins installation on macOS
+  or Linux
 - **THEN** its adjacent frozen dependencies and platform adapter are available
   from the same verified bundle
 - **AND** missing internal modules cannot be hidden as an unknown service state
@@ -176,8 +176,7 @@ environment.
 
 #### Scenario: Native verification runs on a supported host
 
-- **WHEN** a native executable test starts a child process on macOS, Linux, or
-  Windows
+- **WHEN** a native executable test starts a child process on macOS or Linux
 - **THEN** the child retains the host variables required by that operating
   system
 - **AND** the test overrides only its isolated home, product roots, and command
@@ -238,8 +237,8 @@ default and stable JSON only when `--json` is requested.
   from the verified installed-state record and command discoverability without
   consulting repository files or a second state authority. Runtime evidence SHALL
   be returned only when its PID is the sole listener owned by the selected
-  installation. An installed command path SHALL be interpreted using the native
-  absolute-path and link semantics of the host that recorded it. Recovery SHALL identify the exact failed carrier invariant when the
+  installation. An installed command path SHALL be interpreted as a POSIX
+  absolute path and symbolic link. Recovery SHALL identify the exact failed carrier invariant when the
   transaction root or journal is missing, a symbolic link, the wrong filesystem
   type, malformed JSON, non-canonical JSON, an unsupported schema, or invalid
   under the current schema. It MUST preserve those bytes, retain one stable
@@ -252,8 +251,8 @@ default and stable JSON only when `--json` is requested.
 - **THEN** the command presents release, payload, command, service, listener,
   and transaction state in a scannable layout
 - **AND** `status --json` exposes the same semantics
-- **AND** Windows accepts its recorded native absolute command path without
-  treating a foreign path syntax as valid
+- **AND** a recorded command path that is not a POSIX absolute path is not
+  accepted as the installed command
 - **AND** `doctor` classifies a missing or foreign command projection as an
   actionable failure
 - **AND** a listener is healthy only when its runtime payload identity matches
@@ -322,14 +321,14 @@ product or repository policy.
 #### Scenario: A developer verifies the repository on a supported platform
 
 - **WHEN** the developer runs the documented repository verification command
-- **THEN** the same Python and pytest owners execute on Windows, macOS, and Linux
-- **AND** no POSIX shell installation is required on native Windows
+- **THEN** the same Python and pytest owners execute on macOS and Linux
+- **AND** no shell script of the repository carries repository policy
 
 #### Scenario: A Shell owner is migrated
 
 - **WHEN** its Python replacement and callers are complete
 - **THEN** the Shell file is deleted in the same change
-- **AND** no forwarding wrapper or parallel PowerShell implementation remains
+- **AND** no forwarding wrapper or parallel shell implementation remains
 
 ### Requirement: Explicit rollback has one public result model
 

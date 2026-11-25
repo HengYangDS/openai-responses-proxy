@@ -138,43 +138,6 @@ MAY be reported for diagnosis but SHALL NOT independently block promotion.
 - **THEN** explicit semantic inputs exercise the branch without host spoofing
 - **AND** no exclusion or CI-only production condition substitutes for behavior.
 
-### Requirement: Forge jobs are portable projections
-
-Hosted jobs SHALL use supported native shells and filesystem semantics, install
-their explicit operating-system prerequisites, and reach a terminal result on
-an admitted project runner. A reused self-hosted checkout SHALL preserve Git
-diagnostic integrity without changing runner-global configuration. A container
-whose user does not own the GitHub checkout SHALL grant Git trust only to the
-exact workflow workspace for the one archive command.
-
-#### Scenario: Windows verifies the product
-
-- **WHEN** the Windows matrix executes
-- **THEN** it uses native PowerShell and Git index metadata for executable intent
-- **AND** POSIX-only shell fixtures are excluded without disabling Windows
-  product behavior.
-
-#### Scenario: Linux builds an x86_64 asset on an ARM host
-
-- **WHEN** the Docker executor runs on ARM
-- **THEN** the release job explicitly selects an amd64 container
-- **AND** packaging fails unless the container reports an x86_64-compatible
-  machine.
-
-#### Scenario: A required runner is unavailable
-
-- **WHEN** Forge admission cannot match every job to an allowed runner
-- **THEN** publication is blocked before a pipeline is treated as accepted
-- **AND** a pending job is not reported as verification success.
-
-#### Scenario: A GitHub release container reads the checked-out tag
-
-- **WHEN** the Linux container user does not own `GITHUB_WORKSPACE`
-- **THEN** the archive command trusts that exact workspace for that invocation
-- **AND** no global, repository-local, system, or wildcard safe-directory rule
-  is created
-- **AND** the canonical `/workspace` source materialization continues.
-
 ### Requirement: Hosted product-tool execution uses the locked product environment
 
 Hosted jobs SHALL install the product runtime and locked repository tooling
@@ -270,23 +233,6 @@ jobs SHALL use distinct `setup-uv` cache identities.
 - **AND** Git resolves `main` without an initialization hint
 - **AND** no verification, release, or provenance gate is weakened
 
-### Requirement: Hosted fixtures are platform-default independent
-
-Repository tests SHALL reach the intended Forge and signing behavior without
-depending on a runner's Git default branch or text newline translation.
-
-#### Scenario: Clone already has `main`
-
-- **WHEN** a hosted Git configuration makes `main` the clone's current branch
-- **THEN** the divergent-history fixture resets that branch to `origin/main`
-- **AND** continues to test projection rejection rather than fixture setup
-
-#### Scenario: Windows writes a temporary OpenSSH key
-
-- **WHEN** release tests materialize an OpenSSH private key on Windows
-- **THEN** the serialized key bytes are preserved exactly
-- **AND** `ssh-keygen` can sign the checksum inventory
-
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through an explicit
@@ -298,101 +244,6 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 - **THEN** ETHOS SHALL move `candidate/dev` only from the previously observed ref
 - **AND** any candidate, Lease, tree, or proof drift SHALL fail closed
 - **AND** no remote Forge SHALL be queried or mutated.
-
-### Requirement: Release signing uses one provider-owned key path
-
-Release signing MUST use a complete caller-provided private-key file without
-copying it. It MAY create one process-scoped private copy only to restore a
-missing terminal newline on POSIX, and MUST leave Windows ACL ownership to the
-secret provider. Tests MUST model these platform contracts independently.
-
-#### Scenario: A Forge signs release assets
-
-- **WHEN** GitHub or GitLab assembles one release asset set
-- **THEN** the protected environment supplies an existing private-key path
-- **AND** repository code preserves a complete key's path and security metadata
-- **AND** OpenSSH signs and independently verifies the checksum inventory.
-
-#### Scenario: The signing input is unsafe
-
-- **WHEN** the path is absent, a symbolic link, or the trust input is empty
-- **THEN** release assembly fails closed before publication.
-
-#### Scenario: The provider supplies a complete key
-
-- **WHEN** the private-key file ends with a terminal newline
-- **THEN** OpenSSH receives that exact file path
-- **AND** no temporary private-key copy is created.
-
-#### Scenario: A POSIX file variable omits its terminal newline
-
-- **WHEN** a valid POSIX private-key file lacks its terminal newline
-- **THEN** signing uses one process-scoped `0600` normalized copy
-- **AND** removes the copy after signing
-- **AND** the success integration test runs only on POSIX.
-
-#### Scenario: Windows input is incomplete
-
-- **WHEN** a Windows private-key file lacks its terminal newline
-- **THEN** the signer does not copy or rewrite the file
-- **AND** OpenSSH rejects invalid input through the concise signing diagnostic
-- **AND** the Windows regression proves fail-closed behavior rather than POSIX repair.
-
-### Requirement: Native bundle containment uses filesystem identity
-
-Release assembly MUST accept a resolved member inside the resolved bundle under
-the host filesystem's canonical path identity, MUST reject external members,
-and MUST exercise symlink behavior only on hosts that provide the modeled
-filesystem semantics.
-
-#### Scenario: Windows canonicalization rewrites separators
-
-- **WHEN** Windows canonical path inputs compare through a host `commonpath`
-- **THEN** the comparison result is normalized before identity comparison
-- **AND** an internal case-variant member remains accepted
-
-#### Scenario: Windows returns a case-variant path spelling
-
-- **WHEN** an internal resolved member differs from the bundle path only by case
-- **THEN** release assembly accepts the member
-- **AND** retains its logical bundle path
-
-#### Scenario: A symlink resolves outside the bundle
-
-- **WHEN** a member resolves outside the canonical bundle boundary
-- **THEN** release assembly fails closed
-- **AND** publishes no asset from that invocation
-
-#### Scenario: A POSIX bundle contains internal symlinks
-
-- **WHEN** the host supports the modeled POSIX symlink semantics
-- **THEN** release assembly materializes internal links
-- **AND** rejects links that resolve outside the bundle
-
-### Requirement: Native handoff fixtures release temporary bundles
-
-Native release acceptance MUST terminate and re-observe every fixture-owned
-proxy process before removing its copied bundle, MUST tolerate only a transient
-Windows mapped-module lock for a bounded interval, and MUST fail if the payload
-remains locked.
-
-#### Scenario: Windows releases a mapped module after process exit
-
-- **WHEN** every fixture-owned proxy process has exited
-- **AND** the first payload cleanup reports `PermissionError`
-- **THEN** acceptance retries cleanup within a bounded deadline
-- **AND** succeeds when the lock is released
-
-#### Scenario: The payload remains locked
-
-- **WHEN** cleanup continues to report `PermissionError` through the deadline
-- **THEN** acceptance fails
-- **AND** does not hide the residual payload
-
-#### Scenario: Cleanup reports another error
-
-- **WHEN** payload cleanup reports an error other than `PermissionError`
-- **THEN** acceptance fails immediately
 
 ### Requirement: Quality policy has explicit owners
 
@@ -640,12 +491,12 @@ Every GitLab job that represents Linux x86_64 behavior MUST execute an
 
 ### Requirement: Hosted verification bootstrap is bounded and repository-owned
 
-GitLab verification MUST start from an immutable image containing the
-repository-selected UV and Python runtime. It MUST reuse one target-platform
-cache for locked package artifacts and UV-managed Python runtimes, and MUST NOT
-reinstall UV, download the job's primary Python runtime, or select a different
-Python after synchronizing the locked environment. `uv.lock` remains the sole
-authority for project and quality dependencies.
+Hosted verification SHALL use repository-owned locked supply. GitLab SHALL start
+from an immutable image containing the selected UV and primary Python runtime;
+jobs SHALL retain that synchronized identity and use one target-platform cache.
+`uv.lock` SHALL own project and quality dependencies. CUE SHALL own supported
+Python minors and generate both Forge workflows and `.config/ci/python-versions`,
+consumed by Nox and the GitHub matrix reader.
 
 #### Scenario: A fresh GitLab job starts verification
 
@@ -657,6 +508,8 @@ authority for project and quality dependencies.
 - **AND** it does not bootstrap UV through pip or download that primary Python
   runtime before invoking the repository-owned Nox graph
 - **AND** subsequent no-sync commands use the synchronized Python identity.
+- **AND** locked packages and UV-managed interpreters reuse one target-platform
+  cache.
 
 #### Scenario: A runner cache is empty or unavailable
 
@@ -668,11 +521,20 @@ authority for project and quality dependencies.
 #### Scenario: The supported Python matrix executes
 
 - **WHEN** GitLab runs all Python compatibility sessions
-- **THEN** `.python-versions` remains the only supported-version inventory
+- **THEN** the CUE declaration is the only supported-version inventory
+- **AND** `.config/ci/python-versions` is its tracked text projection for native consumers
 - **AND** additional matrix interpreters may be acquired by UV and stored in
   the declared target-platform cache
 - **AND** their patch versions and installation paths do not become a second
   repository authority.
+
+#### Scenario: The supported Python declaration changes
+
+- **WHEN** the native projection checker finds a matrix or Forge file that differs
+  from the CUE declaration
+- **THEN** it refuses without changing any file
+- **AND** explicit regeneration updates every declared projection
+- **AND** a second generation is byte-identical and unrelated files are preserved.
 
 ### Requirement: Dual-Forge lineage compares exact current identity
 
@@ -712,3 +574,130 @@ and peer-local Release records SHALL remain outside that product semantic.
 - **WHEN** GitLab or GitHub runs release metadata validation for the same commit
 - **THEN** both invoke the same provider-free command and observe the same result
 - **AND** no provider flag, provider tag namespace, or compatibility alias exists.
+
+### Requirement: Forge jobs run on admitted native runners
+
+Hosted jobs SHALL use supported native shells and filesystem semantics, install
+their explicit operating-system prerequisites, and reach a terminal result on
+an admitted project runner. A reused self-hosted checkout SHALL preserve Git
+diagnostic integrity without changing runner-global configuration. A container
+whose user does not own the GitHub checkout SHALL grant Git trust only to the
+exact workflow workspace for the one archive command.
+
+#### Scenario: Linux builds an x86_64 asset on an ARM host
+
+- **WHEN** the Docker executor runs on ARM
+- **THEN** the release job explicitly selects an amd64 container
+- **AND** packaging fails unless the container reports an x86_64-compatible
+  machine.
+
+#### Scenario: A required runner is unavailable
+
+- **WHEN** Forge admission cannot match every job to an allowed runner
+- **THEN** publication is blocked before a pipeline is treated as accepted
+- **AND** a pending job is not reported as verification success.
+
+#### Scenario: A GitHub release container reads the checked-out tag
+
+- **WHEN** the Linux container user does not own `GITHUB_WORKSPACE`
+- **THEN** the archive command trusts that exact workspace for that invocation
+- **AND** no global, repository-local, system, or wildcard safe-directory rule
+  is created
+- **AND** the canonical `/workspace` source materialization continues.
+
+### Requirement: Forge runners come from one platform declaration
+
+The CI graph SHALL name each supported platform's runner once for each Forge that runs that
+platform, and the Forge projections SHALL take their runner selectors from it. GitHub SHALL run the
+Python compatibility job on macOS for every supported Python minor line.
+
+#### Scenario: A platform's runner changes
+
+- **WHEN** the declaration names a different runner for one platform on one Forge
+- **THEN** regenerating the projections changes the runner selector of that
+  Forge's jobs for that platform
+- **AND** no Forge adapter names the runner of a declared platform itself.
+
+#### Scenario: GitHub verifies Python on macOS
+
+- **WHEN** GitHub runs the product proof
+- **THEN** the macOS Python job runs on the declared macOS runner once for each
+  supported Python minor line.
+
+### Requirement: Hosted fixtures do not depend on the runner's default branch
+
+Repository tests SHALL reach the intended Forge behavior without depending on a
+runner's Git default branch.
+
+#### Scenario: Clone already has `main`
+
+- **WHEN** a hosted Git configuration makes `main` the clone's current branch
+- **THEN** the tag-pruning fixture still publishes and clones its explicitly
+  named `main`
+- **AND** continues to test tag pruning rather than fixture setup
+
+### Requirement: Release signing uses the provider's key path
+
+Release signing MUST use a complete caller-provided private-key file without
+copying it. It MAY create one process-scoped private copy only to restore a
+missing terminal newline. Tests MUST model both contracts.
+
+#### Scenario: A Forge signs release assets
+
+- **WHEN** GitHub or GitLab assembles one release asset set
+- **THEN** the protected environment supplies an existing private-key path
+- **AND** repository code preserves a complete key's path and security metadata
+- **AND** OpenSSH signs and independently verifies the checksum inventory.
+
+#### Scenario: The signing input is unsafe
+
+- **WHEN** the path is absent, a symbolic link, or the trust input is empty
+- **THEN** release assembly fails closed before publication.
+
+#### Scenario: The provider supplies a complete key
+
+- **WHEN** the private-key file ends with a terminal newline
+- **THEN** OpenSSH receives that exact file path
+- **AND** no temporary private-key copy is created.
+
+#### Scenario: A file variable omits its terminal newline
+
+- **WHEN** a valid private-key file lacks its terminal newline
+- **THEN** signing uses one process-scoped `0600` normalized copy
+- **AND** removes the copy after signing.
+
+### Requirement: Native bundle containment uses resolved paths
+
+Release assembly MUST accept a member that resolves inside the resolved bundle
+and MUST reject a member that resolves outside it.
+
+#### Scenario: A symlink resolves outside the bundle
+
+- **WHEN** a member resolves outside the canonical bundle boundary
+- **THEN** release assembly fails closed
+- **AND** publishes no asset from that invocation
+
+#### Scenario: A bundle contains internal symlinks
+
+- **WHEN** a bundle member is a symlink that resolves inside the bundle
+- **THEN** release assembly materializes the link's target at the member's
+  logical path
+- **AND** rejects links that resolve outside the bundle
+
+### Requirement: Native handoff fixtures remove temporary bundles after process exit
+
+Native release acceptance MUST terminate and re-observe every fixture-owned
+proxy process before removing its copied bundle, and MUST fail if that removal
+fails.
+
+#### Scenario: Every fixture-owned process has exited
+
+- **WHEN** every fixture-owned proxy process has exited
+- **THEN** acceptance removes the copied bundle once
+- **AND** starts that removal only after the exit is observed
+
+#### Scenario: Payload cleanup fails
+
+- **WHEN** payload cleanup reports any error
+- **THEN** acceptance fails immediately
+- **AND** does not hide the residual payload

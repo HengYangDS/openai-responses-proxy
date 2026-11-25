@@ -80,7 +80,7 @@ the mechanism for passing repository quality.
 
 #### Scenario: A native platform capability is claimed
 
-- **WHEN** quality or release evidence claims macOS, Linux, or Windows support
+- **WHEN** quality or release evidence claims macOS or Linux support
 - **THEN** native execution on that operating system proves the relevant product path
 - **AND** syntax checks, mocks, containers of another kernel, or a different platform's success do not substitute for that evidence.
 
