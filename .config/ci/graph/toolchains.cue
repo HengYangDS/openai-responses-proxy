@@ -8,12 +8,12 @@ import "strings"
 		checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"          // v7.0.1
 		python:   "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"      // v7.1.0
 		uv:       "astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2"        // v10.3.3
-		mise:     "jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d"           // v5.2.9
+		mise:     "jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78"           // v5.3.0
 		upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"   // v7.0.2
 		download: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" // v8.0.2
 	}
 	// The Debian variant carries the shell that GitLab's Docker executor runs; the scratch default has none.
-	gitlabMiseImage: "ghcr.io/jdx/mise:2026.11.8-debian@sha256:05360b08fb68ace24d4814adaa6f36371584f6931782ead4891872049667af5a"
+	gitlabMiseImage: "ghcr.io/jdx/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120"
 	// GitHub's mise-action installs this release, read from the GitLab image's tag, so both peers run one Mise.
 	miseVersion: strings.TrimSuffix(strings.Split(strings.Split(gitlabMiseImage, ":")[1], "@")[0], "-debian")
 	quality:     "python,uv,node,npm,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"

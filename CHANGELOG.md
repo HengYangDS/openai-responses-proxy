@@ -25,6 +25,9 @@ publication authority.
   as the home directory, and a backslash in an override is a filename character,
   not a separator, as POSIX paths read them. Before, both were read as on
   Windows.
+- Run the CI jobs of both Forges on Mise 2026.11.14: the GitLab Mise 2026.11.14
+  image, and on GitHub mise-action 5.3.0, which installs that release. The
+  release assets do not contain them.
 
 ## [6.0.3] - 2026-11-17
 
