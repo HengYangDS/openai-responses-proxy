@@ -32,12 +32,9 @@ exact workflow workspace for the one archive command.
 
 ### Requirement: Forge runners come from one platform declaration
 
-The CI graph SHALL name each supported platform's runner for each Forge once,
-and both Forge projections SHALL take their runner selectors from it. GitHub and
-GitLab SHALL each run the macOS Python compatibility job for every supported
-Python minor line from one job declaration. GitLab's macOS job SHALL override
-the Linux default image and runner tags and install its tools through the
-locked Mise.
+The CI graph SHALL name each supported platform's runner once for each Forge that runs that
+platform, and the Forge projections SHALL take their runner selectors from it. GitHub SHALL run the
+Python compatibility job on macOS for every supported Python minor line.
 
 #### Scenario: A platform's runner changes
 
@@ -49,17 +46,8 @@ locked Mise.
 #### Scenario: GitHub verifies Python on macOS
 
 - **WHEN** GitHub runs the product proof
-- **THEN** the macOS Python job runs on `macos-latest` once for each supported
-  Python minor line.
-
-#### Scenario: GitLab verifies Python on macOS
-
-- **WHEN** GitLab runs its product jobs for a merge request or a protected ref
-- **THEN** the macOS Python job runs once for each supported Python minor line
-  on a runner tagged `macos-latest` and `review` for the merge request, or
-  `macos-latest` and `protected` for the protected ref
-- **AND** the job names no container image and installs no operating-system
-  package.
+- **THEN** the macOS Python job runs on the declared macOS runner once for each
+  supported Python minor line.
 
 ### Requirement: Hosted fixtures do not depend on the runner's default branch
 
@@ -143,18 +131,17 @@ fails.
 
 ### Requirement: Hosted verification bootstrap is bounded and repository-owned
 
-Hosted verification SHALL use repository-owned locked supply. GitLab SHALL take
-the selected UV and primary Python runtime from an immutable image on Linux and
-from the locked Mise on macOS; jobs SHALL retain that synchronized identity and
-use one target-platform cache.
+Hosted verification SHALL use repository-owned locked supply. GitLab SHALL start
+from an immutable image containing the selected UV and primary Python runtime;
+jobs SHALL retain that synchronized identity and use one target-platform cache.
 `uv.lock` SHALL own project and quality dependencies. CUE SHALL own supported
 Python minors and generate both Forge workflows and `.config/ci/python-versions`,
 consumed by Nox and the GitHub matrix reader.
 
 #### Scenario: A fresh GitLab job starts verification
 
-- **WHEN** an admitted GitLab Linux runner starts a verification job with an
-  empty project workspace
+- **WHEN** an admitted GitLab runner starts a verification job with an empty
+  project workspace
 - **THEN** the selected digest-pinned image already provides UV and the job's
   primary supported Python runtime
 - **AND** the job installs repository dependencies from `uv.lock`
@@ -164,20 +151,10 @@ consumed by Nox and the GitHub matrix reader.
 - **AND** locked packages and UV-managed interpreters reuse one target-platform
   cache.
 
-#### Scenario: A GitLab macOS job starts verification
-
-- **WHEN** an admitted GitLab macOS runner starts the Python job with an empty
-  project workspace
-- **THEN** Mise installs UV and the primary Python runtime at the versions and
-  checksums of its lock
-- **AND** the job installs repository dependencies from `uv.lock`
-- **AND** its cache key names the macOS target rather than a Linux one.
-
 #### Scenario: A runner cache is empty or unavailable
 
 - **WHEN** no reusable dependency cache is present
-- **THEN** the job remains correct from its immutable image or locked Mise and
-  the committed lock
+- **THEN** the job remains correct from the immutable image and committed lock
 - **AND** cache absence can affect duration but not dependency authority or
   verification semantics.
 

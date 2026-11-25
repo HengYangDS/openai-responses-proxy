@@ -127,22 +127,18 @@ class TestVerificationContracts:
         assert gitlab.count(f"ghcr.io/astral-sh/uv:{uv_version}-python") == 2
         pipeline = _load_yaml(ROOT / ".gitlab-ci.yml")
         job_scripts = {
-            job: (tuple(value.get("before_script", ())), value.get("variables", {}))
+            job: tuple(value.get("before_script", ()))
             for job, value in pipeline.items()
             if isinstance(value, dict) and "before_script" in value
         }
         assert job_scripts
-        for scripts, variables in job_scripts.values():
+        for scripts in job_scripts.values():
             if scripts[0] == "mise install --locked":
-                # A Mise job that enables the Node tools installs and audits them first.
-                if "npm" in variables["MISE_ENABLE_TOOLS"].split(","):
-                    assert scripts[:3] == (
-                        "mise install --locked",
-                        "npm ci --ignore-scripts",
-                        "npm audit signatures",
-                    )
-                else:
-                    assert not any(command.startswith("npm ") for command in scripts)
+                assert scripts[:3] == (
+                    "mise install --locked",
+                    "npm ci --ignore-scripts",
+                    "npm audit signatures",
+                )
                 continue
             native_check = "uv tree --frozen --offline --universal --depth 0"
             assert scripts.count(native_check) == 1

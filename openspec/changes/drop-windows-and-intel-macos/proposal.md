@@ -19,9 +19,8 @@ not mirror each other on macOS. The inventory (2026-11-25) is kept at
 - **BREAKING** The proxy supports macOS ARM64 and Linux only. Releases publish `macos-arm64` and `linux-x86_64`; no
   Windows asset. The supervision adapters are launchd and systemd; Task Scheduler leaves with every Windows branch,
   constraint, test, fixture and lock entry. A seam with one remaining implementation collapses into it.
-- CI: the one CUE graph declares one native macOS job and the Linux jobs. GitHub runs macOS on `macos-latest`. GitLab
-  gains the same macOS job on its ARM64 macOS guest (tags `macos-latest` with `review` or `protected`), declared once
-  and rendered to both forges.
+- CI: the one CUE graph declares each platform's runners once. GitHub runs the macOS job on `macos-latest`. GitLab keeps
+  its Linux jobs; its macOS job waits for a follow-up Change, because the proxy's GitLab project has no macOS runner.
 - The open Change `terminal-product-convergence` drops the Windows parts of its open tasks and deltas in this same
   Change, so that its archive cannot bring Windows back.
 - Documents, decision records and accepted specifications say the same. The release is 7.0.0.
@@ -35,7 +34,7 @@ None.
 ### Modified Capabilities
 
 - `ci-diagnostics`, `runtime-upgrade`, `product-interface`, `process-ownership`, `quality-boundaries`: no Windows
-  platform, job, asset, adapter or scenario; GitLab and GitHub mirror the macOS job.
+  platform, job, asset, adapter or scenario; each Forge's runners come from one platform declaration.
 
 ## Impact
 

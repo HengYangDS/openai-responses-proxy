@@ -1,7 +1,7 @@
 ## 1. Specifications
 
 - [x] 1.1 Write the deltas of `ci-diagnostics`, `runtime-upgrade`, `product-interface`, `process-ownership` and
-      `quality-boundaries`, with the platform declaration and the GitLab macOS job of D2 (D8). Done when
+      `quality-boundaries`, with the platform declaration of D2 (D8). Done when
       `openspec validate drop-windows-and-intel-macos --strict` passes.
 - [x] 1.2 Edit the open tasks 10.2, 12.5 and 13.5, the four deltas, the proposal and the design of
       `terminal-product-convergence` so that nothing in them requires Windows, keeping every task identity and state
@@ -44,13 +44,9 @@
       `macos-latest` from it, and remove the `python-windows` job and the Windows legs and assembly input (D2). Done
       when `python -m tools.ci.project` reports no drift on the regenerated projections and the `tests/forge` and
       `tests/ci` tests pass.
-- [x] 5.2 Add GitLab's macOS Python job from the same job declaration, tagged `macos-latest` with `review` or
-      `protected`, with its own image, tag and cache override and a Mise bootstrap, and with failure allowed until
-      task 5.3 (D2). Done when the generated `.gitlab-ci.yml` holds the job for both roles and the GitLab workflow
-      tests pass.
-- [ ] 5.3 Measure on GitLab's macOS guest which of Python 3.12, 3.13 and 3.14 Mise and `uv python install` provide
-      there, then declare the macOS job required (D2). Done when one review pipeline's macOS jobs pass and the
-      declaration no longer allows their failure.
+- [x] 5.2 Keep GitLab to its Linux jobs and leave its macOS job to a follow-up Change, since the proxy's GitLab project
+      has no macOS runner (D2). Done when the generated `.gitlab-ci.yml` equals its form before this Change and the
+      GitLab workflow tests pass.
 
 ## 6. Toolchain and configuration
 
@@ -74,10 +70,10 @@
 
 ## 8. Local gates
 
-- [x] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. Passed on `8e678746`
-      (2026-11-26 00:06).
-- [x] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. Passed on `8e678746`
-      (2026-11-26 00:11).
+- [ ] 8.1 Pass the proxy's full check (`mise run check`) on the lane head, in the host queue. Passed on `8e678746`
+      (2026-11-26 00:06), before the GitLab macOS job left the Change.
+- [ ] 8.2 Pass the native macOS run (`mise run native`) on the lane head, in the host queue. Passed on `8e678746`
+      (2026-11-26 00:11), before the GitLab macOS job left the Change.
 - [x] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
       code or in the design. Its findings 1 to 6 are answered in `8e678746`.
 
@@ -89,13 +85,10 @@
 
 - [ ] 10.1 Pass the proposal's GitHub checks, and read the macOS version and architecture from the first `macos-latest`
       job's log.
-- [ ] 10.2 Pass the proposal's GitLab pipeline on the Linux runner, with its macOS jobs run on the runner tagged
-      `macos-latest` and `review`.
+- [ ] 10.2 Pass the proposal's GitLab pipeline on the Linux runners.
 
 ## 11. Publication
 
 - [x] 11.1 Before the first `dev` push to GitHub, remove the Windows checks from the required checks of `dev` and
       `main`, keeping the other names. Done when both protections are read back. Read 00:1x: both require only
       `Admission`, so no Windows check is required and nothing changes.
-- [ ] 11.2 Before the first GitLab push, obtain ETHOS 仓库纳管's confirmation that the proxy's GitLab project has
-      macOS runners tagged `macos-latest` with `review` and with `protected`.

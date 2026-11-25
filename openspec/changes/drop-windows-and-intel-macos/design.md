@@ -8,8 +8,8 @@ are from it. CI is generated from one CUE model (`.config/ci/`, rendered by `too
 ## Goals / Non-Goals
 
 **Goals:** one supported set (macOS ARM64 and Linux) declared once per concern; no code, test, pipeline, lock row,
-document or requirement that exists only for Windows or Intel macOS; GitLab and GitHub run the same macOS Python job from
-one declaration.
+document or requirement that exists only for Windows or Intel macOS; each Forge's runners come from one platform
+declaration.
 
 **Non-Goals:** a Linux ARM64 release asset; native assets or the launchd lifecycle on GitLab; the CI and runner paradigm
 that ETHOS 产品构建 designs for every governed repository (owner, 19:10 and 19:23 relayed), which reaches the keeper
@@ -23,18 +23,14 @@ evaluator, the hosted job names that the proof expects, and `executable_name` fo
 Change. With no parameter left, `executable_name` is `COMMAND_NAME` itself, and the inventory's executable and
 required files are constants (D3's collapse rule).
 
-**D2. One platform declaration for CI.** A provider-neutral declaration in `.config/ci/graph/` names each platform's
-runner per forge: GitHub `macos-latest` and `ubuntu-24.04`; GitLab `macos-latest` with `review` for merge requests and
-`protected` for `dev`, `main` and tags, and the existing Linux runner variables. The GitHub adapters stop writing
-`macos-26` literals. GitLab gains the macOS Python verification job that GitHub runs today (3.12, 3.13, 3.14), rendered
-from the same job declaration, with its own default-image and default-tag override and a Mise bootstrap instead of
-`apt-get`; its interpreters come from Mise or `uv python install` as measured on the guest before the job is declared
-required. Native assets, the release lifecycle and assembly stay on GitHub, where they run today; they are not an
-overlap. The declaration is `.config/ci/graph/platforms.cue`: each platform's release asset, its GitHub runner and its
-GitLab tags per role, with `required: false` for the GitLab macOS job, which the pipeline renders as
-`allow_failure: true` until task 5.3 measures the guest. The GitLab job inherits neither the default nor the global
-variables, so no Linux image, tag, cache key or target reaches it; it sets its own uv cache directories and its target
-`macos-arm64`, which names its cache.
+**D2. One platform declaration for CI.** A provider-neutral declaration, `.config/ci/graph/platforms.cue`, names each
+platform's release asset and its runner on each forge that runs it: GitHub `macos-latest` and `ubuntu-24.04`, and
+GitLab's existing Linux runner variables for merge requests and for `dev`, `main` and tags. The GitHub adapters stop
+writing `macos-26` literals and render the macOS Python verification job (3.12, 3.13, 3.14) from it. GitLab's macOS job
+is deferred to a follow-up Change: the proxy's GitLab project has no macOS runner, and registering one is a guest change
+that waits for the owner's word (ETHOS 仓库纳管 asked him on 2026-11-26 at 00:1x). GitLab keeps its Linux jobs, and its
+pipeline is the one it had before this Change. The follow-up Change adds `macos.gitlab` to the declaration and the
+GitLab job that reads it. Native assets, the release lifecycle and assembly stay on GitHub, where they run today.
 
 **D3. Code.** `lifecycle/supervision/windows.py` (Task Scheduler) and its tests leave; the supervision adapter choice is
 launchd or systemd. Every `sys.platform`/`os.name` Windows branch, `InstallationContext.windows` and the `windows=`
@@ -91,8 +87,8 @@ through REMOVED plus ADDED under a new name; requirement text stays within 500 c
 
 ## Risks / Trade-offs
 
-- GitLab's macOS guest may lack Python 3.12 and 3.13 offline → measured before the job is declared required; until
-  then it is not added to the required set.
+- GitLab verifies no macOS until the follow-up Change → in the meantime macOS evidence comes from GitHub and the local
+  native run alone.
 - The CI paradigm of ETHOS 产品构建 may rename the platform declaration later → the declaration is one place, so a
   later rename touches one file.
 - A user on Windows loses the supported program; 6.0.3 stays published.
