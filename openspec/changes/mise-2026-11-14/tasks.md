@@ -28,7 +28,7 @@
 
 ## 4. Exact-HEAD proof
 
-- [ ] 4.1 Pass the ETHOS full proof of the lane head.
+- [x] 4.1 Pass the ETHOS full proof of the lane head. `089e318c`, 2026-11-26 09:52: pass, proven.
 
 ## 5. Hosted CI
 
