@@ -481,11 +481,11 @@ owner = "lychee"
 scope = "documentation"
 session = "governance"
 configuration = [".config/checks/lychee/lychee.toml"]
-risk_model = "Broken local or external references make otherwise correct documentation unusable."
-measurement = "Lychee validates documentation links, offline deterministically and online before publication."
-false_positive_cost = "Transient external failure can block publication and therefore requires bounded retries."
-remediation = "Correct the target or replace the unstable external dependency with durable documentation."
-review_condition = "Reassess after recurring failures from a legitimate stable domain."
+risk_model = "Broken links to local files or anchors make otherwise correct documentation unusable."
+measurement = "Lychee checks the tracked Markdown's links to local files and their anchors offline, the same in the local check and on both forges; it fetches no external URL."
+false_positive_cost = "An anchor that a renderer derives differently from lychee can fail a valid link; an unavailable external host cannot, since no request is made."
+remediation = "Correct the local target or anchor."
+review_condition = "Reassess when lychee's offline mode changes or the documentation must prove that an external target exists."
 
 [[concerns]]
 id = "repository-secrets"

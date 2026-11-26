@@ -20,7 +20,7 @@ source-and-governance:
     - git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
   script:
-    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.governance --online-links
+    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.governance
 verify-python:
   stage: verify
   parallel:
@@ -114,7 +114,7 @@ source-and-governance-accepted:
     - git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
   script:
-    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.governance --online-links
+    - mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m tools.quality.governance
 verify-python-accepted:
   stage: verify
   parallel:

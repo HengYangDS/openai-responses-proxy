@@ -176,7 +176,7 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
     (source_command,) = _strings(source["script"])
     assert source_command.endswith(
         "mise exec --locked -- uv run --locked --no-sync --python python "
-        "--no-python-downloads python -m tools.quality.governance --online-links"
+        "--no-python-downloads python -m tools.quality.governance"
     )
     assert _string(variables["MISE_ENABLE_TOOLS"]).startswith("python,uv,")
 

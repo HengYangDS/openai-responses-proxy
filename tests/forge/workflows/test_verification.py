@@ -29,7 +29,7 @@ def _assert_github_required_tokens(text: str) -> None:
         "actions/setup-python@",
         "fetch-tags: true",
         "if: github.event_name == 'push' && github.ref_type == 'tag'",
-        "python -m tools.quality.governance --online-links",
+        "python -m tools.quality.governance\n",
         'uv run --locked --no-sync python -m tools.release.metadata --tag "$GITHUB_REF_NAME"',
         "uv run --locked --no-sync python -m tools.release.metadata",
         "python-quality:",
@@ -202,7 +202,7 @@ def test_github_verification_workflow_contract() -> None:
     _assert_github_governance_contract(text)
     _assert_github_native_and_forbidden_contract(text)
     source = text.split("\n  source-and-governance:", 1)[1].split("\n  python:", 1)[0]
-    assert source.count("python -m tools.quality.governance --online-links") == 1
+    assert source.count("python -m tools.quality.governance\n") == 1
     for duplicate in (
         "cue vet",
         "openspec validate --all",

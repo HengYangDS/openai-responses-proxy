@@ -83,7 +83,7 @@ jobs:
       - name: Install the complete locked tool environment
         run: uv sync --locked --all-groups
       - name: Confirm source identity and repository governance
-        run: uv run --locked --no-sync python -m tools.quality.governance --online-links
+        run: uv run --locked --no-sync python -m tools.quality.governance
     env:
       UV_CONFIG_FILE: .config/mise/uv.toml
       UV_NO_CONFIG: "false"

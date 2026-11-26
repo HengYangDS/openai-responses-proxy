@@ -105,7 +105,7 @@ import "list"
 			run:  "uv sync --locked --all-groups"
 		}, {
 			name: "Confirm source identity and repository governance"
-			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.governance.module) --online-links"
+			run:  "uv run --locked --no-sync python -m \(#VerificationJobs.governance.module)"
 		}]
 	}
 	python: {

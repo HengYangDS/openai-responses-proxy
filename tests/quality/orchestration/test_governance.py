@@ -104,7 +104,7 @@ def test_dependency_and_dead_code_policy_has_one_precise_owner() -> None:
     )["tool"]["vulture"]
     assert dead_code == {"min_confidence": 100, "sort_by_size": True}
 
-    commands = governance._commands(online_links=False)
+    commands = governance._commands()
     assert sum(command[0] == "deptry" for command in commands) == 1
     assert sum(command[0] == "vulture" for command in commands) == 1
     quality_commands = tuple(
@@ -139,7 +139,7 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
         side_effect=itertools.chain((tracked, tracked), itertools.repeat(completed)),
     )
 
-    governance.audit(online_links=False)
+    governance.audit()
 
     commands = [tuple(call.args[0]) for call in run.call_args_list[2:]]
     assert commands == [
@@ -224,18 +224,18 @@ def test_governance_composition_owns_each_repository_check_once(mocker: MockerFi
             "-m",
             "repository_toolchain",
         ),
-        (
-            "lychee",
-            "--config",
-            ".config/checks/lychee/lychee.toml",
-            "--offline",
-            "README.md",
-        ),
+        ("lychee", "--config", ".config/checks/lychee/lychee.toml", "README.md"),
         (governance.sys.executable, "-m", "tools.release.metadata"),
         (governance.sys.executable, "-m", "tools.quality.release_age"),
         (governance.sys.executable, "-m", "tools.quality.hard_coding"),
         (governance.sys.executable, "-m", "tools.quality.repository"),
     ]
+
+
+def test_link_policy_selects_the_offline_mode() -> None:
+    """Every caller of the link policy checks local links only and sends no network request."""
+    policy = tomllib.loads((ROOT / governance.LINK_POLICY).read_text(encoding="utf-8"))
+    assert policy["offline"] is True
 
 
 def test_structured_text_formatters_have_disjoint_native_ownership() -> None:

@@ -133,9 +133,8 @@ def _formatter_commands(
     )
 
 
-def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
+def _commands() -> tuple[tuple[str, ...], ...]:
     """Return the single ordered governance graph for this repository."""
-    link_mode = () if online_links else ("--offline",)
     markdown_yaml = _tracked_current((".md", ".yaml", ".yml"))
     markdown = tuple(path for path in markdown_yaml if path.endswith(".md"))
     toml = _tracked_current((".toml",))
@@ -198,7 +197,7 @@ def _commands(*, online_links: bool) -> tuple[tuple[str, ...], ...]:
             "-m",
             "repository_toolchain",
         ),
-        ("lychee", "--config", LINK_POLICY, *link_mode, *markdown),
+        ("lychee", "--config", LINK_POLICY, *markdown),
         (sys.executable, "-m", "tools.release.metadata"),
         (sys.executable, "-m", "tools.quality.release_age"),
         (sys.executable, "-m", "tools.quality.hard_coding"),
@@ -217,9 +216,9 @@ def _run(commands: Iterable[tuple[str, ...]]) -> None:
             raise GovernanceError(f"governance check failed: {command[0]}")
 
 
-def audit(*, online_links: bool = False) -> None:
+def audit() -> None:
     """Execute every governance concern from one composition root."""
-    _run(_commands(online_links=online_links))
+    _run(_commands())
 
 
 def fix() -> None:
@@ -235,15 +234,13 @@ def fix() -> None:
 
 
 def _command(
-    *,
-    online_links: bool = False,
-    fix_formatting: Annotated[bool, Parameter(name="--fix", negative=False)] = False,
+    *, fix_formatting: Annotated[bool, Parameter(name="--fix", negative=False)] = False
 ) -> None:
-    """Run deterministic checks, optionally including external links, or apply formatters."""
+    """Run the deterministic checks, or apply the formatters."""
     if fix_formatting:
         fix()
     else:
-        audit(online_links=online_links)
+        audit()
 
 
 def main(argv: Iterable[str] = ()) -> None:

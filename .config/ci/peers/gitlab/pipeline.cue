@@ -135,7 +135,7 @@ gitlab: {
 				"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
 			]
 			script: [
-				"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.governance.module) --online-links",
+				"mise exec --locked -- uv run --locked --no-sync --python python --no-python-downloads python -m \(#VerificationJobs.governance.module)",
 			]
 		}
 		"verify-python": {

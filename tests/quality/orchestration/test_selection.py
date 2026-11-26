@@ -321,7 +321,7 @@ def _gate_selections(
     if any(module in command and "--fix" not in command for command in issued) or any(
         f"-m {module}" in text for text in texts
     ):
-        issued.extend(governance._commands(online_links=False))
+        issued.extend(governance._commands())
     return {_selection(command) for command in issued if "pytest" in command}
 
 
