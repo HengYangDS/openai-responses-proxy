@@ -445,7 +445,7 @@ upstream rejection SHALL NOT substitute a header-only task.
 
 #### Scenario: A conversation changes providers repeatedly
 
-- **WHEN** a subsequent request switches among UCloud, DMXAPI, and AIHubMix
+- **WHEN** a subsequent request switches among provider routes
 - **THEN** the outbound request uses `store=false`
 - **AND** no optional reasoning or continuation binding crosses the provider boundary
 - **AND** portable user and plaintext agent content remains replayable; encrypted
