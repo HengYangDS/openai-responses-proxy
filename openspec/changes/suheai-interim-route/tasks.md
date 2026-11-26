@@ -48,8 +48,9 @@
 - [ ] 6.1 Publish 7.0.0 to GitHub and GitLab: the signed tag `v7.0.0` and a Release on each with the `macos-arm64` and
       `linux-x86_64` assets and no Windows asset. The CHANGELOG heading carries the tag's UTC date; a later date is
       set in a commit of its own before the tag. Done when both Releases read back with those assets.
-- [ ] 6.2 Install 7.0.0 on this host after telling the owner the window. Done when `openai-responses-proxy status
-      --json` reports 7.0.0 and `GET /suheai/v1/models` through the listener returns Suhe.AI's own answer.
+- [ ] 6.2 Install 7.0.0 on this host after telling the owner the window. Done when
+      `openai-responses-proxy status --json` reports 7.0.0 and `GET /suheai/v1/models` through the listener returns
+      Suhe.AI's own answer.
 - [ ] 6.3 AIGW points Codex's Suhe.AI provider at `http://127.0.0.1:8792/suheai/v1` (D4). Done when AIGW's projection
       for Codex reads that endpoint.
 - [ ] 6.4 Accept the route (D4): an unchanged conversation completes at least two turns on each leg of DMXAPI to
