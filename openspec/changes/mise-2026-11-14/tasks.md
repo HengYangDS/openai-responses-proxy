@@ -32,5 +32,7 @@
 
 ## 5. Hosted CI
 
-- [ ] 5.1 Pass the proposal's GitHub checks; each mise-action step installs Mise 2026.11.14.
-- [ ] 5.2 Pass the proposal's GitLab pipeline on the Linux runners from the 2026.11.14 image.
+- [x] 5.1 Pass the proposal's GitHub checks; each mise-action step installs Mise 2026.11.14. Pull request 222 at
+      `089e318c`, 2026-11-26: 15 passed, 5 skipped; run 45738783526 logs `Download mise@2026.11.14`.
+- [x] 5.2 Pass the proposal's GitLab pipeline on the Linux runners from the 2026.11.14 image. Pipeline 18260 at
+      `089e318c`, 10:44: all eleven jobs passed.
