@@ -8,7 +8,7 @@ the tracked Markdown that the governance check selects, outside archived OpenSpe
 their anchors, and SHALL NOT fetch an external URL. No option, job or
 configuration SHALL select a second link-check mode.
 
-#### Scenario: A Forge job and the local check check links
+#### Scenario: A Forge job and the local check run one link check
 
 - **WHEN** a job of either Forge or the repository's local check runs the governance check
 - **THEN** each SHALL run the same offline link check with the same configuration
