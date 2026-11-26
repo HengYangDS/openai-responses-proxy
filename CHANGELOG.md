@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-11-26
+
 ### Removed
 
 - **Breaking:** Windows is no longer supported. A release publishes the

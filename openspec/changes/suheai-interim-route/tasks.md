@@ -13,8 +13,8 @@
 
 ## 2. Release
 
-- [ ] 2.1 Name 7.0.0 in `CHANGELOG.md` under the UTC date of its preparation, above a new empty `## [Unreleased]`
-      (`VERSION` already reads 7.0.0). Done when `tests/release/test_metadata.py` passes.
+- [x] 2.1 Name 7.0.0 in `CHANGELOG.md` under the UTC date of its preparation, above a new empty `## [Unreleased]`
+      (`VERSION` already reads 7.0.0). Done when `tests/release/test_metadata.py` passes. 54 passed.
 
 ## 3. Local verification
 
