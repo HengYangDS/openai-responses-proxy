@@ -140,5 +140,5 @@ unchanged. Task 3.7 is new.
 
 ## Workflow follow-up
 
-- Archive this Change through ETHOS after tracked obligations and review are complete.
+- Archive this Change through ETHOS once its closing review is answered.
 - Verify archived capability integration and absence of the retired active Change.

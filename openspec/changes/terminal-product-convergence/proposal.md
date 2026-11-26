@@ -9,7 +9,7 @@ therefore produced churn without removing the causes of recurring failures.
 
 This Change makes the product converge as one system. Existing files and
 mechanisms are inputs to evaluate, not defaults to preserve; the Impact names
-what left its scope on 2026-11-14.
+what left its scope on 2026-11-14 and on 2026-11-26.
 
 ## What Changes
 
@@ -83,13 +83,16 @@ the former product name until their values are next set. After the Change
 closes, CI moves to a released ETHOS when one can trust commits in CI; that is
 ETHOS's schedule, not a task here.
 
-On 2026-11-26 at 19:55 the owner closed the Change before a planned breaking
-redesign of how the proxy names its upstreams, and six more open tasks left it.
-Tasks 4.7, 10.2 and 12.5 do not depend on providers; each opens as a new Change
-of its own after the redesign's release, starting from its text in `tasks.md`
-at `b0d85050`. Tasks 13.5 to 13.7 accepted a scope that the redesign replaces
-and give way to each successor's acceptance and to the redesign's release
-acceptance, so the Change archives without a final acceptance of its own.
+On 2026-11-26 at 19:55 the owner decided to close the Change before a planned
+breaking redesign that makes the request path name the upstream; the proposal of
+`suheai-interim-route` describes it. Six more open tasks left. Tasks 4.7, 10.2
+and 12.5 do not depend on providers; each opens as a new Change of its own after
+the redesign's release, starting from its text in `tasks.md` at `b0d85050`.
+Tasks 13.5 to 13.7 were to be the final acceptance of a scope that the redesign
+replaces; each successor's acceptance and the redesign's release acceptance take
+their place, so the Change archives without a final acceptance of its own. The
+GitLab publication of 5.1.0 to 5.1.2, which 13.6 recorded as deferred, was done
+on 2026-10-28.
 
 | Task | Subject                                   | Destination                                                                          |
 | ---- | ----------------------------------------- | ------------------------------------------------------------------------------------ |

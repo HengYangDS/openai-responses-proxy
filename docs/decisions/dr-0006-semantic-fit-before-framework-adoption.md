@@ -241,3 +241,11 @@ AIGW declares, instead of `https://aihubmix.com/v1`.
 The frozen executable that the Context names serves macOS ARM64 and Linux.
 Windows support left with the Change `drop-windows-and-intel-macos`; the
 decision is otherwise unchanged.
+
+**Amendment, 2026-11-26: performance acceptance in its own Change.**
+
+The transport acceptance task that this decision and its 2026-10-24 amendment
+name is task 4.7 of `terminal-product-convergence`. That Change closes without
+it, and the final performance acceptance moves with the task to the new Change
+`performance-budgets`, opened after the planned redesign that makes the request
+path name the upstream. The decision is otherwise unchanged.

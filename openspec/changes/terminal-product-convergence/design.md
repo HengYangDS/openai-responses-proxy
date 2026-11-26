@@ -537,23 +537,28 @@ by each lane's closeout once ownership and lack of consumers are proved.
 
 ### Closing scope
 
-From the cut that its owner approved on 2026-11-13, the Change closed on the
-tasks that change or prove the installed product: 4.7, 5.8, 10.2, 12.5 to 12.7
-and the acceptance 13.5 to 13.7; task 7.16 guards the tests that prove them.
-Twenty-six open tasks left, each with a destination that the proposal's Impact
-lists; a delta statement that depended on one is narrowed to what the
+From the cut that its owner approved on 2026-11-13, the Change was to close on
+the tasks that change or prove the installed product: 4.7, 5.8, 10.2, 12.5 to
+12.7 and the acceptance 13.5 to 13.7; task 7.16 guards the tests that prove
+them. Twenty-six open tasks left, each with a destination that the proposal's
+Impact lists; a delta statement that depended on one is narrowed to what the
 repository does, or leaves with it.
 
-On 2026-11-26 the owner closed the Change before a planned breaking redesign of
-how the proxy names its upstreams. Performance budgets (4.7), reproducible
-bundles (10.2) and injected lifecycle failures (12.5) do not depend on
-providers and become new Changes after the redesign's release. The acceptance
-13.5 to 13.7 covered a scope that the redesign replaces; each successor's
-acceptance and the redesign's release acceptance take its place. No delta
-statement claims what these tasks would have shown: the performance
-requirement states how acceptance measures, which the `performance` Nox
-session implements, and none states an injected failure or a byte-identical
-bundle.
+On 2026-11-26 six more tasks left, with the destinations that the proposal's
+Impact gives. No delta statement claims what they would have shown:
+
+- The performance requirement states how acceptance measures. The
+  `performance` Nox session implements that measurement and its budget gate;
+  4.7 would have run it on the frozen candidate, locally and in the hosted job.
+- The deltas state how the product handles interrupted cleanup and an
+  unverifiable journal, and source tests show each, an invalid journal among
+  them. Task 12.5 would have injected such failures into the built executable;
+  no delta statement requires that.
+- No delta states byte-identical bundles. The main specifications already
+  require them, so `reproducible-bundles` proves an existing requirement.
+- The native lifecycle journey of "Supported native lifecycles are behaviorally
+  symmetric" rests on the `release`, `release_compatibility` and
+  `published_release_compatibility` sessions, not on 13.5 to 13.7.
 
 ## Risks / Trade-offs
 
@@ -582,5 +587,5 @@ remains untouched until the successor passes its declared transition.
 ## Migration Plan
 
 Nothing of this Change's own migration remains. It archives through ETHOS, and
-its accepted increments stay released and installed as they are. The three
-tasks that left open their new Changes after the redesign's release.
+its released increments stay as published. Each of the three tasks that left
+opens as a new Change after the redesign's release (proposal, Impact).
