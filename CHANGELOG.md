@@ -23,8 +23,9 @@ publication authority.
 ### Added
 
 - A route for Suhe.AI: `http://127.0.0.1:8792/suheai/v1` sends Responses and
-  model-catalog requests to `https://suheai.cn/v1` as the other provider routes
-  do, with no handling of its own.
+  model-catalog requests to `https://suheai.cn/v1` through the same
+  provider-portable projection as the other routes, with native agent-message
+  delivery and no provider-specific wire policy.
 
 ### Changed
 

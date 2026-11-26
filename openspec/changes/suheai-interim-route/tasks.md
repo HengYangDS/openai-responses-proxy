@@ -10,6 +10,16 @@
       `mise run quick` pass.
 - [x] 1.4 Add the route under `### Added` in `CHANGELOG.md`'s `## [Unreleased]`. Done when Prettier's check of it
       passes.
+- [x] 1.5 Pin `/suheai/v1/models` in the same test. Done when it passes. Passed.
+- [x] 1.6 MODIFY "Provider-specific recovery is route-scoped", "Conversation state remains owned by Codex", "Client
+      endpoint ownership is external" and "Provider rate limits do not multiply across retry layers" in general route
+      terms, and point `docs/evidence/evidence-policy.md` at the acceptance scenario (D3). Done when
+      `openspec validate suheai-interim-route --strict` passes. Valid.
+- [x] 1.7 Change the switching scenario of `terminal-product-convergence`'s `provider-portable-responses` delta to
+      "switches among provider routes", keeping its line count (D3). Done when both Changes validate strictly and a
+      scratch archive of the two, in either order, merges specifications that pass `openspec validate --specs --strict`
+      and name the providers only in the routes requirement and the Purpose. Both orders merged the same nine
+      valid specifications, with the Purpose rewritten as D3 says.
 
 ## 2. Release
 
@@ -32,3 +42,15 @@
 
 - [ ] 5.1 Pass the proposal's GitHub checks.
 - [ ] 5.2 Pass the proposal's GitLab pipeline.
+
+## 6. Delivery
+
+- [ ] 6.1 Publish 7.0.0 to GitHub and GitLab: the signed tag `v7.0.0` and a Release on each with the `macos-arm64` and
+      `linux-x86_64` assets and no Windows asset. The CHANGELOG heading carries the tag's UTC date; a later date is
+      set in a commit of its own before the tag. Done when both Releases read back with those assets.
+- [ ] 6.2 Install 7.0.0 on this host after telling the owner the window. Done when `openai-responses-proxy status
+      --json` reports 7.0.0 and `GET /suheai/v1/models` through the listener returns Suhe.AI's own answer.
+- [ ] 6.3 AIGW points Codex's Suhe.AI provider at `http://127.0.0.1:8792/suheai/v1` (D4). Done when AIGW's projection
+      for Codex reads that endpoint.
+- [ ] 6.4 Accept the route (D4): an unchanged conversation completes at least two turns on each leg of DMXAPI to
+      Suhe.AI to DMXAPI. Done when the evidence policy's prefix and metadata checks pass after every leg.

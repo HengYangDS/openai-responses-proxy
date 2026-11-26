@@ -26,15 +26,16 @@ or Git history; Chronicle is not a separate evidence primitive.
 - **User-visible evidence:** a successful response in the original failing
   conversation is distinct from transport health.
 
-Provider-portability acceptance requires the unchanged original conversation
-to complete at least two turns on each leg of
-`DMXAPI -> UCloud -> AIHubMix -> DMXAPI`. Before the sequence, record the exact
-JSONL length and SHA-256 of that immutable prefix plus metadata for the relevant
-SQLite stores and per-conversation model selection. After every leg, verify the
-same prefix byte-for-byte and re-observe the metadata. New JSONL suffix bytes
-are expected conversation output; rewriting any baseline byte or changing the
-observed metadata fails acceptance. A proxy health check, direct endpoint smoke,
-or a new conversation cannot substitute for this result.
+Provider-portability acceptance is the scenario "The proxy fix is accepted" of
+the `provider-portable-responses` specification: the unchanged original
+conversation completes at least two turns on each leg of its provider sequence.
+Before the sequence, record the exact JSONL length and SHA-256 of that immutable
+prefix plus metadata for the relevant SQLite stores and per-conversation model
+selection. After every leg, verify the same prefix byte-for-byte and re-observe
+the metadata. New JSONL suffix bytes are expected conversation output; rewriting
+any baseline byte or changing the observed metadata fails acceptance. A proxy
+health check, direct endpoint smoke, or a new conversation cannot substitute for
+this result.
 
 Do not treat a green local process, a new clean conversation, or a generic log
 grep as proof that an historical conversation recovered. Keep transient 429,

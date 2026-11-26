@@ -168,6 +168,11 @@ class ProviderRegistryTests:
             "responses",
             "https://suheai.cn/v1/responses",
         )
+        assert shipped.resolve("/suheai/v1/models") == (
+            profile,
+            "models",
+            "https://suheai.cn/v1/models",
+        )
 
     def test_agent_delivery_policy_is_explicit_and_scoped_to_one_route(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
