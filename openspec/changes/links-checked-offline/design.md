@@ -49,13 +49,13 @@ Read in lychee 0.24.2, the release that `.config/mise/config.toml` pins, at tag 
 - `lychee-bin/src/client.rs`: offline mode replaces the accepted schemes with `file` alone.
 - `lychee-lib/src/filter/mod.rs`: a URI whose scheme is not accepted is excluded before any check.
 - `lychee-lib/src/client.rs`: `max_retries` and `require_https` reach only the website checker; `timeout` reaches only
-  the HTTP client, the mail checker and the archive lookup of `--suggest`, which the repository does not enable. File
-  URIs go to the file checker, which takes none of the three.
+  the HTTP client and the mail checker, and `lychee-bin/src/commands/check.rs` passes it to the archive lookup of
+  `--suggest`, which the repository does not enable. File URIs go to the file checker, which takes none of the three.
 
 `max_retries`, `timeout` and `require_https` therefore have no effect offline and are removed. `include_fragments`
 (anchor checks) and `root_dir` (absolute local links) act on file URIs and stay.
 
-Measured on 2026-11-26 with lychee 0.24.2 over the 41 Markdown files tracked at the lane's base, with network access
+Measured on 2026-11-26 with lychee 0.24.2 over the 41 Markdown files that governance selects at the lane's base (archived OpenSpec changes are not selected), with network access
 denied by a macOS `sandbox-exec` profile (`deny network*`; curl under the same profile could not resolve `github.com`):
 the previous configuration with `--offline` and the new configuration alone both reported 83 links, 71 local links
 passing, 12 external links excluded and no error, exit 0. The previous configuration without `--offline` under the same

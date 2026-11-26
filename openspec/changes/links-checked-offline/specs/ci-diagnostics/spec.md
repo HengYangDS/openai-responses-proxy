@@ -4,7 +4,8 @@
 
 The repository's documentation link check SHALL make no network request. The local check and every job of either
 Forge that runs the governance check SHALL run the same link check with the same configuration: it checks the links of
-the tracked Markdown to local files and their anchors, and SHALL NOT fetch an external URL. No option, job or
+the tracked Markdown that the governance check selects, outside archived OpenSpec changes, to local files and
+their anchors, and SHALL NOT fetch an external URL. No option, job or
 configuration SHALL select a second link-check mode.
 
 #### Scenario: A Forge job and the local check check links
@@ -15,7 +16,8 @@ configuration SHALL select a second link-check mode.
 
 #### Scenario: A local link or anchor is broken
 
-- **WHEN** a tracked Markdown file links to a local file or anchor that does not exist
+- **WHEN** a tracked Markdown file that the governance check selects links to a local file or anchor that does not
+  exist
 - **THEN** the link check SHALL fail on both Forges and in the local check
 
 #### Scenario: An external host answers an error

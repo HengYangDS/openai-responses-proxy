@@ -236,6 +236,7 @@ def test_link_policy_selects_the_offline_mode() -> None:
     """Every caller of the link policy checks local links only and sends no network request."""
     policy = tomllib.loads((ROOT / governance.LINK_POLICY).read_text(encoding="utf-8"))
     assert policy["offline"] is True
+    assert policy["include_fragments"] == "anchor-only"
 
 
 def test_structured_text_formatters_have_disjoint_native_ownership() -> None:
