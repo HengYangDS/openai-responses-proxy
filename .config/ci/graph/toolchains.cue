@@ -16,7 +16,9 @@ import "strings"
 	gitlabMiseImage: "ghcr.io/jdx/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120"
 	// GitHub's mise-action installs this release, read from the GitLab image's tag, so both peers run one Mise.
 	miseVersion: strings.TrimSuffix(strings.Split(strings.Split(gitlabMiseImage, ":")[1], "@")[0], "-debian")
-	quality:     "python,uv,node,npm,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"
+	// The Python compatibility job needs only Python and uv; quality adds the other tools.
+	compatibility: "python,uv"
+	quality:       "\(compatibility),node,npm,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee"
 }
 
 // Local Nox and hosted CI consume text projections of this one release runtime. The image reference is its only

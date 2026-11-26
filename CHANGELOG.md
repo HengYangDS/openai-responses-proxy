@@ -25,6 +25,9 @@ publication authority.
   as the home directory, and a backslash in an override is a filename character,
   not a separator, as POSIX paths read them. Before, both were read as on
   Windows.
+- GitLab verifies the supported Python versions on macOS ARM64 as well as on
+  Linux, as GitHub does on macOS, and a failure there fails its pipeline. The
+  product and its release assets are unchanged.
 - Run the repository's own Mise jobs on Mise 2026.11.14: GitLab's from the Mise
   2026.11.14 image, GitHub's through mise-action 5.3.0, which installs that
   release. Commit admission keeps the Mise 2026.10.14 that its pinned ETHOS
