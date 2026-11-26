@@ -33,10 +33,10 @@ publication authority.
   release. Commit admission keeps the Mise 2026.10.14 that its pinned ETHOS
   commit installs. The release assets contain no Mise.
 - CI on both forges checks the documentation's links offline, as the local
-  proof does: links to local files and their anchors are checked, and no
-  external URL is fetched, so an external host's 503 or 504 no longer fails a
-  job. The repository's governance check no longer has an `--online-links`
-  option. The product and its release assets are unchanged.
+  check (`mise run check`) does: links to local files and their anchors are
+  checked, and no external URL is fetched, so an external host's 503 or 504 no
+  longer fails a job. The repository's governance check no longer has an
+  `--online-links` option. The product and its release assets are unchanged.
 
 ## [6.0.3] - 2026-11-17
 
