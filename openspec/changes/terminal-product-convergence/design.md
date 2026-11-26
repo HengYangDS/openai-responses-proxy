@@ -535,14 +535,25 @@ by each lane's closeout once ownership and lack of consumers are proved.
   exit status changes; after a write that timed out, `status` no longer
   reports an upstream deadline as the last failure.
 
-### Close on the installed product
+### Closing scope
 
-The Change closes on the tasks that change or prove the installed product: 4.7,
-5.8, 10.2, 12.5 to 12.7 and the acceptance 13.5 to 13.7; task 7.16 guards the
-tests that prove them. Its owner approved the cut on
-2026-11-13. Twenty-six open tasks left, each with a destination that the
-proposal's Impact lists; a delta statement that depended on one is narrowed to
-what the repository does, or leaves with it.
+From the cut that its owner approved on 2026-11-13, the Change closed on the
+tasks that change or prove the installed product: 4.7, 5.8, 10.2, 12.5 to 12.7
+and the acceptance 13.5 to 13.7; task 7.16 guards the tests that prove them.
+Twenty-six open tasks left, each with a destination that the proposal's Impact
+lists; a delta statement that depended on one is narrowed to what the
+repository does, or leaves with it.
+
+On 2026-11-26 the owner closed the Change before a planned breaking redesign of
+how the proxy names its upstreams. Performance budgets (4.7), reproducible
+bundles (10.2) and injected lifecycle failures (12.5) do not depend on
+providers and become new Changes after the redesign's release. The acceptance
+13.5 to 13.7 covered a scope that the redesign replaces; each successor's
+acceptance and the redesign's release acceptance take its place. No delta
+statement claims what these tasks would have shown: the performance
+requirement states how acceptance measures, which the `performance` Nox
+session implements, and none states an injected failure or a byte-identical
+bundle.
 
 ## Risks / Trade-offs
 
@@ -570,8 +581,6 @@ remains untouched until the successor passes its declared transition.
 
 ## Migration Plan
 
-What remains is the order of tasks 13.5 to 13.7: verify the frozen candidate
-once, repairing a failure at its smallest owner; land and publish it and prove
-the installed upgrade, no-op, rollback, recovery, re-upgrade, uninstall and
-reinstall; then retire what it supersedes, archive this Change and verify
-that the repository family is terminal.
+Nothing of this Change's own migration remains. It archives through ETHOS, and
+its accepted increments stay released and installed as they are. The three
+tasks that left open their new Changes after the redesign's release.

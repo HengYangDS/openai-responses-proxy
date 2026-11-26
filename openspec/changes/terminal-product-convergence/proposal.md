@@ -72,7 +72,7 @@ The product, its tests and tools, the CI projections, release metadata, native
 packages and service definitions are in scope. Public behavior may change where current behavior is ambiguous,
 duplicated, misleading, unsafe, or incompatible with the terminal product.
 
-Since 2026-11-14 the Change closes on the installed product. Twenty-six open
+On 2026-11-14 the Change was cut to close on the installed product. Twenty-six open
 tasks about repository quality, supply, the CI graph, document normalisation
 and host cleanup are out of scope, and no delta statement claims their outcome.
 Evidence retention stays with the repository family's rules, so
@@ -83,8 +83,17 @@ the former product name until their values are next set. After the Change
 closes, CI moves to a released ETHOS when one can trust commits in CI; that is
 ETHOS's schedule, not a task here.
 
+On 2026-11-26 at 19:55 the owner closed the Change before a planned breaking
+redesign of how the proxy names its upstreams, and six more open tasks left it.
+Tasks 4.7, 10.2 and 12.5 do not depend on providers; each opens as a new Change
+of its own after the redesign's release, starting from its text in `tasks.md`
+at `b0d85050`. Tasks 13.5 to 13.7 accepted a scope that the redesign replaces
+and give way to each successor's acceptance and to the redesign's release
+acceptance, so the Change archives without a final acceptance of its own.
+
 | Task | Subject                                   | Destination                                                                          |
 | ---- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
+| 4.7  | Performance budgets                       | The new Change `performance-budgets`, after the redesign's release                   |
 | 6.6  | Carrier audit for one owner per meaning   | ETHOS's repository structure rule; nothing further here                              |
 | 6.7  | Unused dependencies and dead code         | ETHOS's shared hygiene reports; removals follow them                                 |
 | 7.4  | A mature tool for every concern           | ETHOS's shared base for secrets, vulnerabilities, hygiene and workflow checks        |
@@ -101,16 +110,21 @@ ETHOS's schedule, not a task here.
 | 9.4  | Independent jobs without duplicate runs   | ETHOS's shared CI template                                                           |
 | 9.5  | Evidence reuse across runs                | ETHOS's shared CI template and its gate-reuse design                                 |
 | 9.9  | Both projections for the exact candidate  | Merged into 13.6                                                                     |
+| 10.2 | Reproducible macOS and Linux bundles      | The new Change `reproducible-bundles`, after the redesign's release                  |
 | 11.2 | Documented commands on the released build | Merged into 13.7                                                                     |
 | 11.3 | Document normalisation                    | Delivered by the shared formatting and layout base; nothing further planned          |
 | 11.5 | Each configuration field at its owner     | ETHOS's shared base and its repository structure rule                                |
 | 11.7 | One public vocabulary                     | Not pursued in maintenance; reopened by a stale term that a user meets               |
 | 12.1 | Benchmarks and budgets                    | The declared budgets are 4.7's measure; lifecycle timing and other platforms dropped |
 | 12.2 | Hot-path profiling                        | Dropped unless 4.7 misses a budget                                                   |
+| 12.5 | Injected lifecycle failures               | The new Change `lifecycle-failure-injection`, after the redesign's release           |
 | 13.1 | Deletion of superseded entities           | The product part merged into 5.8; duplicate checkers leave with the base             |
 | 13.2 | Orphaned host residue                     | Continuous housekeeping of the repository's owner                                    |
 | 13.3 | Proposal and lane retirement              | Each lane's closeout                                                                 |
 | 13.4 | Failed tags, drafts and Forge records     | The repository's history rebuild, which its owner schedules                          |
+| 13.5 | One verification at final scope           | Each successor's acceptance and the redesign's release acceptance                    |
+| 13.6 | Signed accepted candidate published       | Each successor's acceptance and the redesign's release acceptance                    |
+| 13.7 | Installed product proves every capability | Each successor's acceptance and the redesign's release acceptance                    |
 
 Codex transcripts, client configuration, client-selected models, external
 Provider credentials, and AIGW source remain outside this repository's write
