@@ -18,6 +18,7 @@ flowchart LR
     P --> U["UCloud"]
     P --> D["DMXAPI"]
     P --> A["AIHubMix"]
+    P --> S["Suhe.AI"]
 ```
 
 ## Product boundary
@@ -125,6 +126,7 @@ The listener exposes one provider-scoped namespace per admitted provider:
 | DMXAPI   | `http://127.0.0.1:8792/dmxapi/v1`   |
 | UCloud   | `http://127.0.0.1:8792/ucloud/v1`   |
 | AIHubMix | `http://127.0.0.1:8792/aihubmix/v1` |
+| Suhe.AI  | `http://127.0.0.1:8792/suheai/v1`   |
 
 Configure these URLs in the client control plane, using that client's native
 configuration grammar. The proxy has no package or configuration dependency on

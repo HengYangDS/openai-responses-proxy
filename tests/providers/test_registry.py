@@ -157,6 +157,18 @@ class ProviderRegistryTests:
         assert loaded.profiles["new-gateway"].base_url == "https://gateway.example/v1"
         assert loaded.profiles["new-gateway"].wire_policy is None
 
+    def test_shipped_manifest_routes_suheai_as_an_ordinary_provider(self) -> None:
+        shipped = registry.load()
+        profile = shipped.profiles["suheai"]
+        assert profile.base_url == "https://suheai.cn/v1"
+        assert profile.wire_policy is None
+        assert profile.agent_message_delivery == "native"
+        assert shipped.resolve("/suheai/v1/responses") == (
+            profile,
+            "responses",
+            "https://suheai.cn/v1/responses",
+        )
+
     def test_agent_delivery_policy_is_explicit_and_scoped_to_one_route(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             loaded = registry.load(

@@ -18,6 +18,12 @@ publication authority.
   installation on macOS or Linux, and an upgrade to this release from 6.0.3 or
   earlier there, are unchanged.
 
+### Added
+
+- A route for Suhe.AI: `http://127.0.0.1:8792/suheai/v1` sends Responses and
+  model-catalog requests to `https://suheai.cn/v1` as the other provider routes
+  do, with no handling of its own.
+
 ### Changed
 
 - A root override (`OPENAI_RESPONSES_PROXY_HOME` or
