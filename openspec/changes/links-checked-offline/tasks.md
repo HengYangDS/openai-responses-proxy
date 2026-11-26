@@ -29,15 +29,19 @@
 - [x] 4.1 Pass `tests/quality` and `tests/forge/workflows` as light work, outside the `native_observer` cases, which
       need ETHOS's observer wheel, absent from the lane's environment. 660 passed, at 0.98 cores.
 - [x] 4.2 Pass `openspec validate links-checked-offline --strict`.
-- [ ] 4.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
-      code or in the design.
-- [ ] 4.4 Pass the full check (`mise run check`) on the lane head, in the host queue.
+- [x] 4.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. Findings answered in `74f5a747` and `b14e7cf3`; evidence in
+      `build/evidence/lane-proxy-20261126-offline-links/`.
+- [x] 4.4 Pass the full check (`mise run check`) on the lane head, in the host queue. Passed at `b14e7cf3`: 2,957
+      passed, 5 skipped.
 
 ## 5. Exact-HEAD proof
 
-- [ ] 5.1 Pass the ETHOS full proof of the lane head.
+- [x] 5.1 Pass the ETHOS full proof of the lane head. Pass proven at `b14e7cf3`.
 
 ## 6. Hosted CI
 
-- [ ] 6.1 Pass the proposal's GitHub checks; the governance step runs the module without an option.
-- [ ] 6.2 Pass the proposal's GitLab pipeline; its source job runs the module without an option.
+- [x] 6.1 Pass the proposal's GitHub checks; the governance step runs the module without an option. PR 223 at
+      `b14e7cf3`: 15 passed, 5 skipped, none failing.
+- [x] 6.2 Pass the proposal's GitLab pipeline; its source job runs the module without an option. Pipeline 18395 at
+      `b14e7cf3` (merge request !131): all ten jobs succeeded, `source-and-governance` included.
