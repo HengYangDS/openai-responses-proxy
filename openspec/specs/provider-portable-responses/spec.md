@@ -10,18 +10,19 @@ AIHubMix routes without changing the conversation record itself.
 
 ### Requirement: Every Responses request is projected to a provider-portable form
 
-Before upstream I/O, the proxy SHALL derive portability only from the current
-request and the proved protocol grammar. It SHALL remove provider-bound
-continuation state, stored-item references, replayed reasoning items, and
-encrypted replay content. It SHALL set `store=false` and remove any request for
-`reasoning.encrypted_content` while leaving provider-neutral generation settings
-unchanged.
+Before upstream I/O, the proxy SHALL project the current request through one
+proved portability grammar, preserving portable input and generation settings.
+It SHALL remove provider-bound continuation and optional encrypted replay state,
+set `store=false`, and omit requests for `reasoning.encrypted_content`. Required
+encrypted agent tasks SHALL keep their native envelope and exact ciphertext;
+upstream rejection SHALL NOT substitute a header-only task.
 
 #### Scenario: A stored conversation changes provider
 
 - **WHEN** a request contains `previous_response_id`, `conversation`,
-  `prompt_cache_key`, an `rs_*` item, encrypted output, or another
-  provider-owned continuation structure
+  `prompt_cache_key`, stored-item references, replayed reasoning items such as
+  `rs_*`, optional encrypted output, or another provider-owned continuation
+  structure
 - **THEN** none of that provider-bound state is sent to the selected upstream
 - **AND** the upstream receives `store=false` with the remaining portable
   dialogue, complete tool history, and supported controls
@@ -35,6 +36,17 @@ unchanged.
 - **THEN** the projection preserves those semantics, sets `store=false`, and
   does not manufacture a continuation identifier, stored item, or decrypted
   value.
+
+#### Scenario: Codex declares tools for the current turn
+
+- **WHEN** a request contains a valid `additional_tools` control with a tool
+  catalog, including an explicitly empty catalog during native compaction
+- **THEN** the projection preserves that current-turn control, including its
+  declared role, catalog, and client item identity, rather than deleting it as
+  auxiliary replay history
+- **AND** malformed outer controls are rejected before upstream I/O
+- **AND** shrinking recovery retains the tool catalog and compaction intent or
+  declines recovery instead of silently changing the available tools.
 
 #### Scenario: Portable content is projected
 
@@ -55,30 +67,32 @@ unchanged.
 
 #### Scenario: A conversation changes providers repeatedly
 
-- **WHEN** a subsequent request switches among UCloud, DMXAPI, and AIHubMix
+- **WHEN** a subsequent request switches among provider routes
 - **THEN** the outbound request uses `store=false`
-- **AND** no `rs_*`, provider item identifier, or unproved provider-specific replay structure crosses the provider boundary
-- **AND** portable user and agent content remains replayable.
+- **AND** no optional reasoning or continuation binding crosses the provider boundary
+- **AND** portable user and plaintext agent content remains replayable; encrypted
+  delegation additionally requires an upstream capable of interpreting it.
 
 ### Requirement: Portable dialogue and tool relationships are preserved
 
-The proxy SHALL preserve textual system, developer, user, and assistant
-dialogue; agent author, recipient, and phase context; complete
-function/custom-tool call-output pairs; and standalone cross-task tool delivery
-results whose portable provenance is explicit.
+The proxy SHALL preserve role-valid dialogue, agent author/recipient/phase,
+complete function/custom-tool call-output pairs, and standalone deliveries with
+explicit portable provenance. Assistant, plaintext synthesized-agent, and
+standalone history SHALL use Easy Input Message strings; instructions, user
+content, and paired output lists SHALL use input-content grammar. Paired outputs
+SHALL NOT depend on provider IDs or opaque metadata.
 
 #### Scenario: Complete requirement obligations are evaluated
 
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** Assistant, synthesized-agent,
-  and standalone delivery history SHALL use provider-neutral Easy Input Message
-  strings. System, developer, user, and paired tool-output lists SHALL use
-  input-content grammar. Provider IDs, statuses, annotations, namespaces, and
-  opaque metadata SHALL NOT be required by a paired output's outbound form.
+- **WHEN** an admitted function or custom-tool output carries provider bookkeeping
+- **THEN** its outbound pair keeps the call identity, kind, and visible output
+  using input-content grammar
+- **AND** the outbound form needs no provider item ID, status, annotation,
+  namespace, or opaque metadata.
 
 #### Scenario: Text and paired calls are replayed
 
-- **WHEN** a request contains text messages, an agent message, a function call
+- **WHEN** a request contains text messages, a plaintext agent message, a function call
   and output, and a custom-tool call and output
 - **THEN** the upstream receives equivalent role-valid portable text and both
   complete call-output pairs
@@ -100,10 +114,13 @@ results whose portable provenance is explicit.
   preserves the tool name, namespace, and visible output
 - **AND** the proxy does not invent a function call, call identity, or
   provider-bound continuation.
+- **AND** shared diagnosis and recovery classify it as independent delivery,
+  not an orphaned pair; repeated item IDs across standalone and paired outputs
+  remain local rejections, and custom-tool outputs do not inherit this shape.
 
 #### Scenario: Assistant content is normalized for replay
 
-- **WHEN** an assistant message or projected agent message contains
+- **WHEN** an assistant message or projected plaintext agent message contains
   `input_text`, `output_text`, or refusal content from stored history
 - **THEN** its portable assistant representation uses a deterministic string
   that preserves the visible text and phase
@@ -117,14 +134,32 @@ results whose portable provenance is explicit.
 - **THEN** its portable representation uses `input_text`
 - **AND** no assistant-only output block is emitted for that role.
 
+#### Scenario: An agent message carries an encrypted task
+
+- **WHEN** a valid agent message contains nonempty encrypted task content,
+  with or without a visible routing header
+- **THEN** the original message kind, author, recipient, content order and
+  ciphertext remain unchanged; local bookkeeping metadata is removed
+- **AND** a missing, empty, malformed or unknown ciphertext field is rejected
+  rather than replaced by a header-only task or a fabricated plaintext result
+- **AND** shrinking recovery cannot discard this native control input.
+
 #### Scenario: An agent or tool output has only opaque ciphertext
 
-- **WHEN** removing encrypted content would otherwise leave an agent message or
-  tool output empty
-- **THEN** the proxy inserts a stable plaintext omission marker using the
-  assistant string carrier or tool-output input grammar
-- **AND** it does not claim to have decrypted or reconstructed the omitted
-  result.
+- **WHEN** an agent or ordinary paired tool output has no plaintext beyond
+  its opaque ciphertext
+- **THEN** the agent keeps its native encrypted envelope, while an ordinary
+  historical tool output keeps its explicit omission marker in input grammar
+- **AND** the proxy does not claim to decrypt or reconstruct that history. This
+  behavior does not apply to required agent-task messages.
+
+#### Scenario: A selected Provider cannot decrypt native delegation
+
+- **WHEN** an encrypted agent task receives HTTP 400 with
+  `type=invalid_request_error` and `code=invalid_encrypted_content`
+- **THEN** the proxy relays that rejection without a second upstream request
+- **AND** the original encrypted task and local conversation history remain
+  unchanged; a visible routing header is never accepted as the task body.
 
 #### Scenario: Classified DMX retry preserves the projected bytes
 
@@ -136,13 +171,15 @@ results whose portable provenance is explicit.
 
 #### Scenario: Replay contains an inline screenshot
 
-- **WHEN** image-capable input contains a nonempty, strictly Base64-encoded
-  PNG, JPEG, WebP, or GIF data URL
-- **THEN** projection retains its original URL, detail, and order in dialogue
-  and paired tool-output input, including image-only content
+- **WHEN** image-capable input contains an HTTP(S) image URL or a nonempty,
+  strictly Base64-encoded PNG, JPEG, WebP, or GIF data URL
+- **THEN** the shared content projection retains its original URL, detail, and
+  order in dialogue and paired tool-output input, including image-only content
 - **AND** repeated projection and classified retries preserve the image bytes
+  without increasing the omitted-image count
 - **AND** validation performs no filesystem access, network fetch, raster
-  decoding, or image re-encoding.
+  decoding, or image re-encoding; local file references and malformed image
+  transports retain their existing disposition.
 
 #### Scenario: Classified DMX retry retains replayable input images
 
@@ -192,57 +229,84 @@ than forwarded or rejected.
 
 ### Requirement: Unproved replay shapes fail closed
 
-Before upstream I/O, the proxy SHALL classify each Responses input item through
-one authoritative item policy shared by diagnostics and provider-portable
-projection.
+One item/relationship policy SHALL govern diagnostics and pre-I/O projection.
+Malformed JSON, invalid containers or required fields, unknown item
+or content types, duplicate identities, unproved repeated outputs, orphaned or
+mismatched outputs, and incomplete shell pairs SHALL fail locally. A distinct
+later named text delivery matching the original call SHALL retain delivery
+semantics. Errors SHALL expose only bounded structural reasons, never request
+text, credentials, or ciphertext.
 
 #### Scenario: Complete requirement obligations are evaluated
 
-- **WHEN** this requirement is evaluated for implementation or acceptance
-- **THEN** Malformed JSON, invalid input containers, genuinely unknown replay
-  item types, unknown content block types, orphaned or mismatched tool outputs,
-  duplicate call/output identities, invalid required fields, and incomplete local
-  shell pairs SHALL be rejected locally. The error SHALL identify a bounded
-  structural reason without returning request text, credentials, or encrypted
-  payloads.
+- **WHEN** a request contains malformed JSON, an invalid input container, an
+  unknown item or content block type, or an invalid required field
+- **THEN** the proxy rejects it before upstream I/O with a bounded structural
+  reason
+- **AND** neither the reason nor diagnostics expose request text, credentials,
+  or ciphertext.
+
+#### Scenario: A later delivery has a distinct identity
+
+- **WHEN** a later named textual delivery has a distinct item identity and
+  matches the original call
+- **THEN** it retains its explicit delivery semantics rather than becoming a
+  second paired output
+- **AND** duplicate call identities, repeated output item identities, and
+  unproved repeated outputs remain local rejections.
+
+#### Scenario: A JSON number has no finite native representation
+
+- **WHEN** a request contains `NaN`, `Infinity`, `-Infinity`, or a numeric
+  exponent that overflows the native JSON number representation at any depth
+- **THEN** projection and diagnosis report `invalid_json` before normalization
+  or upstream I/O, including in otherwise removed provider state
+- **AND** finite numbers and numeric-looking strings retain their semantics;
+  a clean request retains its exact bytes.
 
 #### Scenario: A future client introduces an unknown replay item
 
-- **WHEN** the input list contains a replay item not recognized by the
-  authoritative item policy
-- **THEN** the proxy returns a local client error identified as an unknown item
+- **WHEN** the input list contains an item not recognized by the item policy
+- **THEN** the proxy returns a local error identified as an unknown item
 - **AND** no configured provider receives the request.
 
 #### Scenario: A recognized client item lacks portable semantics
 
-- **WHEN** the authoritative policy recognizes an item emitted by a supported
-  client but does not define a safe provider-portable projection for it
-- **THEN** the proxy returns a local client error identified as bounded schema
-  drift rather than an unknown item
+- **WHEN** the policy recognizes an item but has no safe portable projection
+- **THEN** the proxy returns a bounded schema-drift error
 - **AND** no configured provider receives the request.
 
 #### Scenario: A tool output is not safely paired
 
-- **WHEN** an output precedes its call, names an unknown `call_id`, duplicates
-  an earlier output, or does not match the call kind
-- **THEN** the request is rejected rather than silently deleting, reordering,
-  or inventing tool history.
+- **WHEN** an output precedes its call, names an unknown `call_id`, repeats an
+  output item identity, lacks required delivery provenance after the first
+  result, or does not match the original call kind and name
+- **THEN** the request is rejected without deleting, reordering or inventing
+  tool history.
 
 #### Scenario: Codex local shell history is provider-local
 
 - **WHEN** replay contains a `local_shell_call` with a valid closed `exec`
-  action, a supported status, exactly one matching `function_call_output`, and
+  action, supported status, exactly one matching `function_call_output`, and
   a current dialogue item
 - **THEN** the proxy removes the complete local shell pair before upstream I/O
-- **AND** it preserves the current dialogue item
-- **AND** an unpaired call, invalid status, unknown action field, or invalid
-  action value is rejected locally.
+- **AND** it preserves the dialogue; unpaired calls, invalid statuses, unknown
+  action fields and invalid action values remain local rejections.
 
 #### Scenario: Diagnostic and projection classification agree
 
-- **WHEN** the proxy diagnoses and projects the same Responses input item
-- **THEN** both operations consume the same authoritative item classification
-- **AND** a recognized item cannot fall through projection as an unknown type.
+- **WHEN** the proxy diagnoses and projects the same input item
+- **THEN** both operations consume the same item and relationship policy.
+
+#### Scenario: A semantic selector has an invalid JSON type
+
+- **WHEN** a replay role, phase or shell status is an array or object
+- **THEN** projection and diagnosis return the same bounded field rejection
+  before upstream I/O, without a traceback or private content
+- **AND** non-string terminal response statuses are rejected locally; selected
+  delegation schemas and replay calls require string names and types
+- **AND** valid string selectors, native encrypted content and unrelated live
+  response bytes retain their existing semantics.
 
 ### Requirement: Provider routes admit only exact Responses and model-catalog targets
 
@@ -627,3 +691,387 @@ Active-request accounting exists only for lifecycle handoff and observation.
 - **THEN** new Responses are admitted and counted as at any other time
 - **AND** active-request accounting stays an observation and never becomes a
   traffic limit.
+
+### Requirement: Upstream capacity rejection permits only safe shrinking recovery
+
+Exact upstream capacity rejections SHALL permit one strictly smaller, dependency-safe historical compaction. Required current-turn content SHALL remain unchanged. Unsafe or rejected recovery SHALL retain the upstream error without further retry.
+
+#### Scenario: Historical input consumes upstream capacity
+
+- **WHEN** HTTP 400 carries exactly `type=invalid_request_error`, `code=validation_error`, an empty parameter, and `Input is too long` or `media inputs exceed the remaining encoded media budget after processing`, optionally followed only by its request ID
+- **THEN** one smaller dependency-safe projection may be attempted, preserving current images, instructions and content; content-free diagnostics report the outcome.
+
+#### Scenario: The active turn alone exceeds capacity
+
+- **WHEN** the same-turn media or required input leaves no safe reduction
+- **THEN** the exact upstream rejection reaches the client after one attempt, without removing images or consulting client history.
+
+### Requirement: Responses semantics have one classification and projection authority
+
+Request admission, replay diagnosis, relationship validation, Provider-portable
+projection, and recovery classification SHALL consume one authoritative typed
+item and relationship model. A recognized item SHALL have exactly one portable,
+Provider-local, or rejected disposition; no sanitizer, adapter, diagnostic path,
+or fallback SHALL reinterpret it independently.
+
+#### Scenario: One replay enters the request path
+
+- **WHEN** the replay is admitted, diagnosed, projected, retried, or rejected
+- **THEN** every stage consumes the same item identities and relationships
+- **AND** no duplicate classifier, silent deletion, invented history, or
+  unknown-item fall-through changes its meaning.
+
+#### Scenario: A classified failure requires a smaller current request
+
+- **WHEN** validation or execution recovery removes historical input
+- **THEN** both paths use the same typed current-turn selection to retain the
+  latest system, developer and user messages, the input following that user,
+  native turn controls and declared dependencies in their original order
+- **AND** top-level instructions remain unchanged; recovery cannot reduce the
+  request by discarding required instruction roles or native delegation.
+- **AND** compaction checks the actual retained sequence and its declared
+  dependencies, not a suffix that omits separately retained earlier input.
+
+#### Scenario: An ordinary Responses message omits its optional type
+
+- **WHEN** a standard input message supplies its role and content without the
+  optional `type` discriminator
+- **THEN** admission projects it through the same message owner as an explicit
+  `type: message`, preserving role, content order and supported phase
+- **AND** invalid roles, content and unknown fields retain their declared
+  rejection; a present invalid discriminator is not treated as omission.
+
+#### Scenario: Provider-local search history declares tool relationships
+
+- **WHEN** replay contains a recognized Provider-local tool search call or output
+- **THEN** projection, diagnosis and recovery use the shared ordered relationship
+  boundary before the declared Provider-local items are removed
+- **AND** missing identities, orphaned or preceding outputs, duplicate calls and
+  duplicate outputs are rejected rather than hidden by removal
+- **AND** valid search history leaves portable dialogue unchanged; an unmatched
+  call alone does not invent an output or change the existing pending-call policy.
+
+#### Scenario: A running tool delivers later results
+
+- **WHEN** a function or custom-tool call already has its initial result and
+  later output items have distinct nonempty item IDs, the same call kind and
+  `call_id`, and a nonempty tool name matching the original call
+- **THEN** projection keeps the original pair and emits each later result as
+  an explicitly attributed `tool_delivery` assistant commentary message at its
+  original position, retaining the visible text, call identity and tool name
+- **AND** projection, diagnosis and recovery use the same relationship decision;
+  a recovery suffix cannot retain a delivery after removing its original call
+- **AND** no result replaces an earlier result, no synthetic call is invented,
+  and repeated projection is byte-stable. This named textual delivery contract
+  does not imply support for every native asynchronous API feature.
+
+### Requirement: Provider extension is adapter-only
+
+A new upstream Provider SHALL be admitted through one manifest entry and, only
+where its wire differs, one policy module that the entry declares. Generic HTTP
+admission, Responses semantics, lifecycle, CLI, and client configuration SHALL
+NOT branch on Provider names.
+
+#### Scenario: A Provider is added
+
+- **WHEN** its endpoint and any wire policy are declared in the manifest
+- **THEN** its route serves through the existing Responses path, and a policy
+  that is missing, incomplete or outside its declared package fails the load
+- **AND** no existing generic product module requires Provider-specific code.
+
+### Requirement: HTTP request framing precedes Responses interpretation
+
+Responses admission SHALL read exactly one body framed by a single ASCII
+decimal `Content-Length`. Unsupported transfer encodings, absent, ambiguous or
+invalid lengths, and incomplete bodies SHALL receive one secret-free local
+failure before projection or upstream I/O. Rejection SHALL close the connection
+so unread bytes cannot become another request.
+
+#### Scenario: A caller supplies unproved framing
+
+- **WHEN** a Responses request supplies an unsupported transfer encoding or
+  missing, repeated, nondecimal, negative or unrepresentable body length
+- **THEN** it receives HTTP 400 with `request_framing_rejected` and a fixed reason
+- **AND** no header value, request content, traceback or upstream request is emitted.
+
+#### Scenario: The caller closes its write side before the declared body ends
+
+- **WHEN** the available bytes form valid JSON but are fewer than the declared length
+- **THEN** HTTP 400 identifies `incomplete_request_body` without forwarding that prefix
+- **AND** the connection closes rather than interpreting another request.
+
+#### Scenario: A complete request is followed by another keep-alive request
+
+- **WHEN** the caller supplies one complete length-framed Responses body
+- **THEN** projection consumes only that body and computes the upstream length
+- **AND** a subsequent complete request remains independently parseable.
+
+### Requirement: Responses body admission has finite byte and time budgets
+
+Responses admission SHALL reject a declared body above its configured byte
+limit before reading it. Every body read SHALL spend one monotonic deadline;
+partial progress SHALL NOT renew it. Over-limit, expired and unreadable bodies
+SHALL receive one secret-free local failure before projection or upstream I/O,
+close the connection and leave other requests usable. Native runtime settings
+SHALL own and validate these budgets independently of upstream inference.
+
+#### Scenario: A body length exceeds the selected limit
+
+- **WHEN** a single valid decimal length exceeds the body limit, even if it
+  exceeds the platform's native read-size range
+- **THEN** HTTP 413 reports `request_body_rejected` and `request_body_too_large`
+- **AND** no body read, projection, upstream request or second HTTP reply occurs.
+
+#### Scenario: The caller stalls or continually sends small body fragments
+
+- **WHEN** the body cannot finish within its original monotonic deadline
+- **THEN** HTTP 408 reports `request_body_rejected` and `request_body_timeout`
+- **AND** no partial body, credential or traceback appears in the error or log;
+  the original socket timeout is restored before the connection closes.
+
+#### Scenario: A complete body fits the limit and its deadline
+
+- **WHEN** the caller sends exactly the admitted byte limit before expiry
+- **THEN** only those bytes enter portable projection, unchanged when already portable
+- **AND** a subsequent keep-alive request remains parseable; the body deadline
+  does not shorten inference, streamed output or the next request.
+
+### Requirement: Catalog exchanges have independent finite budgets
+
+Each model catalog GET SHALL use one validated deadline and byte limit,
+independent of Responses inference. Success and HTTP errors SHALL forward
+only admitted bytes, once, without replay or recovery. Headers, body reads
+and downstream writes SHALL share the original deadline. Failure after
+commitment SHALL close without another status or successful terminator;
+all paths SHALL release upstream ownership and restore the socket timeout.
+
+#### Scenario: Catalog success or HTTP error exceeds its budget
+
+- **WHEN** catalog headers expire before commitment
+- **THEN** one bounded local HTTP 504 reports `catalog_deadline_exceeded`
+- **AND** a local failure closes its connection and gets at most one separate
+  configured catalog timeout for delivery; an unavailable client cannot hold it
+- **AND** a body exceeding time or bytes after commitment preserves only its
+  admitted prefix and closes, without retry, changed status or completion
+- **AND** native HTTP framing progress cannot renew the deadline. System DNS
+  cancellation and inbound header deadlines remain separately unproved.
+
+#### Scenario: A catalog fits its exact byte limit
+
+- **WHEN** a success or HTTP error completes within the selected limits
+- **THEN** its status, end-to-end headers and exact body are relayed once
+- **AND** normal HTTP completion remains distinguishable from truncation;
+  catalog failures do not enter Responses admission, cooldown or recovery.
+
+### Requirement: Sustained upstream unavailability does not amplify demand
+
+Responses SHALL retain bounded request-local recovery for a transient upstream
+`503`. When that recovery ends in `503`, the proxy SHALL relay the upstream
+status and body and remember a bounded cooldown for that Provider only.
+During the cooldown, another Responses request for that Provider SHALL receive
+a typed local `503` with `Retry-After` before upstream I/O. The cooldown SHALL
+not block another Provider or non-Responses resource, and a request after expiry
+SHALL probe the upstream again.
+
+#### Scenario: A Provider remains unavailable across turns
+
+- **WHEN** one Responses turn exhausts its bounded retries with upstream `503`
+- **THEN** that turn receives the original terminal `503`
+- **AND** an immediate subsequent turn for the same Provider receives a local
+  `provider_unavailable_cooldown` response without upstream I/O
+- **AND** another Provider remains usable; after expiry the first Provider is
+  probed again.
+
+### Requirement: Upstream redirects reach the client unfollowed
+
+The relay SHALL NOT follow an upstream redirect. A redirect response from the
+selected upstream SHALL reach the client as that response, and the client's
+request, including its credential, SHALL be sent only to the selected route's
+upstream, never to the URL that the redirect names.
+
+#### Scenario: An upstream redirects to another host
+
+- **WHEN** an upstream answers a Responses or model-catalog request with a
+  redirect to another host or scheme
+- **THEN** the proxy sends no request to the redirect target
+- **AND** the client receives the upstream's redirect status and `Location`.
+
+### Requirement: HTTP event-stream commitment and release are irreversible
+
+Each HTTP Responses stream SHALL forward validated available events without
+waiting to fill an application buffer or for upstream EOF. A terminal
+`response.completed`, `response.incomplete`, or `response.failed` event SHALL
+finish that response's stream; subsequent bytes SHALL NOT reopen or extend it.
+This single-response HTTP contract SHALL NOT be applied to a persistent
+WebSocket that can carry successive responses and steering events.
+
+#### Scenario: A complete event arrives on a held-open chunked connection
+
+- **WHEN** the upstream sends a terminal event but leaves its HTTP connection open
+- **THEN** the client receives that complete response without waiting for EOF
+- **AND** the upstream attempt is released without another request.
+
+### Requirement: Upstream connection release and failure commitment are bounded
+
+Every upstream attempt SHALL release its connection after success, rejection,
+exception, downstream disconnect or a downstream write that misses the exchange
+deadline. Before downstream commitment, a malformed event SHALL yield one
+structured HTTP failure.
+
+#### Scenario: Retries and reads share the original exchange deadline
+
+- **WHEN** one Responses exchange acquires headers, reads an HTTP error or JSON
+  body, waits for classified recovery, or reconnects an uncommitted SSE stream
+- **THEN** every operation consumes the same monotonic deadline created for
+  that exchange; a new attempt or body phase cannot reset its budget
+- **AND** an expired pre-commit exchange returns one structured failure without
+  starting another request; an expired committed stream closes without replay,
+  a second status line or a fabricated successful terminator
+- **AND** buffered JSON and error bodies remain byte-bounded and owned upstream
+  connections are released on success, rejection and read failure.
+
+#### Scenario: HTTP framing arrives one small fragment at a time
+
+- **WHEN** the upstream continually supplies partial headers, chunk sizes or
+  trailers within each idle socket timeout
+- **THEN** every raw HTTP read is clamped to the original exchange deadline;
+  framing progress cannot renew the exchange or admit a late stream completion
+- **AND** HTTP and certificate-verified HTTPS use the native parser without a
+  timer thread, alternate service or a patched standard library
+
+#### Scenario: Pending SSE data exceeds its byte budget
+
+- **WHEN** one framed or partial event, or the held pre-content prelude, exceeds
+  the persisted SSE byte budget (64 MiB by default)
+- **THEN** the attempt stops without reconnecting and releases its connection;
+  an uncommitted exchange returns one `stream_buffer_limit` error, while a
+  committed exchange preserves emitted bytes and closes without success
+- **AND** bounded events keep their order and exact bytes, including ciphertext;
+  total stream output is not capped, and fragmented input is extended in place
+  with framing searches limited to the newly extended suffix.
+
+#### Scenario: Connection setup and request writes spend the original budget
+
+- **WHEN** native DNS returns addresses, TCP falls back to another address, TLS
+  handshakes, or the request sends headers and body
+- **THEN** each blocking socket phase uses only the remaining monotonic budget
+- **AND** an expired resolution starts no socket or request, failed address
+  sockets close, and TLS retains the selected trust store and hostname checking
+- **AND** the exchange waits for native address resolution only within that
+  budget; at most four resolver threads run lookups, exchanges for one address
+  share a lookup, and a lookup that outlives its waiters holds no exchange,
+  upstream connection or admission slot.
+
+#### Scenario: A client stops reading the response
+
+- **WHEN** the downstream client stops reading while the proxy writes the
+  status, headers, events or terminator of one exchange
+- **THEN** each write uses only the remaining budget; at the deadline the proxy
+  closes both connections and releases the admission slot
+- **AND** a structured failure that starts after the deadline has one short
+  write budget of one second instead of an unbounded wait.
+
+#### Scenario: Sequential exchanges reach the same upstream address
+
+- **WHEN** an upstream response was read to the end without an announced close
+  and a later exchange targets the same scheme, host and port
+- **THEN** the later exchange reuses that idle connection only while it is at
+  most 30 seconds old and its peer has not closed it, sends every header that
+  urllib builds except the forced `Connection: close`, and spends only its own
+  budget
+- **AND** at most eight idle connections are kept per address, and a partly
+  read, abandoned or failed response closes its connection
+
+#### Scenario: The upstream may have accepted a request whose response was lost
+
+- **WHEN** the connection fails after the complete request was sent, or an
+  uncommitted stream ends before content without `response.failed`
+- **THEN** the proxy returns one `502 upstream_outcome_unknown` and does not
+  send that request again; after a connection failure, only a request that was
+  not sent completely is retried.
+
+#### Scenario: Output is malformed after downstream commitment
+
+- **WHEN** output is malformed or unterminated after downstream commitment
+- **THEN** the existing response closes without a second status line, a successful
+  chunk terminator, fabricated completion or request replay
+- **AND** only the existing classified pre-content recovery may reopen a request.
+
+#### Scenario: The client disconnects during a write
+
+- **WHEN** a downstream header or body write raises an exception
+- **THEN** the owned upstream response is closed exactly once
+- **AND** no retry starts for the disconnected client.
+
+#### Scenario: A malformed event follows visible content
+
+- **WHEN** HTTP 200 and validated content have already reached the client
+- **THEN** the client observes a truncated response, not a second HTTP 503
+- **AND** the proxy records the failure and releases the upstream connection.
+
+### Requirement: Plaintext agent delivery is selected before generation
+
+A released provider profile SHALL select native or plaintext agent message
+delivery. Omission SHALL select native delivery. The plaintext policy SHALL
+bind one request's schema, replay and response restoration without accessing
+client configuration, credentials or conversation storage.
+
+#### Scenario: A route selects readable agent messages
+
+- **WHEN** a plaintext route receives the native `collaboration` catalog
+- **THEN** it aliases that catalog and explicit tool choice upstream and removes
+  encryption annotations only from spawn, message and followup message schemas
+- **AND** JSON and streaming responses restore the native namespace and, for
+  function calls, the empty encrypted-argument marker only after complete
+  readable arguments are proved
+- **AND** exact message arguments and call identities survive sender-to-recipient
+  delivery using the client's native plaintext path.
+
+#### Scenario: A selected custom call preserves its native argument field
+
+- **WHEN** JSON or streaming output contains a selected custom message call
+- **THEN** the declared call policy selects `input`, not function `arguments`,
+  for readable-message validation and preserves its exact value and call identity
+- **AND** no function-only encrypted-argument marker is added or accepted;
+  replay retains the custom call and output grammar.
+
+#### Scenario: A terminal delivery retains an in-progress item status
+
+- **WHEN** a terminal Response or `response.output_item.done` contains a selected
+  message call still marked `in_progress` with no readable arguments
+- **THEN** the terminal context requires complete readable arguments and fails
+  locally without restoring or dispatching that call
+- **AND** an initial `response.output_item.added` may precede argument generation
+  without an empty encrypted-argument marker; any previously emitted bytes remain
+  unchanged and the committed request is not reopened.
+
+#### Scenario: Old ciphertext or conflicting metadata is present
+
+- **WHEN** retained history contains encrypted native agent content, or a
+  selected output carries ciphertext or nonempty encrypted argument metadata
+- **THEN** retained history preserves its exact envelope and ciphertext
+- **AND** output cannot be relabeled as plaintext or retried with its message
+  removed; unproved selected output fails locally.
+
+#### Scenario: Live validation fails after downstream content
+
+- **WHEN** malformed SSE data or unproved selected agent arguments follow
+  downstream content
+- **THEN** the relay preserves emitted bytes, closes the incomplete connection
+  and does not reopen the committed request
+- **AND** selected call types and names are strings before semantic selection;
+  a malformed selected value fails with a bounded delivery reason, while an
+  unrelated namespace retains its exact bytes
+- **AND** operational evidence identifies the validator-owned fixed reason
+  without message arguments, ciphertext, query values or exception prose
+- **AND** an unclassified validation exception remains `unknown`.
+
+#### Scenario: The client continues an admitted agent conversation
+
+- **WHEN** the client's own configuration aligns its native namespace and model
+  agent version with the conversation
+- **THEN** acceptance proves real child tool execution, bidirectional explicit
+  messages, automatic completion and followup tasks on the selected route
+- **AND** native resume and compaction retain exact content witnesses
+- **AND** source acceptance alone does not claim release, installed runtime,
+  original-chat recovery or readability of earlier ciphertext.

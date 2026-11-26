@@ -19,9 +19,10 @@ graph.
 - **WHEN** this requirement is evaluated for implementation or acceptance
 - **THEN** The committed uv lock SHALL own Python tool resolution, and project
   metadata SHALL declare the exact current stable uv bootstrap used by local and
-  hosted verification. Warnings, tracebacks, skipped required platforms, and
-  missing runners SHALL NOT be represented as success. A pending release heading
-  SHALL match `VERSION` and the current UTC date before either Forge prepares a
+  hosted verification. Warnings of tests, Nox sessions and type checks,
+  tracebacks, skipped required platforms, and missing runners SHALL NOT be
+  represented as success. A pending release heading SHALL match `VERSION` and
+  SHALL NOT be dated after the current UTC day before either Forge prepares a
   release.
 
 #### Scenario: A clean checkout is verified
@@ -29,21 +30,24 @@ graph.
 - **WHEN** a contributor or Forge installs the declared uv bootstrap and runs
   the repository command
 - **THEN** the lock supplies every runtime and quality dependency
-- **AND** Nox resolves the Python matrix from `.python-versions`
+- **AND** Nox resolves the Python matrix from `.config/ci/python-versions`
 - **AND** no ambient user site, another repository environment, or unpinned
   package resolution contributes to success.
 
 #### Scenario: Release preparation crosses a UTC date boundary
 
-- **WHEN** a pending version has not been tagged and its Changelog date is no longer the current UTC date
-- **THEN** release preparation fails closed
-- **AND** the heading is advanced before proof, tagging, or publication.
+- **WHEN** a pending version has not been tagged and the current UTC day
+  advances past its Changelog date
+- **THEN** the prepared heading stays valid without an edit
+- **AND** a heading dated after the current UTC day fails closed before proof,
+  tagging, or publication.
 
 #### Scenario: Product tags are checked
 
 - **WHEN** local or hosted verification validates release history
-- **THEN** it checks the reachable product SemVer tags and corresponding
-  Changelog headings from the exact source checkout
+- **THEN** it checks the product SemVer tags no newer than the checkout's
+  `VERSION`, independently of commit ancestry, and their Changelog headings
+  from the exact source checkout
 - **AND** tag creation time is not required to equal the Changelog date
 - **AND** no Forge name or provider-specific tag namespace enters product metadata.
 
@@ -57,9 +61,10 @@ graph.
 
 #### Scenario: GitLab project coordinates contain namespaces
 
-- **WHEN** runner admission queries a project whose coordinate contains `/`
+- **WHEN** release observation queries a GitLab project whose coordinate
+  contains `/`
 - **THEN** the coordinate is encoded as one GitLab project identifier
-- **AND** the runner API request resolves the intended project rather than a
+- **AND** the API request resolves the intended project rather than a
   truncated path.
 
 #### Scenario: The uv bootstrap advances
@@ -91,10 +96,11 @@ disconnects MAY be suppressed only by the fixture that creates them.
 
 ### Requirement: Python compatibility and native release prove distinct facts
 
-Each supported Python minor line SHALL build and install the wheel, then run
-the complete non-native behavior inventory. The release session SHALL be the
-only native executable build owner and SHALL black-box test the target-platform
-executable with Python absent from the product `PATH`.
+Each supported Python minor SHALL build and install the wheel and run the
+complete non-native behavior inventory. Only the release session SHALL build
+and black-box test the target-platform executable. One portable child-environment
+contract SHALL preserve the native host substrate, isolate Proxy-owned roots,
+and exclude Python discovery through the product `PATH`.
 
 #### Scenario: The supported matrix runs
 
@@ -105,11 +111,22 @@ executable with Python absent from the product `PATH`.
 - **AND** platform-specific integration runs only on the platform that owns the
   real system call while synthetic wire fixtures remain portable.
 
+#### Scenario: A native process environment is isolated
+
+- **WHEN** black-box acceptance starts a packaged executable
+- **THEN** the child environment derives the execution substrate from the
+  current supported native host
+- **AND** Proxy-owned user, payload, state, and command roots resolve only
+  inside the test-owned workspace
+- **AND** the product `PATH` contains no Python executable
+- **AND** one platform-neutral contract supplies the environment on macOS and
+  Linux.
+
 #### Scenario: A native asset is accepted
 
 - **WHEN** the release session packages a supported platform archive
 - **THEN** help, version, status, handoff, manifest, and service behavior have
-  passed through the built executable
+  passed through the built executable under the isolated native environment
 - **AND** the archive is bound to the release-owned manifest.
 
 ### Requirement: Coverage is strict and host-independent
@@ -159,15 +176,15 @@ entrypoint.
 
 #### Scenario: GitHub resolves the supported Python matrix
 
-- **WHEN** the GitHub verification workflow reads `.python-versions`
+- **WHEN** the GitHub verification workflow reads `.config/ci/python-versions`
 - **THEN** it first installs the locked quality environment
 - **AND** it invokes the matrix owner through `python -m`
 - **AND** no workflow-local parser duplicates the matrix semantics.
 
 #### Scenario: GitLab executes repository release tests
 
-- **WHEN** the GitLab metadata job runs repository-only tests under importlib mode
-- **THEN** it invokes pytest through the selected interpreter
+- **WHEN** a GitLab verification job runs repository tests under importlib mode
+- **THEN** its Nox session invokes pytest through the selected interpreter
 - **AND** repository `tools` modules remain importable without `PYTHONPATH`
   injection or a compatibility package.
 
@@ -751,3 +768,43 @@ configuration SHALL select a second link-check mode.
 
 - **WHEN** an external URL in the tracked Markdown answers 503 or 504, or cannot be reached
 - **THEN** the link check result SHALL be unchanged, because no request is sent
+
+### Requirement: Clean-room verification follows the locked repository environment
+
+The repository SHALL expose one cross-platform developer entrypoint that
+selects locked tools, reconstructs Work-Lane-local mutable environments, and
+runs the same semantic verification graph consumed by both Forges. Its declared
+environment SHALL disable the user site and bind uv and npm to the repository's
+own configuration.
+
+#### Scenario: A fresh checkout is bootstrapped
+
+- **WHEN** the repository has no local virtual environment, Nox environment,
+  Node modules, build output, coverage data, or test temporary state
+- **THEN** the documented bootstrap task syncs every locked Python group,
+  installs the locked Node modules without their scripts and verifies their
+  registry signatures.
+
+#### Scenario: Operator uv configuration is present
+
+- **WHEN** the developer entrypoint, Nox or a projected project job launches uv
+- **THEN** it selects the repository's native configuration explicitly
+- **AND** inherited configuration paths and discovery-disable settings cannot
+  replace its version and installation policy
+- **AND** external source preparation retains the external repository's policy.
+
+### Requirement: Native process acceptance preserves the host substrate
+
+Black-box native acceptance SHALL derive the child environment from the current
+supported host, remove inherited Proxy and Python injection state, redirect all
+product-owned roots, and make Python undiscoverable through the product `PATH`.
+One semantic owner SHALL supply that environment to fixtures, packaged CLI
+contracts, and release verification on macOS and Linux.
+
+#### Scenario: A packaged executable runs without Python discovery
+
+- **WHEN** help, version, status, prewarm, or another self-contained public
+  command runs under native acceptance
+- **THEN** the executable cannot resolve Python through `PATH`
+- **AND** the operating-system execution substrate remains available
+- **AND** no platform allow-list or single-platform environment exception is used.
