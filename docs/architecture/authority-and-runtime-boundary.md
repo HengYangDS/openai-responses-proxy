@@ -226,6 +226,9 @@ sequenceDiagram
 The request projection removes response, conversation, cache, provider-issued
 item, search, and encrypted-reasoning bindings. It retains portable dialogue
 and complete tool relationships. Unknown or unsafe structures fail locally.
+A route that declares pass-through (DMXAPI) sends the first attempt of a
+stateless request as the client's bytes once the projection has admitted it;
+every later attempt sends the projected request.
 
 The item policy owns ordered tool relationships as well as item classification.
 Projection, diagnostics, and recovery consume the same request-local relationship
@@ -286,7 +289,8 @@ lists retain their explicit current-turn meaning during native compaction.
 
 | Condition                                          | Bounded behavior                                                               |
 | -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| DMXAPI `477 empty_response`                        | Retry the already-projected bytes once                                         |
+| DMXAPI `477 empty_response`                        | Retry once with the projected bytes                                            |
+| HTTP 400 to a client's unchanged request           | Send the projected request once, then recover as on a portable route           |
 | `response_failed`                                  | Strictly shrinking pair-safe attempts, then at most one dialogue-only attempt  |
 | Invalid `input` union                              | One smaller current-dialogue attempt                                           |
 | Undecryptable agent content                        | Relay the upstream rejection without replacing the task                        |

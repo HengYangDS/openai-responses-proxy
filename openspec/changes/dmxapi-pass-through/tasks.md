@@ -14,12 +14,14 @@
       pass after it. The byte-for-byte test failed, then passed; the other three already held and stay as guards.
 - [x] 2.2 Send the client's bytes on a pass-through route when the request is stateless, keeping the projected body
       on the exchange (D2). Done when 2.1's tests pass. Passed.
-- [x] 2.3 Add recovery tests: `invalid_encrypted_content` on the unchanged body is followed by one projected re-send;
-      a second refusal reaches the client; a portable route relays the refusal without a re-send; a capacity recovery
-      on a pass-through route derives from the projected body. Done when the re-send tests fail before 2.4 and all
-      pass after it. Both re-send tests failed, then passed.
-- [x] 2.4 Implement the re-send and start every request-changing recovery from the projected body (D3). Done when
-      2.3's tests pass. Passed.
+- [x] 2.3 Add recovery tests: any HTTP 400 to the client's bytes, `invalid_encrypted_content` included, is followed by
+      one projected attempt; a second refusal reaches the client; a portable route relays the refusal without a
+      re-send; a transient error and DMXAPI's 477 retry with the projection; a capacity refusal of the projection
+      leads to a smaller request derived from it; an item reference makes a request stateful; stripped-item counters
+      follow the sent body; a `Profile` refuses pass-through with plaintext delivery. Done when they fail before 2.4
+      and pass after it. All failed, then passed.
+- [x] 2.4 Send the client's bytes at most once per request, answer a 400 to them with one projected attempt, and count
+      projection telemetry only for projected sends (D2, D3). Done when 2.3's tests pass. Passed.
 
 ## 3. Documents and release
 
@@ -32,8 +34,9 @@
 
 - [x] 4.1 Pass `mise run quick`, the relay and provider tests, and `openspec validate dmxapi-pass-through --strict`.
       Quick 166 passed; valid.
-- [ ] 4.2 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
-      in code or in the design.
+- [x] 4.2 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
+      in code or in the design. Two important and five minor findings; all answered in code, the specification or the
+      design, duplicate JSON keys by a stated risk.
 - [ ] 4.3 Pass the ETHOS full proof of the lane head.
 - [ ] 4.4 Pass the proposal's GitHub checks and GitLab pipeline.
 

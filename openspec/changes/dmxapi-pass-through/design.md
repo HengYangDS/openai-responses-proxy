@@ -24,7 +24,7 @@ the proxy's re-encoding and headers are ruled out; why DMXAPI behaves so is not 
 admitted; behavior of the other routes is unchanged.
 
 **Non-Goals:** reasoning on DMXAPI after a provider switch (DMXAPI does not reason then, measured); the
-issuer-boundary redesign; refusals that arrive as stream events.
+issuer-boundary redesign; a failure in a stream that has already sent content, which no attempt may repeat.
 
 ## Decisions
 
@@ -32,38 +32,54 @@ issuer-boundary redesign; refusals that arrive as stream events.
 
 The manifest gains `request_shape = "portable" | "pass-through"` (default `portable`), carried on `Profile`. The
 relay reads the field, never a provider name, as "Provider extension is adapter-only" requires. DMXAPI declares
-`pass-through`. Pass-through with `agent_message_delivery = "plaintext"` fails the load: plaintext delivery rewrites
-the body, which would defeat the declaration.
+`pass-through`. `Profile` itself refuses pass-through with `agent_message_delivery = "plaintext"`, so neither the
+manifest nor code that builds a route directly can combine them: plaintext delivery rewrites the body, which would
+defeat the declaration.
 
-### D2. What is forwarded unchanged
+### D2. What is forwarded unchanged, and only once
 
 The relay runs the portable projection on every request first. A rejection is answered locally, as today, so the
 item model stays the one authority ("Responses semantics have one classification and projection authority",
 "Unproved replay shapes fail closed"). On a pass-through route, a request whose `store` is `false` and that has no
-`previous_response_id` or `conversation` is then sent as the client's original bytes. Any other request is sent in
-the projected form, because forwarding it would let the upstream store or continue state. `prompt_cache_key` and
-`include` stay as the client wrote them: removing either alone turns DMXAPI's reasoning off (table above).
+`previous_response_id`, `conversation` or `item_reference` item is stateless: its first attempt carries the
+client's original bytes. Any other request is sent in the projected form, because forwarding it would let the
+upstream store, continue or look up state. `prompt_cache_key` and `include` stay as the client wrote them: removing
+either alone turns DMXAPI's reasoning off (table above).
 
-The alternative of a smaller projection (keep identifiers, drop only foreign reasoning) is rejected: every measured
-change, however small, turned reasoning off.
+The projection also normalizes the request beyond state: empty tool outputs get a marker, an empty assistant
+placeholder is omitted, local-shell pairs are removed, assistant history becomes Easy Input strings, later tool
+results become `tool_delivery` messages. The client's bytes skip all of that, and a smaller projection is not
+possible: every measured change, however small, turned reasoning off. So the client's bytes are sent at most once
+per request. The exchange keeps the projected request, and the first time it sends again (a transient retry,
+DMXAPI's 477 retry, a stream reopen after a pre-content failure, or the re-send of D3), it sends the projection.
+After a failure, the request therefore takes exactly the path that 7.0.0 took, one round trip later. Requirements
+that describe the outbound form now say "projected request"; the delta modifies the three whose text named the
+outbound copy.
 
-### D3. One portable re-send on a structured refusal of state
+### D3. One projected attempt after a refusal of the client's bytes
 
-The exchange keeps the projected body beside the unchanged one. On any HTTP 400 answer to the unchanged body, the
-exchange's next attempt becomes the projected body: every request-changing recovery, all of which answer a 400
-(capacity, input variant, response failed), then starts from the projected form, as DR-0002 requires. Those recovery
-functions also re-project their input themselves, so this does not depend on the order of checks. When the 400 has
-type `invalid_request_error` and code `invalid_encrypted_content` (the classification `relay/telemetry.py` already
-owns), the projected body is sent once and counted as `pass_through_projected_resends`. It is the only refusal of
-state whose structure is known; no upstream returned any refusal in the measurements, so others are relayed. The
-re-send uses one attempt of the existing per-request budget. A transient retry (5xx, transport, DMXAPI's 477, a
-pre-content `response.failed` in a stream) re-sends the body of the current attempt, as it does today.
+An HTTP 400 to the client's bytes means the upstream generated nothing, so a re-send is safe. The exchange answers
+any such 400 by sending the projected request once, before any other recovery; a refusal of the projection then
+follows the portable route's recovery unchanged. Limiting the re-send to the structured code
+`invalid_encrypted_content` was rejected after review: a 400 for a shape that only the projection normalizes would
+then be relayed, or would start a recovery that drops history, where 7.0.0 completed. The re-send is counted as
+`pass_through_projected_resends` and uses one attempt of the existing per-request budget. This does not conflict
+with "Request-changing recovery uses structured errors": the projected request is not a change of the projected
+request, it is the form 7.0.0 sent first. An encrypted agent task refused in the projected request is still relayed
+without a further request. The counters of stripped items count only projected requests that were sent.
 
 ## Risks / Trade-offs
 
+- **A changed answer without an error.** If DMXAPI accepts the client's bytes but answers worse than it would the
+  projection, no failure is visible. The measurements saw the opposite: Codex's own bodies, with tool calls and
+  reasoning items, completed and reasoned in every request.
 - **A foreign item refused with an unknown code.** UCloud and AIHubMix reasoning items in a body sent to DMXAPI are
-  not measured. If DMXAPI refuses them with a code other than `invalid_encrypted_content`, the turn fails where today
-  it completes without reasoning. Rollback is reinstalling 7.0.0.
+  not measured. Any 400 for them is answered by the projection; a refusal in a stream that starts with content is
+  not.
+- **Duplicate JSON keys.** The proxy parses a duplicate key as its last value but forwards the bytes; an upstream
+  that keeps the first value could read a field the proxy did not check. The client can send those bytes to the
+  upstream directly, so the proxy is not a boundary against its own client; it is not checked, to avoid a second
+  parse of every DMXAPI request.
 - **The original body reaches the upstream.** It holds the client's own identifiers and opaque items, which the
   client sent on purpose; nothing is added and no client state is read.
 

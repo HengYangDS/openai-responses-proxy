@@ -10,13 +10,13 @@ this fix on 2026-11-27.
 ## What Changes
 
 - A route may declare in the provider manifest that it forwards stateless requests unchanged. A request is stateless
-  when the client already sends `store=false` and no `previous_response_id` or `conversation`, as Codex does. Such a
-  request reaches the upstream byte for byte, including reasoning items, identifiers, `prompt_cache_key` and
-  `include`. Any other request takes the portable projection as before.
-- The portable grammar still admits every request first: a request it rejects is rejected locally on every route, so
-  the declaration widens nothing that the proxy accepts.
-- When the upstream refuses an unchanged request with the structured error `invalid_encrypted_content`, the proxy
-  re-sends it once in the portable shape. Every other request-changing recovery starts from the portable projection.
+  when the client already sends `store=false` and no `previous_response_id`, `conversation` or item reference, as
+  Codex does. The first attempt of such a request reaches the upstream byte for byte, including reasoning items,
+  identifiers, `prompt_cache_key` and `include`. Any other request takes the portable projection as before.
+- The portable grammar still checks every request first: a request it rejects is rejected locally on every route.
+- The client's bytes are sent at most once. Every later attempt, after any HTTP 400, a transient failure, DMXAPI's
+  477 or a stream failure before content, sends the projected request, so a failure takes 7.0.0's path one round
+  trip later.
 - DMXAPI declares the pass-through shape. UCloud, AIHubMix and Suhe.AI stay portable.
 - The manifest refuses pass-through together with plaintext agent delivery, which must rewrite the body.
 - Release 7.0.1.
@@ -29,14 +29,14 @@ None.
 
 ### Modified Capabilities
 
-- `provider-portable-responses`: projection applies to every request except a stateless request on a route that
-  declares pass-through; such a route gets one portable re-send on a structured refusal of state.
+- `provider-portable-responses`: every attempt sends the projected request except the first attempt of a stateless
+  request on a route that declares pass-through; requirements on the outbound form name the projected request.
 
 ## Impact
 
-`src/openai_responses_proxy/providers/` (manifest and registry), `src/openai_responses_proxy/relay/responses.py` and
-`relay/exchange.py`, their tests, `docs/decisions/dr-0002-provider-portable-stateless-replay.md` (amendment), README,
-CHANGELOG and `VERSION`. A conversation that has switched providers still does not reason on DMXAPI: DMXAPI accepts
+`src/openai_responses_proxy/providers/` (manifest and registry), `protocol/replay/projection.py`, `relay/responses.py`,
+`relay/exchange.py` and `relay/telemetry.py`, their tests, `docs/decisions/dr-0002-provider-portable-stateless-replay.md`
+(amendment), `docs/architecture/authority-and-runtime-boundary.md`, README, CHANGELOG and `VERSION`. A conversation that has switched providers still does not reason on DMXAPI: DMXAPI accepts
 another issuer's reasoning item but does not reason. UCloud and AIHubMix items in a body sent to DMXAPI are not
-measured; a refusal of them with `invalid_encrypted_content` is covered by the re-send, and any other refusal is
-relayed. Out of scope: the issuer-boundary redesign (8.0.0), and a refusal that arrives as a stream event.
+measured; any HTTP 400 for them is answered by the projected request. Out of scope: the issuer-boundary redesign
+(8.0.0).

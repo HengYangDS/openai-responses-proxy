@@ -12,14 +12,15 @@ publication authority.
 
 ### Fixed
 
-- Codex conversations on the DMXAPI route reason again. DMXAPI answers a
-  changed request without reasoning and without an error, so the route now
-  sends a stateless request (`store=false`, no `previous_response_id` or
-  `conversation`) as the client wrote it. The provider-portable grammar still
-  admits or rejects every request; a refusal of encrypted content is answered by
-  one re-send of the projected form. The other routes are unchanged. A
-  conversation that has switched providers completes on DMXAPI but still does
-  not reason there.
+- The DMXAPI route sends the first attempt of a stateless request
+  (`store=false`, no `previous_response_id`, `conversation` or item reference)
+  as the client wrote it. DMXAPI answers a changed request without reasoning
+  and without an error, so Codex conversations held on DMXAPI did not reason
+  through the proxy. The provider-portable grammar still admits or rejects
+  every request, and every later attempt, after an HTTP 400, a transient
+  failure or a stream failure before content, sends the projected request. The
+  other routes are unchanged. A conversation that has switched providers
+  completes on DMXAPI but does not reason there.
 
 ## [7.0.0] - 2026-11-26
 

@@ -250,12 +250,14 @@ path. Automation should use `--json` where the command supports it.
 
 ## Compatibility behavior
 
-Every request is checked against a provider-portable Responses grammar, and
-projected to it, before it leaves the loopback listener. The released DMXAPI
-route is the exception for a stateless request (`store=false`, no
-`previous_response_id` or `conversation`): it sends the client's bytes
-unchanged, because DMXAPI does not reason on a changed request. A refusal of
-encrypted content is answered by one re-send of the projected form.
+Every request is checked against a provider-portable Responses grammar and
+projected to it before it leaves the loopback listener; the table describes the
+projected request. The released DMXAPI route is the exception for the first
+attempt of a stateless request (`store=false`, no `previous_response_id`,
+`conversation` or item reference): it sends the client's bytes unchanged,
+because DMXAPI does not reason on a changed request. Any later attempt, after an
+HTTP 400, a transient failure or a stream failure before content, sends the
+projected request.
 
 | Concern                     | Behavior                                                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -265,7 +267,7 @@ encrypted content is answered by one re-send of the projected form.
 | Agent delivery              | A selected plaintext route generates readable delegation and restores the native delivery marker            |
 | Tool replay                 | Keeps complete function/custom-tool call pairs; rejects unsafe structure locally                            |
 | Empty upstream response     | Returns a retryable local `503` instead of committing false success                                         |
-| DMXAPI `477 empty_response` | Retries the already-projected bytes once                                                                    |
+| DMXAPI `477 empty_response` | Retries once with the projected bytes                                                                       |
 | Upstream `429`              | Relays the first response and applies a provider-scoped bounded cooldown                                    |
 | Exhausted upstream `503`    | Relays the original error; subsequent turns briefly cool only that provider before probing again            |
 | `response_failed`           | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded                     |

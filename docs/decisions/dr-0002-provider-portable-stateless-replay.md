@@ -63,12 +63,13 @@ forwards stateless requests unchanged. Measurements that day showed that
 DMXAPI's model reasons only on a request exactly as a Codex conversation held
 on DMXAPI sends it: any projected change, even removing only message
 identifiers, made it answer without reasoning and without an error. On such a
-route the projection still admits or rejects every request, and a request with
-`store=false` and no `previous_response_id` or `conversation` is sent as the
-client's bytes. A structured refusal of encrypted content
-(`invalid_encrypted_content`) is answered by one re-send of the projected form,
-and every other request-changing recovery starts from the projected form, so
-recovery still consumes only the portable owner. Every other route keeps the
+route the projection still admits or rejects every request, and the first
+attempt of a request with `store=false` and no `previous_response_id`,
+`conversation` or item reference is sent as the client's bytes. Every later
+attempt sends the projected request: an HTTP 400 to the client's bytes is
+answered by one projected attempt before any recovery, and a transient or
+stream failure retries with the projection, so recovery still consumes only the
+portable owner. Every other route keeps the
 portable projection. Scope: the DMXAPI route only; the measurements are in the
 `dmxapi-pass-through` Change.
 

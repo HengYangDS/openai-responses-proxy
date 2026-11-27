@@ -250,7 +250,6 @@ def relay(
     original = body
     projection = replay_request.sanitize_responses_body(body)
     note = projection.diagnostic()
-    telemetry.record_sanitization(projection.metrics)
     if projection.body is None:
         reason = projection.reason or "unknown"
         telemetry.record_counter("provider_portable_projection_rejected")
@@ -293,18 +292,20 @@ def relay(
     unchanged = profile.request_shape == "pass-through" and projection.stateless
     if unchanged:
         note = f"unchanged {note}"
+    else:
+        telemetry.record_sanitization(projection.metrics)
+    sent = original if unchanged else body
     path = operational_log.safe_request_path(handler.path)
-    if len(body) >= _LARGE_REQUEST_BYTES:
+    if len(sent) >= _LARGE_REQUEST_BYTES:
         operational_log.log(
             f"req={request_id} event=large_request provider={profile.name} "
-            f"bytes={len(body)} path={path}"
+            f"bytes={len(sent)} path={path}"
         )
     operational_log.log(
         f"req={request_id} event=request_sanitized provider={profile.name} "
         f"method={method} {note} path={path}"
     )
     telemetry.record_counter("responses_received")
-    sent = original if unchanged else body
     exchange = upstream_exchange.Exchange(
         handler,
         method,
@@ -318,6 +319,7 @@ def relay(
         plaintext_agent_delivery=prepared.active,
         input_dependencies=projection.input_dependencies,
         portable_body=body if unchanged else None,
+        portable_metrics=projection.metrics if unchanged else None,
     )
     if _cooldown_active(exchange):
         return

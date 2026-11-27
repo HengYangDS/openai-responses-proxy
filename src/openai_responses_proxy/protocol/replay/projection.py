@@ -97,7 +97,6 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
 
     candidate = cast("JsonObject", dict(payload))
     store_normalized = candidate.get("store") is not False
-    stateless = not store_normalized and not {"previous_response_id", "conversation"} & set(payload)
     candidate["store"] = False
     provider_bindings = sum(field in candidate for field in _PROVIDER_BINDINGS)
     for field in _PROVIDER_BINDINGS:
@@ -113,6 +112,17 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         candidate["include"] = trimmed
 
     raw_input = candidate.get("input")
+    stateless = (
+        not store_normalized
+        and not {"previous_response_id", "conversation"} & set(payload)
+        and not (
+            isinstance(raw_input, list)
+            and any(
+                isinstance(item, dict) and item.get("type") == "item_reference"
+                for item in raw_input
+            )
+        )
+    )
     input_dependencies = item_policy.InputDependencies()
     metrics = {
         "reasoning_items": 0,

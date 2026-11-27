@@ -63,6 +63,13 @@ class Profile:
     agent_message_delivery: Literal["native", "plaintext"] = "native"
     request_shape: Literal["portable", "pass-through"] = "portable"
 
+    def __post_init__(self) -> None:
+        """Refuse a route whose agent delivery would rewrite a body it must forward unchanged."""
+        if self.request_shape == "pass-through" and self.agent_message_delivery == "plaintext":
+            raise ValueError(
+                f"provider {self.name!r}: pass-through cannot use plaintext agent delivery"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class Registry:
@@ -153,9 +160,6 @@ def _profile(name: object, raw: object) -> Profile:
     shape = raw.get("request_shape", "portable")
     if shape not in ("portable", "pass-through"):
         raise ValueError(f"provider {name!r} has an invalid request shape")
-    if shape == "pass-through" and delivery == "plaintext":
-        # Plaintext delivery rewrites the body, so the route could not forward it unchanged.
-        raise ValueError(f"provider {name!r}: pass-through cannot use plaintext agent delivery")
     return Profile(
         name,
         _base_url(name, raw.get("base_url")),

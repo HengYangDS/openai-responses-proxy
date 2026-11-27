@@ -7,9 +7,9 @@ import urllib.error
 
 import pytest
 
-from openai_responses_proxy.relay import admission
-from openai_responses_proxy.relay import cooldown
-from openai_responses_proxy.relay import telemetry
+from openai_responses_proxy.providers import registry
+from tests.relay.empty_response.fixtures import EMPTY_RESPONSE
+from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 
@@ -22,6 +22,8 @@ CAPACITY = (
     b'{"error":{"type":"invalid_request_error","code":"validation_error",'
     b'"param":"","message":"Input is too long"}}'
 )
+UNKNOWN_REFUSAL = b'{"error":{"type":"invalid_request_error","code":"unsupported_item"}}'
+UNAVAILABLE = b'{"error":{"type":"server_error","code":"unavailable"}}'
 
 
 def _codex_body(*, without: str = "", **fields: object) -> bytes:
@@ -63,12 +65,7 @@ def _projected(body: bytes) -> list[object]:
     return list(items)
 
 
-class PassThroughRouteTests:
-    def setup_method(self) -> None:
-        admission.reset_for_test()
-        telemetry.reset_for_test()
-        cooldown.reset_for_test()
-
+class PassThroughRouteTests(InputTransportFixture):
     def test_a_stateless_request_reaches_the_upstream_byte_for_byte(self) -> None:
         body = _codex_body()
         with running_proxy([(200, SUCCESS)] * 2, request_shape="pass-through") as (
@@ -141,16 +138,82 @@ class PassThroughRouteTests:
                 assert error.code == 400
         assert len(received) == 1
 
-    def test_capacity_recovery_derives_from_the_projection(self) -> None:
+    def test_any_refusal_of_the_unchanged_request_is_followed_by_the_projection(self) -> None:
+        body = _codex_body()
         with (
-            running_proxy([(400, CAPACITY), (200, SUCCESS)], request_shape="pass-through") as (
+            running_proxy(
+                [(400, UNKNOWN_REFUSAL), (200, SUCCESS)], request_shape="pass-through"
+            ) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.read() == SUCCESS
+        assert received[0] == body
+        _projected(received[1])
+        assert len(received) == 2
+
+    @pytest.mark.parametrize(
+        "failure", [(503, UNAVAILABLE), (477, EMPTY_RESPONSE)], ids=["transient", "dmx-477"]
+    )
+    def test_the_client_bytes_are_sent_at_most_once(self, failure: tuple[int, bytes]) -> None:
+        body = _codex_body()
+        with (
+            running_proxy([failure, (200, SUCCESS)], request_shape="pass-through") as (
                 port,
                 received,
             ),
-            request(port, _codex_body()) as response,
+            request(port, body) as response,
         ):
             assert response.read() == SUCCESS
-        assert len(received) == 2
-        recovered = _projected(received[1])
-        assert len(received[1]) < len(received[0])
+        assert received[0] == body
+        _projected(received[1])
+
+    def test_recovery_starts_after_the_projection_is_refused(self) -> None:
+        body = _codex_body()
+        with (
+            running_proxy(
+                [(400, CAPACITY), (400, CAPACITY), (200, SUCCESS)], request_shape="pass-through"
+            ) as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.read() == SUCCESS
+        assert received[0] == body
+        projected = _projected(received[1])
+        recovered = _projected(received[2])
+        assert len(received[2]) < len(received[1])
         assert recovered[-1] == {"type": "message", "role": "user", "content": "continue"}
+        assert len(recovered) < len(projected)
+
+    def test_a_request_with_item_references_is_projected(self) -> None:
+        body = _codex_body(
+            input=[
+                {"type": "item_reference", "id": "msg_stored"},
+                {"type": "message", "role": "user", "content": "continue"},
+            ]
+        )
+        with (
+            running_proxy([(200, SUCCESS)], request_shape="pass-through") as (port, received),
+            request(port, body) as response,
+        ):
+            assert response.read() == SUCCESS
+        _projected(received[0])
+
+    def test_projection_counters_follow_the_sent_body(self) -> None:
+        with running_proxy(
+            [(200, SUCCESS), (400, REFUSED_STATE), (200, SUCCESS)], request_shape="pass-through"
+        ) as (port, _received):
+            with request(port, _codex_body()) as response:
+                assert response.read() == SUCCESS
+            assert self._status_maps()[0]["encrypted_replayed_reasoning_items_stripped"] == 0
+            with request(port, _codex_body()) as response:
+                assert response.read() == SUCCESS
+            assert self._status_maps()[0]["encrypted_replayed_reasoning_items_stripped"] == 1
+
+
+def test_a_profile_cannot_combine_pass_through_with_plaintext_delivery() -> None:
+    with pytest.raises(ValueError, match="pass-through cannot use plaintext agent delivery"):
+        registry.Profile(
+            "gateway",
+            "https://gateway.example/v1",
+            agent_message_delivery="plaintext",
+            request_shape="pass-through",
+        )
