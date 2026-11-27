@@ -328,14 +328,6 @@ class TestInputRecovery(InputTransportFixture):
         self, subtests: pytest.Subtests
     ) -> None:
         terminal_errors = {
-            "classified-477": (
-                477,
-                (
-                    b'{"error":{"message":"official provider returned an empty response",'
-                    b'"type":"dmx_api_error","code":"empty_response"}}'
-                ),
-                "wire_policy_failure",
-            ),
             "response-failed": (
                 400,
                 (
@@ -376,7 +368,6 @@ class TestInputRecovery(InputTransportFixture):
                 counters, classifications = self._status_maps()
                 assert counters["input_variant_dialogue_recovery_attempts"] == 1
                 assert counters["input_variant_dialogue_recovery_exhausted"] == 1
-                assert counters["wire_failure_retry_attempts"] == 0
                 assert counters["response_failed_compaction_attempts"] == 0
                 assert counters["response_failed_dialogue_recovery_attempts"] == 0
                 assert counters["streams_pre_content_reconnect_attempts"] == 0

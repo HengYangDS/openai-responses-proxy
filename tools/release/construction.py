@@ -44,8 +44,6 @@ def freeze(
             f"{root / 'src/openai_responses_proxy/providers/manifest.toml'}"
             f"{os.pathsep}openai_responses_proxy/providers"
         ),
-        "--collect-submodules",
-        "openai_responses_proxy.providers.policies",
         str(root / "src/openai_responses_proxy/cli/__main__.py"),
     )
     session.run(*command, env=environment)

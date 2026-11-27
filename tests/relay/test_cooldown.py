@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC
 from datetime import datetime
 from email.message import Message
@@ -27,6 +28,27 @@ class CooldownTests:
         for index in range(4):
             cooldown.remember_failure(f"key-{index}", capacity=3, now=100.0 + index)
         assert cooldown.failure_count_for_test() == 3
+        assert not cooldown.has_failure_for_test("key-0")
+
+    def test_expired_entries_are_purged_by_reads_and_unrelated_writes(self) -> None:
+        cooldown.remember_failure("read", cooldown_seconds=30, now=100.0)
+        assert cooldown.remaining("read", now=130.1) == 0
+        assert not cooldown.has_failure_for_test("read")
+
+        cooldown.remember_failure("stale", cooldown_seconds=30, now=300.0)
+        cooldown.remember_failure("other", cooldown_seconds=30, now=330.1)
+        assert not cooldown.has_failure_for_test("stale")
+        assert cooldown.has_failure_for_test("other")
+
+    def test_concurrent_writes_stay_within_capacity(self) -> None:
+        capacity = 64
+
+        def remember(index: int) -> None:
+            cooldown.remember_failure(f"key-{index}", capacity=capacity, now=200.0 + index / 10_000)
+
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            list(executor.map(remember, range(capacity + 100)))
+        assert cooldown.failure_count_for_test() <= capacity
         assert not cooldown.has_failure_for_test("key-0")
 
     def test_retry_after_supports_delta_date_and_bounded_fallback(

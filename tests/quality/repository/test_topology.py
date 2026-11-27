@@ -125,9 +125,7 @@ def test_protocol_and_relay_tests_follow_terminal_ownership() -> None:
         "protocol/test_response.py",
         "protocol/recovery/test_input.py",
         "protocol/recovery/test_execution.py",
-        "relay/empty_response/test_projection.py",
-        "relay/empty_response/test_recovery.py",
-        "relay/empty_response/test_cooldown.py",
+        "relay/test_cooldown.py",
         "relay/test_routes.py",
     )
     assert all((tests / owner).is_file() for owner in owners)
@@ -499,7 +497,3 @@ def test_semantic_packages_are_declarative_and_facade_free() -> None:
 
 def test_runtime_context_has_one_semantic_owner() -> None:
     assert (ROOT / "src/openai_responses_proxy/lifecycle/context.py").is_file()
-
-
-def test_provider_specific_wire_policies_have_a_semantic_owner() -> None:
-    assert (ROOT / "src/openai_responses_proxy/providers/policies/dmxapi.py").is_file()

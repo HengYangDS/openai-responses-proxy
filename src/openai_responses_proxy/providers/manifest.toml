@@ -5,7 +5,6 @@ base_url = "https://api.inferera.com/v1"
 
 [providers.dmxapi]
 base_url = "https://www.dmxapi.cn/v1"
-policy = "dmxapi"
 
 [providers.suheai]
 base_url = "https://suheai.cn/v1"

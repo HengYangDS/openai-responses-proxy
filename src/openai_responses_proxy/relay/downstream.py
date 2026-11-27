@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from http.server import BaseHTTPRequestHandler
 
-    from openai_responses_proxy.providers import registry as provider_registry
     from openai_responses_proxy.relay.upstream import ResponseHeaders
     from openai_responses_proxy.relay.upstream import UpstreamResponse
 
@@ -154,21 +153,6 @@ def send_payload(
     handler.send_header("Content-Length", str(len(payload)))
     handler.end_headers()
     handler.wfile.write(payload)
-
-
-def send_wire_failure_exhausted(
-    handler: BaseHTTPRequestHandler,
-    policy: provider_registry.WirePolicy,
-    attempts: int,
-) -> None:
-    """Emit one provider-policy empty-response exhaustion."""
-    payload = live_response.error_payload(
-        policy.EXHAUSTED_MESSAGE,
-        "upstream_unavailable",
-        policy.EXHAUSTED_CODE,
-        attempts=attempts,
-    )
-    send_payload(handler, 503, payload, retry_after="3")
 
 
 def relay_error(

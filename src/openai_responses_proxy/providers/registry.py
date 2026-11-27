@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
 import re
-import sys
 import tomllib
 import urllib.parse
 from dataclasses import dataclass
@@ -12,53 +10,20 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 from typing import Literal
-from typing import Protocol
 from typing import cast
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
-POLICY_PACKAGE = "openai_responses_proxy.providers.policies"
-
-
-class WirePolicy(Protocol):
-    """Optional provider-specific wire outcome contract."""
-
-    __name__: str
-    EXHAUSTED_CODE: str
-    EXHAUSTED_MESSAGE: str
-    FAILURE_CACHE_CAPACITY: int
-    FAILURE_COOLDOWN_SECONDS: int
-    POLICY_VERSION: str
-
-    def is_retryable_failure(self, status: int, payload: bytes) -> bool:
-        """Return whether one provider response permits a bounded retry."""
-        ...
-
-    def request_fingerprint(self, raw: bytes) -> str:
-        """Return the provider-defined identity for one request payload."""
-        ...
-
-
-_POLICY_MEMBERS = (
-    "EXHAUSTED_CODE",
-    "EXHAUSTED_MESSAGE",
-    "FAILURE_CACHE_CAPACITY",
-    "FAILURE_COOLDOWN_SECONDS",
-    "POLICY_VERSION",
-    "is_retryable_failure",
-    "request_fingerprint",
-)
 
 
 @dataclass(frozen=True, slots=True)
 class Profile:
-    """One provider route and its optional wire-policy owner."""
+    """One provider route."""
 
     name: str
     base_url: str
-    wire_policy: WirePolicy | None = None
     agent_message_delivery: Literal["native", "plaintext"] = "native"
 
 
@@ -118,112 +83,25 @@ def load(path: str | Path | None = None) -> Registry:
     raw_profiles = document.get("providers")
     if not isinstance(raw_profiles, dict) or not raw_profiles:
         raise ValueError("provider manifest must define at least one provider")
-    loaded_modules: set[str] = set()
-    profiles: dict[str, Profile] = {}
-    try:
-        for name, raw in raw_profiles.items():
-            profile = _profile(name, raw)
-            profiles[name] = profile
-            if profile.wire_policy is not None:
-                loaded_modules.add(profile.wire_policy.__name__)
-    except ValueError:
-        for module_name in loaded_modules:
-            sys.modules.pop(module_name, None)
-        raise
     if "default" in document:
-        for module_name in loaded_modules:
-            sys.modules.pop(module_name, None)
         raise ValueError("provider manifest has no implicit default route")
+    profiles = {name: _profile(name, raw) for name, raw in raw_profiles.items()}
     return Registry(profiles)
 
 
 def _profile(name: object, raw: object) -> Profile:
     if not isinstance(name, str) or not _NAME.fullmatch(name):
         raise ValueError("provider names must be lowercase kebab-case slugs")
-    if not isinstance(raw, dict) or set(raw) - {"base_url", "policy", "agent_message_delivery"}:
+    if not isinstance(raw, dict) or set(raw) - {"base_url", "agent_message_delivery"}:
         raise ValueError(f"provider {name!r} has unknown or invalid fields")
-    policy = raw.get("policy")
-    if policy is not None and (not isinstance(policy, str) or not _NAME.fullmatch(policy)):
-        raise ValueError(f"provider {name!r} references an unknown policy")
     delivery = raw.get("agent_message_delivery", "native")
     if delivery not in ("native", "plaintext"):
         raise ValueError(f"provider {name!r} has an invalid agent message delivery policy")
     return Profile(
         name,
         _base_url(name, raw.get("base_url")),
-        None if policy is None else _load_policy(policy),
         cast("Literal['native', 'plaintext']", delivery),
     )
-
-
-def _load_policy(name: str) -> WirePolicy:
-    """Load one closed wire-policy module from the selected policy package."""
-    package = POLICY_PACKAGE
-    module_name = f"{package}.{name}"
-    try:
-        module = importlib.import_module(module_name)
-    except (
-        ImportError,
-        OSError,
-        RuntimeError,
-        SyntaxError,
-        TypeError,
-        ValueError,
-    ) as exc:
-        sys.modules.pop(module_name, None)
-        raise ValueError(f"provider policy {name!r} is unavailable") from exc
-    module_file = getattr(module, "__file__", None)
-    package_module = sys.modules.get(package)
-    package_paths = getattr(package_module, "__path__", ())
-    # A module file that cannot be resolved falls back to the frozen bundle's module identity.
-    resolved: Path | None = None
-    inside_package = False
-    try:
-        if isinstance(module_file, str):
-            candidate = Path(module_file).resolve(strict=True)
-            inside_package = any(
-                candidate.is_relative_to(Path(root).resolve(strict=True)) for root in package_paths
-            )
-            resolved = candidate
-    except (OSError, TypeError, ValueError):
-        resolved = None
-    if resolved is None:
-        specification = getattr(module, "__spec__", None)
-        inside_package = all(
-            (
-                bool(getattr(sys, "frozen", False)),
-                module.__name__ == module_name,
-                module.__package__ == package,
-                getattr(specification, "name", None) == module_name,
-            )
-        )
-    if not inside_package:
-        sys.modules.pop(module_name, None)
-        raise ValueError(f"provider policy {name!r} is outside its policy package")
-    (
-        exhausted_code,
-        exhausted_message,
-        cache_capacity,
-        cooldown_seconds,
-        policy_version,
-        classify_failure,
-        fingerprint_request,
-    ) = (getattr(module, member, None) for member in _POLICY_MEMBERS)
-    if (
-        any(
-            not isinstance(value, str) or not value
-            for value in (exhausted_code, exhausted_message, policy_version)
-        )
-        or any(
-            isinstance(value, bool) or not isinstance(value, int)
-            for value in (cache_capacity, cooldown_seconds)
-        )
-        or not callable(classify_failure)
-        or not callable(fingerprint_request)
-    ):
-        sys.modules.pop(module_name, None)
-        raise ValueError(f"provider policy {name!r} does not implement the wire-policy contract")
-    return cast("WirePolicy", module)
 
 
 def _base_url(name: str, value: object) -> str:

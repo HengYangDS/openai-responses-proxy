@@ -455,33 +455,6 @@ class ProviderRouteTests:
                 assert error.read() == payload
         assert received == [b""]
 
-    def test_dmx_empty_response_cooldown_does_not_block_ucloud(self) -> None:
-        empty = _body(
-            {
-                "error": {
-                    "message": "official provider returned an empty response",
-                    "type": "dmx_api_error",
-                    "code": "empty_response",
-                }
-            }
-        )
-        success = b'{"id":"resp_ucloud","status":"completed"}'
-        body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
-
-        with running_proxy([(477, empty), (477, empty), (200, success)]) as (
-            port,
-            received,
-        ):
-            with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path="/dmxapi/v1/responses")
-            with raised.value as error:
-                assert error.code == 503
-            with request(port, body, path="/ucloud/v1/responses") as response:
-                assert response.status == 200
-                assert response.read() == success
-
-        assert len(received) == 3
-
     def test_exhausted_503_cooldown_is_provider_scoped_over_loopback(self) -> None:
         unavailable = _body({"error": {"type": "server_error", "code": "overloaded"}})
         success = b'{"id":"resp_other","status":"completed"}'
@@ -507,7 +480,7 @@ class ProviderRouteTests:
 
         assert len(received) == 5
 
-    def test_non_dmx_http_477_is_not_given_dmx_recovery(self) -> None:
+    def test_http_477_is_relayed_once_without_retry_or_cooldown(self) -> None:
         empty = _body(
             {
                 "error": {
@@ -517,13 +490,17 @@ class ProviderRouteTests:
                 }
             }
         )
+        success = b'{"id":"resp_next","status":"completed"}'
         body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
 
-        with running_proxy([(477, empty)]) as (port, received):
+        with running_proxy([(477, empty), (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path="/aihubmix/v1/responses")
+                request(port, body, path="/dmxapi/v1/responses")
             with raised.value as error:
                 assert error.code == 477
                 assert error.read() == empty
+            assert len(received) == 1
+            with request(port, body, path="/dmxapi/v1/responses") as response:
+                assert response.read() == success
 
-        assert len(received) == 1
+        assert len(received) == 2

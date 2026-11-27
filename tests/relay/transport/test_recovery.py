@@ -383,29 +383,6 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert len(received) == 1
         assert payload["error"]["code"] == "response_failed_recovery_exhausted"
 
-    def test_retries_classified_empty_response_at_most_once_with_unchanged_body(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        empty_response = (
-            b'{"error":{"message":"official provider returned an empty response",'
-            b'"type":"dmx_api_error","code":"empty_response"}}'
-        )
-        success = b'{"id":"resp_recovered","status":"completed"}'
-        body = json.dumps(
-            {
-                "model": "gpt-5.6-terra",
-                "stream": False,
-                "input": [{"type": "message", "role": "user", "content": "hello"}],
-            },
-            separators=(",", ":"),
-        ).encode()
-        mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        received, payload = self.exchange([(477, empty_response), (200, success)], body)
-        assert payload == success
-
-        assert received[0] == received[1]
-        assert json.loads(received[0]) == {**json.loads(body), "store": False}
-
     def test_runtime_metrics_classify_recovery_without_retaining_request_content(self) -> None:
         response_failed = b'{"error":{"type":"new_api_error","code":"response_failed"}}'
         success = b'{"id":"resp_recovered","status":"completed"}'
@@ -435,35 +412,3 @@ class TestProxyTransport(LoopbackTransportFixture):
         assert classifications["response_failed"] == 1
         assert "private prompt" not in json.dumps(status)
         assert "secret-replay" not in json.dumps(status)
-
-    def test_normalizes_exhausted_classified_empty_response_to_retryable_503(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        empty_response = (
-            b'{"error":{"message":"official provider returned an empty response",'
-            b'"type":"dmx_api_error","code":"empty_response"}}'
-        )
-        body = json.dumps(
-            {
-                "model": "gpt-5.6-terra",
-                "stream": False,
-                "input": [{"type": "message", "role": "user", "content": "hello"}],
-            },
-            separators=(",", ":"),
-        ).encode()
-        mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-
-        with running_proxy([(477, empty_response)] * 4) as (port, received):
-            with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body)
-            error = raised.value
-            with error:
-                assert error.code == 503
-                assert error.headers["Retry-After"] == "3"
-                payload = json.loads(error.read())
-
-        assert received[0] == received[1]
-        assert json.loads(received[0]) == {**json.loads(body), "store": False}
-        assert payload["error"]["type"] == "upstream_unavailable"
-        assert payload["error"]["code"] == "dmx_empty_response_exhausted"
-        assert payload["error"]["attempts"] == 2

@@ -38,17 +38,7 @@ def resolve_upstream(
 
 
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
-    """Reject one Responses request while its provider policy is cooling down."""
-    policy = exchange.profile.wire_policy
-    if policy is not None:
-        fingerprint = policy.request_fingerprint(exchange.body)
-        remaining = cooldown.remaining(fingerprint)
-        if remaining > 0:
-            telemetry.record_counter("wire_failure_cooldown_hits")
-            telemetry.record_failure("wire_failure_cooldown_hit")
-            downstream.send_wire_failure_exhausted(exchange.handler, policy, 0)
-            exchange.log("wire_failure_cooldown_hit", f"remaining_seconds={remaining:.1f} ")
-            return True
+    """Reject one Responses request while its upstream is cooling down."""
     remaining = cooldown.remaining(cooldown.unavailable_key(exchange.profile.name))
     if remaining > 0:
         seconds = max(1, int(remaining + 0.999))

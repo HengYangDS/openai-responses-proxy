@@ -116,22 +116,6 @@ class TestTransportFailures(InputTransportFixture):
         assert b"resp_ok" in handler.output()
         assert cooldown.remaining(cooldown.unavailable_key("dmxapi")) == 0
 
-        empty = (
-            b'{"error":{"message":"official provider returned an empty response",'
-            b'"type":"dmx_api_error","code":"empty_response"}}'
-        )
-        fallback_error = OSError("private")
-        handler = MemoryHandler(json.dumps({"input": []}).encode())
-        upstream_error = http_error(477, "empty", empty)
-        mocker.patch.object(
-            upstream_exchange,
-            "urlopen_direct",
-            side_effect=[upstream_error, fallback_error],
-        )
-        responses.relay(handler, "POST", PROVIDERS)
-        assert handler.statuses == [503]
-        assert b"dmx_empty_response_exhausted" in handler.output()
-
     @pytest.mark.parametrize("provider", ["dmxapi", "ucloud", "aihubmix"])
     def test_exhausted_503_cools_only_the_failed_provider(
         self, provider: str, *, mocker: MockerFixture

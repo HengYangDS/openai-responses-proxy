@@ -23,7 +23,6 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.relay import upstream as upstream_transport
-from openai_responses_proxy.relay import wire_recovery
 from openai_responses_proxy.relay.upstream import ExchangeDeadlineError
 from openai_responses_proxy.relay.upstream import UpstreamResponse
 from openai_responses_proxy.runtime import config as runtime_config
@@ -367,17 +366,11 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
     finally:
         error.close()
     portable = execution_recovery.retry_disposition(status_code, payload)
-    policy = exchange.profile.wire_policy
     rate_limited = exchange.is_responses and status_code == HTTPStatus.TOO_MANY_REQUESTS
-    wire_failure = (
-        not rate_limited
-        and policy is not None
-        and policy.is_retryable_failure(status_code, payload)
-    )
-    disposition = "full" if wire_failure else portable
+    disposition = portable
     exact = input_recovery.is_exact_validation_error(status_code, payload)
     classification = telemetry.classify_upstream_failure(
-        status_code, payload, disposition, exact=exact, wire_failure=wire_failure
+        status_code, payload, disposition, exact=exact
     )
     telemetry.record_upstream_classification(classification)
     if rate_limited:
@@ -412,7 +405,8 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         return "terminal"
     retry_ceiling = 1 if disposition == "once" else _MAX_ATTEMPTS - 1
     transient_retries_used = attempt - exchange.response_failed_stages
-    if disposition and transient_retries_used < retry_ceiling and status_code not in (400, 477):
+    retryable = disposition and status_code != HTTPStatus.BAD_REQUEST
+    if retryable and transient_retries_used < retry_ceiling:
         delay = 3.0 if disposition == "once" else _BACKOFFS[min(attempt, len(_BACKOFFS) - 1)]
         exchange.log(
             "upstream_retry",
@@ -421,8 +415,6 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         )
         exchange.pause(delay)
         return "retry"
-    if wire_failure:
-        return "terminal" if wire_recovery.retry(exchange) else "accepted"
     if status_code == HTTPStatus.SERVICE_UNAVAILABLE:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(

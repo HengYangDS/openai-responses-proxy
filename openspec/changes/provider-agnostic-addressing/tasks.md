@@ -8,10 +8,11 @@
 
 ## 2. HTTP 477
 
-- [ ] 2.1 Add a relay test: an HTTP 477 is relayed once, with no retry and no cooldown. Done when it fails before 2.2
-      and passes after it.
-- [ ] 2.2 Remove the DMXAPI wire policy, `relay/wire_recovery.py`, the wire-failure counters and the 477 exclusion in
-      `relay/exchange.py` (D2). Done when 2.1's test and the relay tests pass.
+- [x] 2.1 Add a relay test: an HTTP 477 is relayed once, with no retry and no cooldown. Done when it fails before 2.2
+      and passes after it. It failed (the DMXAPI route retried to a 200), then passed.
+- [x] 2.2 Remove the DMXAPI wire policy, `relay/wire_recovery.py`, the wire-failure counters and the 477 exclusion in
+      `relay/exchange.py` (D2). Done when 2.1's test and the relay tests pass. Passed; the generic cooldown cache
+      tests moved to `tests/relay/test_cooldown.py`.
 
 ## 3. Serving by upstream origin
 

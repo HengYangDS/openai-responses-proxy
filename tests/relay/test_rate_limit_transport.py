@@ -19,7 +19,6 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
-from openai_responses_proxy.relay import wire_recovery
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
@@ -79,41 +78,6 @@ class TestRateLimitTransport(InputTransportFixture):
                 assert error.read() == payload
 
         assert len(received) == 1
-
-    def test_rate_limit_bypasses_even_a_broad_provider_wire_retry_policy(
-        self, *, mocker: MockerFixture
-    ) -> None:
-        payload = b'{"error":{"message":"provider concurrency limit reached"}}'
-        headers = Message()
-        headers["Content-Type"] = "application/json"
-        headers["Retry-After"] = "7"
-        policy = mocker.Mock()
-        policy.request_fingerprint.return_value = "test-wire-fingerprint"
-        policy.is_retryable_failure.return_value = True
-        policy.POLICY_VERSION = "test-wire-policy"
-        profiles = dict(PROVIDERS.profiles)
-        current = profiles["ucloud"]
-        profiles["ucloud"] = type(current)(current.name, current.base_url, policy)
-        registry = type(PROVIDERS)(profiles)
-
-        def rate_limited(*_args: object, **_kwargs: object) -> Never:
-            raise urllib.error.HTTPError(
-                "https://upstream.test/v1/responses",
-                429,
-                "Too Many Requests",
-                headers,
-                io.BytesIO(payload),
-            )
-
-        handler = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
-        open_ = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=rate_limited)
-        sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        responses.relay(handler, "POST", registry)
-
-        assert open_.call_count == 1
-        sleep.assert_not_called()
-        assert handler.statuses == [429]
-        assert handler.output() == payload
 
     def test_rate_limit_cooldown_is_provider_scoped_and_skips_upstream(
         self, *, mocker: MockerFixture
@@ -180,7 +144,7 @@ class TestRateLimitTransport(InputTransportFixture):
         mocker.patch.object(cooldown, "remaining", return_value=1.0)
         responses.relay(handler, "POST", PROVIDERS)
         assert handler.statuses == [503]
-        assert b"dmx_empty_response_exhausted" in handler.output()
+        assert b"provider_unavailable_cooldown" in handler.output()
 
     def test_direct_relay_exhausts_transport_retries(self, *, mocker: MockerFixture) -> None:
         body = json.dumps({"input": []}).encode()
@@ -216,10 +180,6 @@ class TestRateLimitTransport(InputTransportFixture):
             attempt_body=b'{"input":"current"}',
             profile=PROVIDERS.profiles["ucloud"],
         )
-
-        with pytest.raises(RuntimeError, match="wire recovery requires a provider policy"):
-            wire_recovery.reject(exchange, "fingerprint", 2, "event", "")
-        assert not wire_recovery.retry(exchange)
 
         sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
         assert upstream_exchange._transport_error(exchange, OSError("private"), 0) == "retry"

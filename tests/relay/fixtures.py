@@ -25,7 +25,6 @@ from typing import cast
 from typing import override
 
 from openai_responses_proxy.providers import registry as provider_registry
-from openai_responses_proxy.providers.policies import dmxapi as dmxapi_policy
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import operational_log
@@ -151,11 +150,7 @@ def serve_proxy(
     upstream_thread.start()
     test_upstream = f"http://127.0.0.1:{upstream.server_address[1]}"
     profiles = {
-        "dmxapi": provider_registry.Profile(
-            "dmxapi",
-            test_upstream,
-            cast("provider_registry.WirePolicy", dmxapi_policy),
-        ),
+        "dmxapi": provider_registry.Profile("dmxapi", test_upstream),
         "ucloud": provider_registry.Profile(
             "ucloud", test_upstream, agent_message_delivery=agent_message_delivery
         ),

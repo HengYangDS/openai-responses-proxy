@@ -11,7 +11,6 @@ from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import upstream as upstream_transport
-from tests.relay.empty_response.fixtures import EMPTY_RESPONSE
 from tests.relay.fixtures import EXACT_ERROR
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import TimedResponse
@@ -180,13 +179,6 @@ _BEFORE_A_RESPONSE = {
         lambda: [_rejected(400, _RESPONSE_FAILED)],
         "response_failed_recovery_exhausted",
         (503, "response_failed_recovery_exhausted"),
-    ),
-    "a wire-policy failure that its retry repeats": Ending(
-        lambda: [_rejected(477, EMPTY_RESPONSE), _rejected(477, EMPTY_RESPONSE)],
-        "wire_failure_retry_failed",
-        (503, "dmx_empty_response_exhausted"),
-        steps=("wire_failure_retry",),
-        path="/dmxapi/v1/responses",
     ),
     "a transport that fails every attempt": Ending(
         lambda: [OSError("private") for _ in range(4)],

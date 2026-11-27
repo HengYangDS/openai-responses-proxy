@@ -62,10 +62,6 @@ _COUNTERS = {
     "encrypted_replay_content_blocks_stripped": 0,
     "invalid_responses_success_bodies": 0,
     "unreplayable_images_stripped": 0,
-    "wire_failure_retry_attempts": 0,
-    "wire_failure_retry_accepted": 0,
-    "wire_failure_recovery_exhausted": 0,
-    "wire_failure_cooldown_hits": 0,
 }
 _UPSTREAM_CLASSIFICATIONS: dict[str, int] = {}
 # The latest failure class and time; empty until a failure is recorded.
@@ -84,7 +80,6 @@ def classify_upstream_failure(
     disposition: str,
     *,
     exact: bool,
-    wire_failure: bool,
 ) -> str:
     """Project an upstream failure into a bounded, secret-free telemetry label."""
     if status_code == HTTPStatus.BAD_REQUEST:
@@ -106,8 +101,6 @@ def classify_upstream_failure(
         (False, 400, "full", False): "response_failed",
         (False, 400, "full", True): "blocked_invalid_prompt",
     }.get((exact, status_code, disposition, blocked))
-    if wire_failure:
-        return "wire_policy_failure"
     return special or "_".join(filter(None, (f"http_{status_code}", disposition)))
 
 
