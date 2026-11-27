@@ -38,7 +38,7 @@ class AdmissionTests:
             False,
         )
 
-    def test_local_controller_is_a_native_loopback_request(self) -> None:
+    def test_local_client_is_a_native_loopback_request(self) -> None:
         def headers(**values: str) -> Message:
             message = Message()
             for name, value in values.items():
@@ -54,6 +54,9 @@ class AdmissionTests:
             ("127.0.0.1", headers(Host="127.0.0.1.example.invalid")),
             ("127.0.0.1", headers(Host="127.0.0.1:8792", Origin="https://example.invalid")),
             ("127.0.0.1", headers(Host="127.0.0.1:8792", Origin="null")),
+            ("127.0.0.1", headers(Host="127.0.0.1:8792", Sec_Fetch_Site="cross-site")),
+            ("127.0.0.1", headers(Host="127.0.0.1:8792", Sec_Fetch_Mode="navigate")),
+            ("127.0.0.1", headers(Host="127.0.0.1:8792", Sec_Fetch_Dest="image")),
         )
         for address, message in refused:
             assert not admission.is_local_client(address, message), (address, message.items())

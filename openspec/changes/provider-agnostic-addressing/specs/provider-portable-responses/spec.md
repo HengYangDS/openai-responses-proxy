@@ -8,7 +8,7 @@ resource is `responses` or `models`, and SHALL forward it to
 `<scheme>://<authority>/<segment>*/<resource>` with that query. The scheme
 SHALL be `https`, or `http` for a loopback authority only. The authority SHALL
 carry no user information, and the quoted path SHALL equal the path. A data
-request SHALL carry a loopback `Host` and no `Origin`.
+request SHALL carry a loopback `Host`, no `Origin` and no `Sec-Fetch-*` header.
 
 #### Scenario: A client names an HTTPS upstream
 
@@ -40,7 +40,7 @@ request SHALL carry a loopback `Host` and no `Origin`.
 
 #### Scenario: A web page sends a data request
 
-- **WHEN** a data request carries an `Origin` header or a non-loopback `Host`
+- **WHEN** a data request carries an `Origin` header, a Fetch Metadata header or a non-loopback `Host`
 - **THEN** the proxy refuses it with HTTP 403 before resolving its path
 - **AND** it performs no remote network request.
 

@@ -140,8 +140,9 @@ The request path names the upstream; the proxy keeps no registry of upstreams.
   encoded, empty or dot segments, fragments and unrelated resources fail
   before remote I/O.
 - Headers, bodies, and query parameters cannot select an upstream host.
-- Only a native local client is served: a data request with `Origin` or a
-  non-loopback `Host` is refused, as the handoff control request is.
+- Only a native local client is served: a data request with `Origin`, Fetch
+  Metadata (`Sec-Fetch-*`) or a non-loopback `Host` is refused, as the handoff
+  control request is.
 - The upstream origin, its scheme, authority and base path, keys cooldowns and
   names the upstream in log lines.
 

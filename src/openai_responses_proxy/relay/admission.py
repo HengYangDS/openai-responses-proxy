@@ -93,13 +93,18 @@ def is_loopback_client(address: str) -> bool:
     return False
 
 
+# Headers that only a browser sends: `Origin` on a cross-origin request, and Fetch Metadata on
+# every request, including a top-level navigation or a no-cors GET that carries no `Origin`.
+_BROWSER_HEADERS = ("Origin", "Sec-Fetch-Site", "Sec-Fetch-Mode", "Sec-Fetch-Dest")
+
+
 def is_local_client(address: str, headers: Message) -> bool:
     """Admit a request only from a native loopback client, never from a web page.
 
-    A browser names the page's origin in `Origin` on a cross-origin request and keeps the page's
-    host in `Host` even after DNS rebinding; a native client sends neither.
+    A browser marks its requests with `Origin` or Fetch Metadata, and keeps the page's host in
+    `Host` even after DNS rebinding; a native client sends none of these.
     """
-    if not is_loopback_client(address) or headers.get("Origin") is not None:
+    if not is_loopback_client(address) or any(name in headers for name in _BROWSER_HEADERS):
         return False
     with suppress(ValueError):
         return urllib.parse.urlsplit(f"//{headers.get('Host', '')}").hostname in LOOPBACK_HOSTS

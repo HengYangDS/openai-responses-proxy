@@ -480,6 +480,16 @@ class UpstreamRouteTests:
                 assert error.code == 403
             assert received == []
 
+    def test_browser_navigation_without_origin_is_refused(self) -> None:
+        # A top-level navigation or a no-cors GET carries no Origin, only Fetch Metadata.
+        headers = {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate"}
+        with running_proxy([(200, b"<script></script>")]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, path=upstream_path("models"), method="GET", headers=headers)
+            with raised.value as error:
+                assert error.code == 403
+            assert received == []
+
     def test_cooldowns_are_independent_per_origin(self) -> None:
         limited = _body({"error": {"type": "rate_limit_error", "code": "rate_limited"}})
         success = b'{"id":"resp_other","status":"completed"}'

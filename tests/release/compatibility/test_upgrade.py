@@ -1,9 +1,9 @@
 """Published predecessor journey across the payload-shape change of 8.0.0.
 
 A predecessor's payload holds a provider manifest that this release no longer ships, so its
-listener cannot hand off to this release. This release refuses such an installation and changes
-nothing; the release that wrote it removes it; this release then installs fresh and relays by the
-upstream that the request path names.
+listener cannot hand off to this release. This release refuses such an installation, names its
+removal and changes nothing; the release that wrote it removes it; this release then installs
+fresh and relays by the upstream that the request path names.
 """
 
 from __future__ import annotations
@@ -35,9 +35,6 @@ pytestmark = [
     pytest.mark.usefixtures(preserve_native_host_projection.__name__),
     pytest.mark.native_distribution,
 ]
-
-# The route that a predecessor's `--upstream-base-url` installs.
-_PREDECESSOR_PATH = "/upstream/v1/responses"
 
 
 def test_predecessor_installation_is_refused_then_replaced_by_a_fresh_install(
@@ -90,14 +87,13 @@ def test_predecessor_installation_is_refused_then_replaced_by_a_fresh_install(
     with ExitStack() as cleanups:
         cleanups.callback(upstream.close)
         cleanups.callback(verification.cleanup_runtime, ctx)
+        # A real installation's shape: the predecessor's own routes and no upstream override.
         installed = run_previous(
             "install",
             "--asset",
             str(previous_asset),
             "--trust-anchor",
             str(previous_trust),
-            "--upstream-base-url",
-            upstream_url,
             *output,
         )
         assert installed["state"] == "installed"
@@ -112,15 +108,13 @@ def test_predecessor_installation_is_refused_then_replaced_by_a_fresh_install(
         error = refused["error"]
         assert isinstance(error, dict)
         assert error["code"] == "lifecycle_error"
+        assert "earlier release with another payload shape" in str(error["message"])
+        assert error["next"] == "openai-responses-proxy uninstall --purge"
         _assert_same_runtime_identity(before, run_previous("status", *output))
         assert generation.read(ctx) == selection
         assert records.installed_path(ctx).read_bytes() == metadata
         assert native_release.native_service_projection(ctx) == supervision
         assert not records.transaction_root(ctx).exists()
-        upstream.push((200, b'{"id":"before","status":"completed"}'))
-        assert native_release.post_response(port, _PREDECESSOR_PATH) == (
-            b'{"id":"before","status":"completed"}'
-        )
 
         removed = run_previous("uninstall", "--port", str(port), "--purge", "--json")
         assert removed["state"] == "purged"

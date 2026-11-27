@@ -164,6 +164,17 @@ def committed_payload(executable: Path) -> LoadedPayloadIdentity | None:
         return None
 
 
+def is_earlier_payload_shape(executable: Path) -> bool:
+    """Return whether a generation's manifest declares a payload shape older than this release's."""
+    try:
+        schema = _read_manifest(_runtime_root(executable) / inventory.MANIFEST_FILENAME).get(
+            "schema_version"
+        )
+    except (IndexError, OSError, TypeError, ValueError):
+        return False
+    return type(schema) is int and 0 < schema < inventory.MANIFEST_SCHEMA_VERSION
+
+
 def _serving_files(manifest: Mapping[str, object]) -> dict[str, str]:
     """Return the digests of a current-schema manifest whose files are all serving files."""
     if manifest.get("schema_version") != inventory.MANIFEST_SCHEMA_VERSION:

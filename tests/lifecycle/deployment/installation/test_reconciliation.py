@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,9 +14,11 @@ from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import control
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import install
+from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle.deployment import apply
 from openai_responses_proxy.lifecycle.transaction import execution as transaction
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.deployment.installation.fixtures import _unsupervised_installation
 from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
@@ -268,4 +271,26 @@ def test_install_of_a_recorded_release_refuses_a_control_root_without_a_selectio
 
     begin.assert_not_called()
     native.install.assert_not_called()
+    assert listing_with_digests(tmp_path) == before
+
+
+def test_install_refuses_a_payload_of_an_earlier_shape_and_names_its_removal(
+    tmp_path: Path, *, mocker: MockerFixture
+) -> None:
+    ctx, control_ctx, _native, _committed, _runtime = _unsupervised_installation(
+        tmp_path, service="absent", mocker=mocker
+    )
+    manifest_path = Path(projection.payload_manifest_path(control_ctx))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = inventory.MANIFEST_SCHEMA_VERSION - 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    mocker.patch.object(install.artifact, "admit", return_value=released_artifact("9.9.9"))
+    before = listing_with_digests(tmp_path)
+
+    with pytest.raises(errors.InstallError, match="earlier release") as refused:
+        install.install_asset(
+            ctx, tmp_path / "release.tar.gz", trust_anchor=tmp_path / "allowed-signers"
+        )
+
+    assert refused.value.next_command == "openai-responses-proxy uninstall --purge"
     assert listing_with_digests(tmp_path) == before

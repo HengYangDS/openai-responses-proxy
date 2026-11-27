@@ -13,7 +13,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 MANIFEST_FILENAME = "payload-manifest.json"
-MANIFEST_SCHEMA_VERSION: Final = 2
+# The payload shape: schema 3 (8.0.0) holds the native bundle only, and a generation of an
+# earlier schema belongs to an earlier release's payload shape.
+MANIFEST_SCHEMA_VERSION: Final = 3
 RELEASE_RECEIPT_FILENAME = "release-asset-receipt.json"
 INSTALLED_RELEASE_STATE_FILENAME = "release-install-state.json"
 RUNTIME_CONFIG_FILENAME = "runtime-config.json"

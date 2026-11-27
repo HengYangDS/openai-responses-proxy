@@ -59,8 +59,11 @@
 ## 7. Verification and release
 
 - [ ] 7.1 Run the full local checks; no provider name remains in `src`, `tests` or `tools`. Done when they pass.
-- [ ] 7.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
-      answer.
+- [x] 7.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
+      answer. Answered: a browser navigation without `Origin` passed the local-client rule, now refused by its
+      Fetch Metadata; a real 7.0.2 installation got a refusal that read like corruption, now the manifest schema is 3
+      and the refusal names the removal; task 8.1 now starts with the purge. Seven minor findings wait for the
+      owner's call at the close.
 - [ ] 7.3 Pass the ETHOS full proof under a host ticket and land on both forges. Done when both forges' `dev` and
       `main` hold the release commit.
 - [ ] 7.4 Publish the signed tag `v8.0.0` and the Releases on both forges. Done when both Releases list the bundle.
@@ -68,8 +71,8 @@
 
 ## 8. Cutover and acceptance
 
-- [ ] 8.1 Install 8.0.0 after AIGW's release, in a window the owner is told first. Done when `status --json` reports
-      8.0.0 and AIGW has re-projected the base URLs.
+- [ ] 8.1 After AIGW's release, in a window the owner is told first, remove 7.0.2 with its own `uninstall --purge`
+      and install 8.0.0 fresh (D5). Done when `status --json` reports 8.0.0 and AIGW has re-projected the base URLs.
 - [ ] 8.2 Accept: the owner's next DMXAPI turns are logged with `upstream=https://www.dmxapi.cn/v1`, projected and
       completed; one request without a token to each other origin reaches that upstream's own authentication error.
       Done when all four are recorded.

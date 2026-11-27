@@ -27,10 +27,12 @@ publication authority.
   base URLs.
 - **Breaking:** data requests, like the handoff control request, are served
   only to a loopback client whose `Host` is a loopback address and that sends
-  no `Origin`; a request from a web page gets HTTP 403.
-- **Breaking:** the payload holds no `providers.toml`. This release therefore
-  refuses an installation of 7.0.2 or earlier and changes nothing, and a 7.0.2
-  listener cannot hand off to it. Remove such an installation with its own
+  no `Origin` and no Fetch Metadata (`Sec-Fetch-Site`, `Sec-Fetch-Mode`, `Sec-Fetch-Dest`); a request from a web page, a top-level navigation included,
+  gets HTTP 403. The handoff control request now refuses Fetch Metadata too.
+- **Breaking:** the payload holds no `providers.toml`, and its manifest schema
+  is 3. This release therefore refuses an installation of 7.0.2 or earlier,
+  names its removal and changes nothing, and a 7.0.2 listener cannot hand off
+  to it. Remove such an installation with its own
   `uninstall --purge`, then install this release; the way back is this
   release's `uninstall --purge`, then a fresh install of 7.0.2.
 - Rate-limit and unavailability cooldowns are kept per upstream origin, its

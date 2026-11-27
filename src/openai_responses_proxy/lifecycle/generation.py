@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import errors
+from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import owned_files
 from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle import records
@@ -94,6 +95,12 @@ def control_context(
             continue
         candidate = context(ctx, generation_id)
         payload = identity.committed_payload(Path(candidate.executable))
+        if payload is None and identity.is_earlier_payload_shape(Path(candidate.executable)):
+            raise errors.InstallError(
+                "installed payload was written by an earlier release with another payload shape; "
+                "remove it with that release's uninstall --purge, then install this release",
+                next_command=product_identity.command("uninstall", "--purge"),
+            )
         if payload is None:
             raise errors.InstallError("selected control-plane generation identity is invalid")
         identified.append((candidate, records.version_key(payload.release)))

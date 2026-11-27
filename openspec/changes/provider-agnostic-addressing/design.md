@@ -116,9 +116,10 @@ A client's base URL is `http://127.0.0.1:<port>/<scheme>/<authority>/<base path>
   upstreams.
 - `authority` is a host name or IP literal with an optional port, without user information. Segments keep today's
   strict quoting rule: the quoted path must equal the path.
-- Data requests gain the control requests' admission rule: loopback `Host` and no `Origin`. The proxy forwards to
-  any HTTPS host that a local client names, with that client's own credential; the rule keeps a web page from
-  using it.
+- Data requests gain the control requests' admission rule: loopback `Host`, no `Origin` and no Fetch Metadata
+  (`Sec-Fetch-*`), which browsers send even on a top-level navigation or a no-cors GET without `Origin`. The proxy
+  forwards to any HTTPS host that a local client names, with that client's own credential; the rule keeps a web
+  page from using it.
 - Removed: `providers/manifest.toml`, `Registry`, `Profile` and the policy package; `--upstream-base-url` and the
   runtime configuration's `upstream_base_url`; `providers.toml` in the payload (it leaves the bundle inventory and
   `serving_payload_sha256`). The hard-coding control `network-provider-route` is retired with the manifest.
@@ -207,7 +208,7 @@ No other measurement is needed: the projection is unchanged.
   re-projects its configuration keeps the old URL. Mitigation: one announced cutover (Migration); no compatibility
   route.
 - **Open forwarder.** Any local process can reach any HTTPS host through the proxy with its own credential. That
-  equals what it can do directly; the `Host`/`Origin` rule closes the browser path.
+  equals what it can do directly; the `Host`, `Origin` and Fetch Metadata rule closes the browser path.
 - **Host names in the log.** `upstream=` records each origin a client names; the log already records paths, and
   the origin carries no credential or query.
 - **Removing the 477 policy on eight days of data.** All of that traffic was DMXAPI; a recurrence costs a

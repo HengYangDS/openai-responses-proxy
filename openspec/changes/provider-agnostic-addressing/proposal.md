@@ -11,7 +11,8 @@ remove that coupling while keeping the request projection unchanged.
   `http://127.0.0.1:<port>/<scheme>/<authority>/<base path>`. The provider-named routes, the provider manifest and
   registry, `--upstream-base-url`, the runtime configuration's `upstream_base_url` and the payload file
   `providers.toml` are removed, with no compatibility route.
-- **BREAKING** Data requests require a loopback `Host` and no `Origin`, as control requests already do.
+- **BREAKING** Data requests require a loopback `Host`, no `Origin` and no Fetch Metadata (`Sec-Fetch-*`), as
+  control requests then do too.
 - **BREAKING** The route error codes become `upstream_route_invalid` and `upstream_route_method_not_allowed`.
 - The DMXAPI HTTP 477 retry and its fingerprint cooldown are removed; an HTTP 477 reaches the client like any other
   client error.

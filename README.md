@@ -314,7 +314,8 @@ The proxy never follows an upstream redirect: the client receives the redirect
 response itself, and its credential is sent only to the named upstream. Data
 requests and the lifecycle control request (`/control/handoff`) are accepted
 only from a loopback client whose `Host` is a loopback address and that sends
-no `Origin`, so a web page can neither relay through the proxy nor start a
+no `Origin` and no Fetch Metadata (`Sec-Fetch-Site`, `Sec-Fetch-Mode`, `Sec-Fetch-Dest`). Browsers send these headers, a top-level navigation
+included, so a web page can neither relay through the proxy nor start a
 handoff; a refused request receives HTTP 403. The
 [threat model](docs/architecture/threat-model.md) lists the remaining
 accepted risks.
