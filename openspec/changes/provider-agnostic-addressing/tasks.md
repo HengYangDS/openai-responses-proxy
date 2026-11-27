@@ -50,9 +50,9 @@
 
 ## 6. Documents and release metadata
 
-- [ ] 6.1 Amend DR-0001 and DR-0003, and update the README, the architecture document and the evidence policy (D4).
-      Done when governance, Vale and the Markdown checks pass. Governance and the Markdown checks passed; Vale runs
-      in the full proof (7.3).
+- [x] 6.1 Amend DR-0001 and DR-0003, and update the README, the architecture document and the evidence policy (D4).
+      Done when governance, Vale and the Markdown checks pass. Passed; Vale ran as the proof's prose gate on 35
+      files.
 - [x] 6.2 Set `VERSION` to 8.0.0 and add the release to `CHANGELOG.md` under `Breaking`, `Removed` and `Changed`. Done
       when `tests/release/test_metadata.py` passes. Passed.
 
