@@ -44,8 +44,8 @@ the one list, which `tests/providers/test_registry.py` ties to the shipped manif
   and a MODIFIED block replaces the whole requirement. Its switching scenario is therefore changed in that Change's
   delta, not here, and the lane rehearses archiving both Changes in either order, as `drop-windows-and-intel-macos`
   did (its task 1.2).
-- The main specification's Purpose lists three routes and lies outside the delta operations; the archive commit of
-  this Change rewrites it in the same general terms.
+- The main specification's Purpose lists three routes and lies outside the delta operations; the closing commit of
+  this Change rewrites it in the same general terms, just before ETHOS writes the archive commit.
 - `docs/evidence/evidence-policy.md` restated the acceptance sequence; it now names the specification's scenario, so
   the sequence has one source.
 

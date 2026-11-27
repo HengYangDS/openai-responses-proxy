@@ -3,8 +3,8 @@
 ## Purpose
 
 Provide one fail-closed Responses compatibility boundary that makes stored
-Codex dialogue replayable across the governed DMXAPI, UCloud, and
-AIHubMix routes without changing the conversation record itself.
+Codex dialogue replayable across the governed provider routes without
+changing the conversation record itself.
 
 ## Requirements
 
