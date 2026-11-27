@@ -45,7 +45,7 @@ def test_predecessor_installation_is_refused_then_replaced_by_a_fresh_install(
     previous_asset = _required_path("OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_ASSET")
     previous_trust = _required_path("OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR")
     current_version = (native_release.ROOT / "VERSION").read_text(encoding="ascii").strip()
-    _published, previous_version, previous_executable = admitted_predecessor(
+    previous_version, previous_executable = admitted_predecessor(
         tmp_path,
         previous_asset=previous_asset,
         previous_trust=previous_trust,

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import os
+import tarfile
 from pathlib import Path
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -46,41 +48,39 @@ def _assert_same_runtime_identity(
     assert observed_runtime.get("accepting") is True
 
 
-def _materialize_native_bundle(candidate: artifact.VerifiedArtifact, output: Path) -> Path:
-    """Materialize exact admitted native executable bytes without its provider manifest."""
-    output.mkdir()
-    for blob in candidate.peek_blobs():
-        if blob.path == "providers.toml":
-            continue
-        relative = PurePosixPath(blob.path)
-        assert relative.parts[0] == "bin"
-        target = output.joinpath(*relative.parts[1:])
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(blob.content)
-        target.chmod(0o755 if blob.mode == "100755" else 0o644)
-    executable = output / product_identity.COMMAND_NAME
-    assert executable.is_file()
-    return output
-
-
 def admitted_predecessor(
     tmp_path: Path,
     *,
     previous_asset: Path,
     previous_trust: Path,
     current_version: str,
-) -> tuple[artifact.VerifiedArtifact, str, Path]:
-    """Admit exact published bytes for the retained installation journey."""
-    published_predecessor = artifact.admit(
-        previous_asset,
-        trust_anchor=previous_trust,
-    )
-    previous_version = published_predecessor.version
-    assert records.version_key(previous_version) < records.version_key(current_version)
-    previous_bundle = _materialize_native_bundle(
-        published_predecessor,
-        tmp_path / "published-predecessor-bundle",
-    )
-    previous_executable = previous_bundle / product_identity.COMMAND_NAME
+) -> tuple[str, Path]:
+    """Prove a published predecessor's bytes and return its version and executable.
 
-    return published_predecessor, previous_version, previous_executable
+    The predecessor's signed checksums prove its archive. The candidate's admission is not used:
+    it refuses a payload of another shape, as an installer must, and the predecessor's own
+    installer admits its archive in the journey.
+    """
+    name = artifact._ARCHIVE.fullmatch(previous_asset.name)
+    assert name is not None, previous_asset.name
+    checksums = previous_asset.with_name("SHA256SUMS").read_bytes()
+    artifact._verify_signature(
+        checksums, previous_asset.with_name("SHA256SUMS.sig"), previous_trust
+    )
+    archive = previous_asset.read_bytes()
+    assert artifact._parse_checksums(checksums)[previous_asset.name] == (
+        hashlib.sha256(archive).hexdigest()
+    )
+    previous_version = str(name["version"])
+    assert records.version_key(previous_version) < records.version_key(current_version)
+    output = tmp_path / "published-predecessor"
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as bundle:
+        bundle.extractall(output, filter="data")
+    executable = (
+        output
+        / f"{product_identity.PRODUCT_SLUG}-{previous_version}-{name['platform']}"
+        / "bin"
+        / product_identity.COMMAND_NAME
+    )
+    assert executable.is_file()
+    return previous_version, executable
