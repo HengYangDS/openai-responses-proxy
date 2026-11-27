@@ -28,9 +28,9 @@
 - [x] 4.1 Record M4's result in the design and write the plaintext requirement's delta (D2). Done when the Change
       passes `openspec validate --strict`. M4 passed on 2026-11-27: UCloud handled an encrypted follow-up message,
       so the requirement is removed.
-- [ ] 4.2 Add a relay test that the native `collaboration` catalog reaches every upstream unchanged, then remove the
+- [x] 4.2 Add a relay test that the native `collaboration` catalog reaches every upstream unchanged, then remove the
       plaintext delivery mode and its tests (D2). Done when the test fails before the removal and the relay and
-      protocol tests pass after it.
+      protocol tests pass after it. It failed on the UCloud route (`collaboration_plaintext`), then passed.
 
 ## 5. Upstream override and payload
 

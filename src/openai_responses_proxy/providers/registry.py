@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING
-from typing import Literal
-from typing import cast
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -24,7 +22,6 @@ class Profile:
 
     name: str
     base_url: str
-    agent_message_delivery: Literal["native", "plaintext"] = "native"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,16 +89,9 @@ def load(path: str | Path | None = None) -> Registry:
 def _profile(name: object, raw: object) -> Profile:
     if not isinstance(name, str) or not _NAME.fullmatch(name):
         raise ValueError("provider names must be lowercase kebab-case slugs")
-    if not isinstance(raw, dict) or set(raw) - {"base_url", "agent_message_delivery"}:
+    if not isinstance(raw, dict) or set(raw) - {"base_url"}:
         raise ValueError(f"provider {name!r} has unknown or invalid fields")
-    delivery = raw.get("agent_message_delivery", "native")
-    if delivery not in ("native", "plaintext"):
-        raise ValueError(f"provider {name!r} has an invalid agent message delivery policy")
-    return Profile(
-        name,
-        _base_url(name, raw.get("base_url")),
-        cast("Literal['native', 'plaintext']", delivery),
-    )
+    return Profile(name, _base_url(name, raw.get("base_url")))
 
 
 def _base_url(name: str, value: object) -> str:

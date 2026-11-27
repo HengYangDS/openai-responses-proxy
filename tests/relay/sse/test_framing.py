@@ -20,7 +20,6 @@ from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import telemetry
-from tests.protocol.test_agent_delivery import _call
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
@@ -287,22 +286,13 @@ class TestSseFraming(InputTransportFixture):
         counters = cast("dict[str, int]", self._status_snapshot()["counters"])
         assert counters["stream_projection_failures"] == 1
 
-    @pytest.mark.parametrize("failure", ["event", "plaintext", "unknown"])
+    @pytest.mark.parametrize("failure", ["event", "unknown"])
     def test_committed_validation_failure_reports_owned_reason_without_replay(
         self, failure: str, *, mocker: MockerFixture
     ) -> None:
         content = b'data: {"type":"response.output_text.delta","delta":"visible"}\n\n'
-        if failure == "plaintext":
-            call = _call(message="gAAAA-private-message")
-            rejected = (
-                b"data: "
-                + json.dumps({"type": "response.output_item.done", "item": call}).encode()
-                + b"\n\n"
-            )
-            expected_reason = "agent_delivery_plaintext_unproved"
-        else:
-            rejected = b'data: {"type":"private-invalid-json"\n\n'
-            expected_reason = "invalid_responses_event"
+        rejected = b'data: {"type":"private-invalid-json"\n\n'
+        expected_reason = "invalid_responses_event"
         if failure == "unknown":
             restore = response_projection.sse_event_data
 
@@ -323,7 +313,6 @@ class TestSseFraming(InputTransportFixture):
             40032,
             send_headers=lambda: None,
             reopen=reopen,
-            plaintext_agent_delivery=failure == "plaintext",
         )
 
         assert result["attempts"] == 1

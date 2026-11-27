@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from typing import Protocol
 from typing import cast
 
-from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import sse
@@ -116,7 +115,6 @@ class Exchange(Protocol):
     request_id: int
     is_responses: bool
     used_input_variant_dialogue: bool
-    plaintext_agent_delivery: bool
     deadline: float
 
     def upstream(
@@ -195,7 +193,6 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             reopen=None if exchange.used_input_variant_dialogue else reopen,
             send_headers=lambda: _send_stream_headers(exchange.handler, response),
             accepted=exchange.input_variant_accepted,
-            plaintext_agent_delivery=exchange.plaintext_agent_delivery,
             deadline=exchange.deadline,
         )
         stream = result["result"]
@@ -428,7 +425,6 @@ def relay_responses_json(exchange: Exchange, response: UpstreamResponse) -> None
     try:
         body = upstream_transport.read_body(response, exchange.deadline, MAX_RESPONSES_JSON_BYTES)
         payload, status = live_response.validate_json_response(body)
-        payload = agent_delivery.restore_response(payload, active=exchange.plaintext_agent_delivery)
     except upstream_transport.ExchangeDeadlineError:
         deadline_exceeded(exchange)
         return

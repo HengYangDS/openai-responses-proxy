@@ -6,7 +6,6 @@ import time
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as replay_response
 from openai_responses_proxy.protocol.replay import projection as replay_request
 from openai_responses_proxy.relay import admission
@@ -261,22 +260,6 @@ def relay(
         )
         return
     body = projection.body
-    try:
-        prepared = agent_delivery.prepare_request(body, profile.agent_message_delivery)
-    except (TypeError, ValueError) as error:
-        downstream.send_payload(
-            handler,
-            400,
-            replay_response.error_payload(
-                "Responses delegation does not match the selected delivery policy",
-                "invalid_request_error",
-                "agent_delivery_rejected",
-                reason=str(error),
-            ),
-        )
-        telemetry.record_counter("agent_delivery_rejected")
-        return
-    body = prepared.body
     path = operational_log.safe_request_path(handler.path)
     if len(body) >= _LARGE_REQUEST_BYTES:
         operational_log.log(
@@ -298,7 +281,6 @@ def relay(
         is_responses,
         body,
         profile,
-        plaintext_agent_delivery=prepared.active,
         input_dependencies=projection.input_dependencies,
     )
     if _cooldown_active(exchange):

@@ -21,7 +21,6 @@ class ValidationReason(StrEnum):
     """Fixed diagnostics owned by live response validation."""
 
     INVALID_EVENT = "invalid_responses_event"
-    UNPROVED_AGENT_PLAINTEXT = "agent_delivery_plaintext_unproved"
 
 
 class ResponseValidationError(ValueError):
@@ -29,7 +28,7 @@ class ResponseValidationError(ValueError):
 
     def __init__(self, reason: ValidationReason) -> None:
         """Bind one protocol-owned reason while retaining ValueError compatibility."""
-        self.reason = reason
+        self.reason: ValidationReason = reason
         super().__init__(reason.value)
 
 

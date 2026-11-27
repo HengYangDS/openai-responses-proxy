@@ -105,7 +105,6 @@ class Exchange:
     is_responses: bool
     attempt_body: bytes
     profile: provider_registry.Profile
-    plaintext_agent_delivery: bool = False
     response_failed_stages: int = 0
     used_response_failed_compaction: bool = False
     compact_metrics: execution_recovery.RecoveryMetrics | None = None

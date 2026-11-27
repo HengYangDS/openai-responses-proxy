@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 from typing import NotRequired
 from typing import TypedDict
 
-from openai_responses_proxy.protocol import agent_delivery
 from openai_responses_proxy.protocol import response as live_response
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import telemetry
@@ -111,8 +110,6 @@ def _read_one_stream(
     response: UpstreamResponse,
     on_first_write: Callable[[], None],
     deadline: float | None = None,
-    *,
-    plaintext_agent_delivery: bool = False,
 ) -> StreamResult:
     """Relay one upstream stream while withholding retry-safe prelude events."""
     if deadline is None:
@@ -147,7 +144,6 @@ def _read_one_stream(
         nonlocal event_count, terminal_event, upstream_detail, upstream_error
         nonlocal failure_code, upstream_request_id, last_event_type, error_code
         try:
-            event = agent_delivery.restore_event(event, active=plaintext_agent_delivery)
             payload = live_response.sse_event_data(event)
         except (TypeError, ValueError) as error:
             upstream_detail = "projection_failed"
@@ -236,7 +232,6 @@ def relay(
     *,
     send_headers: Callable[[], None] | None = None,
     accepted: Callable[[], None] | None = None,
-    plaintext_agent_delivery: bool = False,
     deadline: float | None = None,
 ) -> RelayResult:
     """Relay validated SSE with retries only before downstream commitment.
@@ -260,13 +255,7 @@ def relay(
 
     def read(stream: UpstreamResponse) -> StreamResult:
         try:
-            return _read_one_stream(
-                handler,
-                stream,
-                on_first_write,
-                deadline,
-                plaintext_agent_delivery=plaintext_agent_delivery,
-            )
+            return _read_one_stream(handler, stream, on_first_write, deadline)
         finally:
             _release_upstream(stream)
 

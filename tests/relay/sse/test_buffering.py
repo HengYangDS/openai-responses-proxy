@@ -119,7 +119,6 @@ class TestSseBuffering(InputTransportFixture):
             request_id=1,
             deadline=float("inf"),
             used_input_variant_dialogue=False,
-            plaintext_agent_delivery=False,
         )
         upstream = DirectResponse(b"data: " + b"x" * LIMIT)
 

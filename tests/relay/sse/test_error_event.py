@@ -145,22 +145,6 @@ class TestStreamErrorEvent:
         assert _stream(result)["terminal"] == "error"
         assert _log_fields(log_path, "sse_terminal")["code"] == "validation_error"
 
-    def test_an_error_event_ends_a_plaintext_agent_delivery(self, log_path: Path) -> None:
-        error = _error_event()
-        handler = MemoryHandler()
-
-        result = sse.relay(
-            handler,
-            DirectResponse(_CREATED + _IN_PROGRESS + error),
-            "/dmxapi/v1/responses",
-            13,
-            plaintext_agent_delivery=True,
-        )
-
-        assert handler.output() == _chunked(_CREATED, _IN_PROGRESS, error) + _FINAL_CHUNK
-        assert _stream(result)["terminal"] == "error"
-        assert _log_fields(log_path, "sse_terminal")["code"] == "validation_error"
-
     def test_a_reopened_stream_can_end_with_an_error_event(
         self, log_path: Path, *, mocker: MockerFixture
     ) -> None:

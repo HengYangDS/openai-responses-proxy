@@ -108,7 +108,6 @@ class ProviderRegistryTests:
         shipped = registry.load()
         profile = shipped.profiles["suheai"]
         assert profile.base_url == "https://suheai.cn/v1"
-        assert profile.agent_message_delivery == "native"
         assert shipped.resolve("/suheai/v1/responses") == (
             profile,
             "responses",
@@ -119,38 +118,6 @@ class ProviderRegistryTests:
             "models",
             "https://suheai.cn/v1/models",
         )
-
-    def test_agent_delivery_policy_is_explicit_and_scoped_to_one_route(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            loaded = registry.load(
-                _manifest(
-                    Path(directory),
-                    "version = 1\n"
-                    "[providers.native]\nbase_url = 'https://native.example/v1'\n"
-                    "[providers.readable]\nbase_url = 'https://readable.example/v1'\n"
-                    "agent_message_delivery = 'plaintext'\n",
-                )
-            )
-        assert loaded.profiles["native"].agent_message_delivery == "native"
-        assert loaded.profiles["readable"].agent_message_delivery == "plaintext"
-        shipped = registry.load()
-        assert shipped.profiles["ucloud"].agent_message_delivery == "plaintext"
-        assert shipped.profiles["dmxapi"].agent_message_delivery == "native"
-
-    @pytest.mark.parametrize("value", ["'automatic'", "false"])
-    def test_unknown_agent_delivery_policy_cannot_start_a_route(self, value: str) -> None:
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            pytest.raises(ValueError, match="invalid agent message delivery policy"),
-        ):
-            registry.load(
-                _manifest(
-                    Path(directory),
-                    "version = 1\n[providers.gateway]\n"
-                    "base_url = 'https://gateway.example/v1'\n"
-                    f"agent_message_delivery = {value}\n",
-                )
-            )
 
     def test_registry_rejects_ambiguous_or_malformed_request_targets(
         self, subtests: pytest.Subtests
@@ -214,6 +181,5 @@ class ProviderRegistryTests:
             "responses",
             "https://api.openai.com/v1/responses",
         )
-        assert configured.profiles["upstream"].agent_message_delivery == "native"
         assert configured.resolve("/gateway/v1/models") == released.resolve("/gateway/v1/models")
         assert released.with_upstream("") is released
