@@ -41,20 +41,11 @@ smaller derivation of it. No recovery path restores an earlier provider-bound
 request, reads client conversation storage, or claims to decrypt ciphertext.
 Requests carrying encrypted agent messages cannot use shrinking recovery.
 
-A released provider profile may select plaintext agent delivery before model
-generation. Its request-local protocol adapter aliases `collaboration` to
-`collaboration_plaintext`, removes only the three message tools' encrypted
-message annotation, and remaps replayed calls and explicit tool selection. It
-restores native call namespaces only for proved readable message arguments,
-using `arguments` for function calls and `input` for custom calls. Only function
-calls receive an empty `encrypted_function_args` list. This invokes the client's existing
-plaintext delivery path; it does not decrypt or relabel old ciphertext. The
-request-local selection binds both JSON and streaming response restoration.
-
-The client configuration owner must align its tool namespace and model agent
-version with the conversation. The proxy neither reads nor repairs these
-settings. Native compaction's empty `additional_tools` list is a valid explicit
-control and must remain empty rather than be removed or rejected.
+Every upstream receives the client's native agent delivery. The proxy offers no
+plaintext delivery mode and neither reads nor repairs the client's tool
+namespace or model agent version. Native compaction's empty `additional_tools`
+list is a valid explicit control and must remain empty rather than be removed or
+rejected.
 
 ## Alternatives Rejected
 
@@ -100,3 +91,9 @@ endpoint included, so unchanged forwarding had no measured benefit. Both
 measurements are summarized in the `dmxapi-pass-through` Change. Revisit
 unchanged forwarding only with a measurement that alternates request shapes
 within one period in which at least the provider's own endpoint reasons.
+
+A second 2026-11-27 amendment (release 8.0.0) withdrew plaintext agent delivery.
+UCloud, the only upstream that used it, delivered Codex's native encrypted
+collaboration message in a measurement the same day, so every upstream now
+receives native delivery. The `provider-agnostic-addressing` Change records the
+measurement.

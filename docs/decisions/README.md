@@ -17,7 +17,7 @@ is the only decision navigation source.
 | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [DR-0001](dr-0001-control-plane-data-plane-boundary.md)         | Keep client control planes separate from the proxy data plane.           |
 | [DR-0002](dr-0002-provider-portable-stateless-replay.md)        | Keep replay stateless and portable across admitted providers.            |
-| [DR-0003](dr-0003-provider-scoped-recovery-and-backpressure.md) | Isolate recovery and backpressure by provider route.                     |
+| [DR-0003](dr-0003-provider-scoped-recovery-and-backpressure.md) | Isolate recovery and backpressure by upstream origin.                    |
 | [DR-0004](dr-0004-local-first-independent-forge-release.md)     | Publish one signed bundle through independent Forges.                    |
 | [DR-0005](dr-0005-single-native-payload-lifecycle.md)           | Maintain one native payload and lifecycle model.                         |
 | [DR-0006](dr-0006-semantic-fit-before-framework-adoption.md)    | Adopt dependencies only where they replace an owned complexity boundary. |

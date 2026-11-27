@@ -37,14 +37,14 @@ flowchart LR
 
 ## Authority
 
-| Owner                    | Authoritative state                                                    |
-| ------------------------ | ---------------------------------------------------------------------- |
-| Client                   | Conversations, tool state, JSONL, SQLite, stored items, model metadata |
-| Client control plane     | Credentials, provider selection, and client endpoint configuration     |
-| Proxy source and release | Provider manifest, protocol policy, native bundle, lifecycle contract  |
-| Installed proxy          | Manifest-owned payload and native service projection                   |
-| Provider                 | Model execution, quota, and upstream availability                      |
-| GitLab / GitHub          | Independent CI, tag, Release, and asset records                        |
+| Owner                    | Authoritative state                                                     |
+| ------------------------ | ----------------------------------------------------------------------- |
+| Client                   | Conversations, tool state, JSONL, SQLite, stored items, model metadata  |
+| Client control plane     | Credentials, provider selection, and client endpoint configuration      |
+| Proxy source and release | Upstream addressing, protocol policy, native bundle, lifecycle contract |
+| Installed proxy          | Manifest-owned payload and native service projection                    |
+| Provider                 | Model execution, quota, and upstream availability                       |
+| GitLab / GitHub          | Independent CI, tag, Release, and asset records                         |
 
 The proxy repairs compatibility only at the network edge. It never rewrites a
 conversation or reads another product's configuration.
@@ -88,11 +88,10 @@ admission, completion and restart recovery; deployment owns activation and
 handoff; supervision owns native service and process control. Serving handoff
 owns listener-transfer state, distinct from installation mutation. Protocol
 replay owns portable items and relationships; protocol recovery owns permitted
-request reduction, while relay owns deadlines and transport attempts. Provider
-policies supply explicit wire differences selected by the manifest.
+request reduction, while relay owns deadlines and transport attempts.
 
-No package may infer provider behavior from a name when the manifest or explicit
-policy contract owns it.
+No package infers behavior from an upstream's name; a recovery is keyed by the
+response it answers.
 
 ## Repository-only domains
 
@@ -125,59 +124,61 @@ acceptance session never substitutes another source build. This workflow-local
 binding is not published-release signature admission or permission to reuse an
 unrelated run's evidence.
 
-## Provider routing
+## Upstream addressing
 
-The released manifest is the sole provider registry.
+The request path names the upstream; the proxy keeps no registry of upstreams.
 
 ```text
-/<provider>/v1/responses
-/<provider>/v1/models
+/<scheme>/<authority>/<base path>/responses
+/<scheme>/<authority>/<base path>/models
 ```
 
-- Responses routes enter projection, recovery, cooldown, and integrity checks.
-- Models routes are transparent authenticated GET relays.
-- Unscoped, encoded, ambiguous, or unrelated paths fail before remote I/O.
+- Responses requests enter projection, recovery, cooldown, and integrity checks.
+- Model-catalog requests are transparent authenticated GET relays that keep
+  their query.
+- The scheme is `https`, or `http` for a loopback host only. User information,
+  encoded, empty or dot segments, fragments and unrelated resources fail
+  before remote I/O.
 - Headers, bodies, and query parameters cannot select an upstream host.
-- Adding an ordinary provider changes one manifest table.
-- One explicit ordinary upstream is selected through the existing native
-  runtime carrier. It adds `/upstream/v1` without another catalog, credential
-  owner, implicit fallback, or a provider-specific policy.
+- Only a native local client is served: a data request with `Origin` or a
+  non-loopback `Host` is refused, as the handoff control request is.
+- The upstream origin, its scheme, authority and base path, keys cooldowns and
+  names the upstream in log lines.
 
-## Provider admission
+## Upstream admission
 
-Provider integration follows one ordered test:
+Upstream integration follows one ordered test:
 
 ```mermaid
 flowchart TD
     D["Try direct endpoint"] --> W{"Wire compatible?"}
     W -->|Yes| N["No proxy change"]
-    W -->|No| M["Add manifest route"]
-    M --> T["Run portable contract tests"]
+    W -->|No| A["Name it in the client's base URL"]
+    A --> T["Run portable contract tests"]
     T --> G{"Exact gap remains?"}
-    G -->|No| R["Manifest-only admission"]
+    G -->|No| R["No proxy release"]
     G -->|Yes| E["Capture minimal failing payload"]
-    E --> P["Add the smallest pure policy"]
+    E --> P["Key the smallest recovery by the response"]
 ```
 
 - Native Responses that works directly needs no proxy change.
-- A standard Bearer endpoint that needs only portable projection adds one
-  manifest entry.
-- A reproducible wire difference adds one narrow pure policy and its regression
+- A standard Bearer endpoint that needs only portable projection needs no proxy
+  release: the client's control plane names it in the base URL.
+- A reproducible wire difference adds one narrow recovery keyed by the
+  response it answers, never by the upstream's name, with its regression
   evidence.
 - Request signing or another stateful authentication exchange requires a
   separate authentication boundary.
 - A different invocation protocol requires an explicit protocol Adapter or
   product decision.
 
-A provider name never creates behavior. The released manifest selects a route
-and, when necessary, an explicitly declared policy. This keeps ordinary
-Provider admission data-driven and makes a new policy pay for its permanent
-maintenance cost with exact evidence.
+No upstream name creates behavior, and no release lists upstreams. A new
+recovery pays for its permanent maintenance cost with exact evidence.
 
 AWS Bedrock illustrates the distinction. A Mantle endpoint that already speaks
-OpenAI Responses can be admitted as an ordinary route. Native IAM/SigV4 or
-Converse/InvokeModel would require explicit authentication and protocol work;
-it must not be represented as a Bearer-compatible route.
+OpenAI Responses can be named in a base URL like any other upstream. Native
+IAM/SigV4 or Converse/InvokeModel would require explicit authentication and
+protocol work; it must not be represented as a Bearer-compatible upstream.
 
 ## Responses projection
 
@@ -260,38 +261,22 @@ bodies become a retryable local `503` before commitment. SSE validates each even
 before delivery; a failure after commitment preserves emitted bytes and closes
 without replay, a second HTTP status or fabricated completion.
 
-`providers/manifest.toml` selects `agent_message_delivery` as `native` or
-`plaintext` per route; omission selects native delivery. The plaintext protocol
-adapter aliases the reserved collaboration namespace before generation and
-removes the encrypted annotation only from `spawn_agent`, `send_message`, and
-`followup_task` message schemas. Replayed calls and explicit tool choice use
-the same alias. The response restores `collaboration` after complete readable
-arguments arrive: function calls use `arguments` and the native empty
-`encrypted_function_args` list; custom calls preserve `input` without function
-metadata. Message text and call identities remain exact. Nonempty encrypted
-metadata, function metadata on custom calls, cipher-shaped messages, and
-conflicting aliases fail closed. Preserving a custom call's wire grammar does
-not establish a client's native delivery support for that tool.
-
-The signed client's native path requires the `collaboration` namespace and a
-model catalog whose agent version matches the conversation. Those inputs belong
-to its configuration owner. A stream's empty call start may precede arguments;
-validation occurs before the completed message can be delivered. Existing
-encrypted messages keep their envelope and ciphertext. Empty `additional_tools`
-lists retain their explicit current-turn meaning during native compaction.
+Codex's native collaboration messages reach every upstream as the client sent
+them. Existing encrypted messages keep their envelope and ciphertext. Empty
+`additional_tools` lists retain their explicit current-turn meaning during
+native compaction.
 
 ## Recovery ownership
 
-| Condition                                          | Bounded behavior                                                               |
-| -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| DMXAPI `477 empty_response`                        | Retry the already-projected bytes once                                         |
-| `response_failed`                                  | Strictly shrinking pair-safe attempts, then at most one dialogue-only attempt  |
-| Invalid `input` union                              | One smaller current-dialogue attempt                                           |
-| Undecryptable agent content                        | Relay the upstream rejection without replacing the task                        |
-| Pre-content `response.failed`                      | Retry only before substantive downstream commitment                            |
-| Connection or stream lost after a complete request | One `502 upstream_outcome_unknown`; the request is not sent again              |
-| `429`                                              | Relay once; provider-scoped cooldown; no global queue                          |
-| Exhausted upstream `503`                           | Relay the original error; briefly cool only that provider before probing again |
+| Condition                                          | Bounded behavior                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `response_failed`                                  | Strictly shrinking pair-safe attempts, then at most one dialogue-only attempt         |
+| Invalid `input` union                              | One smaller current-dialogue attempt                                                  |
+| Undecryptable agent content                        | Relay the upstream rejection without replacing the task                               |
+| Pre-content `response.failed`                      | Retry only before substantive downstream commitment                                   |
+| Connection or stream lost after a complete request | One `502 upstream_outcome_unknown`; the request is not sent again                     |
+| `429`                                              | Relay once; cooldown per upstream origin; no global queue                             |
+| Exhausted upstream `503`                           | Relay the original error; briefly cool only that upstream origin before probing again |
 
 Each recovery consumes the same provider-portable request owner. No recovery
 path restores provider IDs, ciphertext, or an older request body.

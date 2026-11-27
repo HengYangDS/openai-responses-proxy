@@ -11,7 +11,7 @@ relations:
 # DR-0001: Keep Control Plane Separate from Proxy Data Plane
 
 - Date: 2026-07-14
-- Last amended: 2026-08-16
+- Last amended: 2026-11-27
 
 ## Context
 
@@ -42,6 +42,12 @@ writes client configuration or invokes a particular control-plane product.
 The products evolve independently and each mutation has one owner. Runtime
 repair rebuilds the proxy projection; route repair remains a client control-plane
 operation. Neither path permits session-history mutation.
+
+Since 8.0.0 (amended 2026-11-27), the client's base URL names the upstream in
+the request path, and the proxy forwards to any HTTPS origin that a local client
+names, or to a loopback origin over HTTP. It still does no routing, fallback or
+policy: endpoint selection stays with the client control plane, and the proxy
+keeps no list of upstreams.
 
 The proxy is intentionally complementary to, rather than a smaller clone of,
 general gateways. Its durable advantage is a closed portable grammar, bounded

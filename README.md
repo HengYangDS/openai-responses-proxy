@@ -1,9 +1,8 @@
 # OpenAI Responses Proxy
 
 A local compatibility proxy for third-party OpenAI Responses APIs. It preserves
-tool calls and readable Codex collaboration messages on qualified routes, adapts
-streaming and replay for continued agent work, and owns its native service
-lifecycle. Clients are qualified by actual Responses journeys and their native
+tool calls and Codex's native collaboration messages, adapts streaming and
+replay for continued agent work, and owns its native service lifecycle. Clients are qualified by actual Responses journeys and their native
 runtime contract.
 
 Licensed under [MIT](LICENSE). Forge coordinates and publication actors are
@@ -15,10 +14,7 @@ SQLite state, history, stored items, or model metadata.
 ```mermaid
 flowchart LR
     C["Codex / Hermes / Responses SDK"] --> P["OpenAI Responses Proxy"]
-    P --> U["UCloud"]
-    P --> D["DMXAPI"]
-    P --> A["AIHubMix"]
-    P --> S["Suhe.AI"]
+    P --> U["The Responses upstream that the request path names"]
 ```
 
 ## Product boundary
@@ -117,34 +113,27 @@ payload, then install the verified release into a fresh target. Inspect any
 reported residue before removing it; unknown files are never migration input.
 Provider credentials and client configuration remain outside this lifecycle.
 
+A generation of an earlier payload shape is not an upgrade predecessor either.
+8.0.0 removed `providers.toml` from the payload, so it refuses an installation
+of 7.0.2 or earlier and changes nothing: remove that installation with its own
+`uninstall --purge`, then install 8.0.0 into the fresh target.
+
 ## Configure a client route
 
-The listener exposes one provider-scoped namespace per admitted provider:
+A client's base URL names its upstream after the listener address:
+`http://127.0.0.1:8792/<scheme>/<authority>/<base path>`. The proxy sends the
+request to that upstream with the client's own credential, and a new upstream
+needs no proxy release:
 
-| Provider | Responses base URL                  |
-| -------- | ----------------------------------- |
-| DMXAPI   | `http://127.0.0.1:8792/dmxapi/v1`   |
-| UCloud   | `http://127.0.0.1:8792/ucloud/v1`   |
-| AIHubMix | `http://127.0.0.1:8792/aihubmix/v1` |
-| Suhe.AI  | `http://127.0.0.1:8792/suheai/v1`   |
+| Upstream base URL                        | Base URL through the proxy                                   |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| `https://api.example.com/v1`             | `http://127.0.0.1:8792/https/api.example.com/v1`             |
+| `https://gateway.example:8443/openai/v1` | `http://127.0.0.1:8792/https/gateway.example:8443/openai/v1` |
+| `http://127.0.0.1:9000/v1`               | `http://127.0.0.1:8792/http/127.0.0.1:9000/v1`               |
 
 Configure these URLs in the client control plane, using that client's native
 configuration grammar. The proxy has no package or configuration dependency on
-that client.
-
-For another Responses endpoint, select its origin once during installation:
-
-```bash
-openai-responses-proxy install \
-  --asset "$HOME/Downloads/openai-responses-proxy-<version>-macos-arm64.tar.gz" \
-  --trust-anchor ~/Downloads/openai-responses-proxy-allowed-signers \
-  --upstream-base-url https://api.openai.com/v1
-```
-
-Point an ordinary Responses SDK at `http://127.0.0.1:8792/upstream/v1` and
-supply the endpoint's credential through that client's existing credential
-owner. The proxy persists only the selected secret-free URL in its native
-runtime configuration. Released provider routes keep their own policies.
+that client, and it stores no upstream.
 
 ## Operate
 
@@ -253,21 +242,20 @@ path. Automation should use `--json` where the command supports it.
 Every request is projected to a provider-portable Responses grammar before it
 leaves the loopback listener.
 
-| Concern                     | Behavior                                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Storage                     | Sends `store=false`; continuity comes from replayed dialogue and complete tool relationships                |
-| Provider IDs                | Removes response, conversation, cache, stored-item, and provider-issued item bindings                       |
-| Encrypted replay            | Removes reasoning history; preserves required native agent payloads without claiming decryption             |
-| Agent delivery              | A selected plaintext route generates readable delegation and restores the native delivery marker            |
-| Tool replay                 | Keeps complete function/custom-tool call pairs; rejects unsafe structure locally                            |
-| Empty upstream response     | Returns a retryable local `503` instead of committing false success                                         |
-| DMXAPI `477 empty_response` | Retries the already-projected bytes once                                                                    |
-| Upstream `429`              | Relays the first response and applies a provider-scoped bounded cooldown                                    |
-| Exhausted upstream `503`    | Relays the original error; subsequent turns briefly cool only that provider before probing again            |
-| `response_failed`           | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded                     |
-| Invalid `input` union       | Uses one smaller current-dialogue fallback, then stops                                                      |
-| Lost upstream connection    | Retries only a request that was never completely sent; otherwise returns one `502 upstream_outcome_unknown` |
-| Exchange deadline           | Header acquisition, recovery waits, error/JSON reads and SSE reconnects share one total budget              |
+| Concern                  | Behavior                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Storage                  | Sends `store=false`; continuity comes from replayed dialogue and complete tool relationships                |
+| Provider IDs             | Removes response, conversation, cache, stored-item, and provider-issued item bindings                       |
+| Encrypted replay         | Removes reasoning history; preserves required native agent payloads without claiming decryption             |
+| Agent delivery           | Forwards Codex's native collaboration messages as the client sent them                                      |
+| Tool replay              | Keeps complete function/custom-tool call pairs; rejects unsafe structure locally                            |
+| Empty upstream response  | Returns a retryable local `503` instead of committing false success                                         |
+| Upstream `429`           | Relays the first response and applies a bounded cooldown to that upstream origin                            |
+| Exhausted upstream `503` | Relays the original error; subsequent turns briefly cool only that upstream origin before probing again     |
+| `response_failed`        | Uses strictly shrinking, pair-safe recovery; one final dialogue-only attempt is bounded                     |
+| Invalid `input` union    | Uses one smaller current-dialogue fallback, then stops                                                      |
+| Lost upstream connection | Retries only a request that was never completely sent; otherwise returns one `502 upstream_outcome_unknown` |
+| Exchange deadline        | Header acquisition, recovery waits, error/JSON reads and SSE reconnects share one total budget              |
 
 The proxy never rewrites conversation storage to obtain portability.
 
@@ -282,33 +270,29 @@ only the remaining budget. Native DNS resolution runs on at most four resolver
 threads, and an exchange waits for it only within its budget. Every write to
 the client also spends that budget, so a client that stops reading is cut off
 at the deadline and releases the upstream connection and its admission slot.
-Sequential exchanges to one provider address reuse one keep-alive connection
+Sequential exchanges to one upstream address reuse one keep-alive connection
 while it has been idle for at most 30 seconds; an older idle connection is
 closed when it is next needed. A request is sent again only when the previous
 attempt did not deliver it completely. Once the complete request was sent, a
 lost connection, or a stream that ends before content without
-`response.failed`, returns `502 upstream_outcome_unknown`, because the provider
+`response.failed`, returns `502 upstream_outcome_unknown`, because the upstream
 may have accepted the request.
 The upstream budget starts after local request projection; client-body
 reception has its own finite budget.
 
-The released UCloud route selects plaintext agent delivery. This requires a
-Codex client with the native plaintext-message path, the `collaboration` tool
-namespace, and a model catalog matching the conversation's agent version. The
-client's own configuration owner selects those settings. The proxy aliases the
-reserved namespace before generation, restores native call identities and the
-empty encrypted-argument list, and refuses to relabel ciphertext as plaintext.
-Existing encrypted messages remain subject to their original provider's
+Codex's native collaboration messages reach every upstream as the client sent
+them; an encrypted message remains subject to its original provider's
 decryption support. An empty current-turn tool catalog remains an explicit
 control, including during native compaction.
 
 ## Request boundary
 
-Only these exact provider-scoped requests are admitted:
+Only these exact requests are admitted, where `<upstream>` is
+`<scheme>/<authority>/<base path>`:
 
 ```text
-POST /<provider>/v1/responses
-GET  /<provider>/v1/models
+POST /<upstream>/responses
+GET  /<upstream>/models
 ```
 
 Responses requests receive portable projection and bounded recovery. Model
@@ -319,15 +303,19 @@ headers return HTTP 504 `catalog_deadline_exceeded`; a failure after commitment
 keeps the admitted prefix and closes without replay or a successful terminator.
 Local failures close the connection and allow one separate catalog-timeout
 budget to deliver their bounded error, even when upstream time has expired.
-Encoded path material, dot segments, duplicate separators, absolute targets,
-fragments, and unrelated endpoints are rejected before remote I/O. Provider
-origins come from the product manifest or the explicit installed upstream;
-headers, bodies, and query parameters cannot select another host. The proxy
-never follows an upstream redirect: the client receives the redirect response
-itself, and its credential is sent only to the selected upstream. The
-lifecycle control request (`/control/handoff`) is accepted only from
-a loopback client whose `Host` is a loopback address and that sends no
-`Origin`, so a web page cannot start a handoff. The
+The scheme is `https`, or `http` for a loopback host only; the authority has
+no user information and at most a valid port. Encoded path material, dot
+segments, duplicate separators, absolute targets, fragments, and unrelated
+endpoints are rejected before remote I/O with HTTP 404
+`upstream_route_invalid`, and a method that the named resource does not take
+with HTTP 404 `upstream_route_method_not_allowed`. The request path alone names
+the upstream; headers, bodies, and query parameters cannot select another host.
+The proxy never follows an upstream redirect: the client receives the redirect
+response itself, and its credential is sent only to the named upstream. Data
+requests and the lifecycle control request (`/control/handoff`) are accepted
+only from a loopback client whose `Host` is a loopback address and that sends
+no `Origin`, so a web page can neither relay through the proxy nor start a
+handoff; a refused request receives HTTP 403. The
 [threat model](docs/architecture/threat-model.md) lists the remaining
 accepted risks.
 
@@ -379,7 +367,7 @@ or conversation content.
 | Replay or encrypted-item rejection | `openai-responses-proxy doctor`                | Confirm local payload and listener integrity before changing the client route |
 | Error after provider switch        | Check the client control plane                 | A direct provider URL bypasses proxy portability                              |
 | Local `503`                        | `openai-responses-proxy status --json`         | Read the failure class: empty or truncated upstream output, or its cooldown   |
-| Local or upstream `429`            | Inspect `Retry-After` and provider state       | Cooldown is provider-scoped; the proxy does not impose a global request queue |
+| Local or upstream `429`            | Inspect `Retry-After` and provider state       | Cooldown is per upstream origin; the proxy imposes no global request queue    |
 | Route change not observed          | Reload the client through its normal lifecycle | The proxy does not restart or mutate clients                                  |
 
 ## Development

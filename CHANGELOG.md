@@ -8,6 +8,48 @@ publication authority.
 
 ## [Unreleased]
 
+## [8.0.0] - 2026-11-27
+
+### Changed
+
+- **Breaking:** a client's base URL names its upstream after the listener
+  address, as `http://127.0.0.1:8792/<scheme>/<authority>/<base path>`; for
+  `https://api.example.com/v1` it is
+  `http://127.0.0.1:8792/https/api.example.com/v1`. The proxy sends
+  `<base path>/responses` and `<base path>/models` to that origin with the
+  client's own credential, so a new upstream needs no release. The scheme is
+  `https`, or `http` for a loopback host only. The routes `/dmxapi/v1`,
+  `/ucloud/v1`, `/aihubmix/v1`, `/suheai/v1` and `/upstream/v1` are gone. A
+  path that names no upstream gets HTTP 404 `upstream_route_invalid` instead of
+  `provider_route_not_found`, and a method that its resource does not take gets
+  HTTP 404 `upstream_route_method_not_allowed` instead of
+  `provider_route_method_not_allowed`. The client control plane writes the new
+  base URLs.
+- **Breaking:** data requests, like the handoff control request, are served
+  only to a loopback client whose `Host` is a loopback address and that sends
+  no `Origin`; a request from a web page gets HTTP 403.
+- **Breaking:** the payload holds no `providers.toml`. This release therefore
+  refuses an installation of 7.0.2 or earlier and changes nothing, and a 7.0.2
+  listener cannot hand off to it. Remove such an installation with its own
+  `uninstall --purge`, then install this release; the way back is this
+  release's `uninstall --purge`, then a fresh install of 7.0.2.
+- Rate-limit and unavailability cooldowns are kept per upstream origin, its
+  scheme, authority and base path, and log lines name `upstream=<origin>`
+  instead of the provider. The performance budget `provider-route-resolution`
+  is now `upstream-route-resolution`.
+
+### Removed
+
+- **Breaking:** `install --upstream-base-url` and the `upstream_base_url`
+  runtime setting. A runtime configuration that holds the setting is refused.
+- The retry of HTTP 477 `empty_response` on the DMXAPI route, its cooldown,
+  the `dmx_empty_response_exhausted` error and the `wire_failure_*` counters
+  of `status --json`. A 477 is relayed once, like any other client error; none
+  appeared among 21,414 requests in eight days of logs read on 2026-11-27.
+- Plaintext agent delivery on the UCloud route. Every upstream receives
+  Codex's native collaboration messages, which UCloud delivered in a
+  measurement on 2026-11-27.
+
 ## [7.0.2] - 2026-11-27
 
 ### Removed

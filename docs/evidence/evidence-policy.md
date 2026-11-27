@@ -39,7 +39,7 @@ this result.
 
 Do not treat a green local process, a new clean conversation, or a generic log
 grep as proof that an historical conversation recovered. Keep transient 429,
-477, and upstream SSE failures separately classified from payload-schema fixes.
+503, and upstream SSE failures separately classified from payload-schema fixes.
 
 Use `openai-responses-proxy status --json` for current loopback diagnostics. Logs
 are bounded secondary material and must not preserve request bodies, prompts,

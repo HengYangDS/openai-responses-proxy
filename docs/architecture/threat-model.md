@@ -26,17 +26,16 @@ the component design; this document owns only the security reading of it.
 | Service availability | The listener that the user's coding clients depend on.                         |
 
 The proxy holds no credential of its own. Each request carries the client's
-credential, which the proxy forwards to the selected route's upstream and then
-discards.
+credential, which the proxy forwards to the upstream that the request path
+names and then discards.
 
 ## Trust boundaries
 
 1. **Client to listener.** The listener binds `127.0.0.1` only and does not
    authenticate requests. Every process of the same user, and a web page in a
    local browser, can reach it.
-2. **Proxy to upstream.** The release-owned Provider registry or the operator's
-   explicit route selects the upstream; request input cannot choose a host.
-   TLS verifies against the bundled `certifi` store, and plain HTTP is allowed
+2. **Proxy to upstream.** The request path names the upstream; headers, bodies
+   and queries cannot choose another host. TLS verifies against the bundled `certifi` store, and plain HTTP is allowed
    only for a loopback upstream.
 3. **Lifecycle to installed state.** Lifecycle commands run as the user and
    write only product-owned roots, whose files belong to the same user.
@@ -45,16 +44,16 @@ discards.
 
 ## Threats and controls
 
-| Threat                                                               | Control                                                                                                                                       | Evidence                                                                            |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| An upstream redirect sends the client's credential to another host.  | The upstream openers refuse every redirect; the client receives the redirect response unfollowed.                                             | `tests/relay/transport/test_upstream_redirects.py`                                  |
-| Request input selects an arbitrary upstream host or path.            | Exact Provider routes resolve against the registry; scheme, host and encoded path segments are rejected.                                      | `tests/providers/test_registry.py`, `tests/relay/test_routes.py`                    |
-| A web page starts a handoff, also via DNS rebinding.                 | Handoff accepts only a loopback client whose `Host` is a loopback address and that sends no `Origin`; no route closes admission.              | `tests/relay/transport/test_admission.py`, `tests/relay/test_admission.py`          |
-| A local process stalls a handoff envelope to hold a control handler. | The handoff envelope is read within 32 KiB and five seconds; a stalled body gets HTTP 408 and its connection closes.                          | `tests/serving/handoff/test_control.py`, `subprocess/test_transition.py`            |
-| A web page relays requests through the listener.                     | The listener holds no ambient credential, so a page can only send requests that carry no user credential; browsers block reading the replies. | `relay/downstream.py` header forwarding                                             |
-| Credentials or content reach logs.                                   | Logs carry request ids, sizes, statuses and fixed codes; credential-like values are redacted and log files are mode `0600`.                   | `tests/runtime/test_bounded_log.py`, `tests/relay/test_operational_log.py`          |
-| A tampered or downgraded release is installed.                       | Signed checksums, manifest and per-member hashes are verified before extraction; a downgrade or same-version reinstall is refused.            | `tests/lifecycle/test_artifact.py`, `tests/lifecycle/transaction/test_admission.py` |
-| An interrupted transaction deletes unrelated files.                  | Recovery deletes only exact regular files whose hash and inode it re-checks; journal paths are relative and schema-checked.                   | `tests/lifecycle/transaction/test_disposal.py`                                      |
+| Threat                                                                | Control                                                                                                                              | Evidence                                                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| An upstream redirect sends the client's credential to another host.   | The upstream openers refuse every redirect; the client receives the redirect response unfollowed.                                    | `tests/relay/transport/test_upstream_redirects.py`                                  |
+| A request sends the credential to a host that its path does not name. | Only the exact path grammar names the upstream; encoded, empty and dot segments, user information and remote plain HTTP are refused. | `tests/relay/test_addressing.py`, `tests/relay/test_routes.py`                      |
+| A web page starts a handoff, also via DNS rebinding.                  | Handoff accepts only a loopback client whose `Host` is a loopback address and that sends no `Origin`; no route closes admission.     | `tests/relay/transport/test_admission.py`, `tests/relay/test_admission.py`          |
+| A local process stalls a handoff envelope to hold a control handler.  | The handoff envelope is read within 32 KiB and five seconds; a stalled body gets HTTP 408 and its connection closes.                 | `tests/serving/handoff/test_control.py`, `subprocess/test_transition.py`            |
+| A web page relays requests through the listener.                      | Data requests, like handoff, are accepted only from a loopback client whose `Host` is a loopback address and that sends no `Origin`. | `tests/relay/test_routes.py`                                                        |
+| Credentials or content reach logs.                                    | Logs carry request ids, sizes, statuses and fixed codes; credential-like values are redacted and log files are mode `0600`.          | `tests/runtime/test_bounded_log.py`, `tests/relay/test_operational_log.py`          |
+| A tampered or downgraded release is installed.                        | Signed checksums, manifest and per-member hashes are verified before extraction; a downgrade or same-version reinstall is refused.   | `tests/lifecycle/test_artifact.py`, `tests/lifecycle/transaction/test_admission.py` |
+| An interrupted transaction deletes unrelated files.                   | Recovery deletes only exact regular files whose hash and inode it re-checks; journal paths are relative and schema-checked.          | `tests/lifecycle/transaction/test_disposal.py`                                      |
 
 ## Severity and closure
 
@@ -75,11 +74,12 @@ Each residual risk needs another process of the same user, or a change to the
 user's own files, which already grants the attacker that user's privileges.
 They stay low until that assumption changes.
 
-| Residual risk                                                                                                     | Revisit when                                              |
-| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Signature verification does not pin the release principal; `lifecycle/system_tools.py` supplies its `ssh-keygen`. | The trust anchor may hold more than one principal.        |
-| A crafted journal and command snapshot in the data root can make `recover` relink an absolute path.               | Product state may be written by another account.          |
-| `recover` reads the listener's `/healthz` without the process check that `status` performs.                       | Another account may bind the product port.                |
-| The lifecycle lock and state directory use the default `umask`; macOS `watchdog.stderr.log` is unbounded.         | A shared host or a long-running watchdog failure appears. |
-| Request headers have no read timeout.                                                                             | The listener is exposed beyond the loopback interface.    |
-| The GitLab release publisher accepts an `http://` API base for its token.                                         | The internal GitLab Forge offers HTTPS.                   |
+| Residual risk                                                                                                      | Revisit when                                              |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Signature verification does not pin the release principal; `lifecycle/system_tools.py` supplies its `ssh-keygen`.  | The trust anchor may hold more than one principal.        |
+| A crafted journal and command snapshot in the data root can make `recover` relink an absolute path.                | Product state may be written by another account.          |
+| `recover` reads the listener's `/healthz` without the process check that `status` performs.                        | Another account may bind the product port.                |
+| The lifecycle lock and state directory use the default `umask`; macOS `watchdog.stderr.log` is unbounded.          | A shared host or a long-running watchdog failure appears. |
+| Request headers have no read timeout.                                                                              | The listener is exposed beyond the loopback interface.    |
+| A local process can reach any HTTPS host through the listener with a credential that it holds, as it can directly. | The listener is exposed beyond the loopback interface.    |
+| The GitLab release publisher accepts an `http://` API base for its token.                                          | The internal GitLab Forge offers HTTPS.                   |

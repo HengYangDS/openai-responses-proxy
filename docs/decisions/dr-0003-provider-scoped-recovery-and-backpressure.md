@@ -8,9 +8,10 @@ relations:
   part_of: README.md
 ---
 
-# DR-0003: Isolate Recovery and Backpressure by Provider Route
+# DR-0003: Isolate Recovery and Backpressure by Upstream Origin
 
 - Date: 2026-08-07
+- Last amended: 2026-11-27
 
 ## Context
 
@@ -21,14 +22,20 @@ protocol logic would couple unrelated routes and reduce usable concurrency.
 
 ## Decision
 
-Recovery policies are selected by proved wire capability, not inferred from a
-provider label. Provider-specific recovery and cooldown state is keyed to the
-selected route and never blocks another route. An upstream `429` is relayed
-unchanged once, then creates only a bounded provider-scoped cooldown.
-After bounded request-local recovery exhausts an upstream `503`, its original
-response is relayed and a short provider-scoped unavailability cooldown prevents
-each subsequent client turn from multiplying the same outage. The next request
-after expiry probes upstream again; other providers remain independent.
+Recovery is selected by proved wire capability, keyed by the response it
+answers, and never inferred from an upstream's name. Cooldown state is keyed by
+the upstream origin, the scheme, authority and base path that the request path
+names, and never blocks another origin. An upstream `429` is relayed unchanged
+once, then creates only a bounded cooldown for that origin. After bounded
+request-local recovery exhausts an upstream `503`, its original response is
+relayed and a short unavailability cooldown for that origin prevents each
+subsequent client turn from multiplying the same outage. The next request after
+expiry probes upstream again; other origins remain independent.
+
+The 2026-11-27 amendment (release 8.0.0) replaced the provider route with the
+upstream origin as the key, and removed DMXAPI's empty-response retry: no HTTP
+477 appeared among 21,414 requests in eight days, so a 477 is now relayed like
+any other client error.
 
 The proxy does not own a global request queue or undocumented provider quota.
 Client configuration limits per-session concurrency; each provider remains the
@@ -45,15 +52,15 @@ authority for its actual service limit.
 
 ## Consequences and Boundary
 
-Adding an ordinary provider changes only the provider manifest. A genuine wire
-difference may add one pure policy module and its tests without branching the
-portable protocol owner. Failures on one provider do not serialize or disable
-healthy providers.
+Adding an upstream needs no release: the client names it. A genuine wire
+difference may add one recovery keyed by the response, with its tests, without
+branching the portable protocol owner. Failures at one origin do not serialize
+or disable healthy origins.
 
 ## Evidence and Revisit
 
 The [provider-portable Responses specification](../../openspec/specs/provider-portable-responses/spec.md)
-owns request-local recovery and provider-scoped cooldown requirements.
+owns request-local recovery and per-origin cooldown requirements.
 
 Revisit if the product deliberately becomes a shared traffic scheduler with an
 explicit, provider-neutral admission contract and independent operational

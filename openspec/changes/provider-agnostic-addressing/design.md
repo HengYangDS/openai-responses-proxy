@@ -153,7 +153,7 @@ path the proxy already refuses; it changes with this contract. AIGW's maintainer
   - the cooldown requirements reworded to the upstream origin;
   - the plaintext requirement removed (D2).
 - DR-0001 gains a consequence: the proxy forwards to any client-named HTTPS origin, still without routing,
-  fallback or policy. DR-0003 is amended as in D2. DR-0002 is unchanged.
+  fallback or policy. DR-0003 is amended as in D2. DR-0002 drops plaintext agent delivery (D2).
 - README, the architecture document, CHANGELOG (`Breaking`), `VERSION` 8.0.0.
 
 ### D5. The payload shape and the journey from 7.0.2

@@ -282,18 +282,19 @@ alias or a second installer.
 
 No lifecycle command edits a client or conversation.
 
-## Provider changes
+## Upstream changes
 
-Provider work is admitted through the smallest semantic owner:
+Upstream work is admitted through the smallest semantic owner:
 
 1. Prefer direct client-to-provider use when the protocol is already sound.
-2. Add a manifest route when the existing portable Responses contract is
-   sufficient.
-3. Add provider policy only for a captured, reproducible wire incompatibility.
+2. Name the upstream in the client's base URL when the existing portable
+   Responses contract is sufficient; this needs no proxy release.
+3. Add a recovery keyed by the response only for a captured, reproducible wire
+   incompatibility, never keyed by the upstream's name.
 4. Treat new authentication or invocation protocols as explicit architecture
    changes rather than provider-name conditionals.
 
-Every provider policy requires portable baseline tests, the minimal failing
+Every such recovery requires portable baseline tests, the minimal failing
 fixture, a bounded behavior contract, and current runtime evidence. It must not
 add client configuration, secret storage, implicit fallback, or conversation
 state.

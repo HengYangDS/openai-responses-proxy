@@ -21,7 +21,7 @@ journeys.
 | Client routing | [Configure a client route](../README.md#configure-a-client-route)    | Explicit upstream and loopback composition.                           |
 | Operations     | [Operate](../README.md#operate)                                      | Status, diagnosis, reload, rollback, recovery, and removal.           |
 | Contribution   | [CONTRIBUTING](../CONTRIBUTING.md)                                   | Locked development, verification, and release workflow.               |
-| Architecture   | [Architecture](architecture/README.md)                               | Components, Provider admission, runtime projection, and threat model. |
+| Architecture   | [Architecture](architecture/README.md)                               | Components, upstream admission, runtime projection, and threat model. |
 | Decisions      | [Decisions](decisions/README.md)                                     | Durable rulings, alternatives and revisit conditions.                 |
 | Evidence       | [Evidence](evidence/README.md)                                       | Proof requirements, observations, and acceptance limits.              |
 | Governance     | [Release and change policy](governance/release-and-change-policy.md) | Change, release, and contributor rules.                               |
