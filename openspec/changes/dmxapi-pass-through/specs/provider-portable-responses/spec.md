@@ -9,13 +9,11 @@
 
 Before upstream I/O, the proxy SHALL project the current request through one
 proved portability grammar, preserving portable input and generation settings.
-It SHALL remove provider-bound continuation and optional encrypted replay state,
-set `store=false`, and omit requests for `reasoning.encrypted_content`. Required
-encrypted agent tasks SHALL keep their native envelope and exact ciphertext;
-upstream rejection SHALL NOT substitute a header-only task. Every attempt SHALL
-send this projected request, except the first attempt of a stateless request on
-a route that forwards it unchanged; a request that the projection rejects SHALL
-be rejected on every route.
+The projection SHALL remove provider-bound continuation and optional encrypted
+replay state, set `store=false`, and omit requests for
+`reasoning.encrypted_content`. Required encrypted agent tasks SHALL keep their
+native envelope and exact ciphertext; upstream rejection SHALL NOT substitute a
+header-only task.
 
 #### Scenario: A stored conversation changes provider
 
@@ -313,12 +311,12 @@ text, credentials, or ciphertext.
 
 ### Requirement: A route may forward stateless requests unchanged
 
-A provider route MAY declare in the release-owned manifest that it forwards
-stateless requests unchanged. On such a route, the first attempt of a request
-that the projection admits, whose `store` is `false` and that has no
-`previous_response_id`, `conversation` or item reference, SHALL carry the
-client's exact bytes, and every later attempt SHALL send the projected request.
-A route SHALL NOT declare this together with plaintext agent delivery.
+Every upstream attempt SHALL send the projected request, except on a provider
+route that declares in the release-owned manifest that it forwards stateless
+requests unchanged. There, the first attempt of a request that the projection
+admits, whose `store` is `false` and that has no `previous_response_id`,
+`conversation` or item reference, SHALL carry the client's exact bytes. A route
+SHALL NOT declare this together with plaintext agent delivery.
 
 #### Scenario: Codex continues a conversation on a pass-through route
 
