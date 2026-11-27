@@ -311,24 +311,25 @@ text, credentials, or ciphertext.
 ### Requirement: Provider routes admit only exact Responses and model-catalog targets
 
 The listener SHALL expose provider-scoped loopback Responses targets and exact
-read-only model-catalog targets for `dmxapi`, `ucloud`, and `aihubmix`. Each
-namespace SHALL resolve only exact, lexically normalized Responses and model
-catalog paths against the release-owned HTTPS upstream mapping. A downstream
-request SHALL NOT supply or override an upstream URL or host.
+read-only model-catalog targets for `dmxapi`, `ucloud`, `aihubmix`, and
+`suheai`. Each namespace SHALL resolve only exact, lexically normalized
+Responses and model catalog paths against the release-owned HTTPS upstream
+mapping. A downstream request SHALL NOT supply or override an upstream URL or
+host.
 
 #### Scenario: A client selects each governed provider
 
 - **WHEN** a client sends otherwise equivalent Responses traffic to
-  `/dmxapi/v1/responses`, `/ucloud/v1/responses`, or
-  `/aihubmix/v1/responses`
-- **THEN** the proxy sends it only to the matching DMXAPI, UCloud, or
-  AIHubMix HTTPS upstream
+  `/dmxapi/v1/responses`, `/ucloud/v1/responses`,
+  `/aihubmix/v1/responses`, or `/suheai/v1/responses`
+- **THEN** the proxy sends it only to the matching DMXAPI, UCloud, AIHubMix,
+  or Suhe.AI HTTPS upstream
 - **AND** credentials continue to come from that client request.
 
 #### Scenario: A caller uses an unknown namespace
 
 - **WHEN** a request path matches neither a control endpoint nor one of the
-  three canonical namespaces
+  listener's provider namespaces
 - **THEN** the proxy rejects it locally
 - **AND** it performs no remote network request.
 
@@ -341,8 +342,8 @@ request SHALL NOT supply or override an upstream URL or host.
 
 #### Scenario: A consumer reads one provider model catalog
 
-- **WHEN** it sends GET to `/dmxapi/v1/models`, `/ucloud/v1/models`, or
-  `/aihubmix/v1/models`
+- **WHEN** it sends GET to `/dmxapi/v1/models`, `/ucloud/v1/models`,
+  `/aihubmix/v1/models`, or `/suheai/v1/models`
 - **THEN** the proxy relays exactly one GET to the matching provider
 - **AND** it does not activate Responses projection, cooldown, retry, or
   recovery.
@@ -358,20 +359,20 @@ request SHALL NOT supply or override an upstream URL or host.
 
 The exact DMXAPI HTTP 477 `empty_response` recovery and cooldown SHALL apply
 only to the DMXAPI route. A failure or cooldown key from DMXAPI SHALL NOT block,
-rewrite, or classify a UCloud or AIHubMix request. Generic transient and
+rewrite, or classify a request on another provider route. Generic transient and
 schema recovery MAY remain shared only where its trigger is provider-neutral
 and exact.
 
 #### Scenario: DMXAPI enters empty-response cooldown
 
 - **WHEN** a DMXAPI request exhausts its exact HTTP 477 recovery and the same
-  portable body is then sent to UCloud or AIHubMix
+  portable body is then sent to another provider route
 - **THEN** the other provider request is attempted normally
 - **AND** no DMXAPI cooldown response is reused across the route boundary.
 
 #### Scenario: A non-DMX provider returns HTTP 477
 
-- **WHEN** UCloud or AIHubMix returns HTTP 477
+- **WHEN** a provider other than DMXAPI returns HTTP 477
 - **THEN** the proxy does not apply the DMXAPI `empty_response` policy unless
   the request was routed to DMXAPI and the exact DMX error contract matched.
 
@@ -379,7 +380,7 @@ and exact.
 
 - **WHEN** DMXAPI yields the exact classified empty response through the bounded retry policy
 - **THEN** the proxy emits a typed terminal error only after the budget is exhausted
-- **AND** UCloud and AIHubMix remain independently usable.
+- **AND** every other provider route remains independently usable.
 
 ### Requirement: Live response control data survives the current turn
 
@@ -446,14 +447,14 @@ activate compaction, dialogue recovery, or schema fallback.
 The compatibility path SHALL NOT edit Codex JSONL, SQLite, transcript history,
 archived conversations, hidden resume pointers, or per-conversation model
 metadata. Success SHALL require an unchanged original conversation to complete
-multiple turns after the provider sequence DMXAPI, UCloud, AIHubMix, and
-DMXAPI again.
+multiple turns after a provider sequence that starts on DMXAPI, visits every
+other provider route, and returns to DMXAPI.
 
 #### Scenario: The proxy fix is accepted
 
 - **WHEN** the released proxy is installed, an external client selects each
   route, and the same original conversation completes at least two turns on each leg of
-  DMXAPI to UCloud to AIHubMix to DMXAPI
+  that sequence
 - **THEN** no turn reports missing `rs_` items, encrypted-content decode or
   decrypt failure, or proxy-generated empty-response 503
 - **AND** acceptance evidence confirms that the exact pre-acceptance JSONL byte
@@ -469,8 +470,8 @@ execute a client-control command or persist consumer route state.
 
 #### Scenario: A consumer selects a provider endpoint
 
-- **WHEN** a client selects `/dmxapi/v1`, `/ucloud/v1`, or
-  `/aihubmix/v1` through its own control plane
+- **WHEN** a client selects one provider-scoped endpoint, such as `/dmxapi/v1`,
+  through its own control plane
 - **THEN** the proxy serves that data-plane request without depending on the
   consumer package, configuration path, credential store, or projection model.
 
@@ -577,7 +578,7 @@ undocumented provider quota.
 
 #### Scenario: One provider is rate-limited
 
-- **WHEN** UCloud, DMXAPI, or AIHubMix records an active provider-scoped cooldown
+- **WHEN** one provider records an active provider-scoped cooldown
 - **THEN** no other provider inherits that cooldown or loses ordinary concurrency
 - **AND** client-owned per-session concurrency remains outside the proxy.
 
