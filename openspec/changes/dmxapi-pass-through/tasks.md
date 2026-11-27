@@ -37,14 +37,41 @@
 - [x] 4.2 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
       in code or in the design. Two important and five minor findings; all answered in code, the specification or the
       design, duplicate JSON keys by a stated risk.
-- [ ] 4.3 Pass the ETHOS full proof of the lane head.
-- [ ] 4.4 Pass the proposal's GitHub checks and GitLab pipeline.
+- [x] 4.3 Pass the ETHOS full proof of the lane head. Passed on 8094cf82 (10 gates, attestation e674af9c).
+- [x] 4.4 Pass the proposal's GitHub checks and GitLab pipeline. Pull request 227: 15 passed, 0 failing; GitLab
+      dev pipeline 18534 and main pipeline 18537 succeeded.
 
 ## 5. Delivery
 
-- [ ] 5.1 Publish 7.0.1 to GitHub and GitLab: the signed tag `v7.0.1` and a Release on each with the platform
-      assets. Done when both Releases read back with those assets.
-- [ ] 5.2 Install 7.0.1 on this host after telling the owner the window. Done when
-      `openai-responses-proxy status --json` reports 7.0.1.
-- [ ] 5.3 Accept the fix: a new Codex conversation on DMXAPI through the installed proxy completes two turns with
-      reasoning tokens above 0. Done when the turn records show them.
+- [x] 5.1 Publish 7.0.1 to GitHub and GitLab: the signed tag `v7.0.1` and a Release on each with the platform
+      assets. Done when both Releases read back with those assets. Both Releases read back the same six assets.
+- [x] 5.2 Install 7.0.1 on this host after telling the owner the window. Done when
+      `openai-responses-proxy status --json` reports 7.0.1. Installed 11:47:33–11:47:53; status reported 7.0.1.
+- [x] 5.3 Run the fix's acceptance: a new Codex conversation on DMXAPI through the installed proxy, two turns, and
+      decide from the turn records. Done when the records are read and the owner has decided. The criterion,
+      reasoning tokens above 0 in each turn, was not met (31, then 0); an alternating measurement gave 0 on every
+      path, direct included (design, "Outcome"). The owner withdrew the route (section 6).
+
+## 6. Withdrawal (7.0.2)
+
+- [x] 6.1 Restore the code, tests, README and architecture document to their state before 7.0.1, drop the
+      specification delta and declare `skip_specs` (D4). Done when no source or test names a request shape and
+      `openspec validate dmxapi-pass-through --strict` passes. Restored from a5e682e3; valid with `skip_specs`.
+- [x] 6.2 Record the amendment and its withdrawal in DR-0002, set `VERSION` to 7.0.2 and add the release to
+      `CHANGELOG.md`. Done when governance and `tests/release/test_metadata.py` pass. Both passed.
+- [x] 6.3 Pass `mise run quick`, the relay and provider tests, Vale and Nox quality. Done when each exits 0.
+      Quick 166, providers and metadata 73, relay 403 in five groups, protocol 329 passed; Vale and quality 0.
+- [x] 6.4 A fresh review of the withdrawal by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. One important finding (the record stated an unmeasured cause; corrected in the
+      changelog, DR-0002, proposal and design), four minor (DR-0002's revisit condition, the cumulative per-turn
+      figures, the evidence references, a relay test for a stateless request on every route, which fails when the
+      relay forwards the client's bytes) and four nits, all answered.
+- [ ] 6.5 Pass the ETHOS full proof of the lane head.
+- [ ] 6.6 Pass the proposal's GitHub checks and GitLab pipeline.
+- [ ] 6.7 Publish 7.0.2 to GitHub and GitLab: the signed tag `v7.0.2` and a Release on each with the platform
+      assets. Done when both Releases read back with those assets and the changelog's date for 7.0.2 is the tag's
+      UTC date.
+- [ ] 6.8 Install 7.0.2 on this host after telling the owner the window. Done when
+      `openai-responses-proxy status --json` reports 7.0.2.
+- [ ] 6.9 Accept the withdrawal. Done when the proxy log shows a DMXAPI request through the installed 7.0.2 sent as
+      projected, without the `unchanged` note.

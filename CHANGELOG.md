@@ -8,6 +8,19 @@ publication authority.
 
 ## [Unreleased]
 
+## [7.0.2] - 2026-11-27
+
+### Removed
+
+- The DMXAPI route no longer sends the first attempt of a stateless request as
+  the client wrote it; every route again builds every attempt from the projected
+  request, as before 7.0.1, and `status --json` no longer reports
+  `pass_through_projected_resends`. 7.0.1 brought no measured benefit: an
+  alternating measurement on the day of its release gave no reasoning from
+  DMXAPI on any path, its own endpoint without the proxy included. The
+  measurement that 7.0.1 rested on compared request shapes at different times,
+  so it did not show that the request shape decides whether DMXAPI reasons.
+
 ## [7.0.1] - 2026-11-27
 
 ### Fixed

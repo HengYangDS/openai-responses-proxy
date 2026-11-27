@@ -56,20 +56,6 @@ version with the conversation. The proxy neither reads nor repairs these
 settings. Native compaction's empty `additional_tools` list is a valid explicit
 control and must remain empty rather than be removed or rejected.
 
-Amended on 2026-11-27: the owner decided that a released route may declare that
-it forwards stateless requests unchanged. Measurements that day showed that
-DMXAPI's model reasons only on a request exactly as a Codex conversation held on
-DMXAPI sends it: any projected change, even removing only message identifiers,
-made it answer without reasoning and without an error. On such a route the
-projection still admits or rejects every request, and the first attempt of a
-request with `store=false` and no `previous_response_id`, `conversation` or item
-reference is sent as the client's bytes. Every later attempt sends the projected
-request: an HTTP 400 to the client's bytes is answered by one projected attempt
-before any recovery, and a transient or stream failure retries with the
-projection, so recovery still consumes only the portable owner. Every other
-route keeps the portable projection. Scope: the DMXAPI route only; the
-measurements are in the `dmxapi-pass-through` Change.
-
 ## Alternatives Rejected
 
 - **Reuse provider-stored continuation state:** rejected because opaque response,
@@ -104,3 +90,13 @@ behavior, not universal provider interoperability or present delivery evidence.
 Revisit when native control-message semantics change, or when the ecosystem
 provides a documented interoperable encrypted transport. Require a real
 sender-to-recipient content witness, not merely accepted JSON or a healthy listener.
+
+A 2026-11-27 amendment let one route forward stateless requests unchanged
+(release 7.0.1), on a measurement that DMXAPI's model reasoned only on an
+unchanged Codex request. That measurement compared request shapes at different
+times. The owner withdrew the amendment the same day in release 7.0.2: an
+alternating measurement gave no reasoning on any path, the provider's own
+endpoint included, so unchanged forwarding had no measured benefit. Both
+measurements are summarized in the `dmxapi-pass-through` Change. Revisit
+unchanged forwarding only with a measurement that alternates request shapes
+within one period in which at least the provider's own endpoint reasons.

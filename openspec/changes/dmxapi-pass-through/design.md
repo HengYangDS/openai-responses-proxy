@@ -1,18 +1,21 @@
 ## Context
 
+The section "Outcome" at the end supersedes the conclusion that this section and D1 to D3 rest on; they
+remain as the record of 7.0.1.
+
 The proxy's one portability grammar (`protocol/replay/projection.py`, DR-0002) rebuilds every request: it forces
 `store=false`, drops `previous_response_id`, `conversation` and `prompt_cache_key`, removes
 `reasoning.encrypted_content` from `include`, removes replayed reasoning items and the identifiers of message items.
 Measurements on 2026-11-27 (records: the issuer-boundary design's section "Results on DMXAPI", the spike's
 `spike.jsonl`, AIGW's `build/evidence/phase3-spike-dmxapi-20261127/`) show, for DMXAPI and Codex 0.172:
 
-| Request sent to DMXAPI                                    | Requests | Reasoning tokens                                         |
-| --------------------------------------------------------- | -------- | -------------------------------------------------------- |
-| The client's body, conversation held on DMXAPI            | 7        | every response had a reasoning item; turns 239, 576, 635 |
-| Portable projection (cache key dropped or kept)           | 16       | 0                                                        |
-| Only message `id`s removed                                | 2        | 0                                                        |
-| Only `prompt_cache_key` and the `include` entry removed   | 2        | 0                                                        |
-| The client's body, history holds a Suhe.AI reasoning item | 5        | 0, no error                                              |
+| Request sent to DMXAPI                                    | Requests | Reasoning tokens                                        |
+| --------------------------------------------------------- | -------- | ------------------------------------------------------- |
+| The client's body, conversation held on DMXAPI            | 7        | every response had a reasoning item; turns 239, 337, 59 |
+| Portable projection (cache key dropped or kept)           | 16       | 0                                                       |
+| Only message `id`s removed                                | 2        | 0                                                       |
+| Only `prompt_cache_key` and the `include` entry removed   | 2        | 0                                                       |
+| The client's body, history holds a Suhe.AI reasoning item | 5        | 0, no error                                             |
 
 Every changed body completed with HTTP 200, so the loss is silent. `json.dumps` of a real Codex 0.172 body
 reproduces its bytes exactly, and the request headers are the same on both paths (local capture without egress), so
@@ -54,7 +57,7 @@ per request. The exchange keeps the projected request, and the first time it sen
 DMXAPI's 477 retry, a stream reopen after a pre-content failure, or the re-send of D3), it sends the projection.
 After a failure, the request therefore takes exactly the path that 7.0.0 took, one round trip later. Requirements
 that describe the outbound form now say "projected request"; the delta modifies the three whose text named the
-outbound copy.
+outbound copy. The delta was dropped in 7.0.2; its last form is at commit 8094cf82.
 
 ### D3. One projected attempt after a refusal of the client's bytes
 
@@ -67,6 +70,16 @@ then be relayed, or would start a recovery that drops history, where 7.0.0 compl
 with "Request-changing recovery uses structured errors": the projected request is not a change of the projected
 request, it is the form 7.0.0 sent first. An encrypted agent task refused in the projected request is still relayed
 without a further request. The counters of stripped items count only projected requests that were sent.
+
+### D4. Withdraw the pass-through route
+
+The owner withdrew the route on 2026-11-27 at 12:51, choosing 7.0.2 over keeping the code with corrected
+documents. Reason: the route had no measured benefit (section "Outcome"), it added a second send path and a per-route attribute that
+names a provider's behavior, against the direction of the issuer-boundary redesign, and the project's rule admits no
+entity that is not necessary. 7.0.2 restores the source of 7.0.0 apart from the decision record and release
+metadata, so the main specification's requirement that every Responses request is projected applies to every
+route again, with the tests that 7.0.0 shipped for it. The specification delta is dropped and the Change declares
+`skip_specs`. Rollback: reinstall 7.0.1.
 
 ## Risks / Trade-offs
 
@@ -86,4 +99,33 @@ without a further request. The counters of stripped items count only projected r
 ## Migration Plan
 
 Release 7.0.1 and install it after telling the owner the window. Acceptance: a new Codex conversation on DMXAPI
-through the installed proxy reports reasoning tokens. Rollback: reinstall 7.0.0.
+through the installed proxy reports reasoning tokens. Rollback: reinstall 7.0.0. The acceptance failed; 7.0.2
+withdraws 7.0.1 and is installed the same way. Its acceptance: a DMXAPI request through the installed proxy is
+logged as projected, without the `unchanged` note.
+
+## Outcome (2026-11-27)
+
+7.0.1 was installed at 11:47 and behaved as designed: the proxy log shows every DMXAPI request of the acceptance sent
+`unchanged` and completed, with no re-send. The fix was still not accepted. `codex exec` reports a thread's running
+token total in each turn, so the per-turn values below, and those in the Context table, are differences of those
+totals. Records (local to this host, not durable): AIGW's `build/runtime/work/phase3-spike-dmxapi/runs/accept-701/`
+and `runs/alt-*/` (turn records and the throwaway build's request log) and the installed proxy's operational log for
+11:57–11:59 and 12:12–12:13. The throwaway build is `git archive` of dev at 9f575e8d (7.0.0 source) with the spike's
+patch.
+
+| Run (gpt-6.2-sol-cdx, effort xhigh, one new conversation each) | Time        | Reasoning tokens per turn |
+| -------------------------------------------------------------- | ----------- | ------------------------- |
+| Acceptance through 7.0.1, two turns                            | 11:57–11:59 | 31, 0                     |
+| A1 direct to `https://www.dmxapi.cn/v1`, no proxy              | 12:12       | 0                         |
+| B1 through 7.0.1, unchanged                                    | 12:12       | 0                         |
+| C1 through the throwaway build, portable projection            | 12:12       | 0                         |
+| C2 portable projection                                         | 12:13       | 0                         |
+| B2 through 7.0.1, unchanged                                    | 12:13       | 0                         |
+| A2 direct, no proxy                                            | 12:13       | 0                         |
+
+All runs completed without an error. The only DMXAPI conversation with substantial reasoning that day was the
+first unchanged run at 08:18 (239, 337 and 59 tokens per turn). Every changed shape was measured after it, from
+08:20 on, so the morning's table compared shapes at different times and does not show that the shape decides whether
+DMXAPI reasons. In the alternating order A, B, C, C, B, A, which removes that confound, no path reasoned, the
+provider's own endpoint included: unchanged forwarding brought no benefit, and whether DMXAPI reasons varied over the
+day for reasons outside the proxy. Whether the shape matters at a time when DMXAPI does reason was not measured.

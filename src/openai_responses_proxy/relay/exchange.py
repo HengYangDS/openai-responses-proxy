@@ -119,10 +119,6 @@ class Exchange:
     input_dependencies: item_policy.InputDependencies = field(
         default_factory=item_policy.InputDependencies
     )
-    # On a pass-through route: the projected form, kept until an attempt needs it.
-    portable_body: bytes | None = None
-    portable_metrics: telemetry.SanitizationMetrics | None = None
-    unchanged_sent: bool = False
     deadline: float = field(default_factory=lambda: time.monotonic() + UPSTREAM_TIMEOUT)
 
     def upstream(
@@ -130,14 +126,6 @@ class Exchange:
     ) -> UpstreamResponse:
         """Open one attempt within the original exchange and any narrower deadline."""
         deadline = self.deadline if deadline is None else min(self.deadline, deadline)
-        if body is None and self.portable_body is not None:
-            if self.unchanged_sent:
-                # The client's bytes go out at most once; every later attempt sends the projection.
-                self.attempt_body, self.portable_body = self.portable_body, None
-                if self.portable_metrics is not None:
-                    telemetry.record_sanitization(self.portable_metrics)
-            else:
-                self.unchanged_sent = True
         timeout = min(UPSTREAM_TIMEOUT, deadline - time.monotonic())
         if timeout <= 0:
             raise ExchangeDeadlineError("upstream deadline expired before header acquisition")
@@ -392,16 +380,6 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         status_code, payload, disposition, exact=exact, wire_failure=wire_failure
     )
     telemetry.record_upstream_classification(classification)
-    if (
-        exchange.is_responses
-        and status_code == HTTPStatus.BAD_REQUEST
-        and exchange.unchanged_sent
-        and exchange.portable_body is not None
-    ):
-        # A refusal of the client's bytes is answered once by the projection, which 7.0.0 sent.
-        telemetry.record_counter("pass_through_projected_resends")
-        exchange.log("pass_through_projected_resend", f"upstream_status={status_code} ")
-        return "retry"
     if rate_limited:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(

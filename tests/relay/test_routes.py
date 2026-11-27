@@ -140,6 +140,34 @@ class ProviderRouteTests:
             assert output["output"] == [{"type": "input_text", "text": "tool result"}]
             assert trigger == {"type": "compaction_trigger"}
 
+    def test_every_route_projects_a_request_that_keeps_no_state(
+        self, subtests: pytest.Subtests
+    ) -> None:
+        # Codex's own stateless form: the client's bytes are never forwarded as they are.
+        raw = _body(
+            {
+                "store": False,
+                "prompt_cache_key": "thread-1",
+                "include": ["reasoning.encrypted_content"],
+                "input": [{"type": "message", "id": "msg_1", "role": "user", "content": "hello"}],
+            }
+        )
+        success = b'{"id":"resp_ok","status":"completed"}'
+
+        with running_proxy([(200, success)] * 3) as (port, received):
+            for route in ("dmxapi", "ucloud", "aihubmix"):
+                with (
+                    subtests.test(route=route),
+                    request(port, raw, path=f"/{route}/v1/responses") as response,
+                ):
+                    assert response.status == 200
+
+        assert len(set(received)) == 1
+        payload = json.loads(received[0])
+        assert "prompt_cache_key" not in payload
+        assert payload["include"] == []
+        assert payload["input"] == [{"type": "message", "role": "user", "content": "hello"}]
+
     def test_unknown_route_and_unknown_replay_shape_never_reach_upstream(
         self, subtests: pytest.Subtests
     ) -> None:

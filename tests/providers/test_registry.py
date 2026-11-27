@@ -206,51 +206,6 @@ class ProviderRegistryTests:
                 )
             )
 
-    def test_request_shape_is_declared_per_route(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            loaded = registry.load(
-                _manifest(
-                    Path(directory),
-                    "version = 1\n"
-                    "[providers.portable]\nbase_url = 'https://portable.example/v1'\n"
-                    "[providers.unchanged]\nbase_url = 'https://unchanged.example/v1'\n"
-                    "request_shape = 'pass-through'\n",
-                )
-            )
-        assert loaded.profiles["portable"].request_shape == "portable"
-        assert loaded.profiles["unchanged"].request_shape == "pass-through"
-        shipped = registry.load()
-        assert {name: profile.request_shape for name, profile in shipped.profiles.items()} == {
-            "aihubmix": "portable",
-            "dmxapi": "pass-through",
-            "suheai": "portable",
-            "ucloud": "portable",
-        }
-
-    @pytest.mark.parametrize(
-        ("fields", "message"),
-        [
-            ("request_shape = 'stateless'\n", "invalid request shape"),
-            ("request_shape = true\n", "invalid request shape"),
-            (
-                "request_shape = 'pass-through'\nagent_message_delivery = 'plaintext'\n",
-                "pass-through cannot use plaintext agent delivery",
-            ),
-        ],
-    )
-    def test_invalid_request_shape_cannot_start_a_route(self, fields: str, message: str) -> None:
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            pytest.raises(ValueError, match=message),
-        ):
-            registry.load(
-                _manifest(
-                    Path(directory),
-                    "version = 1\n[providers.gateway]\n"
-                    f"base_url = 'https://gateway.example/v1'\n{fields}",
-                )
-            )
-
     def test_special_policy_is_one_module_plus_one_manifest_declaration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             loaded = registry.load(

@@ -51,8 +51,6 @@ class ProjectionResult:
     input_dependencies: item_policy.InputDependencies = dataclass_field(
         default_factory=item_policy.InputDependencies, repr=False, compare=False
     )
-    # The client already asked for nothing to be stored or continued upstream.
-    stateless: bool = False
 
     def diagnostic(self) -> str:
         """Project the structured outcome into one bounded operational note."""
@@ -112,17 +110,6 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         candidate["include"] = trimmed
 
     raw_input = candidate.get("input")
-    stateless = (
-        not store_normalized
-        and not {"previous_response_id", "conversation"} & set(payload)
-        and not (
-            isinstance(raw_input, list)
-            and any(
-                isinstance(item, dict) and item.get("type") == "item_reference"
-                for item in raw_input
-            )
-        )
-    )
     input_dependencies = item_policy.InputDependencies()
     metrics = {
         "reasoning_items": 0,
@@ -157,9 +144,7 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
         or candidate != payload
     )
     if not changed:
-        return ProjectionResult(
-            raw, "clean", input_dependencies=input_dependencies, stateless=stateless
-        )
+        return ProjectionResult(raw, "clean", input_dependencies=input_dependencies)
     try:
         encoded = json.dumps(
             candidate, ensure_ascii=False, separators=(",", ":"), allow_nan=False
@@ -184,5 +169,4 @@ def sanitize_responses_body(raw: bytes) -> ProjectionResult:
             include_trimmed=include_trimmed,
         ),
         input_dependencies=input_dependencies,
-        stateless=stateless,
     )
