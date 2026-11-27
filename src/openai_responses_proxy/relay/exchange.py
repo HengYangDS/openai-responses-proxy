@@ -119,6 +119,8 @@ class Exchange:
     input_dependencies: item_policy.InputDependencies = field(
         default_factory=item_policy.InputDependencies
     )
+    # The projected form while the attempt carries the client's unchanged body.
+    portable_body: bytes | None = None
     deadline: float = field(default_factory=lambda: time.monotonic() + UPSTREAM_TIMEOUT)
 
     def upstream(
@@ -387,6 +389,13 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
         )
         telemetry.record_counter("provider_rate_limits")
         exchange.log("provider_rate_limit", f"cooldown_seconds={seconds} ")
+    if exchange.portable_body is not None and status_code == HTTPStatus.BAD_REQUEST:
+        # Every request-changing recovery of an unchanged request starts from its projection.
+        exchange.attempt_body, exchange.portable_body = exchange.portable_body, None
+        if classification == "provider_bound_encrypted_content":
+            telemetry.record_counter("pass_through_projected_resends")
+            exchange.log("pass_through_projected_resend", f"bytes={len(exchange.attempt_body)} ")
+            return "retry"
     if exchange.used_capacity_recovery:
         telemetry.record_counter("input_capacity_recovery_rejected")
         telemetry.record_failure("input_capacity_recovery_rejected")

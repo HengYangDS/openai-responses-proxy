@@ -247,6 +247,7 @@ def relay(
             f"reason={framing_reason} path={operational_log.safe_request_path(handler.path)}"
         )
         return
+    original = body
     projection = replay_request.sanitize_responses_body(body)
     note = projection.diagnostic()
     telemetry.record_sanitization(projection.metrics)
@@ -287,6 +288,11 @@ def relay(
         telemetry.record_counter("agent_delivery_rejected")
         return
     body = prepared.body
+    # A pass-through route sends a stateless request as the client wrote it and keeps the
+    # projection for recovery; a pass-through route always delivers agent messages natively.
+    unchanged = profile.request_shape == "pass-through" and projection.stateless
+    if unchanged:
+        note = f"unchanged {note}"
     path = operational_log.safe_request_path(handler.path)
     if len(body) >= _LARGE_REQUEST_BYTES:
         operational_log.log(
@@ -298,18 +304,20 @@ def relay(
         f"method={method} {note} path={path}"
     )
     telemetry.record_counter("responses_received")
+    sent = original if unchanged else body
     exchange = upstream_exchange.Exchange(
         handler,
         method,
         request_id,
-        body,
+        sent,
         upstream_url,
         headers,
         is_responses,
-        body,
+        sent,
         profile,
         plaintext_agent_delivery=prepared.active,
         input_dependencies=projection.input_dependencies,
+        portable_body=body if unchanged else None,
     )
     if _cooldown_active(exchange):
         return

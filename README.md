@@ -250,8 +250,12 @@ path. Automation should use `--json` where the command supports it.
 
 ## Compatibility behavior
 
-Every request is projected to a provider-portable Responses grammar before it
-leaves the loopback listener.
+Every request is checked against a provider-portable Responses grammar, and
+projected to it, before it leaves the loopback listener. The released DMXAPI
+route is the exception for a stateless request (`store=false`, no
+`previous_response_id` or `conversation`): it sends the client's bytes
+unchanged, because DMXAPI does not reason on a changed request. A refusal of
+encrypted content is answered by one re-send of the projected form.
 
 | Concern                     | Behavior                                                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |

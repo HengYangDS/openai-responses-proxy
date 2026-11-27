@@ -60,6 +60,7 @@ def serve_proxy(
     captures: list[dict[str, object]] | None = None,
     extra_provider: str | None = None,
     agent_message_delivery: Literal["native", "plaintext"] = "native",
+    request_shape: Literal["portable", "pass-through"] = "portable",
 ) -> tuple[int, list[bytes], Callable[[], None]]:
     """Start scripted loopback servers and return port, bodies, and cleanup."""
     scripted = list(responses)
@@ -155,6 +156,7 @@ def serve_proxy(
             "dmxapi",
             test_upstream,
             cast("provider_registry.WirePolicy", dmxapi_policy),
+            request_shape=request_shape,
         ),
         "ucloud": provider_registry.Profile(
             "ucloud", test_upstream, agent_message_delivery=agent_message_delivery
@@ -190,6 +192,7 @@ def running_proxy(
     captures: list[dict[str, object]] | None = None,
     extra_provider: str | None = None,
     agent_message_delivery: Literal["native", "plaintext"] = "native",
+    request_shape: Literal["portable", "pass-through"] = "portable",
 ) -> Generator[tuple[int, list[bytes]]]:
     """Yield a scripted loopback proxy and always release both servers."""
     with tempfile.TemporaryDirectory() as log_dir:
@@ -199,6 +202,7 @@ def running_proxy(
             captures=captures,
             extra_provider=extra_provider,
             agent_message_delivery=agent_message_delivery,
+            request_shape=request_shape,
         )
         try:
             yield port, received

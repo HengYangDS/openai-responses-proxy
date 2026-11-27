@@ -66,6 +66,7 @@ _COUNTERS = {
     "wire_failure_retry_accepted": 0,
     "wire_failure_recovery_exhausted": 0,
     "wire_failure_cooldown_hits": 0,
+    "pass_through_projected_resends": 0,
 }
 _UPSTREAM_CLASSIFICATIONS: dict[str, int] = {}
 # The latest failure class and time; empty until a failure is recorded.

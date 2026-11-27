@@ -11,7 +11,7 @@ relations:
 # DR-0002: Keep Responses Replay Stateless and Provider-Portable
 
 - Date: 2026-08-07
-- Last amended: 2026-10-08
+- Last amended: 2026-11-27
 
 ## Context
 
@@ -55,6 +55,22 @@ The client configuration owner must align its tool namespace and model agent
 version with the conversation. The proxy neither reads nor repairs these
 settings. Native compaction's empty `additional_tools` list is a valid explicit
 control and must remain empty rather than be removed or rejected.
+
+### Amendment of 2026-11-27: routes that forward stateless requests unchanged
+
+The owner decided on 2026-11-27 that a released route may declare that it
+forwards stateless requests unchanged. Measurements that day showed that
+DMXAPI's model reasons only on a request exactly as a Codex conversation held
+on DMXAPI sends it: any projected change, even removing only message
+identifiers, made it answer without reasoning and without an error. On such a
+route the projection still admits or rejects every request, and a request with
+`store=false` and no `previous_response_id` or `conversation` is sent as the
+client's bytes. A structured refusal of encrypted content
+(`invalid_encrypted_content`) is answered by one re-send of the projected form,
+and every other request-changing recovery starts from the projected form, so
+recovery still consumes only the portable owner. Every other route keeps the
+portable projection. Scope: the DMXAPI route only; the measurements are in the
+`dmxapi-pass-through` Change.
 
 ## Alternatives Rejected
 
