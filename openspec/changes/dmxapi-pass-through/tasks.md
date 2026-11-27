@@ -66,12 +66,14 @@
       changelog, DR-0002, proposal and design), four minor (DR-0002's revisit condition, the cumulative per-turn
       figures, the evidence references, a relay test for a stateless request on every route, which fails when the
       relay forwards the client's bytes) and four nits, all answered.
-- [ ] 6.5 Pass the ETHOS full proof of the lane head.
-- [ ] 6.6 Pass the proposal's GitHub checks and GitLab pipeline.
-- [ ] 6.7 Publish 7.0.2 to GitHub and GitLab: the signed tag `v7.0.2` and a Release on each with the platform
+- [x] 6.5 Pass the ETHOS full proof of the lane head. Passed on f89a05c1 (10 gates, attestation 55b3d91e).
+- [x] 6.6 Pass the proposal's GitHub checks and GitLab pipeline. Pull request 228: 15 passed, 0 failing; GitLab
+      dev pipeline 18557 and main pipeline 18560 succeeded.
+- [x] 6.7 Publish 7.0.2 to GitHub and GitLab: the signed tag `v7.0.2` and a Release on each with the platform
       assets. Done when both Releases read back with those assets and the changelog's date for 7.0.2 is the tag's
-      UTC date.
-- [ ] 6.8 Install 7.0.2 on this host after telling the owner the window. Done when
-      `openai-responses-proxy status --json` reports 7.0.2.
-- [ ] 6.9 Accept the withdrawal. Done when the proxy log shows a DMXAPI request through the installed 7.0.2 sent as
-      projected, without the `unchanged` note.
+      UTC date. Both Releases read back the same six assets; the changelog and the tag share 2026-11-27 UTC.
+- [x] 6.8 Install 7.0.2 on this host after telling the owner the window. Done when
+      `openai-responses-proxy status --json` reports 7.0.2. Installed 15:00:19–15:00:36; status reported 7.0.2.
+- [x] 6.9 Accept the withdrawal. Done when the proxy log shows a DMXAPI request through the installed 7.0.2 sent as
+      projected, without the `unchanged` note. A request without a token at 16:56:47 was logged as projected, its
+      message identifier and `include` entry removed, in one attempt; DMXAPI answered 401.
