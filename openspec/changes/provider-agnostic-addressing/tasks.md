@@ -1,10 +1,10 @@
 ## 1. Addressing
 
-- [ ] 1.1 Add `tests/relay/test_addressing.py` for `relay/addressing.resolve`: accepted HTTPS targets with a query, a
+- [x] 1.1 Add `tests/relay/test_addressing.py` for `relay/addressing.resolve`: accepted HTTPS targets with a query, a
       port, no base path, and loopback `http` including `[::1]`; refused remote `http`, user information, upper-case
       scheme, unknown resources, empty and dot segments, percent-encoding, fragments and absolute form. Done when
-      they fail before 1.2 and pass after it.
-- [ ] 1.2 Implement `relay/addressing.py` with `Target` and `resolve` (D1). Done when 1.1's tests pass.
+      they fail before 1.2 and pass after it. They failed on import, then 31 passed.
+- [x] 1.2 Implement `relay/addressing.py` with `Target` and `resolve` (D1). Done when 1.1's tests pass. Passed.
 
 ## 2. HTTP 477
 

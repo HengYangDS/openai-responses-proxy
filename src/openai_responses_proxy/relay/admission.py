@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from email.message import Message
     from http.server import BaseHTTPRequestHandler
 
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _RESPONSE_GATE_LOCK = threading.Lock()
 
 
@@ -102,7 +102,7 @@ def is_local_controller(address: str, headers: Message) -> bool:
     if not is_loopback_client(address) or headers.get("Origin") is not None:
         return False
     with suppress(ValueError):
-        return urllib.parse.urlsplit(f"//{headers.get('Host', '')}").hostname in _LOOPBACK_HOSTS
+        return urllib.parse.urlsplit(f"//{headers.get('Host', '')}").hostname in LOOPBACK_HOSTS
     return False
 
 
