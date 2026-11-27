@@ -13,7 +13,6 @@ from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import command
 from openai_responses_proxy.lifecycle import generation
 from openai_responses_proxy.lifecycle import runtime_spec
-from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
 
 SERVICE_ID = product_identity.SERVICE_ID
@@ -62,7 +61,6 @@ class InstallationContext:
     watchdog_max_backoff: float = config.DEFAULT_WATCHDOG_MAX_BACKOFF
     response_failed_compaction_budget: int = config.DEFAULT_RESPONSE_FAILED_COMPACTION_BUDGET
     response_failed_max_stages: int = config.DEFAULT_RESPONSE_FAILED_MAX_STAGES
-    upstream_base_url: str = ""
 
     @property
     def service_id(self) -> str:
@@ -110,7 +108,6 @@ def create(
     proxy_log_backup_count: int = config.DEFAULT_PROXY_LOG_BACKUP_COUNT,
     watchdog_log_max_bytes: int = config.DEFAULT_WATCHDOG_LOG_MAX_BYTES,
     watchdog_log_backup_count: int = config.DEFAULT_WATCHDOG_LOG_BACKUP_COUNT,
-    upstream_base_url: str | None = None,
 ) -> InstallationContext:
     """Validate command inputs and project the control root's paths and settings once.
 
@@ -162,16 +159,4 @@ def create(
     projected.sse_buffer_max_bytes = settings.sse_buffer_max_bytes
     projected.catalog_timeout = settings.catalog_timeout
     projected.catalog_max_bytes = settings.catalog_max_bytes
-    if upstream_base_url is None:
-        upstream_base_url = (
-            environment[config.UPSTREAM_BASE_URL_ENV]
-            if environment is not None
-            else config.os.environ.get(config.UPSTREAM_BASE_URL_ENV, "")
-        )
-    try:
-        projected.upstream_base_url = (
-            registry.normalize_upstream(upstream_base_url) if upstream_base_url else ""
-        )
-    except ValueError as exc:
-        raise errors.InstallError(str(exc)) from exc
     return projected

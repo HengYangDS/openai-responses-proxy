@@ -11,7 +11,6 @@ from typing import Protocol
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle import owned_files
-from openai_responses_proxy.providers import registry
 from openai_responses_proxy.runtime import config
 from openai_responses_proxy.serving import digest
 from openai_responses_proxy.serving import identity
@@ -100,8 +99,6 @@ def content(ctx: InstallationContext) -> bytes:
     """Encode the exact carrier before materialization or disposal admission."""
     payload = {"schema_version": SCHEMA_VERSION}
     payload.update({name: getattr(ctx, name) for name in _FIELDS})
-    if ctx.upstream_base_url:
-        payload["upstream_base_url"] = registry.normalize_upstream(ctx.upstream_base_url)
     return digest.canonical_json(payload)
 
 
@@ -138,7 +135,6 @@ def _project(value: JsonObject) -> dict[str, str]:
             value["response_failed_compaction_budget"]
         ),
         config.RESPONSE_FAILED_MAX_STAGES_ENV: str(value["response_failed_max_stages"]),
-        config.UPSTREAM_BASE_URL_ENV: str(value.get("upstream_base_url", "")),
     }
 
 
@@ -163,25 +159,11 @@ def activate(executable: str | os.PathLike[str]) -> Path:
 def _read(target: Path) -> JsonObject:
     value = owned_files.read_canonical_json(target, "native runtime configuration")
     required_fields = {"schema_version", *_FIELDS}
-    if (
-        value.get("schema_version") != SCHEMA_VERSION
-        or not required_fields <= value.keys()
-        or not value.keys() <= required_fields | {"upstream_base_url"}
-    ):
+    if value.get("schema_version") != SCHEMA_VERSION or value.keys() != required_fields:
         raise errors.InstallError(
             "native runtime configuration schema is unsupported; remove the installation "
             "with the release that wrote it, then install this release"
         )
-    if "upstream_base_url" in value:
-        upstream = value["upstream_base_url"]
-        if not isinstance(upstream, str) or not upstream:
-            raise errors.InstallError("native runtime configuration upstream is invalid")
-        try:
-            canonical = registry.normalize_upstream(upstream)
-        except ValueError as exc:
-            raise errors.InstallError(str(exc)) from exc
-        if canonical != upstream:
-            raise errors.InstallError("upstream must be canonical")
     install_dir = value.get("install_dir")
     log_dir = value.get("log_dir")
     if not isinstance(install_dir, str) or not PurePosixPath(install_dir).is_absolute():

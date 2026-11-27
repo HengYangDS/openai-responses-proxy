@@ -84,10 +84,6 @@ def install_asset(
             raise errors.InstallError("requested artifact is not the verified active installation")
         configured = native_service.adapter().configured_executable(control_ctx)
         selected_settings = runtime_spec.environment(runtime_spec.path(control_ctx))
-        if selected_settings[config.UPSTREAM_BASE_URL_ENV] != ctx.upstream_base_url:
-            raise errors.InstallInputError(
-                "upstream selection differs from the active installation"
-            )
         if (
             observed.get("state") == "running"
             and isinstance(runtime, dict)

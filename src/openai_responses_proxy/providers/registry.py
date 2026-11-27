@@ -34,15 +34,6 @@ class Registry:
         """Detach the registry from caller-owned mutable mappings."""
         object.__setattr__(self, "profiles", MappingProxyType(dict(self.profiles)))
 
-    def with_upstream(self, base_url: str) -> Registry:
-        """Add one explicit ordinary route without changing released profiles."""
-        if not base_url:
-            return self
-        if "upstream" in self.profiles:
-            raise ValueError("explicit upstream conflicts with a released route")
-        profile = Profile("upstream", normalize_upstream(base_url))
-        return Registry({**self.profiles, profile.name: profile})
-
     def resolve(self, path: str) -> tuple[Profile, str, str] | None:
         """Resolve one exact provider-scoped supported target."""
         try:
@@ -121,8 +112,3 @@ def _base_url(name: str, value: object) -> str:
     return urllib.parse.urlunsplit(
         (parsed.scheme.lower(), parsed.netloc, parsed.path.rstrip("/"), "", "")
     )
-
-
-def normalize_upstream(value: str) -> str:
-    """Validate a secret-free ordinary Responses upstream using manifest rules."""
-    return _base_url("upstream", value)

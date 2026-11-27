@@ -168,18 +168,3 @@ class ProviderRegistryTests:
         ):
             with subtests.test(path=path):
                 assert routes.resolve(path) is None
-
-    def test_explicit_upstream_is_an_ordinary_isolated_responses_route(self) -> None:
-        released = registry.Registry(
-            {"gateway": registry.Profile("gateway", "https://gateway.example/v1")}
-        )
-        configured = released.with_upstream("https://api.openai.com/v1/")
-
-        assert set(released.profiles) == {"gateway"}
-        assert configured.resolve("/upstream/v1/responses") == (
-            configured.profiles["upstream"],
-            "responses",
-            "https://api.openai.com/v1/responses",
-        )
-        assert configured.resolve("/gateway/v1/models") == released.resolve("/gateway/v1/models")
-        assert released.with_upstream("") is released

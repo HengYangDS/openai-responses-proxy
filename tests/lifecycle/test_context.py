@@ -179,43 +179,35 @@ class TestRuntimeContext:
             runtime_spec.environment(root_level)
         assert root_level.read_bytes() == owned.read_bytes()
 
-    def test_explicit_upstream_survives_native_carrier_and_context_reload(
-        self, tmp_path: Path, *, mocker: MockerFixture
-    ) -> None:
+    def test_carrier_without_an_upstream_is_accepted(self, tmp_path: Path) -> None:
+        # The carrier that 7.0.2 wrote: its fields, and no upstream override.
         install_dir = tmp_path / "payload"
         projected = context.RuntimeContext(
             install_dir=str(install_dir),
             executable=generation_executable(install_dir),
             command=str(tmp_path / "bin" / "openai-responses-proxy"),
             log_dir=str(tmp_path / "state"),
-            upstream_base_url="http://127.0.0.1:43123/v1",
         )
         target = runtime_spec.write(projected)
-        _select_fixture_generation(install_dir)
-        environment = runtime_spec.environment(target)
-        mocker.patch.object(config, "home_dir", return_value=str(tmp_path))
-        mocker.patch.object(config, "data_dir", return_value=str(install_dir))
-        mocker.patch.object(config, "state_dir", return_value=str(tmp_path / "state"))
 
-        restored = context.create()
+        assert "upstream_base_url" not in json.loads(target.read_text(encoding="utf-8"))
+        assert runtime_spec.environment(target)[config.HOME_ENV] == str(install_dir)
 
-        assert environment[config.UPSTREAM_BASE_URL_ENV] == projected.upstream_base_url
-        assert type(restored) is context.InstallationContext
-        selected = generation.selected_context(restored)
-        assert selected is not None
-        assert selected.payload_dir == projected.payload_dir
-        assert restored.upstream_base_url == projected.upstream_base_url
-        assert (
-            context.create(upstream_base_url="https://api.openai.com/v1").upstream_base_url
-            == "https://api.openai.com/v1"
+    def test_carrier_with_an_upstream_override_is_refused(self, tmp_path: Path) -> None:
+        install_dir = tmp_path / "payload"
+        projected = context.RuntimeContext(
+            install_dir=str(install_dir),
+            executable=generation_executable(install_dir),
+            command=str(tmp_path / "bin" / "openai-responses-proxy"),
+            log_dir=str(tmp_path / "state"),
         )
+        target = runtime_spec.write(projected)
+        carrier = json.loads(target.read_text(encoding="utf-8"))
+        carrier["upstream_base_url"] = "https://api.example.com/v1"
+        target.write_bytes(digest.canonical_json(carrier))
 
-    def test_explicit_upstream_refuses_credentials_before_native_materialization(
-        self, tmp_path: Path, *, mocker: MockerFixture
-    ) -> None:
-        mocker.patch.object(config, "data_dir", return_value=str(tmp_path / "payload"))
-        with pytest.raises(errors.InstallError, match="absolute HTTP\\(S\\) URL"):
-            context.create(upstream_base_url="https://user:secret@api.openai.com/v1")
+        with pytest.raises(errors.InstallError, match="schema is unsupported"):
+            runtime_spec.environment(target)
 
     def test_a_relative_root_override_is_made_absolute(self) -> None:
         relative = config._absolute_override({config.HOME_ENV: "payload"}, config.HOME_ENV)
@@ -442,7 +434,6 @@ class TestRuntimeContext:
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_MAX_BYTES",
             "OPENAI_RESPONSES_PROXY_REQUEST_BODY_TIMEOUT",
             "OPENAI_RESPONSES_PROXY_SSE_BUFFER_MAX_BYTES",
-            config.UPSTREAM_BASE_URL_ENV,
             config.WATCHDOG_INTERVAL_ENV,
             config.WATCHDOG_MAX_BACKOFF_ENV,
             config.RESPONSE_FAILED_COMPACTION_BUDGET_ENV,

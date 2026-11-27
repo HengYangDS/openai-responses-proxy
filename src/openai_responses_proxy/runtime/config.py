@@ -32,7 +32,6 @@ REQUEST_BODY_TIMEOUT_ENV = product_identity.environment_name("REQUEST_BODY_TIMEO
 SSE_BUFFER_MAX_BYTES_ENV = product_identity.environment_name("SSE_BUFFER_MAX_BYTES")
 CATALOG_TIMEOUT_ENV = product_identity.environment_name("CATALOG_TIMEOUT")
 CATALOG_MAX_BYTES_ENV = product_identity.environment_name("CATALOG_MAX_BYTES")
-UPSTREAM_BASE_URL_ENV = product_identity.environment_name("UPSTREAM_BASE_URL")
 WATCHDOG_INTERVAL_ENV = product_identity.environment_name("WATCHDOG_INTERVAL")
 WATCHDOG_MAX_BACKOFF_ENV = product_identity.environment_name("WATCHDOG_MAX_BACKOFF")
 RESPONSE_FAILED_COMPACTION_BUDGET_ENV = product_identity.environment_name(
@@ -57,7 +56,6 @@ RUNTIME_ENVIRONMENT = frozenset(
         SSE_BUFFER_MAX_BYTES_ENV,
         CATALOG_TIMEOUT_ENV,
         CATALOG_MAX_BYTES_ENV,
-        UPSTREAM_BASE_URL_ENV,
         WATCHDOG_INTERVAL_ENV,
         WATCHDOG_MAX_BACKOFF_ENV,
         RESPONSE_FAILED_COMPACTION_BUDGET_ENV,

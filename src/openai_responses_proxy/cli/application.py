@@ -161,14 +161,7 @@ def dispatch(command: str, **arguments: object) -> CommandResult: ...
 def dispatch(command: str, **arguments: object) -> CommandResult:
     """Execute one parsed command through its semantic owner."""
     port = _port_argument(arguments)
-    upstream = arguments.get("upstream_base_url")
-    if upstream is not None and not isinstance(upstream, str):
-        raise TypeError("upstream_base_url must be a string")
-    context = (
-        runtime_context.create(port=port, upstream_base_url=upstream)
-        if upstream is not None
-        else runtime_context.create(port=port)
-    )
+    context = runtime_context.create(port=port)
     if command == "status":
         return control.status(context)
     if command == "doctor":
@@ -430,13 +423,6 @@ def _app() -> App:
         json_output: _JSON = False,
         port: _PORT = runtime_context.DEFAULT_PORT,
         timeout_seconds: _TIMEOUT = 30.0,
-        upstream_base_url: Annotated[
-            str | None,
-            Parameter(
-                name="--upstream-base-url",
-                help="Explicit ordinary Responses upstream exposed at /upstream/v1.",
-            ),
-        ] = None,
     ) -> int:
         """Install or upgrade the native user service."""
         return _execute(
@@ -446,7 +432,6 @@ def _app() -> App:
             trust_anchor=trust_anchor,
             port=port,
             timeout_seconds=timeout_seconds,
-            upstream_base_url=upstream_base_url,
         )
 
     @app.command(name="status")

@@ -179,6 +179,24 @@ class ProductInterfaceContracts:
         assert "openai-responses-proxy --help" in stderr
         assert "openai-responses-proxy doctor" not in stderr
 
+    def test_install_names_no_upstream(self) -> None:
+        code, install_help, _ = invoke("install", "--help")
+        assert code == 0
+        assert "--upstream-base-url" not in install_help
+
+        code, stdout, stderr = invoke(
+            "install",
+            "--asset",
+            "asset.tar.gz",
+            "--trust-anchor",
+            "signers",
+            "--upstream-base-url",
+            "https://api.example.com/v1",
+        )
+        assert code == 2
+        assert stdout == ""
+        assert "--upstream-base-url" in stderr
+
     def test_help_explains_lifecycle_inputs_without_boolean_noise(self) -> None:
         code, install_help, stderr = invoke("install", "--help")
         assert code == 0

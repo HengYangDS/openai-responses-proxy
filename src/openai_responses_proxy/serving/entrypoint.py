@@ -45,9 +45,6 @@ def bootstrap(executable: Path | None = None) -> Bootstrap:
     if loaded is None:
         raise RuntimeError("installed payload identity is unavailable")
     providers = provider_registry.load(loaded.root / "providers.toml")
-    providers = providers.with_upstream(
-        runtime_config.os.environ.get(runtime_config.UPSTREAM_BASE_URL_ENV, "")
-    )
     if identity.freeze_loaded_payload(selected) != loaded:
         raise RuntimeError("installed payload identity changed during startup")
     return Bootstrap(selected, loaded, providers)

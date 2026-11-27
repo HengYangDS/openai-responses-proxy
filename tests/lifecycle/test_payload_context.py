@@ -35,9 +35,7 @@ def test_a_control_root_context_names_no_payload(tmp_path: Path) -> None:
 
 
 def test_a_payload_context_is_the_control_root_with_one_executable(tmp_path: Path) -> None:
-    control = replace(
-        control_root(tmp_path), port=8808, upstream_base_url="http://127.0.0.1:43123/v1"
-    )
+    control = replace(control_root(tmp_path), port=8808)
     executable = inventory.installed_executable(str(generation.path(control, OTHER_GENERATION)))
 
     payload = control.for_executable(executable)
