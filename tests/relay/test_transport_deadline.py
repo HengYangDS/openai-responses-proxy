@@ -17,12 +17,12 @@ from typing import override
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import upstream as upstream_transport
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import proxy_path
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
 
@@ -184,12 +184,10 @@ class TestTransportDeadline(InputTransportFixture):
             mocker.patch.object(time, "monotonic", side_effect=lambda: now[0])
             mocker.patch.object(socket, "getaddrinfo", side_effect=resolve)
             mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.25)
-            providers = provider_registry.Registry(
-                {"fixture": provider_registry.Profile("fixture", upstream.base_url() + "/v1")}
-            )
-            handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+            upstream_base = upstream.base_url() + "/v1"
+            handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
 
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
 
             assert handler.statuses == [504]
             assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
@@ -234,12 +232,10 @@ class TestTransportDeadline(InputTransportFixture):
             ],
         )
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.25)
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", "http://upstream.invalid/v1")}
-        )
-        handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+        upstream_base = "https://upstream.invalid/v1"
+        handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
 
-        responses.relay(handler, "POST", providers)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [504]
         assert len(budgets) == 2
@@ -330,12 +326,10 @@ class TestTransportDeadline(InputTransportFixture):
             # expiry in the stalled-TLS case.
             mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 30.0)
             base_url = upstream.base_url().replace("http://", "https://")
-            providers = provider_registry.Registry(
-                {"fixture": provider_registry.Profile("fixture", base_url + "/v1")}
-            )
-            handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+            upstream_base = base_url + "/v1"
+            handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
 
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
 
             assert handler.statuses == [200]
             assert len(upstream.received) == 1
@@ -371,18 +365,12 @@ class TestTransportDeadline(InputTransportFixture):
 
         mocker.patch.object(socket.socket, "connect", new=connect)
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.4)
-        providers = provider_registry.Registry(
-            {
-                "fixture": provider_registry.Profile(
-                    "fixture", f"https://127.0.0.1:{listener.getsockname()[1]}/v1"
-                )
-            }
-        )
-        handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+        upstream_base = f"https://127.0.0.1:{listener.getsockname()[1]}/v1"
+        handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
         try:
             begin = time.monotonic()
 
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
 
             elapsed = time.monotonic() - begin
             assert accepted.is_set()
@@ -429,16 +417,10 @@ class TestTransportDeadline(InputTransportFixture):
         mocker.patch.object(time, "monotonic", side_effect=lambda: now[0])
         mocker.patch.object(socket.socket, "sendall", new=send)
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.25)
-        providers = provider_registry.Registry(
-            {
-                "fixture": provider_registry.Profile(
-                    "fixture", f"http://127.0.0.1:{listener.getsockname()[1]}/v1"
-                )
-            }
-        )
-        handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+        upstream_base = f"http://127.0.0.1:{listener.getsockname()[1]}/v1"
+        handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
         try:
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
 
             assert handler.statuses == [504]
             assert budgets == [pytest.approx(0.09)]
@@ -517,16 +499,16 @@ class TestTransportDeadline(InputTransportFixture):
         base_url = (
             upstream.base_url().replace("http://", "https://") if tls else upstream.base_url()
         )
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", base_url + "/v1")}
-        )
+        upstream_base = base_url + "/v1"
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.25)
-        handler = MemoryHandler(b'{"input":"current","stream":true}', path="/fixture/v1/responses")
+        handler = MemoryHandler(
+            b'{"input":"current","stream":true}', path=proxy_path(upstream_base)
+        )
         upstream.start()
         try:
             begin = time.monotonic()
 
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
 
             elapsed = time.monotonic() - begin
             if stream:

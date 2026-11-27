@@ -65,7 +65,6 @@ class TestPayloadProjection:
             "serving_payload_sha256"
         ] == payload_projection.manifest_serving_payload_sha256(manifest["serving_files"])
         assert Path(ctx.executable).is_file()
-        assert (Path(ctx.payload_dir) / inventory.PROVIDER_MANIFEST).is_file()
 
     def test_manifest_without_its_receipt_identity_is_incomplete(
         self, tmp_path_factory: pytest.TempPathFactory

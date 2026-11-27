@@ -6,7 +6,6 @@ import json
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
-from typing import Literal
 from typing import cast
 
 import pytest
@@ -26,17 +25,16 @@ if TYPE_CHECKING:
 
 class TestProxyTransport(LoopbackTransportFixture):
     @pytest.mark.parametrize(
-        ("path", "status", "error_body"),
+        ("status", "error_body"),
         [
-            ("/aihubmix/v1/responses", 400, b"upstream rejected the request"),
-            ("/aihubmix/v1/responses", 400, b'{"error":' + b"[" * 100_000 + b"0"),
-            ("/dmxapi/v1/responses", 477, b'{"error":' + b"[" * 100_000 + b"0"),
+            (400, b"upstream rejected the request"),
+            (400, b'{"error":' + b"[" * 100_000 + b"0"),
+            (477, b'{"error":' + b"[" * 100_000 + b"0"),
         ],
-        ids=("non-json", "parser-depth-exhaustion", "wire-parser-depth-exhaustion"),
+        ids=("non-json", "parser-depth-exhaustion", "unregistered-status-parser-depth-exhaustion"),
     )
     def test_unclassified_error_passes_through_without_retry(
         self,
-        path: Literal["/aihubmix/v1/responses", "/dmxapi/v1/responses"],
         status: int,
         error_body: bytes,
         capsys: pytest.CaptureFixture[str],
@@ -46,12 +44,12 @@ class TestProxyTransport(LoopbackTransportFixture):
 
         with running_proxy([(status, error_body), (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path=path)
+                request(port, body)
             with raised.value:
                 assert raised.value.code == status
                 assert raised.value.read() == error_body
 
-            with request(port, body, path=path) as response:
+            with request(port, body) as response:
                 assert response.status == 200
                 assert response.read() == success
 

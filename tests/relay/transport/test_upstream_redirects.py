@@ -16,7 +16,6 @@ from typing import override
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.serving import entrypoint as proxy
 from tests.relay.fixtures import InputTransportFixture
 
@@ -27,7 +26,7 @@ CREDENTIAL = "Bearer redirect-target-must-not-see-this"
 
 
 @contextmanager
-def _redirecting_upstream(status: int) -> Generator[tuple[int, list[dict[str, object]]]]:
+def _redirecting_upstream(status: int) -> Generator[tuple[int, str, list[dict[str, object]]]]:
     """Serve a proxy whose only upstream redirects every request to a recording collector."""
     collected: list[dict[str, object]] = []
 
@@ -83,14 +82,8 @@ def _redirecting_upstream(status: int) -> Generator[tuple[int, list[dict[str, ob
             self._redirect()
 
     upstream = ThreadingHTTPServer(("127.0.0.1", 0), Redirector)
-    providers = provider_registry.Registry(
-        {
-            "aihubmix": provider_registry.Profile(
-                "aihubmix", f"http://127.0.0.1:{upstream.server_address[1]}"
-            )
-        }
-    )
-    server = proxy.create_server(("127.0.0.1", 0), providers=providers)
+    base = f"/http/127.0.0.1:{upstream.server_address[1]}"
+    server = proxy.create_server(("127.0.0.1", 0))
     threads = [
         threading.Thread(target=owned.serve_forever, daemon=True)
         for owned in (collector, upstream, server)
@@ -98,7 +91,7 @@ def _redirecting_upstream(status: int) -> Generator[tuple[int, list[dict[str, ob
     for thread in threads:
         thread.start()
     try:
-        yield server.server_address[1], collected
+        yield server.server_address[1], base, collected
     finally:
         for owned in (server, upstream, collector):
             owned.shutdown()
@@ -125,8 +118,8 @@ def _exchange(port: int, method: str, path: str, body: bytes) -> tuple[int, str]
 class TestUpstreamRedirects(InputTransportFixture):
     @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
     def test_catalog_redirect_reaches_the_client_unfollowed(self, status: int) -> None:
-        with _redirecting_upstream(status) as (port, collected):
-            reply, location = _exchange(port, "GET", "/aihubmix/v1/models", b"")
+        with _redirecting_upstream(status) as (port, base, collected):
+            reply, location = _exchange(port, "GET", f"{base}/models", b"")
 
         assert collected == []
         assert reply == status
@@ -135,8 +128,8 @@ class TestUpstreamRedirects(InputTransportFixture):
     @pytest.mark.parametrize("status", [301, 302, 303])
     def test_responses_redirect_reaches_the_client_unfollowed(self, status: int) -> None:
         body = json.dumps({"model": "gpt-5.6-terra", "stream": False, "input": []}).encode()
-        with _redirecting_upstream(status) as (port, collected):
-            reply, location = _exchange(port, "POST", "/aihubmix/v1/responses", body)
+        with _redirecting_upstream(status) as (port, base, collected):
+            reply, location = _exchange(port, "POST", f"{base}/responses", body)
 
         assert collected == []
         assert reply == status

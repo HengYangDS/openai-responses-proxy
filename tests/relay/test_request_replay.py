@@ -13,13 +13,14 @@ from typing import cast
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import upstream as upstream_transport
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import proxy_path
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -132,13 +133,11 @@ def _upstream(
     behaviors: list[Behavior],
 ) -> Generator[tuple[_Upstream, Callable[[bytes], MemoryHandler]]]:
     upstream = _Upstream(behaviors)
-    providers = provider_registry.Registry(
-        {"fixture": provider_registry.Profile("fixture", f"http://127.0.0.1:{upstream.port}/v1")}
-    )
+    upstream_base = f"http://127.0.0.1:{upstream.port}/v1"
 
     def call(body: bytes) -> MemoryHandler:
-        handler = MemoryHandler(body, path="/fixture/v1/responses")
-        responses.relay(handler, "POST", providers)
+        handler = MemoryHandler(body, path=proxy_path(upstream_base))
+        responses.relay(handler, "POST")
         return handler
 
     try:
@@ -184,11 +183,9 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
         sleep = mocker.patch.object(upstream_exchange.time, "sleep")
         with socket.create_server(("127.0.0.1", 0)) as probe:
             port = probe.getsockname()[1]
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", f"http://127.0.0.1:{port}/v1")}
-        )
-        handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
-        responses.relay(handler, "POST", providers)
+        upstream_base = f"http://127.0.0.1:{port}/v1"
+        handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
+        responses.relay(handler, "POST")
         assert handler.statuses == [502]
         assert _error(handler)["code"] == "upstream_transport_error"
         assert sleep.call_count == upstream_exchange._MAX_ATTEMPTS - 1
@@ -235,7 +232,9 @@ class TestRequestIsSentAtMostOnce(InputTransportFixture):
             headers={},
             is_responses=True,
             attempt_body=b'{"input":"current"}',
-            profile=provider_registry.load().profiles["dmxapi"],
+            target=addressing.Target(
+                "https://upstream.invalid/v1", "responses", "https://upstream.invalid/v1/responses"
+            ),
         )
         error = upstream_transport.UpstreamOutcomeUnknownError()
         assert upstream_exchange._transport_error(exchange, error, attempt) == "terminal"

@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 import sysconfig
 import venv
-from concurrent.futures import Future
 from contextlib import chdir
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -14,11 +13,9 @@ import pytest
 from pytest_mock import MockerFixture
 
 from openai_responses_proxy.lifecycle import context as runtime_context
-from openai_responses_proxy.lifecycle import control as lifecycle_control
 from openai_responses_proxy.lifecycle import generation
 from tests.quality.fixtures import ROOT
 from tests.quality.fixtures import git
-from tests.release.compatibility.fixtures import _wait_for_successor_admission
 from tests.release.fixtures import runtime_context_for
 
 if TYPE_CHECKING:
@@ -42,17 +39,8 @@ def test_installed_product_probe_distinguishes_environment_from_source_checkout(
     checkout = tmp_path / "checkout"
     source = checkout / "src" if defect == "source-checkout" else site_packages
     package = source / "openai_responses_proxy"
-    providers = package / "providers"
-    providers.mkdir(parents=True)
+    package.mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
-    (providers / "__init__.py").write_text("", encoding="utf-8")
-    (providers / "registry.py").write_text(
-        "from pathlib import Path\n"
-        "def default_manifest_path():\n"
-        "    return Path(__file__).with_name('manifest.toml')\n",
-        encoding="utf-8",
-    )
-    (providers / "manifest.toml").write_text("", encoding="utf-8")
     (package / "unused.py").write_text("VALUE = 42\n", encoding="utf-8")
     source_package = checkout / "src/openai_responses_proxy"
     for path in package.rglob("*"):
@@ -320,66 +308,6 @@ def test_release_runtime_uses_the_session_interpreter(
     session.error.side_effect = RuntimeError
     with pytest.raises(RuntimeError):
         nox_configuration._assert_release_runtime(session)
-
-
-def test_upgrade_wait_releases_held_requests_once_the_successor_admits(
-    tmp_path: Path, *, mocker: MockerFixture
-) -> None:
-    """Release held requests once the handed-off successor admits new ones."""
-    ctx = runtime_context_for(
-        tmp_path / "home",
-        tmp_path / "payload",
-        tmp_path / "state",
-        43210,
-    )
-    future: Future[dict[str, object]] = Future()
-    mocker.patch.object(
-        lifecycle_control,
-        "read_runtime",
-        return_value={"pid": 5678, "release": "3.1.3", "accepting": True},
-    )
-
-    assert _wait_for_successor_admission(
-        future,
-        ctx,
-        predecessor_pid=1234,
-        successor_release="3.1.3",
-        timeout_seconds=0.01,
-    )
-
-
-def test_upgrade_wait_continues_while_the_predecessor_serves(
-    tmp_path: Path, *, mocker: MockerFixture
-) -> None:
-    """The predecessor's own health is not the successor's admission."""
-    ctx = runtime_context_for(
-        tmp_path / "home",
-        tmp_path / "payload",
-        tmp_path / "state",
-        43210,
-    )
-    future: Future[dict[str, object]] = Future()
-    mocker.patch.object(
-        lifecycle_control,
-        "read_runtime",
-        side_effect=[
-            {"pid": 1234, "release": "3.1.2", "accepting": True},
-            {"pid": 5678, "release": "3.1.3", "accepting": True},
-        ],
-    )
-    mocker.patch(
-        "tests.serving.handoff.fixtures.time.monotonic",
-        side_effect=[0.0, 0.0, 0.2],
-    )
-    mocker.patch("tests.serving.handoff.fixtures.time.sleep")
-
-    assert _wait_for_successor_admission(
-        future,
-        ctx,
-        predecessor_pid=1234,
-        successor_release="3.1.3",
-        timeout_seconds=0.2,
-    )
 
 
 def test_runtime_context_uses_the_native_command_projection(tmp_path: Path) -> None:

@@ -46,7 +46,6 @@ class TestHardCodingResponsibility:
             "environment-variable",
             "native-resource",
             "network-control-route",
-            "network-provider-route",
             "public-command",
             "public-result",
             "release-artifact",

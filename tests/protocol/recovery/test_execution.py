@@ -122,7 +122,6 @@ class ResponseFailedContracts:
         cases = (
             (429, b"rate limited", ""),
             (524, b"gateway timeout", "full"),
-            (477, b'{"error":{"type":"dmx_api_error","code":"empty_response"}}', ""),
             (477, b'{"error":"unprocessable"}', ""),
             (477, b'{"error":{"type":"other_gateway","code":"empty_response"}}', ""),
             (400, b'{"error":"not-an-object"}', ""),

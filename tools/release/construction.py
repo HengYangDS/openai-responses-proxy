@@ -39,11 +39,6 @@ def freeze(
         str(root / "tools/release/hooks"),
         "--add-data",
         f"{root / 'VERSION'}{os.pathsep}.",
-        "--add-data",
-        (
-            f"{root / 'src/openai_responses_proxy/providers/manifest.toml'}"
-            f"{os.pathsep}openai_responses_proxy/providers"
-        ),
         str(root / "src/openai_responses_proxy/cli/__main__.py"),
     )
     session.run(*command, env=environment)

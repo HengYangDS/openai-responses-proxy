@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openai_responses_proxy import product_identity
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import exchange
 from openai_responses_proxy.relay import operational_log
@@ -31,23 +30,21 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Bootstrap:
-    """Verified release identity and routes frozen for one listener process."""
+    """Verified release identity frozen for one listener process."""
 
     executable: Path
     payload: identity.LoadedPayloadIdentity
-    providers: provider_registry.Registry
 
 
 def bootstrap(executable: Path | None = None) -> Bootstrap:
-    """Verify one installed payload, load its routes, then reject identity drift."""
+    """Verify one installed payload, then reject identity drift."""
     selected = Path(roles.current_executable()) if executable is None else executable
     loaded = identity.freeze_loaded_payload(selected)
     if loaded is None:
         raise RuntimeError("installed payload identity is unavailable")
-    providers = provider_registry.load(loaded.root / "providers.toml")
     if identity.freeze_loaded_payload(selected) != loaded:
         raise RuntimeError("installed payload identity changed during startup")
-    return Bootstrap(selected, loaded, providers)
+    return Bootstrap(selected, loaded)
 
 
 @dataclass(slots=True)
@@ -89,23 +86,13 @@ def release_version() -> str:
     return "0+unknown" if payload is None else payload.release
 
 
-def runtime_providers() -> provider_registry.Registry:
-    """Return routes frozen from the exact verified installation payload."""
-    if _PROCESS.bootstrap is None:
-        raise RuntimeError("listener startup has not verified an installed payload")
-    return _PROCESS.bootstrap.providers
-
-
-def _server_bindings(
-    providers: provider_registry.Registry | None = None,
-) -> server.Bindings:
+def _server_bindings() -> server.Bindings:
     """Compose immutable dependencies for one listener generation."""
     return server.Bindings(
         control=control.Bindings(
             runtime_status=runtime_status,
             handoff_context=_handoff_context,
         ),
-        providers=runtime_providers() if providers is None else providers,
         server_version=f"{product_identity.PRODUCT_SLUG}/{release_version()}",
     )
 
@@ -152,16 +139,12 @@ def runtime_status() -> dict[str, object]:
     )
 
 
-def create_server(
-    address: tuple[str, int] | None = None,
-    *,
-    providers: provider_registry.Registry | None = None,
-) -> server.ResilientProxyServer:
+def create_server(address: tuple[str, int] | None = None) -> server.ResilientProxyServer:
     """Create one configured loopback server for startup and integration tests."""
     return server.ResilientProxyServer(
         address or (runtime_config.listener_host(), runtime_config.listener_port()),
         server.Handler,
-        _server_bindings(providers),
+        _server_bindings(),
     )
 
 

@@ -344,10 +344,6 @@ def _private_generation(root: Path, port: int) -> runtime_context.RuntimeContext
         source,
         port=port,
         release="9.9.9",
-        providers=(
-            'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\n'
-            'policy = "dmxapi"\n'
-        ),
         receipt=b'{"fixture":"startup"}\n',
     )
 

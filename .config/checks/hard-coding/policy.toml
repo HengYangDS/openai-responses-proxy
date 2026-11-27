@@ -37,15 +37,6 @@ rationale = "Ports, time budgets, retry budgets, log retention, and portable dat
 projections = ["README.md", "docs/", "src/", "tests/"]
 
 [[controls]]
-id = "provider-catalog"
-kind = "domain-constant"
-owner = "src/openai_responses_proxy/providers/manifest.toml"
-invariant = "Every supported provider route resolves explicitly without an implicit default."
-surfaces = ["network-provider-route"]
-rationale = "Provider route names, origins, and optional wire policies form one released product catalog."
-projections = ["README.md", "src/", "tests/"]
-
-[[controls]]
 id = "release-python"
 kind = "supply-chain-pin"
 owner = ".config/ci/graph/toolchains.cue"

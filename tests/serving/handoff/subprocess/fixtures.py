@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.supervision import native_service
 from openai_responses_proxy.lifecycle.supervision import process
+from tests.relay.fixtures import proxy_path
 from tests.serving.handoff.fixtures import write_installed_payload
 from tools.release import verification
 
@@ -32,14 +33,12 @@ class SubprocessFixture:
         self._cleanups.close()
 
     def _installed_fixture(
-        self, *, release: str, port: int, upstream_url: str
+        self, *, release: str, port: int
     ) -> tuple[Path, runtime_context.RuntimeContext, dict[int, process.OwnedProcess]]:
         temporary = verification.temporary_home(delete=False)
         root = Path(temporary.name)
         try:
-            ctx = write_installed_payload(
-                root, release=release, port=port, upstream_url=upstream_url
-            )
+            ctx = write_installed_payload(root, release=release, port=port)
         except BaseException:
             temporary.cleanup()
             raise
@@ -84,9 +83,9 @@ class SubprocessFixture:
         assert not remaining, f"orphaned proxy children for {proxy_script}: {remaining}"
         temporary.cleanup()
 
-    def _post_responses(self, port: int, *, timeout: float = 15) -> bytes:
+    def _post_responses(self, port: int, upstream_url: str, *, timeout: float = 15) -> bytes:
         request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/dmxapi/v1/responses",
+            f"http://127.0.0.1:{port}{proxy_path(upstream_url)}",
             data=b'{"stream": false, "input": []}',
             method="POST",
             headers={"Content-Type": "application/json"},

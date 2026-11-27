@@ -211,7 +211,6 @@ class BundleContracts:
                 "LICENSE",
                 "bin/_internal/runtime.dat",
                 "bin/openai-responses-proxy",
-                "providers.toml",
             }
             assets.release_digests(
                 release_files,
@@ -291,7 +290,7 @@ def test_materialization_uses_only_complete_current_platform_assets(
     files = {
         f"bin/{executable}": assets.ArchiveFile(b"exact candidate", mode=0o755),
         "bin/_internal/runtime.dat": b"runtime dependency",
-        "providers.toml": b"version = 1\n",
+        "LICENSE": b"MIT\n",
     }
     name = assets.archive_name(selected_version, selected_platform)
     archive = assets.archive_bytes(files, selected_version, selected_platform)
@@ -330,7 +329,7 @@ def test_materialization_uses_only_complete_current_platform_assets(
         commands.main(("materialize", "--source", str(source), "--output", str(output)))
         assert (output / "bin" / executable).read_bytes() == b"exact candidate"
         assert (output / "bin/_internal/runtime.dat").read_bytes() == b"runtime dependency"
-        assert (output / "providers.toml").read_bytes() == files["providers.toml"]
+        assert (output / "LICENSE").read_bytes() == files["LICENSE"]
         assert (output / "bin" / executable).stat().st_mode & 0o777 == 0o755
     assert {p.name: p.read_bytes() for p in source.iterdir()} == before
 

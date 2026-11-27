@@ -125,24 +125,14 @@ def signed_asset(
     output: Path,
     *,
     version: str,
-    upstream_url: str,
     key: Path,
     trust: str,
-    preserve_manifest: bool = False,
 ) -> Path:
-    """Build one route-controlled asset from exact native bundle bytes."""
+    """Build one signed asset from exact native bundle bytes."""
     platform_id = product_identity.native_release_platform(platform.system(), platform.machine())
     executable = bundle / product_identity.COMMAND_NAME
     files: dict[str, bytes | product_assets.ArchiveFile] = {
         f"bin/{executable.name}": product_assets.ArchiveFile(executable.read_bytes(), 0o755),
-        "providers.toml": (
-            (ROOT / "src/openai_responses_proxy/providers/manifest.toml").read_bytes()
-            if preserve_manifest
-            else (
-                f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\n'
-                'policy = "dmxapi"\n'
-            ).encode()
-        ),
         "LICENSE": (ROOT / "LICENSE").read_bytes(),
     }
     for relative, source in release_assembly.bundle_files(bundle):
@@ -170,13 +160,11 @@ def signed_asset(
     return output / archive_name
 
 
-def post_response(
-    port: int, *, stream: bool = False, timeout: float = 15, route: str = "dmxapi"
-) -> bytes:
-    """Send one unproxied Responses request to an isolated listener."""
+def post_response(port: int, path: str, *, stream: bool = False, timeout: float = 15) -> bytes:
+    """Send one unproxied Responses request to an isolated listener's proxy path."""
     body = b'{"stream": true, "input": []}' if stream else b'{"stream": false, "input": []}'
     request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/{route}/v1/responses",
+        f"http://127.0.0.1:{port}{path}",
         data=body,
         method="POST",
         headers={"Content-Type": "application/json"},

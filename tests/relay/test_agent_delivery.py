@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 from typing import cast
 
 from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
@@ -42,22 +41,26 @@ def _collaboration_catalog() -> list[dict[str, object]]:
 
 
 class AgentDeliveryRelayContracts:
-    def test_collaboration_catalog_is_forwarded_natively_on_every_released_route(
+    def test_collaboration_catalog_is_forwarded_natively_to_every_upstream(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         body = json.dumps({"tools": _collaboration_catalog(), "input": "delegate"}).encode()
         expected = json.loads(cast("bytes", sanitize_responses_body(body).body))
-        for route in provider_registry.load().profiles:
-            with subtests.test(route=route):
+        for path in (
+            "/https/api.example.com/v1/responses",
+            "/https/gateway.example:8443/openai/v1/responses",
+            "/https/h.example/responses",
+        ):
+            with subtests.test(path=path):
                 admission.reset_for_test()
                 telemetry.reset_for_test()
-                handler = MemoryHandler(body, path=f"/{route}/v1/responses")
+                handler = MemoryHandler(body, path=path)
                 opened = mocker.patch.object(
                     upstream_exchange,
                     "urlopen_direct",
                     return_value=DirectResponse(b'{"id":"resp_ok","status":"completed"}'),
                 )
-                responses.relay(handler, "POST", provider_registry.load())
+                responses.relay(handler, "POST")
                 assert handler.statuses == [200]
                 sent = json.loads(opened.call_args.args[0].data)
                 assert sent == expected

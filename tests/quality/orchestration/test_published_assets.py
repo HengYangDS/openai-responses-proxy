@@ -95,7 +95,7 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
     """Preserve admitted bytes and modes while requiring the native executable."""
     platform_id = _select_released_host(mocker, nox_configuration)
     executable_name = nox_configuration.product_identity.COMMAND_NAME
-    blobs = [SimpleNamespace(path="providers.toml", content=b"version = 1\n", mode="100644")]
+    blobs = [SimpleNamespace(path="LICENSE", content=b"license\n", mode="100644")]
     if include_executable:
         blobs.append(
             SimpleNamespace(path=f"bin/{executable_name}", content=b"native", mode="100755")
@@ -133,7 +133,7 @@ def test_published_bundle_materializes_only_the_admitted_inventory(
     assert bundle == work / "published-release" / "bin"
     assert executable == bundle / executable_name
     assert executable.read_bytes() == b"native"
-    providers = work / "published-release" / "providers.toml"
-    assert providers.read_bytes() == b"version = 1\n"
+    license_file = work / "published-release" / "LICENSE"
+    assert license_file.read_bytes() == b"license\n"
     assert executable.stat().st_mode & 0o777 == 0o755
-    assert providers.stat().st_mode & 0o777 == 0o644
+    assert license_file.stat().st_mode & 0o777 == 0o644

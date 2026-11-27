@@ -38,7 +38,6 @@ NAMESPACE = "openai-responses-proxy-release"
 def _release_files() -> dict[str, product_assets.ArchiveFile | bytes]:
     return {
         inventory.EXECUTABLE: product_assets.ArchiveFile(b"native-executable", 0o755),
-        "providers.toml": b"version = 1\n",
         "LICENSE": b"MIT\n",
     }
 
@@ -191,7 +190,7 @@ def _blob_path_drift(candidate: artifact.VerifiedArtifact) -> None:
 
 
 def _blob_mode_drift(candidate: artifact.VerifiedArtifact) -> None:
-    _replace_last_blob(candidate, mode="100755")
+    _replace_last_blob(candidate, mode="100644")
 
 
 def _blob_oid_drift(candidate: artifact.VerifiedArtifact) -> None:
@@ -214,7 +213,7 @@ def _serving_type_drift(candidate: artifact.VerifiedArtifact) -> None:
 
 def _serving_inventory_drift(candidate: artifact.VerifiedArtifact) -> None:
     receipt = _plain_receipt(candidate)
-    receipt["serving_files"] = [inventory.PROVIDER_MANIFEST]
+    receipt["serving_files"] = ["LICENSE"]
     _rebind_receipt(candidate, receipt)
 
 
@@ -544,12 +543,12 @@ def test_archive_rejects_incomplete_duplicate_and_unexpected_members(
     with pytest.raises(errors.InstallError, match="inventory"):
         artifact._archive_blobs(_tar_bytes(members[:-1]), document)
 
-    duplicate = (members[0], members[0], members[2])
+    duplicate = (members[0], members[0], members[1])
     with pytest.raises(errors.InstallError, match=r"invalid member|inventory"):
         artifact._archive_blobs(_tar_bytes(duplicate), document)
 
     prefix = f"openai-responses-proxy-{VERSION}-{PLATFORM}/"
-    unexpected = (members[0], members[1], (f"{prefix}other", b"MIT\n", 0o644, None))
+    unexpected = (members[0], (f"{prefix}other", b"MIT\n", 0o644, None))
     with pytest.raises(errors.InstallError, match="invalid member"):
         artifact._archive_blobs(_tar_bytes(unexpected), document)
 

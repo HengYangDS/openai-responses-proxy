@@ -17,15 +17,14 @@ MANIFEST_SCHEMA_VERSION: Final = 2
 RELEASE_RECEIPT_FILENAME = "release-asset-receipt.json"
 INSTALLED_RELEASE_STATE_FILENAME = "release-install-state.json"
 RUNTIME_CONFIG_FILENAME = "runtime-config.json"
-PROVIDER_MANIFEST = "providers.toml"
 EXECUTABLE = f"bin/{product_identity.COMMAND_NAME}"
 # The members that every native bundle holds.
-REQUIRED_RUNTIME_FILES = frozenset((EXECUTABLE, PROVIDER_MANIFEST))
+REQUIRED_RUNTIME_FILES = frozenset((EXECUTABLE,))
 
 
 def is_runtime_file(relative: str) -> bool:
     """Return whether a canonical member belongs to a native bundle."""
-    return relative == PROVIDER_MANIFEST or relative.startswith("bin/")
+    return relative.startswith("bin/")
 
 
 def installed_executable(root: str) -> str:

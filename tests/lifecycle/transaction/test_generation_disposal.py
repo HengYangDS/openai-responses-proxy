@@ -179,7 +179,7 @@ def test_candidate_disposal_rejects_invalid_journal_authority(
     elif corruption == "closed":
         journal["state"] = "closed"
     else:
-        journal["files"] = {f"generations/{'f' * 32}/providers.toml": "0" * 64}
+        journal["files"] = {f"generations/{'f' * 32}/{inventory.EXECUTABLE}": "0" * 64}
     records.journal_path(ctx).write_bytes(payload_digest.canonical_json(journal))
 
     with pytest.raises(

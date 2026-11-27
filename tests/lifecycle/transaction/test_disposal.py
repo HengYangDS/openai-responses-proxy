@@ -18,6 +18,7 @@ from openai_responses_proxy.lifecycle.transaction import completion as transacti
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest as payload_digest
 from openai_responses_proxy.serving import identity as listener_identity
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
@@ -289,7 +290,7 @@ def test_removal_authority_is_validated_before_disposal(
         case "empty":
             journal["files"] = {}
         case "generation":
-            files["generations/not-a-generation/providers.toml"] = "0" * 64
+            files[f"generations/not-a-generation/{inventory.EXECUTABLE}"] = "0" * 64
         case "unknown":
             files["operator.txt"] = "0" * 64
         case "digest":

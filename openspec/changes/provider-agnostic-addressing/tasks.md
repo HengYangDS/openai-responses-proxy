@@ -16,12 +16,15 @@
 
 ## 3. Serving by upstream origin
 
-- [ ] 3.1 Add relay tests: a data request with `Origin` or a non-loopback `Host` is refused before upstream I/O;
+- [x] 3.1 Add relay tests: a data request with `Origin` or a non-loopback `Host` is refused before upstream I/O;
       cooldowns of two origins on one host stay independent; a model-catalog GET keeps its query; a log line names
-      `upstream=` and no provider. Done when they fail before 3.2 and pass after it.
-- [ ] 3.2 Resolve every data request through `addressing.resolve`, key cooldowns and log lines by origin, rename the
+      `upstream=` and no provider. Done when they fail before 3.2 and pass after it. Before 3.2 they failed in the
+      fixtures, which still named provider routes; after it each was also proved by a mutation that made it fail:
+      no local-client check, cooldowns keyed by host, the query dropped, and the log naming `provider=`.
+- [x] 3.2 Resolve every data request through `addressing.resolve`, key cooldowns and log lines by origin, rename the
       route error codes, admit data requests through the local-client rule, delete `providers/`, and move the test
-      fixtures to origin-addressed paths (D1, D2). Done when 3.1's tests and every test group pass.
+      fixtures to origin-addressed paths (D1, D2). Done when 3.1's tests and every test group pass. Passed for every
+      group that runs without the native executable; the native groups type-check and run in the full proof.
 
 ## 4. Agent delivery
 
@@ -34,12 +37,16 @@
 
 ## 5. Upstream override and payload
 
-- [ ] 5.1 Add tests: a 7.0.2 runtime carrier is accepted; one with `upstream_base_url` is refused;
+- [x] 5.1 Add tests: a 7.0.2 runtime carrier is accepted; one with `upstream_base_url` is refused;
       `--upstream-base-url` is unknown; the bundle inventory holds no `providers.toml`. Done when the new refusals
-      fail before 5.2 and all pass after it.
-- [ ] 5.2 Remove `--upstream-base-url`, `upstream_base_url`, `providers.toml` from the payload and bundle, the
+      fail before 5.2 and all pass after it. Both refusals failed before 5.2, then all passed.
+- [x] 5.2 Remove `--upstream-base-url`, `upstream_base_url`, `providers.toml` from the payload and bundle, the
       `network-provider-route` control and the provider names in the performance tools (D1). Done when 5.1's tests
-      and the lifecycle, CLI, release, performance and quality tests pass.
+      and the lifecycle, CLI, release, performance and quality tests pass. Passed; `providers.toml` left with 3.2,
+      since deleting `providers/` removes the manifest.
+- [ ] 5.3 Prove the journey from the published 7.0.2: this release refuses its installation and changes nothing, 7.0.2's
+      `uninstall --purge` removes it, and this release installs fresh and relays by origin (D5). Done when the
+      release compatibility session passes against the published 7.0.2.
 
 ## 6. Documents and release metadata
 

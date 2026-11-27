@@ -82,14 +82,14 @@ def retry_after_seconds(
     return min(seconds, RATE_LIMIT_MAX_SECONDS)
 
 
-def provider_key(provider: str) -> str:
-    """Return the collision-free key for one provider-scoped cooldown."""
-    return f"provider:{provider}"
+def rate_limit_key(origin: str) -> str:
+    """Return the collision-free key for one upstream origin's rate-limit cooldown."""
+    return f"rate-limit:{origin}"
 
 
-def unavailable_key(provider: str) -> str:
+def unavailable_key(origin: str) -> str:
     """Keep upstream unavailability separate from rate-limit cooldowns."""
-    return f"unavailable:{provider}"
+    return f"unavailable:{origin}"
 
 
 def failure_count_for_test() -> int:

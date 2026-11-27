@@ -62,21 +62,19 @@ flowchart TD
     LIFE --> SERVING
     SERVING --> RELAY["relay"]
     RELAY --> PROTOCOL["protocol"]
-    RELAY --> PROVIDERS["providers"]
     LIFE --> RUNTIME["runtime"]
     SERVING --> RUNTIME
     RELAY --> RUNTIME
 ```
 
-| Package     | Owns                                                                            |
-| ----------- | ------------------------------------------------------------------------------- |
-| `cli`       | Public grammar, command composition, human/JSON selection                       |
-| `lifecycle` | Artifact trust, payload transactions, installed settings and native supervision |
-| `serving`   | Listener identity, health, structured logs, control and handoff protocol        |
-| `relay`     | Request admission, upstream exchange, retries, cooldown, SSE and HTTP integrity |
-| `protocol`  | Portable replay, tool relationships, delegation and live-response grammar       |
-| `providers` | Manifest-defined routes and explicit wire policies                              |
-| `runtime`   | Portable paths, validated process settings, environment and bounded I/O         |
+| Package     | Owns                                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `cli`       | Public grammar, command composition, human/JSON selection                                            |
+| `lifecycle` | Artifact trust, payload transactions, installed settings and native supervision                      |
+| `serving`   | Listener identity, health, structured logs, control and handoff protocol                             |
+| `relay`     | Upstream addressing, request admission, upstream exchange, retries, cooldown, SSE and HTTP integrity |
+| `protocol`  | Portable replay, tool relationships, delegation and live-response grammar                            |
+| `runtime`   | Portable paths, validated process settings, environment and bounded I/O                              |
 
 The diagram shows principal dependencies, not every import. Protocol and
 provider declarations do not perform lifecycle effects. Runtime primitives

@@ -50,7 +50,7 @@ class TestSseRecovery(InputTransportFixture):
         mocker.patch.object(sse.time, "monotonic", return_value=100.0)
 
         result = sse.relay(
-            handler, DirectResponse(failed), "/ucloud/v1/responses", 1, reopen=reopen
+            handler, DirectResponse(failed), "/https/api.example.com/v1/responses", 1, reopen=reopen
         )
 
         assert result["attempts"] == 2
@@ -76,7 +76,9 @@ class TestSseRecovery(InputTransportFixture):
         handler = MemoryHandler()
         reopen = mocker.Mock()
 
-        result = sse.relay(handler, DirectResponse(raw), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(raw), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["attempts"] == 1
         reopen.assert_not_called()
@@ -100,7 +102,9 @@ class TestSseRecovery(InputTransportFixture):
         handler = MemoryHandler()
         reopen = mocker.Mock()
 
-        result = sse.relay(handler, DirectResponse(raw), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(raw), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["attempts"] == 1
         reopen.assert_not_called()
@@ -115,7 +119,9 @@ class TestSseRecovery(InputTransportFixture):
         reopen = mocker.Mock(return_value=DirectResponse())
         mocker.patch.object(sse.time, "sleep", return_value=None)
 
-        result = sse.relay(handler, DirectResponse(raw), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(raw), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["attempts"] == 1
         reopen.assert_not_called()
@@ -147,7 +153,13 @@ class TestSseRecovery(InputTransportFixture):
             return_value=DirectResponse(b'data: {"type":"response.completed"}\n\n')
         )
 
-        sse.relay(MemoryHandler(), DirectResponse(raw), "/ucloud/v1/responses", 7, reopen=reopen)
+        sse.relay(
+            MemoryHandler(),
+            DirectResponse(raw),
+            "/https/api.example.com/v1/responses",
+            7,
+            reopen=reopen,
+        )
 
         logs = Path(operational_log.LOG_PATH).read_text(encoding="utf-8")
         assert f"upstream_request_id={request_id}" in logs
@@ -176,7 +188,9 @@ class TestSseRecovery(InputTransportFixture):
             sse.time, "monotonic", side_effect=[0.0] + [sse.UPSTREAM_TIMEOUT - 0.1] * 20
         )
 
-        result = sse.relay(handler, DirectResponse(), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["attempts"] == 1
         assert result["pre_content_exhausted"]
@@ -203,7 +217,9 @@ class TestSseRecovery(InputTransportFixture):
         )
         sleep = mocker.patch.object(sse.time, "sleep", return_value=None)
 
-        result = sse.relay(handler, DirectResponse(), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["outcome_unknown"]
         assert result["attempts"] == 1
@@ -221,7 +237,11 @@ class TestSseRecovery(InputTransportFixture):
         mocker.patch.object(sse.time, "sleep", return_value=None)
 
         result = sse.relay(
-            MemoryHandler(), DirectResponse(failed), "/ucloud/v1/responses", 1, reopen=reopen
+            MemoryHandler(),
+            DirectResponse(failed),
+            "/https/api.example.com/v1/responses",
+            1,
+            reopen=reopen,
         )
 
         reopen.assert_called_once()
@@ -237,7 +257,9 @@ class TestSseRecovery(InputTransportFixture):
         reopen = mocker.Mock(side_effect=lambda _deadline: DirectResponse(raw))
         mocker.patch.object(sse.time, "sleep", return_value=None)
 
-        result = sse.relay(handler, DirectResponse(raw), "/ucloud/v1/responses", 1, reopen=reopen)
+        result = sse.relay(
+            handler, DirectResponse(raw), "/https/api.example.com/v1/responses", 1, reopen=reopen
+        )
 
         assert result["pre_content_exhausted"]
         assert result["attempts"] == 6

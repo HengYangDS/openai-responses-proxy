@@ -114,13 +114,13 @@ class TestPayloadValidation:
         with pytest.raises(errors.InstallError, match="declared inventory"):
             payload_projection.manifest_serving_payload_sha256({})
         invalid = dict(valid)
-        invalid[inventory.PROVIDER_MANIFEST] = "invalid"
+        invalid[inventory.EXECUTABLE] = "invalid"
         with pytest.raises(errors.InstallError, match="invalid serving payload"):
             payload_projection.manifest_serving_payload_sha256(invalid)
 
         ctx = control_root(tmp_path_factory.mktemp("case"))
         transaction = begin_transaction(ctx, released_artifact(), mocker=mocker)
-        collision = Path(transaction.context.payload_dir, inventory.PROVIDER_MANIFEST)
+        collision = Path(transaction.context.payload_dir, inventory.EXECUTABLE)
         collision.parent.mkdir(parents=True, exist_ok=True)
         collision.write_text("unowned", encoding="utf-8")
         with pytest.raises(errors.InstallError, match="candidate unowned collision"):
@@ -258,11 +258,11 @@ class TestPayloadValidation:
             ),
             (lambda value: value.pop("release"), "manifest is incomplete"),
             (
-                lambda value: value["files"].pop(inventory.EXECUTABLE),
+                lambda value: value.update(files={"bin/other": "0" * 64}),
                 "manifest file set mismatch",
             ),
             (
-                lambda value: value["serving_files"].pop(runtime_files()[-1]),
+                lambda value: value["serving_files"].update({"bin/other": "0" * 64}),
                 "manifest serving file set mismatch",
             ),
             (
@@ -270,9 +270,7 @@ class TestPayloadValidation:
                 "invalid digest",
             ),
             (
-                lambda value: value["serving_files"].update(
-                    {inventory.PROVIDER_MANIFEST: "0" * 64}
-                ),
+                lambda value: value["serving_files"].update({inventory.EXECUTABLE: "0" * 64}),
                 "serving digest mismatch",
             ),
             (

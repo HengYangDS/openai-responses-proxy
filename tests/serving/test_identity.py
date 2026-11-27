@@ -81,9 +81,9 @@ class TestServiceIdentity:
             lambda value: value.__setitem__("schema_version", 1),
             lambda value: value.__setitem__("files", []),
             lambda value: value["files"].pop(inventory.EXECUTABLE),
-            lambda value: value["serving_files"].pop(inventory.PROVIDER_MANIFEST),
+            lambda value: value["serving_files"].pop(inventory.EXECUTABLE),
             lambda value: value["files"].__setitem__(inventory.EXECUTABLE, "0" * 64),
-            lambda value: value["serving_files"].__setitem__(inventory.PROVIDER_MANIFEST, "0" * 64),
+            lambda value: value["serving_files"].__setitem__(inventory.EXECUTABLE, "0" * 64),
             lambda value: value.__setitem__("release_receipt_sha256", "invalid"),
         )
         for mutate in mutations:
@@ -94,7 +94,7 @@ class TestServiceIdentity:
                 assert identity.committed_payload(executable) is None
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         assert (
-            identity.committed_payload(Path(ctx.payload_dir, inventory.PROVIDER_MANIFEST)) is None
+            identity.committed_payload(Path(ctx.payload_dir, inventory.MANIFEST_FILENAME)) is None
         )
 
     def test_loaded_identity_is_immutable_after_disk_drift(
@@ -234,7 +234,6 @@ class TestServiceIdentity:
         other_executable.write_bytes(Path(ctx.executable).read_bytes())
         files = {
             "bin/another-executable": hashlib.sha256(other_executable.read_bytes()).hexdigest(),
-            inventory.PROVIDER_MANIFEST: manifest["serving_files"][inventory.PROVIDER_MANIFEST],
         }
         manifest["serving_files"] = files
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -248,11 +247,6 @@ def test_loaded_identity_accepts_only_exact_native_projection(subtests: pytest.S
         executable = root / inventory.EXECUTABLE
         executable.parent.mkdir(parents=True)
         executable.write_bytes(b"native executable\n")
-        provider_manifest = root / inventory.PROVIDER_MANIFEST
-        provider_manifest.write_text(
-            'version = 1\n[providers.fixture]\nbase_url = "https://fixture.invalid/v1"\n',
-            encoding="utf-8",
-        )
         files = {
             relative: digest.sha256_file(root / relative)
             for relative in inventory.REQUIRED_RUNTIME_FILES
@@ -273,8 +267,8 @@ def test_loaded_identity_accepts_only_exact_native_projection(subtests: pytest.S
             ("non-object files", {"serving_files": []}, executable),
             ("non-string digest", {"serving_files": {inventory.EXECUTABLE: 1}}, executable),
             (
-                "incomplete files",
-                {"serving_files": {inventory.EXECUTABLE: files[inventory.EXECUTABLE]}},
+                "foreign member",
+                {"serving_files": {**files, "LICENSE": files[inventory.EXECUTABLE]}},
                 executable,
             ),
             (

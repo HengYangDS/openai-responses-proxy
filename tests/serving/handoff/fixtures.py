@@ -33,7 +33,6 @@ from openai_responses_proxy.lifecycle import projection
 from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.relay import admission as runtime_state_module
 from openai_responses_proxy.serving import entrypoint as entrypoint_module
-from openai_responses_proxy.serving import inventory
 from openai_responses_proxy.serving import roles as serving_roles
 from openai_responses_proxy.serving.handoff import transaction as handoff_module
 from tests.lifecycle.fixtures import control_root
@@ -418,7 +417,7 @@ class ScriptedUpstream:
 
 
 def write_installed_payload(
-    root: Path, *, release: str, port: int, upstream_url: str
+    root: Path, *, release: str, port: int
 ) -> runtime_context.RuntimeContext:
     """Build one selector-bound temporary generation without touching source."""
     ctx = verification.install_private_generation(
@@ -426,9 +425,6 @@ def write_installed_payload(
         Path(os.environ["OPENAI_RESPONSES_PROXY_EXECUTABLE"]),
         port=port,
         release=release,
-        providers=(
-            f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n'
-        ),
         receipt=b'{"fixture":"handoff-subprocess"}\n',
     )
     # Exercise the same installed-candidate admission as the product. A copied
@@ -471,34 +467,10 @@ def installed_expected_metadata(
 def start_real_proxy(
     ctx: runtime_context.RuntimeContext,
     *,
-    upstream_url: str,
     log_path: Path,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.Popen[bytes]:
     """Start an installed-like proxy and prove its listener became reachable."""
-    parsed_upstream = urllib.parse.urlsplit(upstream_url)
-    try:
-        upstream_port = parsed_upstream.port
-    except ValueError:
-        upstream_port = None
-    if (
-        parsed_upstream.scheme != "http"
-        or parsed_upstream.hostname != "127.0.0.1"
-        or upstream_port is None
-        or parsed_upstream.path not in ("", "/")
-        or parsed_upstream.query
-        or parsed_upstream.fragment
-        or parsed_upstream.username is not None
-        or parsed_upstream.password is not None
-    ):
-        raise ValueError("real proxy tests require an owned loopback HTTP upstream")
-
-    provider_manifest = Path(ctx.payload_dir) / inventory.PROVIDER_MANIFEST
-    expected_manifest = (
-        f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream_url}"\npolicy = "dmxapi"\n'
-    )
-    if provider_manifest.read_text(encoding="utf-8") != expected_manifest:
-        raise ValueError("installed provider manifest does not match the owned test upstream")
     env = dict(os.environ)
     env["OPENAI_RESPONSES_PROXY_PROXY_HOST"] = "127.0.0.1"
     env["OPENAI_RESPONSES_PROXY_PROXY_PORT"] = str(ctx.port)

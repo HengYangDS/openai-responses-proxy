@@ -9,18 +9,18 @@ from openai_responses_proxy.relay.addressing import Target
 
 
 def test_https_target_names_its_upstream() -> None:
-    assert addressing.resolve("/https/suheai.cn/v1/responses") == Target(
-        "https://suheai.cn/v1", "responses", "https://suheai.cn/v1/responses"
+    assert addressing.resolve("/https/gateway.example/v1/responses") == Target(
+        "https://gateway.example/v1", "responses", "https://gateway.example/v1/responses"
     )
 
 
 def test_query_is_kept_on_the_url_and_never_on_the_origin() -> None:
-    target = addressing.resolve("/https/www.dmxapi.cn/v1/models?client_version=0.172")
+    target = addressing.resolve("/https/api.example.com/v1/models?client_version=0.172")
 
     assert target == Target(
-        "https://www.dmxapi.cn/v1",
+        "https://api.example.com/v1",
         "models",
-        "https://www.dmxapi.cn/v1/models?client_version=0.172",
+        "https://api.example.com/v1/models?client_version=0.172",
     )
 
 

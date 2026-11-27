@@ -264,7 +264,7 @@ def _build_native_candidate(session: nox.Session) -> tuple[Path, Path, Path]:
 
 @nox.session(python=RELEASE_PYTHON)
 def release_compatibility(session: nox.Session) -> None:
-    """Upgrade one verified published predecessor to this native candidate."""
+    """Prove the journey from one verified published predecessor to this native candidate."""
     previous_asset = _required_file(
         product_identity.environment_name("PREVIOUS_RELEASE_ASSET"),
         "published predecessor asset",
@@ -474,12 +474,9 @@ def _assert_installed_product(session: nox.Session, work: Path) -> None:
         "from pathlib import Path; "
         "import hashlib,json,sys,sysconfig; "
         "import openai_responses_proxy as package; "
-        "from openai_responses_proxy.providers import registry; "
         "root = Path(package.__file__).resolve(); "
-        "manifest = registry.default_manifest_path().resolve(); "
         "installed = Path(sysconfig.get_path('purelib')).resolve(); "
         "assert root.is_relative_to(installed); "
-        "assert manifest.is_file() and manifest.is_relative_to(root.parent); "
         "files = tuple(p for p in root.parent.rglob('*') if '__pycache__' not in p.parts); "
         "assert not any(p.is_symlink() for p in files); "
         "observed = {p.relative_to(root.parent).as_posix():"

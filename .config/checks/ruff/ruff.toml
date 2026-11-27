@@ -37,7 +37,7 @@ ignore = [
   "S106",
   "S107",
   # Ruff reports every non-literal URL. Each URL is admitted with an http or https scheme
-  # at its owner: the provider registry, loopback_url and the GitLab API base check.
+  # at its owner: relay/addressing, loopback_url and the GitLab API base check.
   "S310",
   # Ruff flags each subprocess call whose argument list is computed; every flagged call passes
   # an argument list, never a shell string, built by its owner from validated values.

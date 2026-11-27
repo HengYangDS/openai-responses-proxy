@@ -30,7 +30,7 @@ from openai_responses_proxy.runtime import config as runtime_config
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
-    from openai_responses_proxy.providers import registry as provider_registry
+    from openai_responses_proxy.relay import addressing
 
 _SETTINGS = runtime_config.load()
 UPSTREAM_TIMEOUT = _SETTINGS.upstream_timeout
@@ -104,7 +104,7 @@ class Exchange:
     headers: dict[str, str]
     is_responses: bool
     attempt_body: bytes
-    profile: provider_registry.Profile
+    target: addressing.Target
     response_failed_stages: int = 0
     used_response_failed_compaction: bool = False
     compact_metrics: execution_recovery.RecoveryMetrics | None = None
@@ -161,7 +161,7 @@ class Exchange:
         """Record one request-scoped operational event without sensitive payloads."""
         path = operational_log.safe_request_path(self.handler.path)
         operational_log.log(
-            f"req={self.request_id} event={event} provider={self.profile.name} {detail}path={path}"
+            f"req={self.request_id} event={event} upstream={self.target.origin} {detail}path={path}"
         )
 
     def accepted_recovery(self) -> None:
@@ -375,7 +375,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
     if rate_limited:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(
-            cooldown.provider_key(exchange.profile.name), cooldown_seconds=seconds
+            cooldown.rate_limit_key(exchange.target.origin), cooldown_seconds=seconds
         )
         telemetry.record_counter("provider_rate_limits")
         exchange.log("provider_rate_limit", f"cooldown_seconds={seconds} ")
@@ -417,7 +417,7 @@ def _http_error(exchange: Exchange, error: urllib.error.HTTPError, attempt: int)
     if status_code == HTTPStatus.SERVICE_UNAVAILABLE:
         seconds = cooldown.retry_after_seconds(headers)
         cooldown.remember_failure(
-            cooldown.unavailable_key(exchange.profile.name), cooldown_seconds=seconds
+            cooldown.unavailable_key(exchange.target.origin), cooldown_seconds=seconds
         )
         exchange.log("provider_unavailable_cooldown_started", f"seconds={seconds} ")
     downstream.relay_error(exchange.handler, status_code, headers, payload)

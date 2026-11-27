@@ -26,7 +26,7 @@ from openai_responses_proxy.lifecycle import runtime_spec
 from openai_responses_proxy.lifecycle.supervision import process as process_owner
 from openai_responses_proxy.lifecycle.supervision import watchdog
 from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
-from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.serving import entrypoint
 from openai_responses_proxy.serving import identity
@@ -127,11 +127,9 @@ class _Environment:
 
     def __init__(self) -> None:
         self.upstream = ThreadingHTTPServer(("127.0.0.1", 0), _UpstreamHandler)
-        upstream_url = f"http://127.0.0.1:{self.upstream.server_address[1]}"
-        self.registry = provider_registry.Registry(
-            {"dmxapi": provider_registry.Profile("dmxapi", upstream_url)}
-        )
-        self.proxy = entrypoint.create_server(("127.0.0.1", 0), providers=self.registry)
+        # The proxy path that names the loopback upstream, as a client's base URL does.
+        self.path = f"/http/127.0.0.1:{self.upstream.server_address[1]}/v1/responses"
+        self.proxy = entrypoint.create_server(("127.0.0.1", 0))
         self.upstream_thread = threading.Thread(target=self.upstream.serve_forever, daemon=True)
         self.proxy_thread = threading.Thread(
             target=self.proxy.serve_forever,
@@ -154,7 +152,7 @@ class _Environment:
     def exchange(self, query: str = "") -> bytes:
         """Return one complete loopback response."""
         request = urllib.request.Request(
-            f"http://127.0.0.1:{self.proxy.server_address[1]}/dmxapi/v1/responses{query}",
+            f"http://127.0.0.1:{self.proxy.server_address[1]}{self.path}{query}",
             data=_REQUEST_BODY,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -180,7 +178,7 @@ class _Environment:
                 started = pyperf.perf_counter()
                 connection.request(
                     "POST",
-                    "/dmxapi/v1/responses?stream=first",
+                    f"{self.path}?stream=first",
                     body=_REQUEST_BODY,
                     headers={"Content-Type": "application/json"},
                 )
@@ -414,10 +412,9 @@ def _handoff_round_trip() -> dict[str, object]:
 def main() -> None:
     """Run repeated benchmarks and let pyperf own process isolation and JSON."""
     runner = pyperf.Runner(program_args=("-m", "tools.performance.benchmark"))
-    registry = provider_registry.Registry(
-        {"dmxapi": provider_registry.Profile("dmxapi", "https://example.invalid/v1")}
+    runner.bench_func(
+        "upstream-route-resolution", addressing.resolve, "/https/api.example.invalid/v1/responses"
     )
-    runner.bench_func("provider-route-resolution", registry.resolve, "/dmxapi/v1/responses")
     runner.bench_func("responses-projection-4kib", sanitize_responses_body, _REQUEST_BODY)
     startup = _startup_metadata()
     runner.bench_time_func("startup-to-ready", _startup_to_ready, startup, metadata=startup)

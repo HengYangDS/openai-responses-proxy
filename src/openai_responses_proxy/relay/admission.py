@@ -93,11 +93,11 @@ def is_loopback_client(address: str) -> bool:
     return False
 
 
-def is_local_controller(address: str, headers: Message) -> bool:
-    """Admit lifecycle control only from a native loopback controller, never from a web page.
+def is_local_client(address: str, headers: Message) -> bool:
+    """Admit a request only from a native loopback client, never from a web page.
 
     A browser names the page's origin in `Origin` on a cross-origin request and keeps the page's
-    host in `Host` even after DNS rebinding; the native lifecycle controller sends neither.
+    host in `Host` even after DNS rebinding; a native client sends neither.
     """
     if not is_loopback_client(address) or headers.get("Origin") is not None:
         return False

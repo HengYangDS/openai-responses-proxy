@@ -87,7 +87,7 @@ def test_pyperf_registrations_execute_the_declared_workloads(
     if mode == "latency":
         benchmark.main()
         assert set(recorded) == {
-            "provider-route-resolution",
+            "upstream-route-resolution",
             "responses-projection-4kib",
             "startup-to-ready",
             "handoff-control-round-trip",

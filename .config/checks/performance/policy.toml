@@ -18,7 +18,7 @@ percentile = 95
 packaged_metrics = ["startup-to-ready"]
 
 [budgets.maximum_seconds]
-provider-route-resolution = 0.000050
+upstream-route-resolution = 0.000050
 responses-projection-4kib = 0.001000
 startup-to-ready = 0.750000
 handoff-control-round-trip = 0.000100

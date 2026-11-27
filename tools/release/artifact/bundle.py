@@ -84,9 +84,6 @@ def pack(*, bundle: Path, platform: str, output: Path) -> None:
         raise SystemExit("native bundle executable is unavailable")
     files: dict[str, bytes | assets.ArchiveFile] = {
         f"bin/{product_identity.COMMAND_NAME}": assets.ArchiveFile(executable.read_bytes(), 0o755),
-        "providers.toml": (
-            ROOT / "src/openai_responses_proxy/providers/manifest.toml"
-        ).read_bytes(),
         "LICENSE": (ROOT / "LICENSE").read_bytes(),
     }
     for relative, source in bundle_files(bundle):

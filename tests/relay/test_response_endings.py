@@ -15,7 +15,6 @@ from openai_responses_proxy.relay import responses
 from tests.relay.endings.fixtures import CURRENT
 from tests.relay.endings.fixtures import ENDINGS
 from tests.relay.endings.fixtures import PATH
-from tests.relay.endings.fixtures import PROVIDERS
 from tests.relay.endings.fixtures import UNREAD
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
@@ -55,10 +54,10 @@ class TestAdmittedResponseEndings(InputTransportFixture):
             handler.wfile = writer
 
         if ending.leaves is None:
-            responses.relay(handler, "POST", PROVIDERS)
+            responses.relay(handler, "POST")
         else:
             with pytest.raises(ending.leaves):
-                responses.relay(handler, "POST", PROVIDERS)
+                responses.relay(handler, "POST")
 
         lines = _lines()
         events = [_fields(line)["event"] for line in lines]
@@ -93,7 +92,7 @@ class TestAdmittedResponseEndings(InputTransportFixture):
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=DirectResponse(body))
         handler = MemoryHandler(CURRENT, path=PATH)
 
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [200]
         assert handler.output() == body
@@ -113,7 +112,7 @@ class TestAdmittedResponseEndings(InputTransportFixture):
         assert fields == {
             "req": "1",
             "event": "json_terminal",
-            "provider": "ucloud",
+            "upstream": "https://api.example.com/v1",
             "path": PATH,
             "status": status,
         }

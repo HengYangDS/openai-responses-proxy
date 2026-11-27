@@ -91,7 +91,7 @@ def prepare_handoff(
     connection. The handoff begins only within the request's timeout of it, and a request
     without a stamp is refused.
     """
-    if not admission.is_local_controller(handler.client_address[0], handler.headers):
+    if not admission.is_local_client(handler.client_address[0], handler.headers):
         handler.send_error(403, "handoff control is available only to a local native controller")
         return
     try:

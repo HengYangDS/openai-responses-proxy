@@ -81,6 +81,7 @@ class CooldownTests:
         assert cooldown.retry_after_seconds(naive, now=now) == 10
 
     def test_later_shorter_failure_does_not_shorten_an_active_cooldown(self) -> None:
-        cooldown.remember_failure("provider:ucloud", cooldown_seconds=300, now=10.0)
-        cooldown.remember_failure("provider:ucloud", cooldown_seconds=5, now=11.0)
-        assert cooldown.remaining("provider:ucloud", now=12.0) == 298.0
+        key = cooldown.unavailable_key("https://a.example/v1")
+        cooldown.remember_failure(key, cooldown_seconds=300, now=10.0)
+        cooldown.remember_failure(key, cooldown_seconds=5, now=11.0)
+        assert cooldown.remaining(key, now=12.0) == 298.0

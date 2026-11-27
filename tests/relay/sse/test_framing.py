@@ -222,7 +222,7 @@ class TestSseFraming(InputTransportFixture):
         result = sse.relay(
             handler,
             DirectResponse(plaintext + encrypted),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             1,
             send_headers=lambda: None,
         )
@@ -274,7 +274,7 @@ class TestSseFraming(InputTransportFixture):
         result = sse.relay(
             handler,
             DirectResponse(malformed),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             1,
             send_headers=lambda: None,
         )
@@ -309,7 +309,7 @@ class TestSseFraming(InputTransportFixture):
         result = sse.relay(
             handler,
             DirectResponse(content + rejected),
-            "/ucloud/v1/responses?prompt=private-query",
+            "/https/api.example.com/v1/responses?prompt=private-query",
             40032,
             send_headers=lambda: None,
             reopen=reopen,
@@ -325,7 +325,7 @@ class TestSseFraming(InputTransportFixture):
         reopen.assert_not_called()
         message = logger.call_args.args[0]
         assert f"reason={expected_reason}" in message
-        assert "path=/ucloud/v1/responses" in message
+        assert "path=/https/api.example.com/v1/responses" in message
         assert "private" not in message
         counters = cast("dict[str, int]", self._status_snapshot()["counters"])
         assert counters["stream_projection_failures"] == 1

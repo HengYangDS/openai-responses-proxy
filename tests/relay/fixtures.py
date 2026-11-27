@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import operational_log
@@ -35,6 +34,34 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 ScriptedResponse = tuple[int, bytes] | Mapping[str, object]
+
+# The port of the scripted upstream that serve_proxy started last; direct tests with no
+# server address an upstream that nothing listens on.
+_UPSTREAM_PORT = [9]
+
+
+def upstream_path(
+    resource: str = "responses",
+    *,
+    scheme: str = "http",
+    host: str = "127.0.0.1",
+    base: str = "/v1",
+    query: str = "",
+) -> str:
+    """Return a proxy path that names the scripted upstream, as a client's base URL does."""
+    suffix = f"?{query}" if query else ""
+    return f"/{scheme}/{host}:{_UPSTREAM_PORT[0]}{base}/{resource}{suffix}"
+
+
+def proxy_path(base_url: str, resource: str = "responses") -> str:
+    """Return the proxy path for a client base URL, as the control plane writes it."""
+    return "/" + base_url.replace("://", "/", 1) + "/" + resource
+
+
+def upstream_origin(*, scheme: str = "http", host: str = "127.0.0.1", base: str = "/v1") -> str:
+    """Return the origin that upstream_path names: the key of its cooldowns and log lines."""
+    return f"{scheme}://{host}:{_UPSTREAM_PORT[0]}{base}"
+
 
 EXACT_ERROR = json.dumps(
     {
@@ -56,7 +83,6 @@ def serve_proxy(
     log_dir: str | Path,
     *,
     captures: list[dict[str, object]] | None = None,
-    extra_provider: str | None = None,
 ) -> tuple[int, list[bytes], Callable[[], None]]:
     """Start scripted loopback servers and return port, bodies, and cleanup."""
     scripted = list(responses)
@@ -146,18 +172,11 @@ def serve_proxy(
     upstream.daemon_threads = False
     upstream_thread = threading.Thread(target=upstream.serve_forever, daemon=True)
     upstream_thread.start()
-    test_upstream = f"http://127.0.0.1:{upstream.server_address[1]}"
-    profiles = {
-        "dmxapi": provider_registry.Profile("dmxapi", test_upstream),
-        "ucloud": provider_registry.Profile("ucloud", test_upstream),
-        "aihubmix": provider_registry.Profile("aihubmix", test_upstream),
-    }
-    if extra_provider is not None:
-        profiles[extra_provider] = provider_registry.Profile(extra_provider, test_upstream)
-    providers = provider_registry.Registry(profiles)
+    previous_upstream_port = _UPSTREAM_PORT[0]
+    _UPSTREAM_PORT[0] = upstream.server_address[1]
     old_log_path = operational_log.LOG_PATH
     operational_log.LOG_PATH = str(Path(log_dir) / "proxy.log")
-    server = proxy.create_server(("127.0.0.1", 0), providers=providers)
+    server = proxy.create_server(("127.0.0.1", 0))
     server.daemon_threads = False
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
@@ -170,6 +189,7 @@ def serve_proxy(
         upstream.server_close()
         upstream_thread.join(timeout=2)
         operational_log.LOG_PATH = old_log_path
+        _UPSTREAM_PORT[0] = previous_upstream_port
 
     return server.server_address[1], received, cleanup
 
@@ -179,7 +199,6 @@ def running_proxy(
     responses: Sequence[ScriptedResponse],
     *,
     captures: list[dict[str, object]] | None = None,
-    extra_provider: str | None = None,
 ) -> Generator[tuple[int, list[bytes]]]:
     """Yield a scripted loopback proxy and always release both servers."""
     with tempfile.TemporaryDirectory() as log_dir:
@@ -187,7 +206,6 @@ def running_proxy(
             responses,
             log_dir,
             captures=captures,
-            extra_provider=extra_provider,
         )
         try:
             yield port, received
@@ -199,7 +217,7 @@ def request(
     proxy_port: int,
     body: bytes = b"",
     *,
-    path: str = "/dmxapi/v1/responses",
+    path: str | None = None,
     method: str = "POST",
     headers: dict[str, str] | None = None,
 ) -> http.client.HTTPResponse:
@@ -208,7 +226,7 @@ def request(
     if headers is not None:
         request_headers.update(headers)
     outbound = urllib.request.Request(
-        f"http://127.0.0.1:{proxy_port}{path}",
+        f"http://127.0.0.1:{proxy_port}{upstream_path() if path is None else path}",
         data=body or None,
         method=method,
         headers=request_headers,
@@ -280,9 +298,9 @@ class _MemoryConnection(socket.socket):
 class MemoryHandler(BaseHTTPRequestHandler):
     """Small handler surface for direct transport branch contracts."""
 
-    def __init__(self, body: bytes = b"", *, path: str = "/dmxapi/v1/responses") -> None:
+    def __init__(self, body: bytes = b"", *, path: str | None = None) -> None:
         """Initialize one in-memory downstream HTTP exchange."""
-        self.path = path
+        self.path = upstream_path() if path is None else path
         self.headers = Message()
         self.headers["Content-Length"] = str(len(body))
         self.headers["Connection"] = "close"

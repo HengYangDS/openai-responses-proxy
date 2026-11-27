@@ -44,14 +44,14 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("stop before runtime effects")
         allocated = []
 
-        def stop(root: Path, *, release: str, port: int, upstream_url: str) -> Never:
-            del release, port, upstream_url
+        def stop(root: Path, *, release: str, port: int) -> Never:
+            del release, port
             allocated.append(root)
             raise failure
 
         mocker.patch.object(subprocess_fixtures, "write_installed_payload", side_effect=stop)
         with pytest.raises(RuntimeError) as raised:
-            self._installed_fixture(release="test", port=43210, upstream_url="http://127.0.0.1")
+            self._installed_fixture(release="test", port=43210)
 
         assert raised.value is failure
         assert len(allocated) == 1
@@ -67,8 +67,8 @@ class TestHandoffCleanup(SubprocessFixture):
         failure = RuntimeError("payload initialization failed")
         mocker.patch.object(tempfile, "tempdir", str(tmp_path))
 
-        def fail_initialization(root: Path, *, release: str, port: int, upstream_url: str) -> Never:
-            del release, port, upstream_url
+        def fail_initialization(root: Path, *, release: str, port: int) -> Never:
+            del release, port
             roots.append(root)
             if partial_payload:
                 payload = root / "payload"
@@ -81,7 +81,7 @@ class TestHandoffCleanup(SubprocessFixture):
         )
 
         with pytest.raises(RuntimeError) as raised:
-            self._installed_fixture(release="test", port=0, upstream_url="http://127.0.0.1")
+            self._installed_fixture(release="test", port=0)
 
         assert raised.value is failure
         assert len(roots) == 1
@@ -246,9 +246,7 @@ def test_installed_payload_retains_complete_custody_before_native_prewarm(
         assert "executable" not in retained
 
     mocker.patch.object(candidate, "prewarm", side_effect=prewarm)
-    ctx = write_installed_payload(
-        root / "fixture", release="test", port=43210, upstream_url="http://127.0.0.1:43211"
-    )
+    ctx = write_installed_payload(root / "fixture", release="test", port=43210)
 
     assert observed == [ctx]
     assert ctx.port == 43210

@@ -13,7 +13,7 @@ from typing import Never
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import exchange as upstream_exchange
@@ -25,12 +25,13 @@ from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import http_error
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_origin
+from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
-PROVIDERS = provider_registry.load()
 
 
 class TestRateLimitTransport(InputTransportFixture):
@@ -52,10 +53,10 @@ class TestRateLimitTransport(InputTransportFixture):
                 io.BytesIO(payload),
             )
 
-        handler = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
+        handler = MemoryHandler(json.dumps({"input": []}).encode())
         open_ = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=rate_limited)
         sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert open_.call_count == 1
         sleep.assert_not_called()
@@ -68,24 +69,20 @@ class TestRateLimitTransport(InputTransportFixture):
         payload = b'{"error":{"message":"provider concurrency limit reached"}}'
         with running_proxy([(429, payload)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(
-                    port,
-                    json.dumps({"input": []}).encode(),
-                    path="/ucloud/v1/responses",
-                )
+                request(port, json.dumps({"input": []}).encode())
             with raised.value as error:
                 assert error.code == 429
                 assert error.read() == payload
 
         assert len(received) == 1
 
-    def test_rate_limit_cooldown_is_provider_scoped_and_skips_upstream(
+    def test_rate_limit_cooldown_is_origin_scoped_and_skips_upstream(
         self, *, mocker: MockerFixture
     ) -> None:
         payload = b'{"error":{"message":"provider concurrency limit reached"}}'
-        first = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
-        second = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
-        other = MemoryHandler(json.dumps({"input": []}).encode(), path="/aihubmix/v1/responses")
+        first = MemoryHandler(json.dumps({"input": []}).encode())
+        second = MemoryHandler(json.dumps({"input": []}).encode())
+        other = MemoryHandler(json.dumps({"input": []}).encode(), path=upstream_path(base="/b/v1"))
         open_ = mocker.patch.object(
             upstream_exchange,
             "urlopen_direct",
@@ -94,9 +91,9 @@ class TestRateLimitTransport(InputTransportFixture):
                 DirectResponse(b'{"id":"resp_other","status":"completed"}'),
             ],
         )
-        responses.relay(first, "POST", PROVIDERS)
-        responses.relay(second, "POST", PROVIDERS)
-        responses.relay(other, "POST", PROVIDERS)
+        responses.relay(first, "POST")
+        responses.relay(second, "POST")
+        responses.relay(other, "POST")
 
         assert open_.call_count == 2
         assert first.statuses == [429]
@@ -110,13 +107,13 @@ class TestRateLimitTransport(InputTransportFixture):
         self, *, mocker: MockerFixture
     ) -> None:
         cooldown.remember_failure(
-            cooldown.provider_key("ucloud"),
+            cooldown.rate_limit_key(upstream_origin()),
             cooldown_seconds=5,
         )
-        handler = MemoryHandler(json.dumps({"input": []}).encode(), path="/ucloud/v1/responses")
+        handler = MemoryHandler(json.dumps({"input": []}).encode())
         admit = mocker.patch.object(admission, "admit_response")
         open_ = mocker.patch.object(upstream_exchange, "urlopen_direct")
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         admit.assert_not_called()
         open_.assert_not_called()
@@ -133,7 +130,7 @@ class TestRateLimitTransport(InputTransportFixture):
             "urlopen_direct",
             return_value=DirectResponse(b'{"id":"resp_large","status":"completed"}'),
         )
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
         assert handler.statuses == [200]
 
         admission.reset_for_test()
@@ -142,7 +139,7 @@ class TestRateLimitTransport(InputTransportFixture):
         body = json.dumps({"input": []}).encode()
         handler = MemoryHandler(body)
         mocker.patch.object(cooldown, "remaining", return_value=1.0)
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
         assert handler.statuses == [503]
         assert b"provider_unavailable_cooldown" in handler.output()
 
@@ -158,7 +155,7 @@ class TestRateLimitTransport(InputTransportFixture):
             side_effect=OSError("fixture transport failure"),
         )
         sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert open_.call_count == upstream_exchange._MAX_ATTEMPTS
         assert sleep.call_count == upstream_exchange._MAX_ATTEMPTS - 1
@@ -178,7 +175,9 @@ class TestRateLimitTransport(InputTransportFixture):
             headers={},
             is_responses=True,
             attempt_body=b'{"input":"current"}',
-            profile=PROVIDERS.profiles["ucloud"],
+            target=addressing.Target(
+                "https://upstream.invalid/v1", "responses", "https://upstream.invalid/v1/responses"
+            ),
         )
 
         sleep = mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)

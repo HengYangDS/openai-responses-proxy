@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from openai_responses_proxy.protocol import response as replay_response
 from openai_responses_proxy.protocol.replay import projection as replay_request
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
@@ -21,24 +22,14 @@ from openai_responses_proxy.runtime import config as runtime_config
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
-    from openai_responses_proxy.providers import registry as provider_registry
-
 _SETTINGS = runtime_config.load()
 # A request body at least this large is logged as a large request.
 _LARGE_REQUEST_BYTES = 400_000
 
 
-def resolve_upstream(
-    path: str, providers: provider_registry.Registry
-) -> tuple[str, str, str] | None:
-    """Resolve one configured provider namespace without provider branching."""
-    resolved = providers.resolve(path)
-    return None if resolved is None else (resolved[0].name, resolved[1], resolved[2])
-
-
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
-    """Reject one Responses request while its upstream is cooling down."""
-    remaining = cooldown.remaining(cooldown.unavailable_key(exchange.profile.name))
+    """Reject one Responses request while its upstream origin is cooling down."""
+    remaining = cooldown.remaining(cooldown.unavailable_key(exchange.target.origin))
     if remaining > 0:
         seconds = max(1, int(remaining + 0.999))
         telemetry.record_counter("provider_unavailable_cooldown_hits")
@@ -55,7 +46,7 @@ def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
         )
         exchange.log("provider_unavailable_cooldown", f"remaining_seconds={seconds} ")
         return True
-    remaining = cooldown.remaining(cooldown.provider_key(exchange.profile.name))
+    remaining = cooldown.remaining(cooldown.rate_limit_key(exchange.target.origin))
     if remaining <= 0:
         return False
     seconds = max(1, int(remaining + 0.999))
@@ -81,11 +72,11 @@ def _reject_route(
     """Reject one unsupported route without retaining its unread request body."""
     telemetry.record_counter("provider_route_rejected")
     telemetry.record_failure("provider_route_rejected")
-    code = "provider_route_not_found" if method is None else "provider_route_method_not_allowed"
+    code = "upstream_route_invalid" if method is None else "upstream_route_method_not_allowed"
     message = (
-        "request path is not a configured provider route"
+        "request path does not name an upstream Responses or model-catalog target"
         if method is None
-        else "request method is not supported for the configured provider route"
+        else "request method is not supported for the named upstream resource"
     )
     downstream.send_payload(
         handler,
@@ -136,14 +127,13 @@ def _read_responses_body(handler: BaseHTTPRequestHandler) -> tuple[bytes | None,
 def _relay_catalog(
     handler: BaseHTTPRequestHandler,
     request_id: int,
-    profile: provider_registry.Profile,
-    upstream_url: str,
+    target: addressing.Target,
     headers: dict[str, str],
 ) -> None:
     """Relay one model catalog read exactly once without Responses policy."""
     deadline = time.monotonic() + _SETTINGS.catalog_timeout
     try:
-        response = upstream_exchange.open_readonly(upstream_url, "GET", headers, deadline=deadline)
+        response = upstream_exchange.open_readonly(target.url, "GET", headers, deadline=deadline)
     except Exception as error:  # noqa: BLE001 upstream-outcome
         expired = isinstance(error, ExchangeDeadlineError) or time.monotonic() >= deadline
         code = "catalog_deadline_exceeded" if expired else "catalog_transport_error"
@@ -155,7 +145,7 @@ def _relay_catalog(
             timeout=_SETTINGS.catalog_timeout,
         )
         operational_log.log(
-            f"req={request_id} event={code} provider={profile.name} "
+            f"req={request_id} event={code} upstream={target.origin} "
             f"{operational_log.safe_exception_context(error)} "
             f"path={operational_log.safe_request_path(handler.path)}"
         )
@@ -164,7 +154,7 @@ def _relay_catalog(
         try:
             telemetry.record_failure(f"catalog_http_{response.status}")
             operational_log.log(
-                f"req={request_id} event=catalog_http_terminal provider={profile.name} "
+                f"req={request_id} event=catalog_http_terminal upstream={target.origin} "
                 f"status={response.status} path={operational_log.safe_request_path(handler.path)}"
             )
         except BaseException:
@@ -173,7 +163,7 @@ def _relay_catalog(
 
     def log_body_failure(exception: str) -> None:
         operational_log.log(
-            f"req={request_id} event=catalog_body_failed provider={profile.name} "
+            f"req={request_id} event=catalog_body_failed upstream={target.origin} "
             f"exception={exception} path={operational_log.safe_request_path(handler.path)}"
         )
 
@@ -186,27 +176,21 @@ def _relay_catalog(
     )
 
 
-def relay(
-    handler: BaseHTTPRequestHandler,
-    method: str,
-    providers: provider_registry.Registry,
-) -> None:
-    """Relay one downstream request through bounded compatibility policies."""
+def relay(handler: BaseHTTPRequestHandler, method: str) -> None:
+    """Relay one downstream request to the upstream that its path names."""
     request_id = admission.next_request_id()
-    resolved = resolve_upstream(handler.path, providers)
-    if resolved is None:
+    target = addressing.resolve(handler.path)
+    if target is None:
         _reject_route(handler, request_id)
         return
-    route, resource, upstream_url = resolved
-    profile = providers.profiles[route]
-    is_responses = method == "POST" and resource == "responses"
-    is_catalog = method == "GET" and resource == "models"
+    is_responses = method == "POST" and target.resource == "responses"
+    is_catalog = method == "GET" and target.resource == "models"
     if not (is_responses or is_catalog):
         _reject_route(handler, request_id, method)
         return
     headers = _request_headers(handler)
     if is_catalog:
-        _relay_catalog(handler, request_id, profile, upstream_url, headers)
+        _relay_catalog(handler, request_id, target, headers)
         return
     body, framing_reason = _read_responses_body(handler)
     if body is None:
@@ -232,7 +216,7 @@ def relay(
         telemetry.record_counter(code)
         telemetry.record_failure(code)
         operational_log.log(
-            f"req={request_id} event={code} provider={profile.name} "
+            f"req={request_id} event={code} upstream={target.origin} "
             f"reason={framing_reason} path={operational_log.safe_request_path(handler.path)}"
         )
         return
@@ -255,7 +239,7 @@ def relay(
         )
         operational_log.log(
             f"req={request_id} event=provider_portable_projection_rejected "
-            f"provider={profile.name} reason={reason} "
+            f"upstream={target.origin} reason={reason} "
             f"path={operational_log.safe_request_path(handler.path)}"
         )
         return
@@ -263,11 +247,11 @@ def relay(
     path = operational_log.safe_request_path(handler.path)
     if len(body) >= _LARGE_REQUEST_BYTES:
         operational_log.log(
-            f"req={request_id} event=large_request provider={profile.name} "
+            f"req={request_id} event=large_request upstream={target.origin} "
             f"bytes={len(body)} path={path}"
         )
     operational_log.log(
-        f"req={request_id} event=request_sanitized provider={profile.name} "
+        f"req={request_id} event=request_sanitized upstream={target.origin} "
         f"method={method} {note} path={path}"
     )
     telemetry.record_counter("responses_received")
@@ -276,11 +260,11 @@ def relay(
         method,
         request_id,
         body,
-        upstream_url,
+        target.url,
         headers,
         is_responses,
         body,
-        profile,
+        target,
         input_dependencies=projection.input_dependencies,
     )
     if _cooldown_active(exchange):

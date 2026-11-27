@@ -14,7 +14,7 @@ from typing import cast
 import pytest
 
 from openai_responses_proxy.protocol.replay import projection as rewrite
-from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
@@ -26,6 +26,8 @@ from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import http_error
+from tests.relay.fixtures import upstream_origin
+from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
     import ssl
@@ -33,7 +35,6 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
-PROVIDERS = provider_registry.load()
 
 
 class _OpenerWithHandlers(Protocol):
@@ -78,9 +79,9 @@ class TestTransportFailures(InputTransportFixture):
         admission.reset_for_test()
         telemetry.reset_for_test()
         cooldown.reset_for_test()
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=OSError("private"))
-        responses.relay(handler, "GET", PROVIDERS)
+        responses.relay(handler, "GET")
         assert handler.statuses == [502]
         assert b"catalog_transport_error" in handler.output()
 
@@ -89,18 +90,21 @@ class TestTransportFailures(InputTransportFixture):
     ) -> None:
         admission.reset_for_test()
         telemetry.reset_for_test()
-        handler = MemoryHandler(path="/dmxapi/v1/models?token=private-query")
+        handler = MemoryHandler(path=upstream_path("models", query="token=private-query"))
         upstream = DirectResponse(b'{"data":[', RuntimeError("private-body-detail"))
         mocker.patch.object(upstream_exchange, "open_readonly", return_value=upstream)
         log = mocker.patch.object(responses.operational_log, "log")
 
-        responses.relay(handler, "GET", PROVIDERS)
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [200]
         assert handler.close_connection is True
         [line] = [call.args[0] for call in log.call_args_list]
-        assert "event=catalog_body_failed provider=dmxapi exception=RuntimeError " in line
-        assert line.endswith("path=/dmxapi/v1/models")
+        assert (
+            f"event=catalog_body_failed upstream={upstream_origin()} exception=RuntimeError "
+            in line
+        )
+        assert line.endswith(f"path={upstream_path('models')}".replace(":", "_"))
         assert "private" not in line
 
     def test_direct_relay_covers_retry_and_fallback_transport_failure(
@@ -111,14 +115,14 @@ class TestTransportFailures(InputTransportFixture):
         handler = MemoryHandler(json.dumps({"input": []}).encode())
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=[transient, success])
         mocker.patch.object(upstream_exchange.time, "sleep", return_value=None)
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
         assert handler.statuses == [200]
         assert b"resp_ok" in handler.output()
-        assert cooldown.remaining(cooldown.unavailable_key("dmxapi")) == 0
+        assert cooldown.remaining(cooldown.unavailable_key(upstream_origin())) == 0
 
-    @pytest.mark.parametrize("provider", ["dmxapi", "ucloud", "aihubmix"])
-    def test_exhausted_503_cools_only_the_failed_provider(
-        self, provider: str, *, mocker: MockerFixture
+    @pytest.mark.parametrize(("failed", "peer"), [("/a/v1", "/b/v1"), ("/b/v1", "/a/v1")])
+    def test_exhausted_503_cools_only_the_failed_origin(
+        self, failed: str, peer: str, *, mocker: MockerFixture
     ) -> None:
         payload = b'{"error":{"type":"server_error","code":"overloaded"}}'
         failures = [http_error(503, "unavailable", payload) for _ in range(4)]
@@ -131,17 +135,16 @@ class TestTransportFailures(InputTransportFixture):
         now = [100.0]
         mocker.patch.object(cooldown.time, "monotonic", side_effect=lambda: now[0])
         body = json.dumps({"input": []}).encode()
-        peer = "ucloud" if provider != "ucloud" else "aihubmix"
-        first = MemoryHandler(body, path=f"/{provider}/v1/responses")
-        second = MemoryHandler(body, path=f"/{provider}/v1/responses")
-        other = MemoryHandler(body, path=f"/{peer}/v1/responses")
-        after_expiry = MemoryHandler(body, path=f"/{provider}/v1/responses")
+        first = MemoryHandler(body, path=upstream_path(base=failed))
+        second = MemoryHandler(body, path=upstream_path(base=failed))
+        other = MemoryHandler(body, path=upstream_path(base=peer))
+        after_expiry = MemoryHandler(body, path=upstream_path(base=failed))
 
-        responses.relay(first, "POST", PROVIDERS)
-        responses.relay(second, "POST", PROVIDERS)
-        responses.relay(other, "POST", PROVIDERS)
+        responses.relay(first, "POST")
+        responses.relay(second, "POST")
+        responses.relay(other, "POST")
         now[0] += 5.0
-        responses.relay(after_expiry, "POST", PROVIDERS)
+        responses.relay(after_expiry, "POST")
 
         assert first.statuses == [503]
         assert first.output() == payload
@@ -174,7 +177,9 @@ class TestTransportFailures(InputTransportFixture):
             {},
             is_responses=True,
             attempt_body=b"{}",
-            profile=PROVIDERS.profiles["dmxapi"],
+            target=addressing.Target(
+                "https://upstream.test/v1", "responses", "https://upstream.test/v1/responses"
+            ),
         )
         mocker.patch.object(upstream_exchange, "_transport_error", return_value="retry")
         mocker.patch.object(
@@ -191,10 +196,10 @@ class TestTransportFailures(InputTransportFixture):
     def test_responses_relay_dispatches_non_responses_body_and_empty_note(
         self, *, mocker: MockerFixture
     ) -> None:
-        handler = MemoryHandler(b"", path="/dmxapi/v1/models")
+        handler = MemoryHandler(b"", path=upstream_path("models"))
         response = DirectResponse(b'{"data":[]}')
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=response)
-        responses.relay(handler, "GET", PROVIDERS)
+        responses.relay(handler, "GET")
         assert b'"data":[]' in handler.output()
 
         handler = MemoryHandler(json.dumps({"input": []}).encode())
@@ -205,25 +210,25 @@ class TestTransportFailures(InputTransportFixture):
             "urlopen_direct",
             return_value=DirectResponse(b'{"status":"completed","output":[]}'),
         )
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
         assert handler.statuses == [200]
 
     def test_direct_non_sse_stream_handles_incomplete_and_writer_failures(
         self, *, mocker: MockerFixture
     ) -> None:
         partial = http.client.IncompleteRead(b"partial")
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         mocker.patch.object(
             upstream_exchange, "urlopen_direct", return_value=DirectResponse(partial)
         )
-        responses.relay(handler, "GET", PROVIDERS)
+        responses.relay(handler, "GET")
         assert handler.statuses == [200]
         assert handler.output() == b"7\r\npartial\r\n"
         assert handler.close_connection
 
         statuses = []
         for error in (BrokenPipeError(), RuntimeError("private")):
-            handler = MemoryHandler(path="/dmxapi/v1/models")
+            handler = MemoryHandler(path=upstream_path("models"))
             handler.wfile = mocker.Mock()
             handler.wfile.write.side_effect = error
             mocker.patch.object(
@@ -231,7 +236,7 @@ class TestTransportFailures(InputTransportFixture):
                 "urlopen_direct",
                 return_value=DirectResponse(b"body"),
             )
-            responses.relay(handler, "GET", PROVIDERS)
+            responses.relay(handler, "GET")
             statuses.append(handler.statuses)
         assert statuses == [[200], [200]]
 
@@ -262,7 +267,7 @@ class TestTransportFailures(InputTransportFixture):
         mocker.patch.object(
             upstream_exchange, "urlopen_direct", return_value=DirectResponse(upstream)
         )
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [200]
         assert b"reasoning-secret" in handler.output()
@@ -274,7 +279,7 @@ class TestTransportFailures(InputTransportFixture):
     ) -> None:
         handler = MemoryHandler(b"")
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [400]
         assert b"provider_portable_projection_rejected" in handler.output()
@@ -331,7 +336,7 @@ class TestTransportFailures(InputTransportFixture):
         mocker.patch.object(handler.rfile, "read1", side_effect=failure)
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
 
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [status]
         assert ("Connection", "close") in handler.sent_headers
@@ -350,7 +355,7 @@ class TestTransportFailures(InputTransportFixture):
         handler.headers["Content-Length"] = "9" * 5000
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct")
 
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [400]
         assert handler.rfile.tell() == 0
@@ -372,7 +377,7 @@ class TestTransportFailures(InputTransportFixture):
                 admission.reset_for_test()
                 handler = MemoryHandler(json.dumps({"input": []}).encode())
                 mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=upstream)
-                responses.relay(handler, "POST", PROVIDERS)
+                responses.relay(handler, "POST")
                 assert handler.statuses == [503]
                 assert b"invalid_responses_success_body" in handler.output()
 
@@ -383,7 +388,7 @@ class TestTransportFailures(InputTransportFixture):
         upstream = DirectResponse(b'{"status":"completed","output":"', b"x" * 64, b'"}')
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=upstream)
         mocker.patch.object(downstream, "MAX_RESPONSES_JSON_BYTES", 32)
-        responses.relay(handler, "POST", PROVIDERS)
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [503]
         assert b"response_too_large" in handler.output()

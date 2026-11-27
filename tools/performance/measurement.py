@@ -20,10 +20,6 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / ".config/checks/performance/policy.toml"
-PROVIDERS = (
-    'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\n'
-    'policy = "dmxapi"\n'
-)
 
 
 def measure(
@@ -67,7 +63,6 @@ def measure(
         executable,
         port=_free_loopback_port(),
         release=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
-        providers=PROVIDERS,
         receipt=b'{"performance":"startup-to-ready"}\n',
     )
     try:

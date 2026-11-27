@@ -218,7 +218,7 @@ def test_release_compatibility_runs_real_published_upgrade_on_each_platform() ->
     proof = next(
         step
         for step in steps
-        if step.get("name") == "Prove published predecessor upgrade and rollback"
+        if step.get("name") == "Prove the journey from the published predecessor"
     )
     assert (
         _mapping(proof["env"])["OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR"]

@@ -9,11 +9,11 @@ import time
 from typing import TYPE_CHECKING
 from typing import Never
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import proxy_path
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -35,13 +35,11 @@ class TestBoundedResolution(InputTransportFixture):
 
         mocker.patch.object(socket, "getaddrinfo", side_effect=stalled)
         mocker.patch.object(upstream_exchange, "UPSTREAM_TIMEOUT", 0.3)
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", "http://upstream.invalid/v1")}
-        )
-        handler = MemoryHandler(b'{"input":"current"}', path="/fixture/v1/responses")
+        upstream_base = "https://upstream.invalid/v1"
+        handler = MemoryHandler(b'{"input":"current"}', path=proxy_path(upstream_base))
         started = time.monotonic()
         try:
-            responses.relay(handler, "POST", providers)
+            responses.relay(handler, "POST")
             elapsed = time.monotonic() - started
         finally:
             released.set()

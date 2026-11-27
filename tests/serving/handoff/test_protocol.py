@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 
 from openai_responses_proxy.lifecycle import context as runtime_context
 from openai_responses_proxy.lifecycle.deployment import handoff
-from openai_responses_proxy.providers import registry as provider_registry
-from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import generation_executable
 from tests.serving.handoff import fixtures as handoff_fixtures
 from tests.serving.handoff.fixtures import entrypoint_module
@@ -81,10 +79,7 @@ class TestProtocolContract:
         assert {"drain_generation", "drain_lease_remaining_seconds"}.isdisjoint(status)
 
     def test_healthz_over_real_loopback_http_exposes_the_same_shape(self) -> None:
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", "https://gateway.example/v1")}
-        )
-        proxy = self.p.create_server(("127.0.0.1", 0), providers=providers)
+        proxy = self.p.create_server(("127.0.0.1", 0))
         thread = threading.Thread(target=proxy.serve_forever, daemon=True)
         thread.start()
         try:
@@ -151,11 +146,6 @@ def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(
     executable = generation_executable(install_dir)
     payload = Path(executable).parents[1]
     payload.mkdir(parents=True)
-    upstream = "http://127.0.0.1:43123"
-    (payload / inventory.PROVIDER_MANIFEST).write_text(
-        f'version = 1\n\n[providers.dmxapi]\nbase_url = "{upstream}"\npolicy = "dmxapi"\n',
-        encoding="utf-8",
-    )
     ctx = runtime_context.RuntimeContext(
         install_dir=str(install_dir),
         executable=executable,
@@ -171,9 +161,7 @@ def test_initial_proxy_spawn_avoids_multithreaded_posix_fork(
     mocker.patch.object(handoff_fixtures, "proxy_is_up", return_value=True)
     popen = mocker.patch.object(handoff_fixtures.subprocess, "Popen", return_value=child)
     try:
-        started = handoff_fixtures.start_real_proxy(
-            ctx, upstream_url=upstream, log_path=tmp_path / "proxy.log"
-        )
+        started = handoff_fixtures.start_real_proxy(ctx, log_path=tmp_path / "proxy.log")
     finally:
         mocker.stop(popen)
 

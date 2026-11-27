@@ -25,7 +25,6 @@ def _listener(mocker: MockerFixture) -> server.ResilientProxyServer:
     """Return a bound loopback listener of the product that nothing serves."""
     bindings = server.Bindings(
         control=control.Bindings(mocker.Mock(return_value={}), mocker.Mock()),
-        providers=mocker.sentinel.providers,
         server_version="dmx/test",
     )
     return server.ResilientProxyServer(("127.0.0.1", 0), server.Handler, bindings)

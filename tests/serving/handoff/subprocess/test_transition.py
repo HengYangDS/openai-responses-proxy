@@ -44,11 +44,9 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream.push((200, b'{"id":"ok","status":"completed"}'))
 
         port = free_port()
-        root, ctx, owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        root, ctx, owned_processes = self._installed_fixture(release="1.0.25", port=port)
         log_path = root / "proxy.log"
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=log_path)
+        old = start_real_proxy(ctx, log_path=log_path)
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
@@ -83,10 +81,8 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()
-        root, ctx, owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        root, ctx, owned_processes = self._installed_fixture(release="1.0.25", port=port)
+        old = start_real_proxy(ctx, log_path=root / "proxy.log")
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
@@ -155,18 +151,16 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream.push(long_response)
 
         port = free_port()
-        root, ctx, owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        root, ctx, owned_processes = self._installed_fixture(release="1.0.25", port=port)
         log_path = root / "proxy.log"
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=log_path)
+        old = start_real_proxy(ctx, log_path=log_path)
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
         held = {}
 
         def run_holder() -> None:
-            held["body"] = self._post_responses(port)
+            held["body"] = self._post_responses(port, upstream.base_url())
 
         holder = threading.Thread(target=run_holder)
         holder.start()
@@ -197,7 +191,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         # behavior before blocking on ``release``), so pushing exactly one new
         # behavior now deterministically belongs to the next request only.
         upstream.push((200, b'{"id":"new-via-child","status":"completed"}'))
-        new_body = json.loads(self._post_responses(port, timeout=10))
+        new_body = json.loads(self._post_responses(port, upstream.base_url(), timeout=10))
         assert new_body.get("id") == "new-via-child"
 
         release.set()
@@ -228,17 +222,15 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream.push(never_finishes)
 
         port = free_port()
-        root, ctx, owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        root, ctx, owned_processes = self._installed_fixture(release="1.0.25", port=port)
         log_path = root / "proxy.log"
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=log_path)
+        old = start_real_proxy(ctx, log_path=log_path)
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
         def hold_stream() -> None:
             with contextlib.suppress(Exception):
-                self._post_responses(port, timeout=8)
+                self._post_responses(port, upstream.base_url(), timeout=8)
 
         holder = threading.Thread(target=hold_stream, daemon=True)
         holder.start()
@@ -267,7 +259,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         # Deterministic: the held request's behavior was already popped before
         # it blocked, so this new push belongs solely to the queued request below.
         upstream.push((200, b'{"id":"via-child-while-old-held","status":"completed"}'))
-        queued_body = json.loads(self._post_responses(port, timeout=10))
+        queued_body = json.loads(self._post_responses(port, upstream.base_url(), timeout=10))
         assert queued_body.get("id") == "via-child-while-old-held"
 
         assert wait_until(lambda: old.poll() is not None, timeout=10), (
@@ -282,10 +274,8 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()
-        root, ctx, owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        root, ctx, owned_processes = self._installed_fixture(release="1.0.25", port=port)
+        old = start_real_proxy(ctx, log_path=root / "proxy.log")
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 
@@ -321,10 +311,8 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream = ScriptedUpstream()
         self._cleanups.callback(upstream.close)
         port = free_port()
-        root, ctx, _owned_processes = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        old = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        root, ctx, _owned_processes = self._installed_fixture(release="1.0.25", port=port)
+        old = start_real_proxy(ctx, log_path=root / "proxy.log")
         self._cleanups.callback(lambda: terminate_process(old))
         upstream.start()
 

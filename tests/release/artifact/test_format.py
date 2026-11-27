@@ -47,7 +47,6 @@ class FormatContracts:
     def test_platform_archive_is_reproducible_and_manifest_bound(self) -> None:
         files = {
             "bin/openai-responses-proxy": assets.ArchiveFile(b"native-executable", 0o755),
-            "providers.toml": b"version = 1\n",
             "LICENSE": b"MIT\n",
         }
         first = assets.archive_bytes(files, "1.2.3", "linux-x86_64")

@@ -58,10 +58,8 @@ class TestSignedNativeLifecycle:
             executable.parent,
             tmp_path / "assets",
             version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
-            upstream_url="http://127.0.0.1:1",
             key=key,
             trust=trust,
-            preserve_manifest=True,
         )
 
         result = run_command(

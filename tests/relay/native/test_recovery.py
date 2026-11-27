@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from openai_responses_proxy.lifecycle import runtime_spec
+from tests.relay.fixtures import proxy_path
 from tests.release.fixtures import preserve_native_host_projection
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import free_port
@@ -43,19 +44,19 @@ def test_frozen_body_admission_uses_the_persisted_budgets(*, oversized: bool) ->
         root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
         ctx.request_body_max_bytes = 4096
         ctx.request_body_timeout = 0.25
         runtime_spec.write(ctx)
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
         upstream.start()
         with socket.create_connection(("127.0.0.1", port), timeout=2) as client:
             length = 4097 if oversized else 4096
             client.sendall(
-                b"POST /dmxapi/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                b"POST "
+                + proxy_path(upstream.base_url()).encode()
+                + b" HTTP/1.1\r\nHost: 127.0.0.1\r\n"
                 + f"Content-Length: {length}\r\nConnection: close\r\n\r\n".encode()
                 + b"private-native-prefix"
             )
@@ -132,10 +133,8 @@ def test_frozen_input_recovery_preserves_required_current_turn(
         root = Path(cleanup.enter_context(verification.temporary_home()))
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
         upstream.start()
         error = {
@@ -158,7 +157,7 @@ def test_frozen_input_recovery_preserves_required_current_turn(
         }
 
         status, response = http_json(
-            port, "/dmxapi/v1/responses", method="POST", body=payload, timeout=5
+            port, proxy_path(upstream.base_url()), method="POST", body=payload, timeout=5
         )
 
         assert status == 200
@@ -243,20 +242,20 @@ def test_frozen_exchange_deadline_covers_headers_and_body_without_replay(phase: 
         cleanup.callback(upstream.close)
         cleanup.callback(release.set)
         upstream.push(delayed)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
         ctx.upstream_timeout = 0.5
         ctx.upstream_read_timeout = 2.0
         runtime_spec.write(ctx)
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
         upstream.start()
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         cleanup.callback(connection.close)
         begin = time.monotonic()
         connection.request(
-            "POST", "/dmxapi/v1/responses", json.dumps({"input": "current", "stream": True})
+            "POST",
+            proxy_path(upstream.base_url()),
+            json.dumps({"input": "current", "stream": True}),
         )
 
         with connection.getresponse() as response:
@@ -327,16 +326,13 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
         cleanup.callback(release.set)
         upstream.push(first)
         upstream.push(second)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
         # Leave a full second for real reconnect scheduling after native backoff.
         ctx.upstream_timeout = 2.0
         ctx.upstream_read_timeout = 0.1
         runtime_spec.write(ctx)
         child = start_real_proxy(
             ctx,
-            upstream_url=upstream.base_url(),
             log_path=root / "proxy.log",
         )
         cleanup.callback(terminate_process, child)
@@ -346,7 +342,7 @@ def test_frozen_reconnect_header_acquisition_obeys_stream_deadline() -> None:
         with pytest.raises(urllib.error.HTTPError) as raised:
             http_json(
                 port,
-                "/dmxapi/v1/responses",
+                proxy_path(upstream.base_url()),
                 method="POST",
                 body={"input": "current", "stream": True},
                 timeout=5,
@@ -399,17 +395,15 @@ def test_frozen_listener_never_resends_a_request_the_upstream_received(*, stream
         upstream = ScriptedUpstream()
         cleanup.callback(upstream.close)
         upstream.push(lose_response)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
         upstream.start()
 
         with pytest.raises(urllib.error.HTTPError) as raised:
             http_json(
                 port,
-                "/dmxapi/v1/responses",
+                proxy_path(upstream.base_url()),
                 method="POST",
                 body={"input": "current", "stream": stream},
                 timeout=5,
@@ -465,16 +459,18 @@ def test_frozen_listener_never_resends_a_request_lost_on_a_kept_connection() -> 
         cleanup.callback(upstream.close)
         for behavior in (keep, lose, keep):
             upstream.push(behavior)
-        ctx = write_installed_payload(
-            root, release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        ctx = write_installed_payload(root, release="1.0.25", port=port)
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         cleanup.callback(terminate_process, child)
         upstream.start()
 
         def call(text: str) -> tuple[int, dict[str, object]]:
             return http_json(
-                port, "/dmxapi/v1/responses", method="POST", body={"input": text}, timeout=5
+                port,
+                proxy_path(upstream.base_url()),
+                method="POST",
+                body={"input": text},
+                timeout=5,
             )
 
         assert call("warm")[0] == 200

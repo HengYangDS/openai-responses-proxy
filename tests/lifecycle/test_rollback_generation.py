@@ -14,6 +14,7 @@ from openai_responses_proxy.lifecycle import records
 from openai_responses_proxy.lifecycle import rollback
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.serving import digest
+from openai_responses_proxy.serving import inventory
 from tests.lifecycle.fixtures import begin_transaction
 from tests.lifecycle.fixtures import control_root
 from tests.lifecycle.fixtures import install_context
@@ -308,7 +309,9 @@ def test_generation_removal_and_pruning_fail_closed(
         generation.projection, "purge_owned_files", side_effect=OSError("blocked")
     )
     with pytest.raises(errors.InstallError, match="removal failed"):
-        generation.prune(ctx, selection, {f"generations/{residue.name}/providers.toml": "0" * 64})
+        generation.prune(
+            ctx, selection, {f"generations/{residue.name}/{inventory.EXECUTABLE}": "0" * 64}
+        )
     mocker.stop(remove)
 
     store = generation.root(ctx)
@@ -329,7 +332,7 @@ def test_generation_pruning_requires_exact_unselected_inventory(
     files = {}
     residue = generation.path(ctx, "f" * 32)
     if obstruction == "selected_inventory":
-        files = {f"generations/{selection.active}/providers.toml": "0" * 64}
+        files = {f"generations/{selection.active}/{inventory.EXECUTABLE}": "0" * 64}
         expected = "disposal inventory is invalid"
     elif obstruction == "unowned_directory":
         residue.mkdir()

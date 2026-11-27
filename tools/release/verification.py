@@ -227,13 +227,12 @@ def install_private_generation(
     *,
     port: int,
     release: str,
-    providers: str,
     receipt: bytes,
 ) -> runtime_context.RuntimeContext:
     """Install one built native bundle as the selected generation of a private root.
 
     The bundle directory of ``source`` becomes the generation's ``bin`` with its
-    provider manifest, release receipt, payload manifest and runtime contract, so
+    release receipt, payload manifest and runtime contract, so
     the listener verifies and loads it exactly as an installed product.
     """
     ctx = generation.context(replace(control_ctx, port=port), "0" * 32)
@@ -245,10 +244,8 @@ def install_private_generation(
     # turns each isolated copy into a fresh Gatekeeper scan. Published archives
     # do not carry those checkout-local attributes.
     shutil.copytree(source.parent, target.parent, copy_function=shutil.copy)
-    provider_manifest = install_dir / inventory.PROVIDER_MANIFEST
-    provider_manifest.write_text(providers, encoding="utf-8")
     (install_dir / inventory.RELEASE_RECEIPT_FILENAME).write_bytes(receipt)
-    files = [provider_manifest, *(path for path in target.parent.rglob("*") if path.is_file())]
+    files = [path for path in target.parent.rglob("*") if path.is_file()]
     manifest = projection.manifest_for_digests(
         release,
         {

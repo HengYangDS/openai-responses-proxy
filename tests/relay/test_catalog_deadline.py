@@ -16,7 +16,6 @@ from typing import override
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import upstream as upstream_transport
@@ -26,6 +25,8 @@ from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import TimedResponse
 from tests.relay.fixtures import http_error
+from tests.relay.fixtures import proxy_path
+from tests.relay.fixtures import upstream_path
 from tests.serving.handoff.fixtures import ScriptedUpstream
 from tests.serving.handoff.fixtures import proxy_is_up
 
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
     from pytest_mock import MockerFixture
-
-PROVIDERS = provider_registry.load()
 
 
 class TestCatalogDeadline(InputTransportFixture):
@@ -55,7 +54,7 @@ class TestCatalogDeadline(InputTransportFixture):
     def test_catalog_stalled_native_writer_cannot_hold_upstream_past_the_deadline(
         self, *, mocker: MockerFixture
     ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
         upstream = DirectResponse(*([b"x" * 8192] * 32))
         closed = mocker.spy(upstream, "close")
@@ -70,7 +69,7 @@ class TestCatalogDeadline(InputTransportFixture):
             def handle(self) -> None:
                 handler.connection = self.connection
                 handler.wfile = self.wfile
-                responses.relay(handler, "GET", provider_registry.load())
+                responses.relay(handler, "GET")
 
         with connection, peer:
             connection.settimeout(0.3)
@@ -105,9 +104,9 @@ class TestCatalogDeadline(InputTransportFixture):
             raise OSError("private expired transport error")
 
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
 
-        responses.relay(handler, "GET", provider_registry.load())
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [504]
         assert json.loads(handler.output())["error"]["code"] == "catalog_deadline_exceeded"
@@ -124,7 +123,7 @@ class TestCatalogDeadline(InputTransportFixture):
         opened = mocker.patch.object(
             upstream_exchange, "urlopen_direct", side_effect=OSError("private transport")
         )
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
         observed = []
 
@@ -134,7 +133,7 @@ class TestCatalogDeadline(InputTransportFixture):
 
         mocker.patch.object(handler.wfile, "write", side_effect=write)
 
-        responses.relay(handler, "GET", provider_registry.load())
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [502]
         assert observed == [pytest.approx(0.04)]
@@ -174,19 +173,17 @@ class TestCatalogDeadline(InputTransportFixture):
                 finished.set()
 
         upstream.push(slow_framing)
-        providers = provider_registry.Registry(
-            {"fixture": provider_registry.Profile("fixture", upstream.base_url() + "/v1")}
-        )
+        upstream_base = upstream.base_url() + "/v1"
         mocker.patch.object(
             responses, "_SETTINGS", config.load({"OPENAI_RESPONSES_PROXY_CATALOG_TIMEOUT": "0.25"})
         )
-        handler = MemoryHandler(path="/fixture/v1/models")
+        handler = MemoryHandler(path=proxy_path(upstream_base, "models"))
         handler.close_connection = False
         upstream.start()
         try:
             started = time.monotonic()
 
-            responses.relay(handler, "GET", providers)
+            responses.relay(handler, "GET")
 
             assert time.monotonic() - started < 0.65
             if phase == "headers":
@@ -229,10 +226,10 @@ class TestCatalogDeadline(InputTransportFixture):
             return upstream
 
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
 
-        responses.relay(handler, "GET", provider_registry.load())
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [status]
         assert handler.output() == b""
@@ -265,9 +262,9 @@ class TestCatalogDeadline(InputTransportFixture):
             return upstream
 
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
 
-        responses.relay(handler, "GET", provider_registry.load())
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [504]
         assert json.loads(handler.output())["error"]["code"] == "catalog_deadline_exceeded"
@@ -284,7 +281,7 @@ class TestCatalogDeadline(InputTransportFixture):
         )
         upstream = TimedResponse(now, [b"keep", b"late"], "application/json")
         mocker.patch.object(upstream_exchange, "urlopen_direct", return_value=upstream)
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
         original_write = handler.wfile.write
         budgets = []
@@ -300,7 +297,7 @@ class TestCatalogDeadline(InputTransportFixture):
 
         mocker.patch.object(handler.wfile, "write", side_effect=write)
 
-        responses.relay(handler, "GET", provider_registry.load())
+        responses.relay(handler, "GET")
 
         assert handler.statuses == [200]
         assert handler.output() == b"4\r\nkeep\r\n"
@@ -325,7 +322,7 @@ class TestCatalogTransport(InputTransportFixture):
     def test_catalog_failure_closes_the_real_upstream_response(
         self, stage: str, failure: Exception, status: int, *, mocker: MockerFixture
     ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         upstream_socket, peer = socket.socketpair()
         with upstream_socket, peer:
             upstream_socket.settimeout(1)
@@ -357,7 +354,7 @@ class TestCatalogTransport(InputTransportFixture):
                     case "read":
                         mocker.patch.object(opened_response, "read1", side_effect=failure)
 
-                responses.relay(handler, "GET", PROVIDERS)
+                responses.relay(handler, "GET")
 
                 assert response.isclosed()
                 closed.assert_called_once_with()
@@ -375,7 +372,7 @@ class TestCatalogTransport(InputTransportFixture):
     def test_catalog_byte_limit_preserves_only_admitted_bytes(
         self, status: int, *, overflow: bool, mocker: MockerFixture
     ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
         mocker.patch.object(
             responses,
@@ -411,7 +408,7 @@ class TestCatalogTransport(InputTransportFixture):
                 )
                 closed = mocker.spy(response, "close")
 
-                responses.relay(handler, "GET", PROVIDERS)
+                responses.relay(handler, "GET")
 
                 assert upstream.isclosed()
                 closed.assert_called_once_with()
@@ -442,7 +439,7 @@ class TestCatalogTransport(InputTransportFixture):
         disconnected: bool,
         mocker: MockerFixture,
     ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         handler.close_connection = False
         upstream_socket, peer = socket.socketpair()
         with upstream_socket, peer:
@@ -459,7 +456,7 @@ class TestCatalogTransport(InputTransportFixture):
                 closed = mocker.spy(response, "close")
                 mocker.patch.object(upstream_exchange, "open_readonly", return_value=response)
 
-                responses.relay(handler, "GET", PROVIDERS)
+                responses.relay(handler, "GET")
 
                 assert response.isclosed()
                 closed.assert_called_once_with()
@@ -474,7 +471,7 @@ class TestCatalogTransport(InputTransportFixture):
     def test_catalog_log_failure_still_releases_the_owned_response(
         self, *, mocker: MockerFixture
     ) -> None:
-        handler = MemoryHandler(path="/dmxapi/v1/models")
+        handler = MemoryHandler(path=upstream_path("models"))
         upstream = http_error(403, "denied", b"private-body")
         opened = mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=upstream)
         closed = mocker.spy(upstream, "close")
@@ -483,7 +480,7 @@ class TestCatalogTransport(InputTransportFixture):
         )
 
         with pytest.raises(OSError, match="disk unavailable"):
-            responses.relay(handler, "GET", PROVIDERS)
+            responses.relay(handler, "GET")
 
         assert upstream.fp.closed
         closed.assert_called_once_with()

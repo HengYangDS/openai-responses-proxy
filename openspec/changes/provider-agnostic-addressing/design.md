@@ -156,6 +156,22 @@ path the proxy already refuses; it changes with this contract. AIGW's maintainer
   fallback or policy. DR-0003 is amended as in D2. DR-0002 is unchanged.
 - README, the architecture document, CHANGELOG (`Breaking`), `VERSION` 8.0.0.
 
+### D5. The payload shape and the journey from 7.0.2
+
+The payload of 8.0.0 holds no `providers.toml`. A 7.0.2 listener checks a successor's payload against its own
+inventory, which requires that file, so 7.0.2 cannot hand off to 8.0.0; 8.0.0 does not accept 7.0.2's payload
+manifest either. Shipping an inert manifest for one release would be compatibility code, which the project does not
+keep; 5.0.0 and 6.0.0 met the same choice and answered it the same way.
+
+- 8.0.0 refuses a 7.0.2 installation and changes nothing. 7.0.2's own `uninstall --purge` removes it, and 8.0.0
+  then installs fresh.
+- The release workflow's published-predecessor job proves this journey against the published 7.0.2, in place of
+  the handoff upgrade and the cross-release disposal test, which a predecessor of another payload shape cannot run.
+- The next release, whose predecessor 8.0.0 shares the payload shape, restores both from this Change's parent
+  commit. Its Change owns that.
+
+The maintainer's call under the project's rule against compatibility code, open to the owner's correction.
+
 ## Where issuer-aware state would join
 
 This is not built in 8.0.0. D1's upstream origin is the key that issuer-aware state needs, and there are three
@@ -197,6 +213,9 @@ No other measurement is needed: the projection is unchanged.
 - **Removing the 477 policy on eight days of data.** All of that traffic was DMXAPI; a recurrence costs a
   client-visible error until a response-keyed rule is added.
 - **Reasoning still stripped every turn.** As today; the owner accepted this with Approach 1.
+- **No native rollback across the cutover.** 8.0.0 is installed fresh (D5), so it retains no 7.0.2 generation.
+  The way back is a fresh install of the signed 7.0.2, after the listener has been down for the seconds between
+  purge and install.
 - **Test churn.** 35 test files name a provider. They move to origin-addressed fixtures; the projection tests do not
   change in substance.
 
@@ -205,9 +224,10 @@ No other measurement is needed: the projection is unchanged.
 1. **M4**, done on 2026-11-27; its result is in D2.
 2. **This Change, released as 8.0.0.** Publishing 8.0.0 changes nothing on this host. AIGW's maintainer builds and
    releases AIGW's projection change against the published 8.0.0 and the D3 contract.
-3. **Cutover,** once both are released. The owner is told the window. 8.0.0 is installed, AIGW re-projects, and
-   the owner restarts the Codex processes; conversations are untouched. Installing 8.0.0 before AIGW's release is
-   refused by this plan, because 8.0.0 refuses every URL clients use today.
+3. **Cutover,** once both are released. The owner is told the window. 7.0.2's `uninstall --purge` removes the
+   installation, 8.0.0 is installed fresh (D5), AIGW re-projects, and the owner restarts the Codex processes;
+   conversations are untouched. The listener is down between purge and install. Installing 8.0.0 before AIGW's
+   release is refused by this plan, because 8.0.0 refuses every URL clients use today.
 4. **Acceptance, then archive.** The Change closes after the cutover, so its completion follows AIGW's
    release. The maintainer's call:
    - The owner's own next Codex turns on DMXAPI through the new URL are the live check, read from the proxy log;
@@ -216,8 +236,9 @@ No other measurement is needed: the projection is unchanged.
      URL. Its upstream's own authentication error proves the address, the admission rule and the projection
      without spending tokens.
 
-Rollback: the installer refuses a downgrade, so the way back is the native `openai-responses-proxy rollback` to the
-retained 7.0.2 generation, while it is retained. AIGW projects the old routes again in the same step.
+Rollback: the installer refuses a downgrade, and a fresh 8.0.0 installation retains no 7.0.2 generation (D5). The
+way back is 8.0.0's `uninstall --purge`, then a fresh install of the signed 7.0.2 from its Release; AIGW projects the
+old routes again in the same step.
 
 ## Open Questions
 

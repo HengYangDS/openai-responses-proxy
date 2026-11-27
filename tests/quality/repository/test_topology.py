@@ -315,10 +315,10 @@ class TestArchitectureContracts:
             ),
             "payload-generations": "src/openai_responses_proxy/lifecycle/generation.py",
             "portable-responses": "src/openai_responses_proxy/protocol/replay/projection.py",
-            "provider-adaptation": "src/openai_responses_proxy/providers/registry.py",
             "relay-transport": "src/openai_responses_proxy/relay/exchange.py",
             "request-admission": "src/openai_responses_proxy/relay/admission.py",
             "runtime-configuration": "src/openai_responses_proxy/runtime/config.py",
+            "upstream-addressing": "src/openai_responses_proxy/relay/addressing.py",
         }
         assert policy["external_responsibilities"] == {
             "client-configuration": "client-control-plane",
@@ -331,7 +331,6 @@ class TestArchitectureContracts:
             "cli",
             "lifecycle",
             "protocol",
-            "providers",
             "relay",
             "runtime",
             "serving",
@@ -485,7 +484,6 @@ def test_semantic_packages_are_declarative_and_facade_free() -> None:
         "cli",
         "lifecycle",
         "protocol",
-        "providers",
         "relay",
         "runtime",
         "serving",

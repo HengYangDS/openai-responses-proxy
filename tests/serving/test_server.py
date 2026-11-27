@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import socket
+from email.message import Message
 from typing import TYPE_CHECKING
 
 import pytest
@@ -17,13 +18,10 @@ if TYPE_CHECKING:
 
 
 def test_server_bindings_are_required_and_immutable(*, mocker: MockerFixture) -> None:
-    providers = mocker.sentinel.providers
     bindings = server.Bindings(
         control=control.Bindings(mocker.Mock(return_value={}), mocker.Mock()),
-        providers=providers,
         server_version="dmx/test",
     )
-    assert bindings.providers is providers
     attribute = "server_version"
     with pytest.raises(dataclasses.FrozenInstanceError):
         setattr(bindings, attribute, "dmx/other")
@@ -34,10 +32,12 @@ def test_server_routes_each_method_to_one_owner(
 ) -> None:
     handler = object.__new__(server.Handler)
     bindings = control.Bindings(mocker.Mock(return_value={}), mocker.Mock())
-    providers = mocker.sentinel.providers
     handler.server = mocker.Mock(
-        bindings=server.Bindings(control=bindings, providers=providers, server_version="dmx/test")
+        bindings=server.Bindings(control=bindings, server_version="dmx/test")
     )
+    handler.client_address = ("127.0.0.1", 51234)
+    handler.headers = Message()
+    handler.headers["Host"] = "127.0.0.1:8792"
     # The handoff route also carries the stamp of the accept of the request's connection.
     handler.connection = mocker.sentinel.connection
     accepted_at = handler.server.accepted_at.return_value
@@ -46,14 +46,14 @@ def test_server_routes_each_method_to_one_owner(
     relay = mocker.patch.object(responses, "relay")
     for method, path, owner, arguments in (
         ("do_POST", "/control/handoff", handoff, (bindings,)),
-        ("do_POST", "/control/drain", relay, ("POST", providers)),
-        ("do_POST", "/v1/responses", relay, ("POST", providers)),
+        ("do_POST", "/control/drain", relay, ("POST",)),
+        ("do_POST", "/v1/responses", relay, ("POST",)),
         ("do_GET", "/healthz", status, (bindings,)),
-        ("do_GET", "/v1/responses", relay, ("GET", providers)),
-        ("do_DELETE", "/control/drain", relay, ("DELETE", providers)),
-        ("do_DELETE", "/v1/responses/resp", relay, ("DELETE", providers)),
-        ("do_PATCH", "/v1/responses/resp", relay, ("PATCH", providers)),
-        ("do_PUT", "/v1/responses", relay, ("PUT", providers)),
+        ("do_GET", "/v1/responses", relay, ("GET",)),
+        ("do_DELETE", "/control/drain", relay, ("DELETE",)),
+        ("do_DELETE", "/v1/responses/resp", relay, ("DELETE",)),
+        ("do_PATCH", "/v1/responses/resp", relay, ("PATCH",)),
+        ("do_PUT", "/v1/responses", relay, ("PUT",)),
     ):
         with subtests.test(method=method, path=path):
             for candidate in (handoff, status, relay):

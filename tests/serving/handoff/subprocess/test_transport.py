@@ -47,10 +47,8 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
 
         upstream.push(send)
         port = free_port()
-        root, ctx, _owned = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        root, ctx, _owned = self._installed_fixture(release="1.0.25", port=port)
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         self._cleanups.callback(lambda: terminate_process(child))
         upstream.start()
         argument = "arguments" if call_type == "function_call" else "input"
@@ -68,7 +66,7 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
             ],
         }
         request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/dmxapi/v1/responses",
+            f"http://127.0.0.1:{port}/http/127.0.0.1:{upstream.port}/responses",
             data=json.dumps(
                 {
                     "model": "synthetic",
@@ -133,14 +131,12 @@ class TestRealSubprocessHandoffIntegration(SubprocessFixture):
         upstream.push(send)
         upstream.push(send)
         port = free_port()
-        root, ctx, _owned = self._installed_fixture(
-            release="1.0.25", port=port, upstream_url=upstream.base_url()
-        )
-        child = start_real_proxy(ctx, upstream_url=upstream.base_url(), log_path=root / "proxy.log")
+        root, ctx, _owned = self._installed_fixture(release="1.0.25", port=port)
+        child = start_real_proxy(ctx, log_path=root / "proxy.log")
         self._cleanups.callback(lambda: terminate_process(child))
         upstream.start()
         request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/dmxapi/v1/responses",
+            f"http://127.0.0.1:{port}/http/127.0.0.1:{upstream.port}/responses",
             data=b'{"model":"synthetic","stream":true,"input":[]}',
             headers={"Content-Type": "application/json"},
         )

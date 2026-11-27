@@ -103,7 +103,7 @@ import (
 		}], [for step in #LinuxUserManagerSteps {
 			step & {if: "matrix.platform == '\(#Platforms.linux.release)'"}
 		}], [{
-			name: "Prove published predecessor upgrade and rollback"
+			name: "Prove the journey from the published predecessor"
 			env: {
 				OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS:        "${{ runner.temp }}/candidate-assets"
 				OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: "${{ runner.temp }}/previous-release-asset-trust"

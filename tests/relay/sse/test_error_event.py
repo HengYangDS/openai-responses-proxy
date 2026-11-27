@@ -87,7 +87,9 @@ class TestStreamErrorEvent:
         handler = MemoryHandler()
         reopen = mocker.Mock()
 
-        result = sse.relay(handler, upstream, "/dmxapi/v1/responses", 7, reopen=reopen)
+        result = sse.relay(
+            handler, upstream, "/https/api.example.com/v1/responses", 7, reopen=reopen
+        )
 
         assert handler.output() == _chunked(*before, error) + _FINAL_CHUNK
         assert not getattr(handler, "close_connection", False)
@@ -126,7 +128,7 @@ class TestStreamErrorEvent:
         result = sse.relay(
             handler,
             DirectResponse(_CREATED + error + _DELTA + _COMPLETED),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             11,
         )
 
@@ -138,7 +140,9 @@ class TestStreamErrorEvent:
         unfinished = _error_event().rstrip(b"\n")
         handler = MemoryHandler()
 
-        result = sse.relay(handler, DirectResponse(_DELTA + unfinished), "/dmxapi/v1/responses", 12)
+        result = sse.relay(
+            handler, DirectResponse(_DELTA + unfinished), "/https/api.example.com/v1/responses", 12
+        )
 
         assert handler.output() == _chunked(_DELTA, unfinished) + _FINAL_CHUNK
         assert not getattr(handler, "close_connection", False)
@@ -159,7 +163,7 @@ class TestStreamErrorEvent:
         result = sse.relay(
             handler,
             DirectResponse(_CREATED + _IN_PROGRESS + _FAILED),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             14,
             reopen=reopen,
         )
@@ -188,7 +192,7 @@ class TestStreamErrorEvent:
         sse.relay(
             MemoryHandler(),
             DirectResponse(_error_event(code)),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             8,
         )
 
@@ -227,7 +231,7 @@ class TestStreamErrorEvent:
         raw = b"data: " + json.dumps(event).encode() + b"\n\n"
         handler = MemoryHandler()
 
-        result = sse.relay(handler, DirectResponse(raw), "/dmxapi/v1/responses", 17)
+        result = sse.relay(handler, DirectResponse(raw), "/https/api.example.com/v1/responses", 17)
 
         assert handler.output() == _chunked(raw) + _FINAL_CHUNK
         assert _stream(result)["terminal"] == "error"
@@ -239,7 +243,7 @@ class TestStreamErrorEvent:
         sse.relay(
             MemoryHandler(),
             DirectResponse(_error_event(code)),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             9,
         )
 
@@ -265,14 +269,14 @@ class TestStreamErrorEvent:
         sse.relay(
             MemoryHandler(),
             DirectResponse(_error_event(code)),
-            "/dmxapi/v1/responses",
+            "/https/api.example.com/v1/responses",
             15,
         )
 
         fields = _log_fields(log_path, "sse_terminal")
         assert fields["code"] == logged
         assert fields["events"] == "1"
-        assert fields["path"] == "/dmxapi/v1/responses"
+        assert fields["path"] == "/https/api.example.com/v1/responses"
 
     @pytest.mark.parametrize(
         ("events", "last"),
@@ -293,13 +297,15 @@ class TestStreamErrorEvent:
     ) -> None:
         handler = MemoryHandler()
 
-        result = sse.relay(handler, DirectResponse(b"".join(events)), "/dmxapi/v1/responses", 10)
+        result = sse.relay(
+            handler, DirectResponse(b"".join(events)), "/https/api.example.com/v1/responses", 10
+        )
 
         assert _stream(result)["terminal"] is None
         fields = _log_fields(log_path, "sse_end_without_terminal")
         assert fields["last"] == last
         assert fields["events"] == str(len(events))
-        assert fields["path"] == "/dmxapi/v1/responses"
+        assert fields["path"] == "/https/api.example.com/v1/responses"
         assert "Private-Prose" not in log_path.read_text(encoding="utf-8")
         # A truncated stream is never completed for the client: its connection breaks.
         assert handler.output() == _chunked(*events)
@@ -309,7 +315,7 @@ class TestStreamErrorEvent:
         handler = MemoryHandler()
         upstream = DirectResponse(_DELTA + b"data: {not json\n\n")
 
-        result = sse.relay(handler, upstream, "/dmxapi/v1/responses", 18)
+        result = sse.relay(handler, upstream, "/https/api.example.com/v1/responses", 18)
 
         assert _stream(result)["terminal"] is None
         fields = _log_fields(log_path, "sse_end_without_terminal")
@@ -322,7 +328,7 @@ class TestStreamErrorEvent:
     def test_a_stream_without_events_names_none(self, log_path: Path) -> None:
         handler = MemoryHandler()
 
-        result = sse.relay(handler, DirectResponse(), "/dmxapi/v1/responses", 16)
+        result = sse.relay(handler, DirectResponse(), "/https/api.example.com/v1/responses", 16)
 
         # Nothing was sent, so the exchange owner still answers the client with a failure.
         assert handler.output() == b""

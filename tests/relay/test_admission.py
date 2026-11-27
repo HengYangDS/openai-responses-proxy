@@ -46,7 +46,7 @@ class AdmissionTests:
             return message
 
         for host in ("127.0.0.1:8792", "localhost:8792", "[::1]:8792", "LOCALHOST"):
-            assert admission.is_local_controller("127.0.0.1", headers(Host=host)), host
+            assert admission.is_local_client("127.0.0.1", headers(Host=host)), host
         refused = (
             ("192.0.2.1", headers(Host="127.0.0.1:8792")),
             ("127.0.0.1", headers()),
@@ -56,4 +56,4 @@ class AdmissionTests:
             ("127.0.0.1", headers(Host="127.0.0.1:8792", Origin="null")),
         )
         for address, message in refused:
-            assert not admission.is_local_controller(address, message), (address, message.items())
+            assert not admission.is_local_client(address, message), (address, message.items())

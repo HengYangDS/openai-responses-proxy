@@ -13,7 +13,6 @@ from typing import cast
 import pytest
 
 from openai_responses_proxy.protocol.replay import projection as rewrite
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import exchange as upstream_exchange
@@ -24,6 +23,7 @@ from tests.relay.fixtures import InputTransportFixture
 from tests.relay.fixtures import request
 from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_origin
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from openai_responses_proxy.relay.upstream import UpstreamResponse
 
 ROOT = Path(__file__).resolve().parents[2]
-PROVIDERS = provider_registry.load()
 
 
 class TestInputRecovery(InputTransportFixture):
@@ -210,13 +209,14 @@ class TestInputRecovery(InputTransportFixture):
         ):
             assert response.status == 200
             assert response.read() == success
+            origin = upstream_origin()
 
         logs = capsys.readouterr().err
         assert len(received) == 2
         recovery = received[1]
         assert len(recovery) < len(body)
         assert (
-            f"event=input_variant_dialogue_recovery_accepted provider=dmxapi "
+            f"event=input_variant_dialogue_recovery_accepted upstream={origin} "
             f"bytes={len(received[0])}->{len(recovery)} "
             "retained_messages=2 dropped_input_items=1 "
         ) in logs

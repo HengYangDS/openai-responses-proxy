@@ -13,20 +13,21 @@ from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_path
 
 
 class TestProxyTransport(LoopbackTransportFixture):
     def test_json_depth_failure_returns_local_400_and_keeps_listener_usable(self) -> None:
         body = b'{"input":"private-depth-prompt","metadata":' + b"[" * 100_000 + b"0"
-        raw = (
-            b"POST /aihubmix/v1/responses HTTP/1.1\r\nHost: localhost\r\n"
-            + f"Content-Length: {len(body)}\r\n".encode()
-            + b"Connection: close\r\n\r\n"
-            + body
-        )
         success = b'{"id":"resp_after_rejection","status":"completed"}'
         current = b'{"input":"current","store":false}'
         with running_proxy([(200, success)]) as (port, received):
+            raw = (
+                f"POST {upstream_path()} HTTP/1.1\r\nHost: localhost\r\n".encode()
+                + f"Content-Length: {len(body)}\r\n".encode()
+                + b"Connection: close\r\n\r\n"
+                + body
+            )
             reply = raw_exchange(port, raw)
             assert reply.startswith(b"HTTP/1.1 400 ")
             assert reply.count(b"HTTP/1.1 ") == 1
@@ -35,11 +36,11 @@ class TestProxyTransport(LoopbackTransportFixture):
             assert error["reason"] == "invalid_json"
             assert b"private-depth-prompt" not in reply
             assert received == []
-            with request(port, current, path="/aihubmix/v1/responses") as response:
+            with request(port, current) as response:
                 assert response.read() == success
             assert received == [current]
 
-    def test_same_provider_requests_overlap_without_a_proxy_concurrency_gate(self) -> None:
+    def test_same_upstream_requests_overlap_without_a_proxy_concurrency_gate(self) -> None:
         started = [threading.Event(), threading.Event()]
         release = threading.Event()
         success = b'{"id":"resp_concurrent","status":"completed"}'
@@ -57,7 +58,7 @@ class TestProxyTransport(LoopbackTransportFixture):
         body = b'{"model":"gpt-5.6-terra","stream":false,"input":[]}'
 
         def send(port: int) -> None:
-            with request(port, body, path="/aihubmix/v1/responses") as response:
+            with request(port, body) as response:
                 results.append((response.status, response.read()))
 
         with running_proxy(scripted) as (port, received):
@@ -125,7 +126,7 @@ class TestProxyTransport(LoopbackTransportFixture):
             assert replies[0] == replies[1]
             status, payload = replies[0]
             assert status == 404
-            assert payload["error"]["code"] == "provider_route_not_found"
+            assert payload["error"]["code"] == "upstream_route_invalid"
 
             with request(port, body) as response:
                 assert response.read() == success

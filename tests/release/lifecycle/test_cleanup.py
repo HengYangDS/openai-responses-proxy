@@ -116,7 +116,6 @@ class TestSignedNativeLifecycle:
                 executable.parent,
                 root / "current-assets",
                 version=current_version,
-                upstream_url="http://127.0.0.1:1",
                 key=key,
                 trust=trust,
             )
@@ -206,7 +205,6 @@ class TestSignedNativeLifecycle:
             executable.parent,
             tmp_path / "killed-assets",
             version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
-            upstream_url="http://127.0.0.1:1",
             key=key,
             trust=trust,
         )
@@ -226,9 +224,9 @@ class TestSignedNativeLifecycle:
             if fixture == "signed-install"
             else "    detached = SubprocessFixture()\n"
             "    detached.setup_method()\n"
-            f"    root, ctx, _owned = detached._installed_fixture(release='1.0.25', port={port}, upstream_url='http://127.0.0.1:1')\n"
+            f"    root, ctx, _owned = detached._installed_fixture(release='1.0.25', port={port})\n"
             "    before = native_service_projection(ctx)\n"
-            "    start_real_proxy(ctx, upstream_url='http://127.0.0.1:1', "
+            "    start_real_proxy(ctx, "
             "log_path=root / 'proxy.log')\n"
         )
         source.write_text(

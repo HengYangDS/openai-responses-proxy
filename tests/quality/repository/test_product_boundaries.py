@@ -123,7 +123,6 @@ def test_packages_are_declarations_not_reexport_facades() -> None:
         "cli/__init__.py",
         "lifecycle/__init__.py",
         "protocol/__init__.py",
-        "providers/__init__.py",
         "relay/__init__.py",
         "serving/__init__.py",
     ):

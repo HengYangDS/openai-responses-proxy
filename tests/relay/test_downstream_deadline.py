@@ -12,6 +12,7 @@ from openai_responses_proxy.relay import exchange as upstream_exchange
 from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import request_body
 from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_path
 from tests.serving.handoff.fixtures import wait_until
 
 if TYPE_CHECKING:
@@ -38,9 +39,9 @@ class TestDownstreamWriteDeadline(LoopbackTransportFixture):
                 client.settimeout(5)
                 client.connect(("127.0.0.1", port))
                 client.sendall(
-                    b"POST /dmxapi/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                    b"POST %s HTTP/1.1\r\nHost: 127.0.0.1\r\n"
                     b"Content-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
-                    % (len(body), body)
+                    % (upstream_path().encode(), len(body), body)
                 )
                 assert client.recv(1024).startswith(b"HTTP/1.1 200")
                 stopped_reading = time.monotonic()

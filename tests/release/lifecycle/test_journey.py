@@ -16,6 +16,7 @@ from openai_responses_proxy.lifecycle.supervision import process
 from openai_responses_proxy.lifecycle.transaction import execution as payload_transaction
 from openai_responses_proxy.runtime import config as runtime_config
 from openai_responses_proxy.runtime.process_environment import native_process_environment
+from tests.relay.fixtures import proxy_path
 from tests.release.fixtures import ROOT
 from tests.release.fixtures import native_service_projection
 from tests.release.fixtures import post_response
@@ -77,10 +78,8 @@ class TestSignedNativeLifecycle:
             bundle,
             tmp_path / "current-assets",
             version=current_version,
-            upstream_url=upstream_url,
             key=key,
             trust=trust,
-            preserve_manifest=True,
         )
 
         with ExitStack() as cleanups:
@@ -97,8 +96,6 @@ class TestSignedNativeLifecycle:
                 str(anchor),
                 "--port",
                 str(port),
-                "--upstream-base-url",
-                upstream_url,
                 "--json",
             )
             assert installed["state"] == "installed"
@@ -139,7 +136,9 @@ class TestSignedNativeLifecycle:
                 is True
             )
             upstream.push((200, b'{"id":"ok","status":"completed"}'))
-            assert post_response(port, route="upstream") == b'{"id":"ok","status":"completed"}'
+            assert (
+                post_response(port, proxy_path(upstream_url)) == b'{"id":"ok","status":"completed"}'
+            )
             assert (
                 run_command(executable, environment, "reload", "--port", str(port), "--json")[
                     "new_pid"
@@ -147,7 +146,7 @@ class TestSignedNativeLifecycle:
                 != installed_pid
             )
             upstream.push((200, b'{"id":"after-reload","status":"completed"}'))
-            assert post_response(port, route="upstream") == (
+            assert post_response(port, proxy_path(upstream_url)) == (
                 b'{"id":"after-reload","status":"completed"}'
             )
             stop_native_supervision(ctx)
@@ -167,7 +166,7 @@ class TestSignedNativeLifecycle:
             assert restored["state"] == "running"
             assert restored["service"] == "running"
             upstream.push((200, b'{"id":"after-start","status":"completed"}'))
-            assert post_response(port, route="upstream") == (
+            assert post_response(port, proxy_path(upstream_url)) == (
                 b'{"id":"after-start","status":"completed"}'
             )
             stop_native_supervision(ctx, keep_runtime=True)
@@ -195,7 +194,7 @@ class TestSignedNativeLifecycle:
             assert isinstance(successor, dict)
             assert successor["pid"] == rebound["new_pid"]
             upstream.push((200, b'{"id":"after-rebind","status":"completed"}'))
-            assert post_response(port, route="upstream") == (
+            assert post_response(port, proxy_path(upstream_url)) == (
                 b'{"id":"after-rebind","status":"completed"}'
             )
             write_drifted_native_projection(ctx)
@@ -229,8 +228,6 @@ class TestSignedNativeLifecycle:
                 str(anchor),
                 "--port",
                 str(port),
-                "--upstream-base-url",
-                upstream_url,
                 "--json",
             )
             assert adopted["state"] == "installed"
@@ -263,15 +260,13 @@ class TestSignedNativeLifecycle:
                 str(anchor),
                 "--port",
                 str(port),
-                "--upstream-base-url",
-                upstream_url,
                 "--json",
             )
             assert restored["state"] == "installed"
             resumed = run_command(executable, environment, "status", "--port", str(port), "--json")
             assert (resumed["state"], resumed["service"]) == ("running", "running")
             upstream.push((200, b'{"id":"after-restore","status":"completed"}'))
-            assert post_response(port, route="upstream") == (
+            assert post_response(port, proxy_path(upstream_url)) == (
                 b'{"id":"after-restore","status":"completed"}'
             )
             residue = install / "operator-note.txt"

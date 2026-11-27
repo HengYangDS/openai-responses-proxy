@@ -7,7 +7,6 @@ import urllib.error
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import sse
 from openai_responses_proxy.relay import upstream as upstream_transport
@@ -21,8 +20,7 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-PROVIDERS = provider_registry.load()
-PATH = "/ucloud/v1/responses"
+PATH = "/https/api.example.com/v1/responses"
 CURRENT = b'{"input":"current"}'
 _HISTORY = json.dumps(
     {

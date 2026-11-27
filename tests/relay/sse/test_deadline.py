@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
+from openai_responses_proxy.relay import addressing
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import sse
@@ -28,19 +28,18 @@ COMPLETED = b'data: {"type":"response.completed"}\n\n'
 
 
 def _exchange(handler: MemoryHandler) -> upstream_exchange.Exchange:
-    resolved = provider_registry.load().resolve("/ucloud/v1/responses")
-    assert resolved is not None
-    profile, _, url = resolved
+    target = addressing.resolve("/https/api.example.com/v1/responses")
+    assert target is not None
     return upstream_exchange.Exchange(
         handler=handler,
         method="POST",
         request_id=1,
         body=b'{"input":"current"}',
-        url=url,
+        url=target.url,
         headers={},
         is_responses=True,
         attempt_body=b'{"input":"current","store":false}',
-        profile=profile,
+        target=target,
     )
 
 

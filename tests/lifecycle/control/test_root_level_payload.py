@@ -210,7 +210,6 @@ def test_purge_preserves_every_byte_of_a_payload_at_the_control_root(
     assert {name for name, _ in listing_with_digests(Path(ctx.install_dir))} == {
         "bin",
         inventory.EXECUTABLE,
-        inventory.PROVIDER_MANIFEST,
         inventory.MANIFEST_FILENAME,
         inventory.RELEASE_RECEIPT_FILENAME,
         inventory.RUNTIME_CONFIG_FILENAME,

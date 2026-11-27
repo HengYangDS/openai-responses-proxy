@@ -16,6 +16,9 @@ from openai_responses_proxy.runtime import bounded_log
 from tests.lifecycle.fixtures import assert_private_log_mode
 from tests.relay.fixtures import DirectResponse
 from tests.relay.fixtures import MemoryHandler
+from tests.relay.fixtures import request
+from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -72,6 +75,28 @@ class RuntimeLoggingTests:
         assert "prompt-secret" not in text
         assert "private-transport-secret" not in text
         assert "private-query-secret" not in text
+
+    def test_a_relayed_request_names_its_upstream_origin_and_no_provider(
+        self, tmp_path: Path, *, mocker: MockerFixture
+    ) -> None:
+        log_path = tmp_path / "proxy.log"
+        mocker.patch.object(operational_log, "LOG_PATH", str(log_path))
+        mocker.patch.object(operational_log.sys.stderr, "write")
+        success = b'{"id":"resp_ok","status":"completed"}'
+        with running_proxy([(200, success)]) as (port, _received):
+            operational_log.LOG_PATH = str(log_path)
+            path = upstream_path(query="token=private-query-secret")
+            with request(port, b'{"input":"hello"}', path=path) as response:
+                assert response.read() == success
+            origin = "http://" + path.removeprefix("/http/").split("/responses")[0]
+
+        lines = [
+            line for line in log_path.read_text(encoding="utf-8").splitlines() if " req=" in line
+        ]
+        assert lines
+        assert all(f"upstream={origin} " in line for line in lines)
+        assert not any("provider=" in line for line in lines)
+        assert "private-query-secret" not in log_path.read_text(encoding="utf-8")
 
     def test_labels_and_paths_never_expose_caller_controlled_values(
         self, *, mocker: MockerFixture

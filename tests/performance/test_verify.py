@@ -89,10 +89,6 @@ def _installed_payload(root: Path) -> Path:
         source,
         port=8765,
         release="9.9.9",
-        providers=(
-            'version = 1\n\n[providers.dmxapi]\nbase_url = "https://example.invalid/v1"\n'
-            'policy = "dmxapi"\n'
-        ),
         receipt=b'{"fixture":"verify"}\n',
     )
     return Path(ctx.executable)

@@ -18,7 +18,6 @@ import pytest
 
 from openai_responses_proxy import errors
 from openai_responses_proxy.lifecycle.deployment import handoff as controller
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import downstream
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
 _HANDLER_SECONDS = 10.0
 # Long enough for a controller that leaves at the status to have left, on any host.
 _HELD_SECONDS = 0.3
-_PATH = "/dmxapi/v1/responses"
+_PATH = "/https/upstream.invalid/v1/responses"
 _COMPLETED_JSON = b'{"id":"resp_done","status":"completed","output":[]}'
 _DELTA = b'data: {"type":"response.output_text.delta","delta":"kept"}\n\n'
 _COMPLETED = b'data: {"type":"response.completed"}\n\n'
@@ -135,9 +134,6 @@ def proxy(mocker: MockerFixture) -> Generator[_ObservedServer]:
     bindings = server.Bindings(
         control=control.Bindings(
             runtime_status=lambda: {"status": "serving"}, handoff_context=mocker.Mock()
-        ),
-        providers=provider_registry.Registry(
-            {"dmxapi": provider_registry.Profile("dmxapi", "https://upstream.invalid")}
         ),
         server_version="proxy/test",
     )
@@ -399,8 +395,8 @@ def test_a_reset_before_a_request_body_is_complete_is_a_request_the_client_close
 ) -> None:
     client = socket.create_connection(("127.0.0.1", proxy.server_port), timeout=_HANDLER_SECONDS)
     client.sendall(
-        b"POST /dmxapi/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-        b"Content-Type: application/json\r\nContent-Length: 64\r\n\r\n"
+        f"POST {_PATH} HTTP/1.1\r\nHost: 127.0.0.1\r\n".encode()
+        + b"Content-Type: application/json\r\nContent-Length: 64\r\n\r\n"
         b'{"input":'
     )
     assert proxy.request_parsed.wait(_HANDLER_SECONDS)
@@ -421,7 +417,7 @@ def test_a_reset_after_part_of_a_request_line_writes_no_line(
     proxy: _ObservedServer, log_path: Path
 ) -> None:
     client = socket.create_connection(("127.0.0.1", proxy.server_port), timeout=_HANDLER_SECONDS)
-    client.sendall(b"POST /dmxapi/v1/resp")
+    client.sendall(f"POST {_PATH[:12]}".encode())
     assert proxy.connection_accepted.wait(_HANDLER_SECONDS)
 
     _reset(client)
@@ -501,7 +497,7 @@ def test_a_reset_that_a_write_of_an_admitted_response_meets_is_named_once(
     assert _fields(lines[1]) == {
         "req": "1",
         "event": "downstream_client_closed",
-        "provider": "dmxapi",
+        "upstream": "https://upstream.invalid/v1",
         "path": _PATH,
     }
     # The handler ends the connection: no error leaves it, and it makes no further pass that

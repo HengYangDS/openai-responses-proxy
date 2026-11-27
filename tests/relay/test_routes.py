@@ -1,4 +1,4 @@
-"""Provider route isolation and common projection contracts."""
+"""Upstream addressing, request admission and common projection contracts."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ from openai_responses_proxy.runtime import config
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
+from tests.relay.fixtures import upstream_origin
+from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -31,13 +33,17 @@ def _body(payload: object) -> bytes:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
 
 
-class ProviderRouteTests:
+def _post_line() -> bytes:
+    return b"POST " + upstream_path().encode() + b" HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+
+
+class UpstreamRouteTests:
     def setup_method(self) -> None:
         admission.reset_for_test()
         telemetry.reset_for_test()
         cooldown.reset_for_test()
 
-    def test_new_provider_uses_the_existing_responses_path(self) -> None:
+    def test_a_new_upstream_needs_no_release(self) -> None:
         body = _body(
             {
                 "input": [{"type": "message", "role": "user", "content": "hello"}],
@@ -47,15 +53,15 @@ class ProviderRouteTests:
         success = b'{"id":"resp_new","status":"completed"}'
 
         with (
-            running_proxy([(200, success)], extra_provider="new-gateway") as (port, received),
-            request(port, body, path="/new-gateway/v1/responses") as response,
+            running_proxy([(200, success)]) as (port, received),
+            request(port, body, path=upstream_path(base="/gateway/v1")) as response,
         ):
             assert response.status == 200
             assert response.read() == success
 
         assert received == [body]
 
-    def test_all_three_routes_forward_the_same_portable_body(
+    def test_every_upstream_receives_the_same_portable_body(
         self, subtests: pytest.Subtests
     ) -> None:
         raw = _body(
@@ -108,10 +114,10 @@ class ProviderRouteTests:
         success = b'{"id":"resp_ok","status":"completed"}'
 
         with running_proxy([(200, success)] * 4) as (port, received):
-            for route in ("dmxapi", "ucloud", "aihubmix", "dmxapi"):
+            for base in ("/a/v1", "/b/v1", "/c/v1", "/a/v1"):
                 with (
-                    subtests.test(route=route),
-                    request(port, raw, path=f"/{route}/v1/responses") as response,
+                    subtests.test(base=base),
+                    request(port, raw, path=upstream_path(base=base)) as response,
                 ):
                     assert response.status == 200
                     assert response.read() == success
@@ -140,7 +146,7 @@ class ProviderRouteTests:
             assert output["output"] == [{"type": "input_text", "text": "tool result"}]
             assert trigger == {"type": "compaction_trigger"}
 
-    def test_every_route_projects_a_request_that_keeps_no_state(
+    def test_every_upstream_receives_a_request_that_keeps_no_state(
         self, subtests: pytest.Subtests
     ) -> None:
         # Codex's own stateless form: the client's bytes are never forwarded as they are.
@@ -155,10 +161,10 @@ class ProviderRouteTests:
         success = b'{"id":"resp_ok","status":"completed"}'
 
         with running_proxy([(200, success)] * 3) as (port, received):
-            for route in ("dmxapi", "ucloud", "aihubmix"):
+            for base in ("/a/v1", "/b/v1", "/c/v1"):
                 with (
-                    subtests.test(route=route),
-                    request(port, raw, path=f"/{route}/v1/responses") as response,
+                    subtests.test(base=base),
+                    request(port, raw, path=upstream_path(base=base)) as response,
                 ):
                     assert response.status == 200
 
@@ -168,14 +174,14 @@ class ProviderRouteTests:
         assert payload["include"] == []
         assert payload["input"] == [{"type": "message", "role": "user", "content": "hello"}]
 
-    def test_unknown_route_and_unknown_replay_shape_never_reach_upstream(
+    def test_unaddressed_path_and_unknown_replay_shape_never_reach_upstream(
         self, subtests: pytest.Subtests
     ) -> None:
         with running_proxy([]) as (port, received):
             for path, body, expected_code in (
                 ("/unknown/v1/responses", _body({"input": "hello"}), 404),
                 (
-                    "/ucloud/v1/responses",
+                    upstream_path(),
                     _body({"input": [{"type": "future_item", "opaque": True}]}),
                     400,
                 ),
@@ -191,16 +197,16 @@ class ProviderRouteTests:
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         valid = _body({"input": [{"type": "message", "role": "user", "content": "hello"}]})
-        cases = (
-            ("/ucloud/v1/responses", b"", 400),
-            ("/ucloud/v1/models", valid, 404),
-            ("/ucloud/v1/responsesx", valid, 404),
-            ("/ucloud/v1//responses", valid, 404),
-            ("/ucloud/v1/../admin", valid, 404),
-            ("/ucloud/v1/%2e%2e/admin", valid, 404),
-        )
         log = mocker.patch("openai_responses_proxy.relay.operational_log.log")
         with running_proxy([]) as (port, received):
+            cases = (
+                (upstream_path(), b"", 400),
+                (upstream_path("models"), valid, 404),
+                (upstream_path("responsesx"), valid, 404),
+                (upstream_path(base="/v1/"), valid, 404),
+                (upstream_path(base="/v1/.."), valid, 404),
+                (upstream_path(base="/v1/%2e%2e"), valid, 404),
+            )
             for path, body, status in cases:
                 with subtests.test(path=path):
                     with pytest.raises(urllib.error.HTTPError) as raised:
@@ -217,7 +223,7 @@ class ProviderRouteTests:
         with running_proxy([]) as (port, received):
             for path, method in (
                 ("/unknown/v1/responses", b"POST"),
-                ("/ucloud/v1/models", b"POST"),
+                (upstream_path("models"), b"POST"),
             ):
                 with subtests.test(path=path):
                     wire = raw_exchange(
@@ -256,7 +262,7 @@ class ProviderRouteTests:
         with running_proxy([]) as (port, received):
             wire = raw_exchange(
                 port,
-                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                _post_line()
                 + headers
                 + b"\r\nConnection: keep-alive\r\n\r\n{}"
                 + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
@@ -277,8 +283,7 @@ class ProviderRouteTests:
         with running_proxy([(200, success)], captures=captures) as (port, received):
             wire = raw_exchange(
                 port,
-                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-                b"Content-Length: 17\r\nContent-Type: application/json\r\n\r\n"
+                _post_line() + b"Content-Length: 17\r\nContent-Type: application/json\r\n\r\n"
                 b'{"input":"hello"}'
                 b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
             )
@@ -294,8 +299,7 @@ class ProviderRouteTests:
         with running_proxy([(200, success)]) as (port, received):
             with socket.create_connection(("127.0.0.1", port), timeout=2) as client:
                 client.sendall(
-                    b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-                    b"Content-Length: 18\r\nConnection: close\r\n\r\n"
+                    _post_line() + b"Content-Length: 18\r\nConnection: close\r\n\r\n"
                     b'{"input":"hello"}'
                 )
                 client.shutdown(socket.SHUT_WR)
@@ -318,7 +322,7 @@ class ProviderRouteTests:
         with running_proxy([]) as (port, received):
             wire = raw_exchange(
                 port,
-                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                _post_line()
                 + f"Content-Length: {length}\r\n".encode()
                 + b"Connection: keep-alive\r\n\r\nprivate-unread-content"
                 + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
@@ -342,8 +346,8 @@ class ProviderRouteTests:
         with running_proxy([]) as (port, received):
             with socket.create_connection(("127.0.0.1", port), timeout=1) as client:
                 client.sendall(
-                    b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-                    b"Content-Length: 4096\r\nConnection: close\r\n\r\nprivate-prefix"
+                    _post_line()
+                    + b"Content-Length: 4096\r\nConnection: close\r\n\r\nprivate-prefix"
                 )
 
                 def progress() -> None:
@@ -383,8 +387,8 @@ class ProviderRouteTests:
         with running_proxy([(200, success)]) as (port, received):
             wire = raw_exchange(
                 port,
-                b"POST /ucloud/v1/responses HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-                b"Content-Length: 4096\r\n\r\n"
+                _post_line()
+                + b"Content-Length: 4096\r\n\r\n"
                 + body
                 + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
             )
@@ -397,7 +401,7 @@ class ProviderRouteTests:
         success = b'{"id":"resp_not_admitted","status":"completed"}'
         with running_proxy([(200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path="/ucloud/v1/responses")
+                request(port, body)
             with raised.value as response:
                 assert response.code == 400
                 assert response.headers.get("Retry-After") is None
@@ -408,14 +412,13 @@ class ProviderRouteTests:
             assert b"private-current-prompt" not in raw
             assert received == []
 
-    @pytest.mark.parametrize("route", ["dmxapi", "ucloud", "aihubmix"])
     def test_nonstring_replay_role_is_rejected_before_upstream_io(
-        self, route: str, capsys: pytest.CaptureFixture[str]
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         body = _body({"input": [{"role": [], "content": "private-current-prompt"}]})
         with running_proxy([]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path=f"/{route}/v1/responses")
+                request(port, body)
             with raised.value as response:
                 assert response.code == 400
                 raw = response.read()
@@ -426,66 +429,94 @@ class ProviderRouteTests:
             assert received == []
         assert "Traceback" not in capsys.readouterr().err
 
-    def test_all_three_catalog_routes_relay_once_without_responses_policy(
-        self, subtests: pytest.Subtests
-    ) -> None:
-        payload = b'{"object":"list","data":[]}'
-        captures: list[dict[str, object]] = []
-        with running_proxy([(200, payload)] * 3, captures=captures) as (port, received):
-            for route in ("dmxapi", "ucloud", "aihubmix"):
-                with (
-                    subtests.test(route=route),
-                    request(port, path=f"/{route}/v1/models?limit=1", method="GET") as response,
-                ):
-                    assert response.status == 200
-                    assert response.read() == payload
-        assert received == [b"", b"", b""]
-        assert [capture["method"] for capture in captures] == ["GET", "GET", "GET"]
-        assert [capture["path"] for capture in captures] == ["/models?limit=1"] * 3
-
     def test_catalog_http_error_is_relayed_once_without_responses_recovery(
         self,
     ) -> None:
         payload = b'{"error":{"type":"catalog_denied"}}'
         with running_proxy([(403, payload)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, path="/dmxapi/v1/models", method="GET")
+                request(port, path=upstream_path("models"), method="GET")
             with raised.value as error:
                 assert error.code == 403
                 assert error.read() == payload
         assert received == [b""]
 
-    def test_exhausted_503_cooldown_is_provider_scoped_over_loopback(self) -> None:
+    def test_exhausted_503_cooldown_is_origin_scoped_over_loopback(self) -> None:
         unavailable = _body({"error": {"type": "server_error", "code": "overloaded"}})
         success = b'{"id":"resp_other","status":"completed"}'
         body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
 
         with running_proxy([*[(503, unavailable)] * 4, (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as first:
-                request(port, body, path="/ucloud/v1/responses")
+                request(port, body, path=upstream_path(base="/a/v1"))
             with first.value as error:
                 assert error.code == 503
                 assert error.read() == unavailable
 
             with pytest.raises(urllib.error.HTTPError) as second:
-                request(port, body, path="/ucloud/v1/responses")
+                request(port, body, path=upstream_path(base="/a/v1"))
             with second.value as error:
                 assert error.code == 503
                 assert error.headers["Retry-After"] == "5"
                 assert json.loads(error.read())["error"]["code"] == "provider_unavailable_cooldown"
 
-            with request(port, body, path="/aihubmix/v1/responses") as response:
+            with request(port, body, path=upstream_path(base="/b/v1")) as response:
                 assert response.status == 200
                 assert response.read() == success
 
         assert len(received) == 5
 
+    @pytest.mark.parametrize(
+        "headers",
+        [{"Origin": "https://evil.example"}, {"Host": "evil.example"}],
+        ids=["origin", "host"],
+    )
+    def test_data_request_from_a_web_page_is_refused(self, headers: dict[str, str]) -> None:
+        body = _body({"input": "hello"})
+        with running_proxy([(200, b"{}")]) as (port, received):
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body, path=upstream_path(), headers=headers)
+            with raised.value as error:
+                assert error.code == 403
+            assert received == []
+
+    def test_cooldowns_are_independent_per_origin(self) -> None:
+        limited = _body({"error": {"type": "rate_limit_error", "code": "rate_limited"}})
+        success = b'{"id":"resp_other","status":"completed"}'
+        body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
+
+        with running_proxy([(429, limited), (200, success)]) as (port, received):
+            first, second = upstream_path(base="/a/v1"), upstream_path(base="/b/v1")
+            with pytest.raises(urllib.error.HTTPError) as raised:
+                request(port, body, path=first)
+            with raised.value as error:
+                assert error.code == 429
+            with request(port, body, path=second) as response:
+                assert response.read() == success
+            limited_origin = cooldown.rate_limit_key(upstream_origin(base="/a/v1"))
+            other_origin = cooldown.rate_limit_key(upstream_origin(base="/b/v1"))
+            assert cooldown.has_failure_for_test(limited_origin)
+            assert not cooldown.has_failure_for_test(other_origin)
+
+        assert len(received) == 2
+
+    def test_model_catalog_is_relayed_through_the_upstream_path(self) -> None:
+        payload = b'{"object":"list","data":[]}'
+        captures: list[dict[str, object]] = []
+        with running_proxy([(200, payload)], captures=captures) as (port, received):
+            path = upstream_path("models", query="client_version=0.172")
+            with request(port, path=path, method="GET") as response:
+                assert response.read() == payload
+        assert received == [b""]
+        assert [capture["method"] for capture in captures] == ["GET"]
+        assert [capture["path"] for capture in captures] == ["/v1/models?client_version=0.172"]
+
     def test_http_477_is_relayed_once_without_retry_or_cooldown(self) -> None:
         empty = _body(
             {
                 "error": {
-                    "message": "official provider returned an empty response",
-                    "type": "dmx_api_error",
+                    "message": "the upstream returned an empty response",
+                    "type": "upstream_error",
                     "code": "empty_response",
                 }
             }
@@ -495,12 +526,12 @@ class ProviderRouteTests:
 
         with running_proxy([(477, empty), (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
-                request(port, body, path="/dmxapi/v1/responses")
+                request(port, body)
             with raised.value as error:
                 assert error.code == 477
                 assert error.read() == empty
             assert len(received) == 1
-            with request(port, body, path="/dmxapi/v1/responses") as response:
+            with request(port, body) as response:
                 assert response.read() == success
 
         assert len(received) == 2

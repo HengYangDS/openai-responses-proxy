@@ -498,7 +498,7 @@ jobs:
         name: Bind the runner user systemd environment
         shell: bash
         run: printf '%s\n' "XDG_RUNTIME_DIR=/run/user/${UID}" "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${UID}/bus" >> "$GITHUB_ENV"
-      - name: Prove published predecessor upgrade and rollback
+      - name: Prove the journey from the published predecessor
         env:
           OPENAI_RESPONSES_PROXY_CURRENT_RELEASE_ASSETS: ${{ runner.temp }}/candidate-assets
           OPENAI_RESPONSES_PROXY_PREVIOUS_RELEASE_TRUST_ANCHOR: ${{ runner.temp }}/previous-release-asset-trust

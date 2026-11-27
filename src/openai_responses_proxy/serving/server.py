@@ -16,7 +16,6 @@ import weakref
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
-from typing import TYPE_CHECKING
 from typing import cast
 from typing import override
 
@@ -27,9 +26,6 @@ from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.serving import control
 
-if TYPE_CHECKING:
-    from openai_responses_proxy.providers import registry as provider_registry
-
 type ServerRequest = socket.socket | tuple[bytes, socket.socket]
 type ClientAddress = tuple[str, int] | str
 
@@ -39,7 +35,6 @@ class Bindings:
     """Immutable process dependencies owned by one HTTP server instance."""
 
     control: control.Bindings
-    providers: provider_registry.Registry
     server_version: str
 
 
@@ -173,6 +168,13 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.raw_requestline = b""
 
+    def _relay(self, method: str) -> None:
+        """Relay one data request from a native local client, never from a web page."""
+        if not admission.is_local_client(self.client_address[0], self.headers):
+            self.send_error(403, "data requests are available only to a local native client")
+            return
+        responses.relay(self, method)
+
     def do_POST(self) -> None:
         """Route the handoff control request or relay one upstream request."""
         if self.path == "/control/handoff":
@@ -183,26 +185,26 @@ class Handler(BaseHTTPRequestHandler):
                 accepted_at=listener.accepted_at(self.connection),
             )
         else:
-            responses.relay(self, "POST", self._bindings().providers)
+            self._relay("POST")
 
     def do_GET(self) -> None:
         """Serve local health or relay one upstream GET request."""
         if self.path == "/healthz":
             control.send_status(self, self._bindings().control)
         else:
-            responses.relay(self, "GET", self._bindings().providers)
+            self._relay("GET")
 
     def do_DELETE(self) -> None:
         """Relay one upstream DELETE request."""
-        responses.relay(self, "DELETE", self._bindings().providers)
+        self._relay("DELETE")
 
     def do_PATCH(self) -> None:
         """Relay one upstream PATCH request."""
-        responses.relay(self, "PATCH", self._bindings().providers)
+        self._relay("PATCH")
 
     def do_PUT(self) -> None:
         """Relay one upstream PUT request."""
-        responses.relay(self, "PUT", self._bindings().providers)
+        self._relay("PUT")
 
 
 def server_from_listener(listener: socket.socket, bindings: Bindings) -> ResilientProxyServer:

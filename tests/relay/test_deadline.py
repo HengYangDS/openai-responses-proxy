@@ -10,7 +10,6 @@ from typing import Never
 
 import pytest
 
-from openai_responses_proxy.providers import registry as provider_registry
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import sse
@@ -50,7 +49,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream, "read1", side_effect=late_read)
         handler = MemoryHandler(b'{"input":"current","stream":true}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [504]
         assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
@@ -85,7 +84,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream, "read1", side_effect=late_read)
         handler = MemoryHandler(b'{"input":"current","stream":true}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         if committed:
             assert handler.statuses == [200]
@@ -113,9 +112,9 @@ class TestExchangeDeadline(InputTransportFixture):
             return upstream
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [504]
         assert upstream.closed
@@ -141,9 +140,9 @@ class TestExchangeDeadline(InputTransportFixture):
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
         mocker.patch.object(upstream_exchange.time, "sleep", side_effect=oversleep)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert attempted == pytest.approx([0.7])
         assert handler.statuses == [504]
@@ -179,9 +178,9 @@ class TestExchangeDeadline(InputTransportFixture):
             )
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [504]
         assert upstream.closed
@@ -210,9 +209,9 @@ class TestExchangeDeadline(InputTransportFixture):
             "https://upstream.invalid/v1/responses", 400, "Rejected", upstream.headers, upstream
         )
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=error)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [502]
         payload = json.loads(handler.output())["error"]
@@ -246,9 +245,9 @@ class TestExchangeDeadline(InputTransportFixture):
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
         mocker.patch.object(upstream_exchange.time, "sleep", side_effect=sleep)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert attempts == pytest.approx([0.5])
         assert now[0] - 100.0 <= 0.5
@@ -287,9 +286,9 @@ class TestExchangeDeadline(InputTransportFixture):
             return upstream
 
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
-        handler = MemoryHandler(b'{"input":"current"}', path="/ucloud/v1/responses")
+        handler = MemoryHandler(b'{"input":"current"}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [504]
         assert json.loads(handler.output())["error"]["code"] == "upstream_deadline_exceeded"
@@ -321,7 +320,7 @@ class TestExchangeDeadline(InputTransportFixture):
         mocker.patch.object(upstream_exchange, "urlopen_direct", side_effect=open_headers)
         handler = MemoryHandler(b'{"input":"current","stream":true}')
 
-        responses.relay(handler, "POST", provider_registry.load())
+        responses.relay(handler, "POST")
 
         assert handler.statuses == [200]
         assert handler.output() == b"%X\r\n%s\r\n" % (len(content), content)
