@@ -233,6 +233,6 @@ def test_the_ethos_pin_moves_only_through_ethos() -> None:
     rules = [
         rule
         for rule in _rules(_policy(), "packageRules")
-        if "github:HengYangDS/ethos" in rule.get("matchDepNames", [])
+        if "github:HengYangDS/ethos" in _strings(rule.get("matchDepNames", []))
     ]
     assert [(rule["matchManagers"], rule["enabled"]) for rule in rules] == [(["mise"], False)]

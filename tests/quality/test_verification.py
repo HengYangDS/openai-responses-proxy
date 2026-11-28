@@ -134,8 +134,9 @@ class TestVerificationContracts:
         assert job_scripts
         # Commit admission requires its external trust before it installs anything.
         github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
-        (first, *_) = _mapping(github["commit-admission"])["steps"]
-        preflight = _mapping(first)["run"]
+        steps = _mapping(github["commit-admission"])["steps"]
+        assert isinstance(steps, list)
+        preflight = _mapping(steps[0])["run"]
         for scripts, variables in job_scripts.values():
             if "mise install --locked" in scripts:
                 # A Mise job installs its locked tools first; where the runner supplies Mise, the
