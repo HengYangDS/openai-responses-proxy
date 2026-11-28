@@ -11,7 +11,7 @@ publication authority.
 ### Changed
 
 - Pin OpenSpec 2.2.0, the latest stable release, in place of 2.0.0 as the
-  repository's development tool. Governance's strict validation now warns when
+  repository's development tool. Governance's strict validation now fails when
   a modified requirement grows past 500 characters. The release assets do not
   change.
 
