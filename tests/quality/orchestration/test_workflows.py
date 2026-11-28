@@ -24,10 +24,11 @@ def test_native_developer_uv_uses_only_the_repository_configuration(
     user.mkdir()
     injected = user / "uv.toml"
     injected.write_text('required-version = "==99.0.0"\n')
-    # Where Mise keeps installed tools and their downloads is supply, not configuration: a runner
-    # image moves both off HOME, and without them the child would install every tool again. No
-    # variable that selects a configuration file or a setting is admitted.
-    supply = {"MISE_DATA_DIR", "MISE_CACHE_DIR"}
+    # Where Mise keeps installed tools and their downloads, and which of the declared tools a CI job
+    # installed, are supply, not configuration: a runner image moves the first two off HOME, a job
+    # enables only the tools it needs, and without them the child would install the rest again. No
+    # variable that selects a configuration file or another setting is admitted.
+    supply = {"MISE_DATA_DIR", "MISE_CACHE_DIR", "MISE_ENABLE_TOOLS"}
     host = {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL"}
     environment = {name: value for name, value in os.environ.items() if name in host | supply}
     if injection == "explicit":

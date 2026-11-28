@@ -76,7 +76,8 @@ variable and the source-tree trust script are removed.
   no other cache; `source-and-governance` also keeps its uv cache and runs npm through Mise, because its installs
   are no longer on the image's `PATH`.
 - **Every other Mise job** enables only the tools it declares, so none downloads ETHOS; GitHub's three Mise jobs
-  gain that variable.
+  gain that variable. A test that starts Mise again in a child process passes that selection on, as it passes
+  Mise's data directory, so the child installs nothing its job left out.
 - **Renovate** proposes no change to the ETHOS pin, which moves only as Migration says.
 
 Mise's floor (`min_version`) was held at 2026.10.14 only because ETHOS's source supply ran that Mise. With the supply
