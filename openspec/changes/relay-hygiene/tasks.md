@@ -9,9 +9,10 @@
 
 ## 2. Bounded idle connections
 
-- [x] 2.1 Add tests to `tests/relay/test_connection_reuse.py`: releases beyond 32 in all close the least recently released
-      connection; `Pool.expire` closes connections idle for longer than 30 seconds and leaves no empty address; and
-      the listener's `service_actions` expires the pool. Done when they fail before 2.2 and pass after it.
+- [x] 2.1 Add tests to `tests/relay/test_connection_reuse.py`: releases beyond 32 in all close the least recently
+      released connection; `Pool.expire` closes connections idle for longer than 30 seconds and leaves no empty
+      address; and the listener's `service_actions` expires the pool. Done when they fail before 2.2 and pass after
+      it.
 - [x] 2.2 Bound the pool and call its expiry from `ResilientProxyServer.service_actions` (D2). Done when 2.1's tests
       and the relay and serving tests pass.
 
@@ -38,7 +39,7 @@
 
 - [x] 5.1 Set `VERSION` to 8.0.1 and record the changes under `## [8.0.1]` in `CHANGELOG.md`. Done when the release
       metadata check passes.
-- [ ] 5.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
+- [x] 5.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer.
 - [ ] 5.3 Pass the ETHOS full proof under a host ticket and land on both Forges' `dev`. Done when both `dev` branches
       hold the head and their pipelines are green, `Published release compatibility` included.

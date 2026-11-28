@@ -102,6 +102,8 @@ def test_malformed_targets_are_refused(path: str) -> None:
         ("/https/[0:0:0:0:0:0:0:1]/v1/responses", "https://[::1]/v1"),
         ("/https/[2001:DB8::0:1]:443/v1/responses", "https://[2001:db8::1]/v1"),
         ("/https/my_host.example/v1/responses", "https://my_host.example/v1"),
+        ("/https/api.example.com:/v1/responses", "https://api.example.com/v1"),
+        ("/http/[::1]:/v1/responses", "http://[::1]/v1"),
     ],
 )
 def test_each_upstream_has_one_canonical_origin(path: str, origin: str) -> None:
@@ -132,6 +134,8 @@ def test_the_loopback_rule_reads_the_canonical_host() -> None:
         "/https/127.0.0.01/v1/responses",
         "/https/2130706433/v1/responses",
         "/https/256.0.0.1/v1/responses",
+        "/https/api.example.123/v1/responses",
+        "/https/api.0x1/v1/responses",
         "/https/h..example/v1/responses",
         "/https/h.example./v1/responses",
         "/https/.h.example/v1/responses",

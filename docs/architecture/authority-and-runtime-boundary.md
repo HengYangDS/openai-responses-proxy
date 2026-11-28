@@ -149,6 +149,8 @@ The request path names the upstream; the proxy keeps no registry of upstreams.
   URL the proxy sends. Two spellings of one authority are one origin.
 - Idle upstream connections are bounded by the listener: at most 8 per address
   and 32 in all, each closed about 30 seconds after its last response.
+- A refusal that any web page can cause is counted, logged at most once a
+  minute and never recorded as the last failure.
 
 ## Upstream admission
 

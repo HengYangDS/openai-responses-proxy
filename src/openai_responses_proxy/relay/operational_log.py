@@ -4,17 +4,45 @@ from __future__ import annotations
 
 import re
 import sys
+import threading
+import time
 import urllib.parse
 from contextlib import suppress
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from openai_responses_proxy.runtime import bounded_log
 from openai_responses_proxy.runtime import config as runtime_config
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SETTINGS = runtime_config.load()
 LOG_PATH = SETTINGS.proxy_log.path
 LOG_MAX_BYTES = SETTINGS.proxy_log.max_bytes
 LOG_BACKUP_COUNT = SETTINGS.proxy_log.backup_count
+
+
+class Throttle:
+    """Admit one line per interval for an event that any local web page can repeat at will."""
+
+    def __init__(self, seconds: float, *, clock: Callable[[], float] = time.monotonic) -> None:
+        """Admit the first occurrence at once and then at most one per `seconds`."""
+        self._seconds = seconds
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._last: float | None = None
+        self._pending = 0
+
+    def admit(self) -> int:
+        """Count one occurrence; return how many a line now covers, or 0 while the interval runs."""
+        with self._lock:
+            self._pending += 1
+            now = self._clock()
+            if self._last is not None and now - self._last < self._seconds:
+                return 0
+            self._last, count, self._pending = now, self._pending, 0
+            return count
 
 
 def safe_request_path(value: str) -> str:

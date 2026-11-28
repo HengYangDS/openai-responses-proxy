@@ -116,7 +116,7 @@ Provider credentials and client configuration remain outside this lifecycle.
 A generation of an earlier payload shape is not an upgrade predecessor either.
 8.0.0 removed `providers.toml` from the payload, so it refuses an installation
 of 7.0.2 or earlier and changes nothing: remove that installation with its own
-`uninstall --purge`, then install 8.0.0 into the fresh target.
+`uninstall --purge`, then install the new release into the fresh target.
 
 ## Configure a client route
 
@@ -302,7 +302,10 @@ catalog success and HTTP errors are relayed once without Responses-specific
 transformations. A relayed error, stream or catalog carries the upstream's
 `Server` and `Date` once each, and the proxy adds `Date` only when the upstream
 sent none; a response that the proxy writes itself, a validated non-stream
-Responses body included, carries the proxy's own. Catalog headers, body reads and downstream writes share a
+Responses body included, carries the proxy's own. Fields that belong to one
+connection, every field that `Connection` names included, are not passed on in
+either direction, and a catalog answered with 204 or 304 is relayed without a
+body. Catalog headers, body reads and downstream writes share a
 30-second deadline and an 8 MiB body limit, independent of inference. Expired
 headers return HTTP 504 `catalog_deadline_exceeded`; a failure after commitment
 keeps the admitted prefix and closes without replay or a successful terminator.
@@ -311,10 +314,12 @@ budget to deliver their bounded error, even when upstream time has expired.
 The scheme is `https`, or `http` for a loopback host only; the authority has
 no user information and at most a valid port. The proxy writes each authority
 in one canonical form: a lower-case host, a decimal port without leading zeros,
-no default port for the scheme, and an IPv6 literal in the form of RFC 5952. So
-two spellings of one upstream share its cooldown, connections and log name. Port
-0, zone identifiers, IPvFuture, all-numeric hosts that are not four decimal
-octets, and host names that DNS cannot carry are refused. Encoded path material, dot
+no port when it is empty or the scheme's default, and an IPv6 literal in the
+form of RFC 5952. So two spellings of one upstream share its cooldown,
+connections and log name. Port 0, zone identifiers, IPvFuture, a host whose last
+label is numeric unless it is four decimal octets (such as `127.1` or
+`api.example.123`), and a host name that is not one fully qualified DNS name
+without a trailing dot are refused. Encoded path material, dot
 segments, duplicate separators, absolute targets, fragments, and unrelated
 endpoints are rejected before remote I/O with HTTP 404
 `upstream_route_invalid`, and a method that the named resource does not take
@@ -328,7 +333,9 @@ no `Origin` and no Fetch Metadata (`Sec-Fetch-Site`, `Sec-Fetch-Mode`, `Sec-Fetc
 included, so a web page can neither relay through the proxy nor start a
 handoff. A refused data request receives HTTP 403 with the JSON error envelope
 and the code `local_client_required`; a refused handoff receives the standard
-library's HTTP 403 error page. The
+library's HTTP 403 error page. Because any web page can cause these refusals,
+the proxy counts each data-request refusal but logs at most one line a minute
+for them, and they never replace the last failure in `status --json`. The
 [threat model](docs/architecture/threat-model.md) lists the remaining
 accepted risks.
 

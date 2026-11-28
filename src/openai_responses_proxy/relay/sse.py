@@ -230,7 +230,7 @@ def relay(
     request_id: int,
     reopen: Callable[[float], UpstreamResponse] | None = None,
     *,
-    send_headers: Callable[[], None] | None = None,
+    send_headers: Callable[[UpstreamResponse], None] | None = None,
     accepted: Callable[[], None] | None = None,
     deadline: float | None = None,
 ) -> RelayResult:
@@ -241,11 +241,11 @@ def relay(
     that names the stream's ending, so that a step of the exchange stands before that line.
     """
     headers_sent = False
-    send_headers = send_headers or (lambda: None)
+    send_headers = send_headers or (lambda _stream: None)
 
-    def on_first_write() -> None:
+    def on_first_write(stream: UpstreamResponse) -> None:
         nonlocal headers_sent
-        send_headers()
+        send_headers(stream)
         headers_sent = True
 
     max_attempts = 6 if reopen is not None else 1
@@ -255,7 +255,8 @@ def relay(
 
     def read(stream: UpstreamResponse) -> StreamResult:
         try:
-            return _read_one_stream(handler, stream, on_first_write, deadline)
+            # The client gets the header fields of the stream whose content it receives.
+            return _read_one_stream(handler, stream, lambda: on_first_write(stream), deadline)
         finally:
             _release_upstream(stream)
 

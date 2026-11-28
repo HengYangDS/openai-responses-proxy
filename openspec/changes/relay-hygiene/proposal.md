@@ -9,22 +9,27 @@ predecessor-fixture failure has not been written down.
 
 ## What Changes
 
-- Every upstream origin has one canonical spelling. The proxy folds case, writes the port in decimal, drops the
-  scheme's default port and writes an IPv6 literal in its standard form. It refuses host forms that a resolver
-  reads differently from how they are written, and host names that DNS cannot carry. Cooldowns, pooled
-  connections, log lines and the forwarded URL use that spelling. This also answers M2: the host grammar bounds
-  the host, and the listener's request-line limit already bounds the base path.
+- Every upstream origin has one canonical spelling. The proxy folds case, writes the port in decimal, drops an
+  empty port and the scheme's default port, and writes an IPv6 literal in its standard form. It refuses host forms
+  that a resolver reads differently from how they are written, and host names that are not one fully qualified DNS
+  name without a trailing dot. Cooldowns, pooled connections, log lines and the forwarded URL use that spelling.
+  This also answers M2: the host grammar bounds the host, and the listener's request-line limit already bounds the
+  base path.
 - Idle upstream connections stay bounded however many origins clients name. The pool holds at most 32 in total
   and still at most 8 per origin. The listener's own serve loop closes an idle connection once it is 30 seconds
   old, whether or not another request arrives.
 - A data request from a client that is not local gets a structured 403 error with the code
-  `local_client_required`, and a log line. Before, it got the standard library's HTML page and no log line.
+  `local_client_required`. Before, it got the standard library's HTML page and no log line. Every such refusal is
+  counted; because any web page can cause it, it is logged at most once a minute with a count and does not replace
+  the last failure.
 - Each refusal goes by one name: the error code the client receives. The route counters, failure classes and log
   events now say `upstream_route_invalid` and `upstream_route_method_not_allowed` instead of
   `provider_route_rejected` and `provider_route_method_rejected`.
 - An upstream error, stream or model catalog carries the upstream's `Server` and `Date` once, and the proxy adds
   `Date` only when the upstream sent none. Responses that the proxy writes itself, a validated non-stream body
-  included, keep the proxy's own fields.
+  included, keep the proxy's own fields. No field that belongs to one connection, including every field that
+  `Connection` names, is passed on in either direction; a reopened stream carries its own fields; and a relayed 204
+  or 304 carries no body.
 - `mise run check` stops at its first failing session, so governance, which takes seconds, fails before the slow
   sessions start.
 - CONTRIBUTING requires a change to the payload's shape to list every reader of another release's archive,

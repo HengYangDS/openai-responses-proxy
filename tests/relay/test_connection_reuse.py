@@ -344,6 +344,49 @@ class TestConnectionPool:
         finally:
             _close(held)
 
+    def test_the_total_bound_evicts_by_release_time_not_by_address(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        """An address whose oldest connection expired keeps its place but not its age."""
+        mocker.patch.object(connections, "IDLE_TOTAL", 2)
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        held = [_open_connection() for _ in range(4)]
+        (expired, _), (older, _), (newer, _), (latest, _) = held
+        clock = mocker.patch.object(connections.time, "monotonic", return_value=100.0)
+        try:
+            pool.release(("https", "first.example", 443), expired)
+            clock.return_value = 120.0
+            pool.release(("https", "second.example", 443), older)
+            clock.return_value = 125.0
+            pool.release(("https", "first.example", 443), newer)
+            clock.return_value = 131.0
+            pool.expire()
+            pool.release(("https", "third.example", 443), latest)
+            assert older.sock is None
+            assert newer.sock is not None
+            assert latest.sock is not None
+        finally:
+            _close(held)
+
+    def test_a_failing_close_neither_stops_expiry_nor_escapes_it(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        held = [_open_connection(), _open_connection()]
+        failing, closing = held[0][0], held[1][0]
+        mocker.patch.object(failing, "close", side_effect=OSError("close failed"))
+        clock = mocker.patch.object(connections.time, "monotonic", return_value=100.0)
+        try:
+            pool.release(("https", "a.example", 443), failing)
+            pool.release(("https", "b.example", 443), closing)
+            clock.return_value = 100.0 + connections.IDLE_SECONDS + 1
+            pool.expire()
+            assert closing.sock is None
+            assert pool.idle_for_test() == {}
+        finally:
+            mocker.stopall()
+            _close(held)
+
     def test_expiry_closes_old_idle_connections_and_forgets_their_addresses(
         self, *, mocker: MockerFixture
     ) -> None:

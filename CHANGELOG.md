@@ -24,27 +24,44 @@ publication authority.
   receives: `upstream_route_invalid` and `upstream_route_method_not_allowed`
   replace the counters, failure classes and log events
   `provider_route_rejected` and `provider_route_method_rejected`.
-- `mise run check` stops at its first failing session, so a governance failure
-  ends it in seconds.
+- Every Nox run stops at its first failing session: `mise run check` ends in
+  seconds when governance fails, CI's `quality coverage` jobs skip coverage
+  after a quality failure, and the proof's interpreter matrix stops at its first
+  failing interpreter.
+- Host spellings that 8.0.0 admitted are refused with HTTP 404
+  `upstream_route_invalid`: a host whose last label is numeric unless it is four
+  decimal octets (such as `127.1`, `0x7f.0.0.1` or `api.example.123`), and a
+  name with a trailing dot (such as `api.example.com.`). Write the address in
+  full, or the name without the dot.
 
 ### Fixed
 
 - Each upstream has one origin. The proxy writes the authority with a
-  lower-case host, a decimal port without leading zeros, no default port and an
-  IPv6 literal in the form of RFC 5952, so two spellings of one upstream share
-  one cooldown, one set of pooled connections and one name in log lines. It
-  refuses port 0, zone identifiers, IPvFuture, all-numeric hosts that are not
-  four decimal octets (such as `127.1`) and host names that DNS cannot carry,
-  with HTTP 404 `upstream_route_invalid`.
+  lower-case host, a decimal port without leading zeros, no port when it is
+  empty or the scheme's default, and an IPv6 literal in the form of RFC 5952,
+  so two spellings of one upstream share one cooldown, one set of pooled
+  connections and one name in log lines. It refuses port 0, zone identifiers,
+  IPvFuture, and host names with an empty label, a label longer than 63 octets
+  or more than 253 octets in all, with HTTP 404 `upstream_route_invalid`.
 - Idle upstream connections stay bounded however many origins clients name: at
   most 8 per address and 32 in all, and the listener closes each one about 30
-  seconds after its last response, whether or not another request follows.
+  seconds after its last response, whether or not another request follows. A
+  socket error while closing one cannot stop the listener.
 - A data request from a client that is not local gets HTTP 403 with the JSON
   error envelope and the code `local_client_required` instead of the standard
-  library's HTML page, and the refusal is logged and counted.
+  library's HTML page. Each refusal is counted; because any web page can cause
+  one, the proxy logs at most one line a minute with the number refused, and
+  the refusal never replaces the last failure in `status --json`.
 - A relayed error, stream or model catalog carries the upstream's `Server` and
   `Date` once each instead of both the proxy's and the upstream's; the proxy
   adds `Date` only when the upstream sent none.
+- Fields that belong to one connection are not passed on in either direction:
+  every field that `Connection` names and `Trailer` are now dropped as well.
+- A stream reopened before content carries the header fields of the reopened
+  upstream response instead of those of the attempt that failed.
+- A model catalog answered with 204 or 304 is relayed without a body or chunked
+  framing, so a kept-alive client no longer reads a stray last chunk as the
+  start of its next response.
 
 ## [8.0.0] - 2026-11-27
 

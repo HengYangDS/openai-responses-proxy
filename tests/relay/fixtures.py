@@ -148,6 +148,10 @@ def serve_proxy(
                 assert isinstance(content_type, str)
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
+                fields = response.get("headers", {})
+                assert isinstance(fields, Mapping)
+                for name, value in fields.items():
+                    self.send_header(str(name), str(value))
                 if stall is None:
                     self.send_header("Connection", "close")
                 else:

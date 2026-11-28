@@ -93,7 +93,8 @@ def _canonical_authority(scheme: str, authority: str) -> tuple[str, str] | None:
         host = written = _name_or_ipv4(literal.lower())
     if host is None or written is None:
         return None
-    if not rest:
+    # RFC 3986, section 6.2.3: an empty port is the scheme's default.
+    if rest in {"", ":"}:
         return host, written
     digits = rest.removeprefix(":")
     if len(digits) == len(rest) or not digits.isascii() or not digits.isdecimal():

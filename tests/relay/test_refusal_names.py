@@ -8,8 +8,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from openai_responses_proxy.relay import operational_log
+from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
 from tests.relay.fixtures import json_body
+from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 from tests.relay.fixtures import upstream_path
@@ -18,6 +21,20 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
+
+
+@pytest.fixture(autouse=True)
+def refusal_clock(mocker: MockerFixture) -> list[float]:
+    """Give each test its own refusal log interval on a clock that it moves."""
+    clock = [100.0]
+    mocker.patch.object(
+        responses,
+        "_LOCAL_CLIENT_REFUSAL_LOG",
+        operational_log.Throttle(
+            responses.LOCAL_CLIENT_REFUSAL_LOG_SECONDS, clock=lambda: clock[0]
+        ),
+    )
+    return clock
 
 
 def _counters() -> dict[str, object]:
@@ -85,3 +102,49 @@ class RefusalNameTests:
             assert sum(f"event={code} " in event for event in events) == 1
             assert counters[code] == 1
         assert not [name for name in counters if name.startswith("provider_route")]
+
+    def test_repeated_refusals_log_once_per_interval_and_keep_the_last_failure(
+        self, *, mocker: MockerFixture, refusal_clock: list[float]
+    ) -> None:
+        """A web page can repeat this refusal, so it neither floods the log nor hides a fault."""
+        telemetry.reset_for_test()
+        log = mocker.patch("openai_responses_proxy.relay.operational_log.log")
+        page = {"Origin": "https://evil.example"}
+        interval = responses.LOCAL_CLIENT_REFUSAL_LOG_SECONDS
+        with running_proxy([]) as (port, received):
+            for moment in (100.0, 110.0, 120.0, 100.0 + interval):
+                refusal_clock[0] = moment
+                with pytest.raises(urllib.error.HTTPError) as raised:
+                    request(port, json_body({"input": "hello"}), path=upstream_path(), headers=page)
+                raised.value.close()
+            assert received == []
+        events = _events(log)
+        assert [event.split(" refused=")[1].split(" ")[0] for event in events] == ["1", "3"]
+        assert all(" event=local_client_required " in f" {event} " for event in events)
+        assert _counters()["local_client_required"] == 4
+        status = telemetry.status(
+            release="test",
+            serving_payload_sha256=None,
+            release_receipt_sha256=None,
+            admission={},
+            runtime_identity={},
+        )
+        assert status["last_failure"] is None
+
+    def test_a_refused_web_page_cannot_smuggle_a_second_request(self) -> None:
+        body = b'{"ignored":true}'
+        with running_proxy([]) as (port, received):
+            wire = raw_exchange(
+                port,
+                b"POST "
+                + upstream_path().encode()
+                + b" HTTP/1.1\r\nHost: 127.0.0.1\r\nOrigin: https://evil.example\r\n"
+                + b"Content-Length: "
+                + str(len(body)).encode()
+                + b"\r\n\r\n"
+                + body
+                + b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            )
+            assert received == []
+        assert wire.count(b"HTTP/1.1 ") == 1
+        assert wire.startswith(b"HTTP/1.1 403 ")

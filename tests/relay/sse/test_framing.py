@@ -224,7 +224,7 @@ class TestSseFraming(InputTransportFixture):
             DirectResponse(plaintext + encrypted),
             "/https/api.example.com/v1/responses",
             1,
-            send_headers=lambda: None,
+            send_headers=lambda _stream: None,
         )
 
         assert not result["pre_content_exhausted"]
@@ -276,7 +276,7 @@ class TestSseFraming(InputTransportFixture):
             DirectResponse(malformed),
             "/https/api.example.com/v1/responses",
             1,
-            send_headers=lambda: None,
+            send_headers=lambda _stream: None,
         )
 
         assert result["pre_content_exhausted"]
@@ -311,7 +311,7 @@ class TestSseFraming(InputTransportFixture):
             DirectResponse(content + rejected),
             "/https/api.example.com/v1/responses?prompt=private-query",
             40032,
-            send_headers=lambda: None,
+            send_headers=lambda _stream: None,
             reopen=reopen,
         )
 
@@ -384,7 +384,7 @@ class TestSseFraming(InputTransportFixture):
         handler = MemoryHandler()
         sent = 0
 
-        def mark_headers() -> None:
+        def mark_headers(_stream: object) -> None:
             nonlocal sent
             sent += 1
 

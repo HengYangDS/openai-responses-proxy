@@ -4,19 +4,26 @@ from __future__ import annotations
 
 import urllib.error
 from typing import TYPE_CHECKING
+from typing import cast
 
 import pytest
 
 from openai_responses_proxy import product_identity
+from openai_responses_proxy.relay import sse
 from tests.relay.fixtures import UPSTREAM_DATE
 from tests.relay.fixtures import UPSTREAM_SERVER
+from tests.relay.fixtures import DirectResponse
+from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import json_body
+from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
 from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
     from email.message import Message
+
+    from pytest_mock import MockerFixture
 
 
 class RelayedHeaderTests:
@@ -63,3 +70,65 @@ class RelayedHeaderTests:
             with request(port, json_body({"input": "hello", "stream": True})) as response:
                 response.read()
                 self._single_upstream_fields(response.headers)
+
+
+class RelayedFramingTests:
+    """A relayed response carries only end-to-end fields and the framing that its status allows."""
+
+    def test_a_reconnected_stream_carries_the_fields_of_the_stream_it_delivers(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        failed = (
+            b'data: {"type":"response.failed","response":{"error":{"code":"server_error"}}}\n\n'
+        )
+        reopened = DirectResponse(b'data: {"type":"response.completed"}\n\n')
+        send_headers = mocker.Mock()
+        mocker.patch.object(sse.time, "sleep", return_value=None)
+        sse.relay(
+            MemoryHandler(),
+            DirectResponse(failed),
+            "/v1/responses",
+            1,
+            reopen=mocker.Mock(return_value=reopened),
+            send_headers=send_headers,
+        )
+        send_headers.assert_called_once_with(reopened)
+
+    def test_fields_that_connection_names_stay_on_their_hop(self) -> None:
+        catalog = {
+            "status": 200,
+            "content_type": "application/json",
+            "chunks": [b'{"object":"list","data":[]}'],
+            "headers": {"Connection": "x-hop", "X-Hop": "1", "Trailer": "X-Sum", "X-Kept": "1"},
+        }
+        captures: list[dict[str, object]] = []
+        with running_proxy([catalog], captures=captures) as (port, _):
+            wire = raw_exchange(
+                port,
+                b"GET "
+                + upstream_path("models").encode()
+                + b" HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close, x-private\r\n"
+                + b"X-Private: secret\r\nX-Shared: 1\r\n\r\n",
+            )
+        head = wire.partition(b"\r\n\r\n")[0].lower()
+        assert b"\r\nx-kept: 1" in head
+        assert b"x-hop" not in head
+        assert b"trailer" not in head
+        (capture,) = captures
+        sent = {str(name).lower() for name in cast("dict[str, str]", capture["headers"])}
+        assert "x-shared" in sent
+        assert "x-private" not in sent
+
+    @pytest.mark.parametrize("status", [204, 304])
+    def test_a_bodiless_status_is_relayed_without_a_body(self, status: int) -> None:
+        with running_proxy([{"status": status}]) as (port, _):
+            wire = raw_exchange(
+                port,
+                b"GET "
+                + upstream_path("models").encode()
+                + b" HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            )
+        head, _, body = wire.partition(b"\r\n\r\n")
+        assert head.startswith(f"HTTP/1.1 {status} ".encode())
+        assert b"transfer-encoding" not in head.lower()
+        assert body == b""

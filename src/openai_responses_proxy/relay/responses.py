@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 _SETTINGS = runtime_config.load()
 # A request body at least this large is logged as a large request.
 _LARGE_REQUEST_BYTES = 400_000
+# Any web page can send the local-client refusal at will, so its log line covers an interval.
+LOCAL_CLIENT_REFUSAL_LOG_SECONDS = 60.0
+_LOCAL_CLIENT_REFUSAL_LOG = operational_log.Throttle(LOCAL_CLIENT_REFUSAL_LOG_SECONDS)
 
 
 def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
@@ -66,41 +69,55 @@ def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
     return True
 
 
-def _refuse(
-    handler: BaseHTTPRequestHandler,
-    request_id: int,
-    status: int,
-    code: str,
-    message: str,
-    *,
-    detail: str = "",
-) -> None:
-    """Refuse one data request locally, under one name, without reading its body.
+def _send_refusal(handler: BaseHTTPRequestHandler, status: int, code: str, message: str) -> None:
+    """Count one local refusal under its error code and answer it without reading the body.
 
-    The error code names the refusal for the client, the counter, the failure class and the log
-    line alike. The response closes the connection, so an unread body is never parsed as a request.
+    The response closes the connection, so an unread body is never parsed as a request.
     """
     telemetry.record_counter(code)
-    telemetry.record_failure(code)
     downstream.send_payload(
         handler,
         status,
         replay_response.error_payload(message, "invalid_request_error", code),
         close=True,
     )
+
+
+def _refuse_route(
+    handler: BaseHTTPRequestHandler,
+    request_id: int,
+    code: str,
+    message: str,
+    *,
+    detail: str = "",
+) -> None:
+    """Refuse a local client's route; its error code is also its failure class and log event."""
+    telemetry.record_failure(code)
+    _send_refusal(handler, 404, code, message)
     operational_log.log(
         f"req={request_id} event={code} {detail}"
         f"path={operational_log.safe_request_path(handler.path)}"
     )
 
 
+def _refuse_non_local(handler: BaseHTTPRequestHandler, request_id: int) -> None:
+    """Refuse a client that is not local, which any web page can make the proxy do at will.
+
+    Every refusal is counted, but it is not a failure of the proxy or an upstream, so it leaves the
+    last failure as it was, and one log line covers each interval with the number refused in it.
+    """
+    code = "local_client_required"
+    _send_refusal(handler, 403, code, "data requests are available only to a local native client")
+    if refused := _LOCAL_CLIENT_REFUSAL_LOG.admit():
+        operational_log.log(
+            f"req={request_id} event={code} refused={refused} "
+            f"path={operational_log.safe_request_path(handler.path)}"
+        )
+
+
 def _request_headers(handler: BaseHTTPRequestHandler) -> dict[str, str]:
     """Return the shared upstream header projection for supported routes."""
-    headers = {
-        name: value
-        for name, value in handler.headers.items()
-        if name.lower() not in downstream.HOP_BY_HOP
-    }
+    headers = dict(downstream.end_to_end_fields(handler.headers))
     headers["Accept-Encoding"] = "identity"
     return headers
 
@@ -182,20 +199,13 @@ def relay(handler: BaseHTTPRequestHandler, method: str) -> None:
     """Relay one data request from a native local client to the upstream that its path names."""
     request_id = admission.next_request_id()
     if not admission.is_local_client(handler.client_address[0], handler.headers):
-        _refuse(
-            handler,
-            request_id,
-            403,
-            "local_client_required",
-            "data requests are available only to a local native client",
-        )
+        _refuse_non_local(handler, request_id)
         return
     target = addressing.resolve(handler.path)
     if target is None:
-        _refuse(
+        _refuse_route(
             handler,
             request_id,
-            404,
             "upstream_route_invalid",
             "request path does not name an upstream Responses or model-catalog target",
         )
@@ -203,10 +213,9 @@ def relay(handler: BaseHTTPRequestHandler, method: str) -> None:
     is_responses = method == "POST" and target.resource == "responses"
     is_catalog = method == "GET" and target.resource == "models"
     if not (is_responses or is_catalog):
-        _refuse(
+        _refuse_route(
             handler,
             request_id,
-            404,
             "upstream_route_method_not_allowed",
             "request method is not supported for the named upstream resource",
             detail=f"method={method} ",

@@ -25,19 +25,43 @@ if TYPE_CHECKING:
     from openai_responses_proxy.relay.upstream import ResponseHeaders
     from openai_responses_proxy.relay.upstream import UpstreamResponse
 
-HOP_BY_HOP = {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailers",
-    "transfer-encoding",
-    "upgrade",
-    "host",
-    "content-length",
-    "accept-encoding",
-}
+# Fields that belong to one connection (RFC 9110, section 7.6.1) and fields that each side frames
+# or negotiates for itself, so the proxy never passes them on in either direction.
+HOP_BY_HOP = frozenset(
+    {
+        "connection",
+        "proxy-connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailer",
+        "transfer-encoding",
+        "upgrade",
+        "host",
+        "content-length",
+        "accept-encoding",
+    }
+)
+# Statuses whose response never carries a body (RFC 9110, sections 15.3.5 and 15.4.5).
+_BODILESS_STATUSES = frozenset({204, 304})
+
+
+def end_to_end_fields(headers: ResponseHeaders) -> list[tuple[str, str]]:
+    """Return the fields to pass on: none of HOP_BY_HOP and none that `Connection` names."""
+    named = {
+        option.strip().lower()
+        for name, value in headers.items()
+        if name.lower() == "connection"
+        for option in value.split(",")
+    }
+    return [
+        (name, value)
+        for name, value in headers.items()
+        if name.lower() not in HOP_BY_HOP and name.lower() not in named
+    ]
+
+
 MAX_RESPONSES_JSON_BYTES = 8 * 1024 * 1024
 # A client that closes or resets its connection ends a read or a write with one of these.
 CLIENT_CLOSED = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
@@ -163,10 +187,9 @@ def _send_relayed_fields(
     """
     handler.send_response_only(status)
     dated = False
-    for name, value in headers.items():
-        if name.lower() not in HOP_BY_HOP:
-            handler.send_header(name, value)
-            dated = dated or name.lower() == "date"
+    for name, value in end_to_end_fields(headers):
+        handler.send_header(name, value)
+        dated = dated or name.lower() == "date"
     if not dated:
         handler.send_header("Date", handler.date_time_string())
 
@@ -203,7 +226,7 @@ def relay_sse(exchange: Exchange, response: UpstreamResponse) -> None:
             exchange.handler.path,
             exchange.request_id,
             reopen=None if exchange.used_input_variant_dialogue else reopen,
-            send_headers=lambda: _send_stream_headers(exchange.handler, response),
+            send_headers=lambda delivered: _send_stream_headers(exchange.handler, delivered),
             accepted=exchange.input_variant_accepted,
             deadline=exchange.deadline,
         )
@@ -331,6 +354,10 @@ def relay_readonly_body(
     remaining_bytes = max_bytes
     try:
         _arm_write_timeout(handler, deadline, previous_timeout)
+        if response.status in _BODILESS_STATUSES:
+            _send_relayed_fields(handler, response.status, response.headers)
+            handler.end_headers()
+            return
         _send_stream_headers(handler, response)
         while True:
             chunk, terminal = _read_chunk(response, deadline, min(8192, remaining_bytes + 1))

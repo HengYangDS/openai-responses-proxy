@@ -364,7 +364,7 @@ class TestSseRecovery(InputTransportFixture):
             DirectResponse(b'data: {"type": "response.incomplete"}\n\n'),
             "/v1/responses",
             2,
-            send_headers=lambda: None,
+            send_headers=lambda _stream: None,
         )
         assert not result["pre_content_exhausted"]
         assert handler.output().endswith(b"0\r\n\r\n")

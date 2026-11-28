@@ -13,6 +13,7 @@ every connection idle for longer than `IDLE_SECONDS` and forgets addresses left 
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import selectors
 import ssl
@@ -68,20 +69,18 @@ class Pool[C: Reusable]:
                     del self._idle[address]
             if time.monotonic() - since <= IDLE_SECONDS and _idle_and_open(connection):
                 return connection
-            connection.close()
+            _close(connection)
 
     def release(self, address: Address, connection: C) -> None:
         """Keep a connection whose response completed, within the per-address and total bounds."""
         evicted: C | None = connection
         with self._lock:
-            idle = self._idle.setdefault(address, [])
+            idle = self._idle.get(address, [])
             if len(idle) < IDLE_PER_ADDRESS:
-                idle.append((time.monotonic(), connection))
+                self._idle[address] = [*idle, (time.monotonic(), connection)]
                 evicted = self._evict_oldest_locked() if self._count_locked() > IDLE_TOTAL else None
-            elif not idle:
-                del self._idle[address]
         if evicted is not None:
-            evicted.close()
+            _close(evicted)
 
     def expire(self) -> None:
         """Close every connection idle for longer than `IDLE_SECONDS` and forget empty addresses."""
@@ -100,7 +99,7 @@ class Pool[C: Reusable]:
                 else:
                     del self._idle[address]
         for connection in expired:
-            connection.close()
+            _close(connection)
 
     def clear(self) -> None:
         """Close every idle connection."""
@@ -108,7 +107,7 @@ class Pool[C: Reusable]:
             idle, self._idle = self._idle, {}
         for entries in idle.values():
             for _, connection in entries:
-                connection.close()
+                _close(connection)
 
     def idle_for_test(self) -> dict[Address, int]:
         """Expose only the number of idle connections per address for bounded-state tests."""
@@ -133,6 +132,15 @@ class Pool[C: Reusable]:
         if not idle:
             del self._idle[address]
         return connection
+
+
+def _close(connection: Reusable) -> None:
+    """Close an idle connection; a socket error on close leaves nothing to keep or retry.
+
+    The listener's serve loop runs `Pool.expire`, so an error escaping it would stop the listener.
+    """
+    with contextlib.suppress(OSError):
+        connection.close()
 
 
 def _idle_and_open(connection: Reusable) -> bool:
