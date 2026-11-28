@@ -21,4 +21,5 @@
 - [x] 3.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer. Reviewed on 2026-11-28 at `fe3c78ea`; its ten findings are answered in this Change's documents and
       `CHANGELOG.md`.
-- [ ] 3.3 Pass the ETHOS full proof under a host ticket. Done when the proof of the lane head passes.
+- [x] 3.3 Pass the ETHOS full proof under a host ticket. Done when the proof of the lane head passes. `32882964`
+      passed (attestation `d841ca04`).
