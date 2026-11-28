@@ -44,9 +44,11 @@
       `network-provider-route` control and the provider names in the performance tools (D1). Done when 5.1's tests
       and the lifecycle, CLI, release, performance and quality tests pass. Passed; `providers.toml` left with 3.2,
       since deleting `providers/` removes the manifest.
-- [ ] 5.3 Prove the journey from the published 7.0.2: this release refuses its installation and changes nothing, 7.0.2's
+- [x] 5.3 Prove the journey from the published 7.0.2: this release refuses its installation and changes nothing, 7.0.2's
       `uninstall --purge` removes it, and this release installs fresh and relays by origin (D5). Done when the
-      release compatibility session passes against the published 7.0.2.
+      release compatibility session passes against the published 7.0.2. Passed on macOS arm64 and Linux x86_64 in
+      the hosted check of the release commit; it first failed because its fixture admitted 7.0.2 with this
+      release's installer, and the fixture now proves the predecessor by its signed checksums.
 
 ## 6. Documents and release metadata
 
@@ -58,23 +60,29 @@
 
 ## 7. Verification and release
 
-- [ ] 7.1 Run the full local checks; no provider name remains in `src`, `tests` or `tools`. Done when they pass.
+- [x] 7.1 Run the full local checks; no provider name remains in `src`, `tests` or `tools`. Done when they pass.
+      The ETHOS full proof passed on the release commit, and the native build passed its 53 native tests; no
+      provider name remains.
 - [x] 7.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer. Answered: a browser navigation without `Origin` passed the local-client rule, now refused by its
       Fetch Metadata; a real 7.0.2 installation got a refusal that read like corruption, now the manifest schema is 3
       and the refusal names the removal; task 8.1 now starts with the purge. Seven minor findings wait for the
       owner's call at the close.
-- [ ] 7.3 Pass the ETHOS full proof under a host ticket and land on both forges. Done when both forges' `dev` and
-      `main` hold the release commit.
-- [ ] 7.4 Publish the signed tag `v8.0.0` and the Releases on both forges. Done when both Releases list the bundle.
-- [ ] 7.5 Hand AIGW's maintainer the D3 contract. Done when AIGW's change is released.
+- [x] 7.3 Pass the ETHOS full proof under a host ticket and land on both forges. Done when both forges' `dev` and
+      `main` hold the release commit. Both hold it, with every pipeline green.
+- [x] 7.4 Publish the signed tag `v8.0.0` and the Releases on both forges. Done when both Releases list the bundle.
+      Both list the same six assets, byte for byte.
+- [x] 7.5 Hand AIGW's maintainer the D3 contract. Done when AIGW's change is released. AIGW 0.12.0 composes the
+      base URL from each provider's own endpoint.
 
 ## 8. Cutover and acceptance
 
-- [ ] 8.1 After AIGW's release, in a window the owner is told first, remove 7.0.2 with its own `uninstall --purge`
+- [x] 8.1 After AIGW's release, in a window the owner is told first, remove 7.0.2 with its own `uninstall --purge`
       and install 8.0.0 fresh (D5). Done when `status --json` reports 8.0.0 and AIGW has re-projected the base URLs.
-- [ ] 8.2 Accept: the owner's next DMXAPI turns are logged with `upstream=https://www.dmxapi.cn/v1`, projected and
+      Done on 2026-11-28; the listener was down for about 11 seconds.
+- [x] 8.2 Accept: the owner's next DMXAPI turns are logged with `upstream=https://www.dmxapi.cn/v1`, projected and
       completed; one request without a token to each other origin reaches that upstream's own authentication error.
-      Done when all four are recorded.
-- [ ] 8.3 Rewrite the specification's Purpose in upstream terms, then archive the Change. Done when
+      Done when all four are recorded. All four origins answered with their own 401, and the owner's first DMXAPI
+      turn was projected and completed.
+- [x] 8.3 Rewrite the specification's Purpose in upstream terms, then archive the Change. Done when
       `openspec validate --specs --strict` passes after the archive.

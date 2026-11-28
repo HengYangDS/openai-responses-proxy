@@ -3,8 +3,8 @@
 ## Purpose
 
 Provide one fail-closed Responses compatibility boundary that makes stored
-Codex dialogue replayable across the governed provider routes without
-changing the conversation record itself.
+Codex dialogue replayable across any upstream origin that a local client
+names, without changing the conversation record itself.
 
 ## Requirements
 
