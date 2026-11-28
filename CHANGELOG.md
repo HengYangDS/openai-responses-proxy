@@ -8,13 +8,6 @@ publication authority.
 
 ## [Unreleased]
 
-### Changed
-
-- Pin OpenSpec 2.2.0, the latest stable release, in place of 2.0.0 as the
-  repository's development tool. Governance's strict validation now fails when
-  a modified requirement grows past 500 characters. The release assets do not
-  change.
-
 ## [8.0.1] - 2026-11-28
 
 ### Changed
@@ -40,6 +33,10 @@ publication authority.
   decimal octets (such as `127.1`, `0x7f.0.0.1` or `api.example.123`), and a
   name with a trailing dot (such as `api.example.com.`). Write the address in
   full, or the name without the dot.
+- Pin OpenSpec 2.2.0, the latest stable release, in place of 2.0.0 as the
+  repository's development tool. Governance's strict validation now fails when
+  a modified requirement grows past 500 characters. The release assets do not
+  change.
 
 ### Fixed
 
