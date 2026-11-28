@@ -24,5 +24,5 @@
 
 - [x] 4.1 Answer one fresh independent review of the whole Change in code or design. Done when every finding has
       an answer.
-- [ ] 4.2 Pass the ETHOS full proof under a host ticket and land on both Forges' `dev`; both commit-admission jobs
+- [x] 4.2 Pass the ETHOS full proof under a host ticket and land on both Forges' `dev`; both commit-admission jobs
       pass on the landed commit. Done when GitHub's and GitLab's `dev` hold it with those jobs green.
