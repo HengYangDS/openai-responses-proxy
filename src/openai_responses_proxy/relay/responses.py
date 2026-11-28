@@ -66,28 +66,30 @@ def _cooldown_active(exchange: upstream_exchange.Exchange) -> bool:
     return True
 
 
-def _reject_route(
-    handler: BaseHTTPRequestHandler, request_id: int, method: str | None = None
+def _refuse(
+    handler: BaseHTTPRequestHandler,
+    request_id: int,
+    status: int,
+    code: str,
+    message: str,
+    *,
+    detail: str = "",
 ) -> None:
-    """Reject one unsupported route without retaining its unread request body."""
-    telemetry.record_counter("provider_route_rejected")
-    telemetry.record_failure("provider_route_rejected")
-    code = "upstream_route_invalid" if method is None else "upstream_route_method_not_allowed"
-    message = (
-        "request path does not name an upstream Responses or model-catalog target"
-        if method is None
-        else "request method is not supported for the named upstream resource"
-    )
+    """Refuse one data request locally, under one name, without reading its body.
+
+    The error code names the refusal for the client, the counter, the failure class and the log
+    line alike. The response closes the connection, so an unread body is never parsed as a request.
+    """
+    telemetry.record_counter(code)
+    telemetry.record_failure(code)
     downstream.send_payload(
         handler,
-        404,
+        status,
         replay_response.error_payload(message, "invalid_request_error", code),
         close=True,
     )
-    event = "provider_route_rejected" if method is None else "provider_route_method_rejected"
-    detail = "" if method is None else f"method={method} "
     operational_log.log(
-        f"req={request_id} event={event} {detail}"
+        f"req={request_id} event={code} {detail}"
         f"path={operational_log.safe_request_path(handler.path)}"
     )
 
@@ -177,16 +179,38 @@ def _relay_catalog(
 
 
 def relay(handler: BaseHTTPRequestHandler, method: str) -> None:
-    """Relay one downstream request to the upstream that its path names."""
+    """Relay one data request from a native local client to the upstream that its path names."""
     request_id = admission.next_request_id()
+    if not admission.is_local_client(handler.client_address[0], handler.headers):
+        _refuse(
+            handler,
+            request_id,
+            403,
+            "local_client_required",
+            "data requests are available only to a local native client",
+        )
+        return
     target = addressing.resolve(handler.path)
     if target is None:
-        _reject_route(handler, request_id)
+        _refuse(
+            handler,
+            request_id,
+            404,
+            "upstream_route_invalid",
+            "request path does not name an upstream Responses or model-catalog target",
+        )
         return
     is_responses = method == "POST" and target.resource == "responses"
     is_catalog = method == "GET" and target.resource == "models"
     if not (is_responses or is_catalog):
-        _reject_route(handler, request_id, method)
+        _refuse(
+            handler,
+            request_id,
+            404,
+            "upstream_route_method_not_allowed",
+            "request method is not supported for the named upstream resource",
+            detail=f"method={method} ",
+        )
         return
     headers = _request_headers(handler)
     if is_catalog:

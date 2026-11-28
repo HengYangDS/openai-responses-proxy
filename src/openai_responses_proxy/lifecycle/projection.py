@@ -173,7 +173,7 @@ def _remaining_paths(install: Path) -> tuple[str, ...]:
 
 
 def verify_payload_manifest(ctx: runtime_context.RuntimeContext) -> tuple[bool, str]:
-    """Verify the installed executable and provider manifest."""
+    """Verify the installed executable and its payload manifest."""
     try:
         manifest = json.loads(payload_manifest_path(ctx).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):

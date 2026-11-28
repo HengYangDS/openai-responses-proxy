@@ -17,6 +17,7 @@ from openai_responses_proxy.relay import cooldown
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
 from openai_responses_proxy.runtime import config
+from tests.relay.fixtures import json_body
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
 from tests.relay.fixtures import running_proxy
@@ -27,10 +28,6 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def _body(payload: object) -> bytes:
-    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
 
 
 def _post_line() -> bytes:
@@ -44,7 +41,7 @@ class UpstreamRouteTests:
         cooldown.reset_for_test()
 
     def test_a_new_upstream_needs_no_release(self) -> None:
-        body = _body(
+        body = json_body(
             {
                 "input": [{"type": "message", "role": "user", "content": "hello"}],
                 "store": False,
@@ -64,7 +61,7 @@ class UpstreamRouteTests:
     def test_every_upstream_receives_the_same_portable_body(
         self, subtests: pytest.Subtests
     ) -> None:
-        raw = _body(
+        raw = json_body(
             {
                 "previous_response_id": "provider-response",
                 "include": ["reasoning.encrypted_content"],
@@ -150,7 +147,7 @@ class UpstreamRouteTests:
         self, subtests: pytest.Subtests
     ) -> None:
         # Codex's own stateless form: the client's bytes are never forwarded as they are.
-        raw = _body(
+        raw = json_body(
             {
                 "store": False,
                 "prompt_cache_key": "thread-1",
@@ -179,10 +176,10 @@ class UpstreamRouteTests:
     ) -> None:
         with running_proxy([]) as (port, received):
             for path, body, expected_code in (
-                ("/unknown/v1/responses", _body({"input": "hello"}), 404),
+                ("/unknown/v1/responses", json_body({"input": "hello"}), 404),
                 (
                     upstream_path(),
-                    _body({"input": [{"type": "future_item", "opaque": True}]}),
+                    json_body({"input": [{"type": "future_item", "opaque": True}]}),
                     400,
                 ),
             ):
@@ -196,7 +193,7 @@ class UpstreamRouteTests:
     def test_empty_request_and_ambiguous_routes_never_reach_upstream(
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
-        valid = _body({"input": [{"type": "message", "role": "user", "content": "hello"}]})
+        valid = json_body({"input": [{"type": "message", "role": "user", "content": "hello"}]})
         log = mocker.patch("openai_responses_proxy.relay.operational_log.log")
         with running_proxy([]) as (port, received):
             cases = (
@@ -415,7 +412,7 @@ class UpstreamRouteTests:
     def test_nonstring_replay_role_is_rejected_before_upstream_io(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        body = _body({"input": [{"role": [], "content": "private-current-prompt"}]})
+        body = json_body({"input": [{"role": [], "content": "private-current-prompt"}]})
         with running_proxy([]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
                 request(port, body)
@@ -442,9 +439,9 @@ class UpstreamRouteTests:
         assert received == [b""]
 
     def test_exhausted_503_cooldown_is_origin_scoped_over_loopback(self) -> None:
-        unavailable = _body({"error": {"type": "server_error", "code": "overloaded"}})
+        unavailable = json_body({"error": {"type": "server_error", "code": "overloaded"}})
         success = b'{"id":"resp_other","status":"completed"}'
-        body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
+        body = json_body({"input": [{"type": "message", "role": "user", "content": "same"}]})
 
         with running_proxy([*[(503, unavailable)] * 4, (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as first:
@@ -472,7 +469,7 @@ class UpstreamRouteTests:
         ids=["origin", "host"],
     )
     def test_data_request_from_a_web_page_is_refused(self, headers: dict[str, str]) -> None:
-        body = _body({"input": "hello"})
+        body = json_body({"input": "hello"})
         with running_proxy([(200, b"{}")]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:
                 request(port, body, path=upstream_path(), headers=headers)
@@ -491,9 +488,9 @@ class UpstreamRouteTests:
             assert received == []
 
     def test_cooldowns_are_independent_per_origin(self) -> None:
-        limited = _body({"error": {"type": "rate_limit_error", "code": "rate_limited"}})
+        limited = json_body({"error": {"type": "rate_limit_error", "code": "rate_limited"}})
         success = b'{"id":"resp_other","status":"completed"}'
-        body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
+        body = json_body({"input": [{"type": "message", "role": "user", "content": "same"}]})
 
         with running_proxy([(429, limited), (200, success)]) as (port, received):
             first, second = upstream_path(base="/a/v1"), upstream_path(base="/b/v1")
@@ -522,7 +519,7 @@ class UpstreamRouteTests:
         assert [capture["path"] for capture in captures] == ["/v1/models?client_version=0.172"]
 
     def test_http_477_is_relayed_once_without_retry_or_cooldown(self) -> None:
-        empty = _body(
+        empty = json_body(
             {
                 "error": {
                     "message": "the upstream returned an empty response",
@@ -532,7 +529,7 @@ class UpstreamRouteTests:
             }
         )
         success = b'{"id":"resp_next","status":"completed"}'
-        body = _body({"input": [{"type": "message", "role": "user", "content": "same"}]})
+        body = json_body({"input": [{"type": "message", "role": "user", "content": "same"}]})
 
         with running_proxy([(477, empty), (200, success)]) as (port, received):
             with pytest.raises(urllib.error.HTTPError) as raised:

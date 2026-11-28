@@ -17,16 +17,16 @@
 
 ## 3. Refusals and header fields
 
-- [ ] 3.1 Add tests: a data request from a client that is not local gets a 403 JSON envelope with
+- [x] 3.1 Add tests: a data request from a client that is not local gets a 403 JSON envelope with
       `local_client_required`, closes the connection, logs that event and counts it; route refusals count and log
-      `upstream_route_invalid` and `upstream_route_method_not_allowed`; a relayed JSON, error and streamed response
-      carries exactly one `Server` and one `Date`, the upstream's, and the proxy's `Date` when the upstream sent
-      none. Done when they fail before 3.2 and pass after it.
-- [ ] 3.2 Implement D3, D4 and D5. Done when 3.1's tests and the relay and serving tests pass.
+      `upstream_route_invalid` and `upstream_route_method_not_allowed`; a relayed error, stream and model catalog
+      carry exactly one `Server` and one `Date`, the upstream's, and the proxy's `Date` when the upstream sent none;
+      a validated JSON response carries the proxy's own. Done when they fail before 3.2 and pass after it.
+- [x] 3.2 Implement D3, D4 and D5. Done when 3.1's tests and the relay and serving tests pass.
 
 ## 4. Small corrections and workflow
 
-- [ ] 4.1 Write the agent-delivery test's expected body out literally, and correct the
+- [x] 4.1 Write the agent-delivery test's expected body out literally, and correct the
       `verify_payload_manifest` docstring (D8). Done when the test fails against a projection that changes the
       collaboration catalog and passes on the product.
 - [ ] 4.2 Set Nox's `stop_on_first_error` (D6), with a test that a failing governance session ends `full` before

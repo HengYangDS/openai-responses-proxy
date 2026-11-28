@@ -153,6 +153,24 @@ def send_payload(
     handler.wfile.write(payload)
 
 
+def _send_relayed_fields(
+    handler: BaseHTTPRequestHandler, status: int, headers: ResponseHeaders
+) -> None:
+    """Start a relayed response with the upstream's fields, its `Server` and `Date` included.
+
+    The proxy adds a `Date` only when the upstream sent none (RFC 9110, section 6.6.1), so each
+    field appears once.
+    """
+    handler.send_response_only(status)
+    dated = False
+    for name, value in headers.items():
+        if name.lower() not in HOP_BY_HOP:
+            handler.send_header(name, value)
+            dated = dated or name.lower() == "date"
+    if not dated:
+        handler.send_header("Date", handler.date_time_string())
+
+
 def relay_error(
     handler: BaseHTTPRequestHandler,
     status: int,
@@ -160,20 +178,14 @@ def relay_error(
     payload: bytes,
 ) -> None:
     """Relay one bounded upstream HTTP error."""
-    handler.send_response(status)
-    for name, value in headers.items():
-        if name.lower() not in HOP_BY_HOP:
-            handler.send_header(name, value)
+    _send_relayed_fields(handler, status, headers)
     handler.send_header("Content-Length", str(len(payload)))
     handler.end_headers()
     handler.wfile.write(payload)
 
 
 def _send_stream_headers(handler: BaseHTTPRequestHandler, response: UpstreamResponse) -> None:
-    handler.send_response(response.status)
-    for name, value in response.headers.items():
-        if name.lower() not in HOP_BY_HOP and name.lower() != "content-length":
-            handler.send_header(name, value)
+    _send_relayed_fields(handler, response.status, response.headers)
     handler.send_header("Transfer-Encoding", "chunked")
     handler.end_headers()
 

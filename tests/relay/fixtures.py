@@ -39,6 +39,10 @@ ScriptedResponse = tuple[int, bytes] | Mapping[str, object]
 # server address an upstream that nothing listens on.
 _UPSTREAM_PORT = [9]
 
+# The scripted upstream's own Server and Date, which differ from any the proxy writes.
+UPSTREAM_SERVER = "upstream-fixture/1"
+UPSTREAM_DATE = "Sat, 01 Jan 2000 00:00:00 GMT"
+
 
 def upstream_path(
     resource: str = "responses",
@@ -93,6 +97,15 @@ def serve_proxy(
         @override
         def log_message(self, *args: object, **kwargs: object) -> None:
             del args, kwargs
+
+        @override
+        def version_string(self) -> str:
+            return UPSTREAM_SERVER
+
+        @override
+        def date_time_string(self, timestamp: float | None = None) -> str:
+            del timestamp
+            return UPSTREAM_DATE
 
         def _receive(self) -> bytes:
             length = int(self.headers.get("Content-Length", "0"))
@@ -254,6 +267,11 @@ def raw_exchange(proxy_port: int, payload: bytes, *, timeout: float = 5.0) -> by
     return bytes(received)
 
 
+def json_body(payload: object) -> bytes:
+    """Encode one JSON request or response body compactly."""
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+
+
 def request_body(*, stream: bool = False, secret: str = "private-current-prompt") -> bytes:
     """Return a current-turn request carrying removable provider bindings."""
     return json.dumps(
@@ -301,7 +319,10 @@ class MemoryHandler(BaseHTTPRequestHandler):
     def __init__(self, body: bytes = b"", *, path: str | None = None) -> None:
         """Initialize one in-memory downstream HTTP exchange."""
         self.path = upstream_path() if path is None else path
+        # A native local client: a loopback peer that names a loopback Host.
+        self.client_address = ("127.0.0.1", 50000)
         self.headers = Message()
+        self.headers["Host"] = "127.0.0.1:8792"
         self.headers["Content-Length"] = str(len(body))
         self.headers["Connection"] = "close"
         self.rfile = io.BytesIO(body)
@@ -312,6 +333,11 @@ class MemoryHandler(BaseHTTPRequestHandler):
 
     @override
     def send_response(self, code: int, message: str | None = None) -> None:
+        del message
+        self.statuses.append(code)
+
+    @override
+    def send_response_only(self, code: int, message: str | None = None) -> None:
         del message
         self.statuses.append(code)
 

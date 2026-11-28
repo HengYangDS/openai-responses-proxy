@@ -175,10 +175,7 @@ class Handler(BaseHTTPRequestHandler):
             self.raw_requestline = b""
 
     def _relay(self, method: str) -> None:
-        """Relay one data request from a native local client, never from a web page."""
-        if not admission.is_local_client(self.client_address[0], self.headers):
-            self.send_error(403, "data requests are available only to a local native client")
-            return
+        """Relay one data request; the relay refuses a client that is not a native local one."""
         responses.relay(self, method)
 
     def do_POST(self) -> None:

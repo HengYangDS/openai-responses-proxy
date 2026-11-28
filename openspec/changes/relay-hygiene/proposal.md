@@ -22,8 +22,9 @@ predecessor-fixture failure has not been written down.
 - Each refusal goes by one name: the error code the client receives. The route counters, failure classes and log
   events now say `upstream_route_invalid` and `upstream_route_method_not_allowed` instead of
   `provider_route_rejected` and `provider_route_method_rejected`.
-- A relayed response carries the upstream's `Server` and `Date` once, and the proxy adds `Date` only when the
-  upstream sent none. Local responses keep the proxy's own fields.
+- An upstream error, stream or model catalog carries the upstream's `Server` and `Date` once, and the proxy adds
+  `Date` only when the upstream sent none. Responses that the proxy writes itself, a validated non-stream body
+  included, keep the proxy's own fields.
 - `mise run check` stops at its first failing session, so governance, which takes seconds, fails before the slow
   sessions start.
 - CONTRIBUTING requires a change to the payload's shape to list every reader of another release's archive,

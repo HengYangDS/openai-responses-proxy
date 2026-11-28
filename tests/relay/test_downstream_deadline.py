@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import socket
 import threading
 import time
+from http.server import BaseHTTPRequestHandler
 from typing import TYPE_CHECKING
+from typing import override
 
 from openai_responses_proxy.relay import admission
+from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from tests.relay.fixtures import LoopbackTransportFixture
 from tests.relay.fixtures import request_body
@@ -55,3 +59,22 @@ class TestDownstreamWriteDeadline(LoopbackTransportFixture):
             finally:
                 held_open.set()
                 client.close()
+
+
+class _WireHandler(BaseHTTPRequestHandler):
+    """A handler that writes real HTTP header lines to memory."""
+
+    @override
+    def log_message(self, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+
+
+def test_the_proxy_dates_a_relayed_response_whose_upstream_sent_none() -> None:
+    handler = object.__new__(_WireHandler)
+    handler.request_version = "HTTP/1.1"
+    handler.wfile = io.BytesIO()
+    downstream.relay_error(handler, 400, {"Content-Type": "application/json"}, b"{}")
+    head = handler.wfile.getvalue().split(b"\r\n\r\n", 1)[0].decode().split("\r\n")
+    names = [line.split(":", 1)[0].lower() for line in head[1:]]
+    assert names.count("date") == 1
+    assert names.count("server") == 0

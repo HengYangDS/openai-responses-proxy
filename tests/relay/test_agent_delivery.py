@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
-from typing import cast
 
-from openai_responses_proxy.protocol.replay.projection import sanitize_responses_body
 from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import exchange as upstream_exchange
 from openai_responses_proxy.relay import responses
@@ -45,7 +43,9 @@ class AgentDeliveryRelayContracts:
         self, subtests: pytest.Subtests, *, mocker: MockerFixture
     ) -> None:
         body = json.dumps({"tools": _collaboration_catalog(), "input": "delegate"}).encode()
-        expected = json.loads(cast("bytes", sanitize_responses_body(body).body))
+        # Written out, not computed by the projection under test: the catalog and the input reach
+        # the upstream unchanged, and the projection adds only `store: false`.
+        expected = {"tools": _collaboration_catalog(), "input": "delegate", "store": False}
         for path in (
             "/https/api.example.com/v1/responses",
             "/https/gateway.example:8443/openai/v1/responses",

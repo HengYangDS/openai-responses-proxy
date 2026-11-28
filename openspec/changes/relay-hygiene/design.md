@@ -85,9 +85,11 @@ the change.
 
 ### D5. One `Server` and one `Date` on a relayed response
 
-A relayed response begins with `send_response_only` and carries the upstream's header fields, its `Server` and
-`Date` included. The proxy adds its own `Date` only when the upstream sent none, as RFC 9110 section 6.6.1 asks
-of a recipient that forwards a message. Responses that the proxy makes itself keep its own `Server` and `Date`.
+An upstream error, a stream and a model catalog pass on the upstream's header fields. Each begins with
+`send_response_only` and carries those fields, the upstream's `Server` and `Date` included. The proxy adds its own
+`Date` only when the upstream sent none, as RFC 9110 section 6.6.1 asks of a recipient that forwards a message.
+Responses that the proxy writes itself keep its own `Server` and `Date`; a validated non-stream Responses body is
+one of them, because the proxy sends it as a local payload and passes on none of the upstream's fields.
 
 Alternative: dropping the upstream's fields and keeping the proxy's. Rejected: the client would lose the
 upstream's identity and clock, which a relay should pass through.

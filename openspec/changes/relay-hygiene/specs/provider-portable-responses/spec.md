@@ -65,14 +65,20 @@ code as its counter, failure class and log event.
 
 ### Requirement: A relayed response carries one Server and one Date
 
-A response that the proxy relays SHALL carry the upstream's `Server` and `Date` fields once each and no field of
-the proxy's in their place. The proxy SHALL add its own `Date` only when the upstream sent none. A response that
-the proxy makes itself SHALL carry the proxy's `Server` and `Date`.
+A response that passes on the upstream's header fields (an upstream error, a stream or a model catalog) SHALL
+carry the upstream's `Server` and `Date` fields once each and no field of the proxy's in their place. The proxy
+SHALL add its own `Date` only when the upstream sent none. A response that the proxy writes itself, a validated
+non-stream Responses body included, SHALL carry the proxy's `Server` and `Date` once each.
 
 #### Scenario: An upstream answers with its own fields
 
-- **WHEN** an upstream's JSON, error or streamed response carries `Server` and `Date`
+- **WHEN** an upstream's error, streamed or model-catalog response carries `Server` and `Date`
 - **THEN** the client receives exactly one `Server` and one `Date`, both the upstream's.
+
+#### Scenario: The proxy writes a validated body
+
+- **WHEN** the proxy returns a non-stream Responses body that it has validated
+- **THEN** the client receives exactly one `Server` and one `Date`, both the proxy's.
 
 #### Scenario: An upstream sends no Date
 
