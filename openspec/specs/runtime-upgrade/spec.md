@@ -10,7 +10,7 @@ and supervision invariants.
 ### Requirement: The installed payload has one current shape
 
 The installed payload SHALL contain one prewarmed native bundle under `bin/`,
-`providers.toml`, their complete manifest, signed-release receipt, and finalized
+its complete manifest, signed-release receipt, and finalized
 state.
 
 #### Scenario: Complete requirement obligations are evaluated
@@ -827,8 +827,7 @@ lease.
 #### Scenario: A client requests the former drain route
 
 - **WHEN** a client sends `POST` or `DELETE` to `/control/drain`
-- **THEN** the listener answers as it does for any path that names no provider
-  route
+- **THEN** the listener answers as it does for any path that names no upstream
 - **AND** a later Responses request is admitted.
 
 #### Scenario: Health is read while the listener serves

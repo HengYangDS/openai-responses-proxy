@@ -308,80 +308,6 @@ text, credentials, or ciphertext.
 - **AND** valid string selectors, native encrypted content and unrelated live
   response bytes retain their existing semantics.
 
-### Requirement: Provider routes admit only exact Responses and model-catalog targets
-
-The listener SHALL expose provider-scoped loopback Responses targets and exact
-read-only model-catalog targets for `dmxapi`, `ucloud`, `aihubmix`, and
-`suheai`. Each namespace SHALL resolve only exact, lexically normalized
-Responses and model catalog paths against the release-owned HTTPS upstream
-mapping. A downstream request SHALL NOT supply or override an upstream URL or
-host.
-
-#### Scenario: A client selects each governed provider
-
-- **WHEN** a client sends otherwise equivalent Responses traffic to
-  `/dmxapi/v1/responses`, `/ucloud/v1/responses`,
-  `/aihubmix/v1/responses`, or `/suheai/v1/responses`
-- **THEN** the proxy sends it only to the matching DMXAPI, UCloud, AIHubMix,
-  or Suhe.AI HTTPS upstream
-- **AND** credentials continue to come from that client request.
-
-#### Scenario: A caller uses an unknown namespace
-
-- **WHEN** a request path matches neither a control endpoint nor one of the
-  listener's provider namespaces
-- **THEN** the proxy rejects it locally
-- **AND** it performs no remote network request.
-
-#### Scenario: A caller uses a malformed provider target
-
-- **WHEN** a target contains encoded path material, dot segments, duplicate
-  separators, a lookalike suffix, a fragment, or an absolute URL
-- **THEN** the proxy rejects it locally
-- **AND** unrelated endpoints remain unreachable.
-
-#### Scenario: A consumer reads one provider model catalog
-
-- **WHEN** it sends GET to `/dmxapi/v1/models`, `/ucloud/v1/models`,
-  `/aihubmix/v1/models`, or `/suheai/v1/models`
-- **THEN** the proxy relays exactly one GET to the matching provider
-- **AND** it does not activate Responses projection, cooldown, retry, or
-  recovery.
-
-#### Scenario: A rejected route carries an unread body
-
-- **WHEN** an unknown route or unsupported method is rejected before its body
-  is consumed
-- **THEN** the response closes the connection
-- **AND** the unread body is not parsed as another request.
-
-### Requirement: Provider-specific recovery is route-scoped
-
-The exact DMXAPI HTTP 477 `empty_response` recovery and cooldown SHALL apply
-only to the DMXAPI route. A failure or cooldown key from DMXAPI SHALL NOT block,
-rewrite, or classify a request on another provider route. Generic transient and
-schema recovery MAY remain shared only where its trigger is provider-neutral
-and exact.
-
-#### Scenario: DMXAPI enters empty-response cooldown
-
-- **WHEN** a DMXAPI request exhausts its exact HTTP 477 recovery and the same
-  portable body is then sent to another provider route
-- **THEN** the other provider request is attempted normally
-- **AND** no DMXAPI cooldown response is reused across the route boundary.
-
-#### Scenario: A non-DMX provider returns HTTP 477
-
-- **WHEN** a provider other than DMXAPI returns HTTP 477
-- **THEN** the proxy does not apply the DMXAPI `empty_response` policy unless
-  the request was routed to DMXAPI and the exact DMX error contract matched.
-
-#### Scenario: DMXAPI exhausts empty-response recovery
-
-- **WHEN** DMXAPI yields the exact classified empty response through the bounded retry policy
-- **THEN** the proxy emits a typed terminal error only after the budget is exhausted
-- **AND** every other provider route remains independently usable.
-
 ### Requirement: Live response control data survives the current turn
 
 For Responses event streams, the proxy SHALL preserve upstream event bytes,
@@ -447,13 +373,13 @@ activate compaction, dialogue recovery, or schema fallback.
 The compatibility path SHALL NOT edit Codex JSONL, SQLite, transcript history,
 archived conversations, hidden resume pointers, or per-conversation model
 metadata. Success SHALL require an unchanged original conversation to complete
-multiple turns after a provider sequence that starts on DMXAPI, visits every
-other provider route, and returns to DMXAPI.
+multiple turns after an upstream sequence that starts on one upstream origin,
+visits every other origin the client uses, and returns to the first.
 
 #### Scenario: The proxy fix is accepted
 
 - **WHEN** the released proxy is installed, an external client selects each
-  route, and the same original conversation completes at least two turns on each leg of
+  upstream origin, and the same original conversation completes at least two turns on each leg of
   that sequence
 - **THEN** no turn reports missing `rs_` items, encrypted-content decode or
   decrypt failure, or proxy-generated empty-response 503
@@ -464,14 +390,14 @@ other provider route, and returns to DMXAPI.
 
 ### Requirement: Client endpoint ownership is external
 
-The proxy SHALL expose provider-scoped loopback Responses endpoints without
+The proxy SHALL serve the upstream that a client's loopback base URL names without
 reading, writing, backing up, or restoring client configuration. It SHALL NOT
 execute a client-control command or persist consumer route state.
 
 #### Scenario: A consumer selects a provider endpoint
 
-- **WHEN** a client selects one provider-scoped endpoint, such as `/dmxapi/v1`,
-  through its own control plane
+- **WHEN** a client's own control plane writes a base URL such as
+  `http://127.0.0.1:<port>/https/api.example.com/v1`
 - **THEN** the proxy serves that data-plane request without depending on the
   consumer package, configuration path, credential store, or projection model.
 
@@ -485,14 +411,14 @@ execute a client-control command or persist consumer route state.
 ### Requirement: Responses admission is closed at the HTTP boundary
 
 Every POST Responses request SHALL pass through fail-closed request projection,
-including a zero-length body. Provider-scoped routes SHALL resolve only exact,
-lexically normalized `/v1/responses` targets with an optional query.
+including a zero-length body. Upstream addressing SHALL resolve only exact,
+lexically normalized Responses targets with an optional query.
 
 #### Scenario: A caller sends an empty Responses request
 
 - **WHEN** a POST Responses request has no body
 - **THEN** the proxy rejects it locally as invalid JSON
-- **AND** no configured provider receives the request.
+- **AND** no upstream receives the request.
 
 #### Scenario: A caller sends an ambiguous route suffix
 
@@ -500,32 +426,6 @@ lexically normalized `/v1/responses` targets with an optional query.
   separators, a lookalike suffix, or a non-Responses endpoint
 - **THEN** the proxy rejects it locally
 - **AND** it does not construct or contact an upstream URL.
-
-### Requirement: Provider wire differences are isolated
-
-The provider manifest MAY select one optional pure wire-policy module. Core
-transport SHALL depend only on that policy contract and SHALL NOT branch on a
-provider name. A provider with no wire difference SHALL require only one
-secret-free manifest entry. A policy MUST NOT perform HTTP dispatch, retries,
-credential access, host discovery, filesystem access, runtime mutation,
-lifecycle operations, or client configuration.
-
-#### Scenario: A new ordinary provider is added
-
-- **WHEN** a synthetic provider's Responses wire behavior matches the
-  provider-neutral core
-- **THEN** setup requires only its declarative manifest record
-- **AND** no listener, relay, lifecycle, CLI, release, service, consumer,
-  replay, or registry provider-name branch is added.
-
-#### Scenario: A provider has a proved special wire contract
-
-- **WHEN** executable fixtures prove a distinct request, response, or error
-  contract
-- **THEN** one manifest-selected policy implements only that transformation or
-  classification
-- **AND** every higher layer continues to depend on the policy contract rather
-  than provider identity.
 
 ### Requirement: Recovery classifiers use structured provider errors
 
@@ -544,12 +444,12 @@ sufficient to activate semantic recovery.
 For an upstream HTTP 429, the proxy SHALL make no additional upstream attempt
 for the current client request. It SHALL relay the first upstream status, body,
 and eligible non-hop-by-hop headers unchanged without sleeping. It SHALL record
-a bounded provider-scoped cooldown and SHALL NOT infer or configure an
+a bounded cooldown for that upstream origin and SHALL NOT infer or configure an
 undocumented provider quota.
 
 #### Scenario: A provider returns a rate limit
 
-- **WHEN** one provider Responses attempt returns HTTP 429
+- **WHEN** one Responses attempt returns HTTP 429
 - **THEN** the proxy relays that exact status, body, and eligible headers after
   exactly one upstream call
 - **AND** it performs neither the generic proxy retry sleep nor another upstream
@@ -559,7 +459,7 @@ undocumented provider quota.
 
 - **WHEN** a provider returns HTTP 429 with valid delta-seconds or HTTP-date
   `Retry-After` no greater than five minutes
-- **THEN** later Responses for only that provider receive local HTTP 429 until
+- **THEN** later Responses for only that upstream origin receive local HTTP 429 until
   the interpreted process-local deadline expires
 - **AND** the original response retains the provider's exact header.
 
@@ -567,9 +467,9 @@ undocumented provider quota.
 
 - **WHEN** a provider omits `Retry-After` or supplies an invalid, zero, or
   expired value
-- **THEN** later Responses for that provider receive local HTTP 429 for the
+- **THEN** later Responses for that upstream origin receive local HTTP 429 for the
   five-second fallback without opening an upstream connection
-- **AND** another configured provider remains unaffected.
+- **AND** another upstream origin remains unaffected.
 
 #### Scenario: The provider supplies excessive retry timing
 
@@ -578,8 +478,9 @@ undocumented provider quota.
 
 #### Scenario: One provider is rate-limited
 
-- **WHEN** one provider records an active provider-scoped cooldown
-- **THEN** no other provider inherits that cooldown or loses ordinary concurrency
+- **WHEN** one upstream origin has an active cooldown
+- **THEN** no other origin, including one on the same host with another base
+  path, inherits that cooldown or loses ordinary concurrency
 - **AND** client-owned per-session concurrency remains outside the proxy.
 
 ### Requirement: Active provider cooldown deadlines do not move backward
@@ -588,20 +489,19 @@ For one cooldown key, a repeated or concurrent failure SHALL NOT replace a
 still-active deadline with an earlier deadline. The proxy SHALL retain the later
 of the current and newly computed deadlines under the existing synchronized
 cache owner. It SHALL continue to purge expired entries, bound cache capacity,
-and isolate unrelated provider and request-fingerprint keys.
+and isolate unrelated upstream-origin keys.
 
 #### Scenario: A shorter rate limit follows a longer active instruction
 
-- **WHEN** one provider has an active 300-second cooldown and a later failure
+- **WHEN** one upstream origin has an active 300-second cooldown and a later failure
   computes a five-second cooldown before the first deadline expires
 - **THEN** the stored deadline remains the original later deadline
-- **AND** upstream traffic for that provider is not reopened by the shorter
+- **AND** upstream traffic for that origin is not reopened by the shorter
   overlapping failure.
 
 #### Scenario: Another key receives a shorter deadline
 
-- **WHEN** an unrelated provider or request fingerprint records a shorter
-  cooldown
+- **WHEN** an unrelated upstream origin records a shorter cooldown
 - **THEN** its deadline is stored independently
 - **AND** the longer key is neither shortened nor copied across the boundary.
 
@@ -658,31 +558,30 @@ a code and to an event type as to every other word of the log.
 
 ### Requirement: The proxy owns no ordinary concurrency limit
 
-The proxy SHALL NOT serialize a provider route, queue ordinary traffic, or own
+The proxy SHALL NOT serialize an upstream origin, queue ordinary traffic, or own
 a fixed or configurable ordinary-request concurrency ceiling. Codex owns
 per-session concurrency and each provider owns its actual quota. Each request
-SHALL check that provider's cooldown before remote I/O. HTTP 429 SHALL remain
+SHALL check its upstream origin's cooldown before remote I/O. HTTP 429 SHALL remain
 terminal for the current request and SHALL NOT introduce an upstream retry.
 Active-request accounting exists only for lifecycle handoff and observation.
 
 #### Scenario: Concurrent requests target one provider route
 
-- **WHEN** two Responses requests overlap on the same configured provider route
+- **WHEN** two Responses requests overlap on the same upstream origin
 - **THEN** neither request waits in a proxy-owned concurrency queue
-- **AND** both may perform provider I/O unless a provider cooldown is active.
+- **AND** both may perform upstream I/O unless that origin's cooldown is active.
 
 #### Scenario: Different provider routes overlap
 
-- **WHEN** Responses requests overlap on two different configured provider
-  routes
-- **THEN** both routes can perform provider I/O concurrently
-- **AND** neither a route-level nor process-wide ordinary admission slot or
+- **WHEN** Responses requests overlap on two different upstream origins
+- **THEN** both can perform upstream I/O concurrently
+- **AND** neither an origin-level nor process-wide ordinary admission slot or
   queue exists.
 
 #### Scenario: One request establishes cooldown
 
 - **WHEN** a later request arrives after a preceding request recorded a
-  provider rate-limit cooldown
+  rate-limit cooldown for the same upstream origin
 - **THEN** the later request receives the existing local HTTP 429 response
 - **AND** the proxy makes no upstream call for that later request.
 
@@ -765,20 +664,6 @@ or fallback SHALL reinterpret it independently.
 - **AND** no result replaces an earlier result, no synthetic call is invented,
   and repeated projection is byte-stable. This named textual delivery contract
   does not imply support for every native asynchronous API feature.
-
-### Requirement: Provider extension is adapter-only
-
-A new upstream Provider SHALL be admitted through one manifest entry and, only
-where its wire differs, one policy module that the entry declares. Generic HTTP
-admission, Responses semantics, lifecycle, CLI, and client configuration SHALL
-NOT branch on Provider names.
-
-#### Scenario: A Provider is added
-
-- **WHEN** its endpoint and any wire policy are declared in the manifest
-- **THEN** its route serves through the existing Responses path, and a policy
-  that is missing, incomplete or outside its declared package fails the load
-- **AND** no existing generic product module requires Provider-specific code.
 
 ### Requirement: HTTP request framing precedes Responses interpretation
 
@@ -868,19 +753,19 @@ all paths SHALL release upstream ownership and restore the socket timeout.
 
 Responses SHALL retain bounded request-local recovery for a transient upstream
 `503`. When that recovery ends in `503`, the proxy SHALL relay the upstream
-status and body and remember a bounded cooldown for that Provider only.
-During the cooldown, another Responses request for that Provider SHALL receive
+status and body and remember a bounded cooldown for that origin only.
+During the cooldown, another Responses request for that origin SHALL receive
 a typed local `503` with `Retry-After` before upstream I/O. The cooldown SHALL
-not block another Provider or non-Responses resource, and a request after expiry
+not block another origin or non-Responses resource, and a request after expiry
 SHALL probe the upstream again.
 
 #### Scenario: A Provider remains unavailable across turns
 
 - **WHEN** one Responses turn exhausts its bounded retries with upstream `503`
 - **THEN** that turn receives the original terminal `503`
-- **AND** an immediate subsequent turn for the same Provider receives a local
+- **AND** an immediate subsequent turn for the same origin receives a local
   `provider_unavailable_cooldown` response without upstream I/O
-- **AND** another Provider remains usable; after expiry the first Provider is
+- **AND** another origin remains usable; after expiry the first origin is
   probed again.
 
 ### Requirement: Upstream redirects reach the client unfollowed
@@ -1010,69 +895,75 @@ structured HTTP failure.
 - **THEN** the client observes a truncated response, not a second HTTP 503
 - **AND** the proxy records the failure and releases the upstream connection.
 
-### Requirement: Plaintext agent delivery is selected before generation
+### Requirement: Upstream addressing admits only exact Responses and model-catalog targets
 
-A released provider profile SHALL select native or plaintext agent message
-delivery. Omission SHALL select native delivery. The plaintext policy SHALL
-bind one request's schema, replay and response restoration without accessing
-client configuration, credentials or conversation storage.
+The listener SHALL accept a data request only at
+`/<scheme>/<authority>/<segment>*/<resource>` with an optional query, where the
+resource is `responses` or `models`, and SHALL forward it to
+`<scheme>://<authority>/<segment>*/<resource>` with that query. The scheme
+SHALL be `https`, or `http` for a loopback authority only. The authority SHALL
+carry no user information, and the quoted path SHALL equal the path. A data
+request SHALL carry a loopback `Host`, no `Origin` and no `Sec-Fetch-*` header.
 
-#### Scenario: A route selects readable agent messages
+#### Scenario: A client names an HTTPS upstream
 
-- **WHEN** a plaintext route receives the native `collaboration` catalog
-- **THEN** it aliases that catalog and explicit tool choice upstream and removes
-  encryption annotations only from spawn, message and followup message schemas
-- **AND** JSON and streaming responses restore the native namespace and, for
-  function calls, the empty encrypted-argument marker only after complete
-  readable arguments are proved
-- **AND** exact message arguments and call identities survive sender-to-recipient
-  delivery using the client's native plaintext path.
+- **WHEN** a client sends Responses traffic to `/https/api.example.com/v1/responses`
+- **THEN** the proxy sends it only to `https://api.example.com/v1/responses`
+- **AND** credentials continue to come from that client request.
 
-#### Scenario: A selected custom call preserves its native argument field
+#### Scenario: A consumer reads a model catalog
 
-- **WHEN** JSON or streaming output contains a selected custom message call
-- **THEN** the declared call policy selects `input`, not function `arguments`,
-  for readable-message validation and preserves its exact value and call identity
-- **AND** no function-only encrypted-argument marker is added or accepted;
-  replay retains the custom call and output grammar.
+- **WHEN** it sends GET to `/https/api.example.com/v1/models?client_version=1`
+- **THEN** the proxy relays exactly one GET to
+  `https://api.example.com/v1/models?client_version=1`
+- **AND** it does not activate Responses projection, cooldown, retry, or
+  recovery.
 
-#### Scenario: A terminal delivery retains an in-progress item status
+#### Scenario: A caller uses a malformed upstream target
 
-- **WHEN** a terminal Response or `response.output_item.done` contains a selected
-  message call still marked `in_progress` with no readable arguments
-- **THEN** the terminal context requires complete readable arguments and fails
-  locally without restoring or dispatching that call
-- **AND** an initial `response.output_item.added` may precede argument generation
-  without an empty encrypted-argument marker; any previously emitted bytes remain
-  unchanged and the committed request is not reopened.
+- **WHEN** a target contains encoded path material, a dot or empty segment,
+  user information, a scheme other than lower-case `https` or `http`, a
+  fragment, an absolute URL, or a resource other than `responses` or `models`
+- **THEN** the proxy rejects it locally with `upstream_route_invalid`
+- **AND** it performs no remote network request.
 
-#### Scenario: Old ciphertext or conflicting metadata is present
+#### Scenario: Plain HTTP names a remote host
 
-- **WHEN** retained history contains encrypted native agent content, or a
-  selected output carries ciphertext or nonempty encrypted argument metadata
-- **THEN** retained history preserves its exact envelope and ciphertext
-- **AND** output cannot be relabeled as plaintext or retried with its message
-  removed; unproved selected output fails locally.
+- **WHEN** a target's scheme is `http` and its authority is not a loopback
+  address
+- **THEN** the proxy rejects it locally with `upstream_route_invalid`.
 
-#### Scenario: Live validation fails after downstream content
+#### Scenario: A web page sends a data request
 
-- **WHEN** malformed SSE data or unproved selected agent arguments follow
-  downstream content
-- **THEN** the relay preserves emitted bytes, closes the incomplete connection
-  and does not reopen the committed request
-- **AND** selected call types and names are strings before semantic selection;
-  a malformed selected value fails with a bounded delivery reason, while an
-  unrelated namespace retains its exact bytes
-- **AND** operational evidence identifies the validator-owned fixed reason
-  without message arguments, ciphertext, query values or exception prose
-- **AND** an unclassified validation exception remains `unknown`.
+- **WHEN** a data request carries an `Origin` header, a Fetch Metadata header or a non-loopback `Host`
+- **THEN** the proxy refuses it with HTTP 403 before resolving its path
+- **AND** it performs no remote network request.
 
-#### Scenario: The client continues an admitted agent conversation
+#### Scenario: A rejected route carries an unread body
 
-- **WHEN** the client's own configuration aligns its native namespace and model
-  agent version with the conversation
-- **THEN** acceptance proves real child tool execution, bidirectional explicit
-  messages, automatic completion and followup tasks on the selected route
-- **AND** native resume and compaction retain exact content witnesses
-- **AND** source acceptance alone does not claim release, installed runtime,
-  original-chat recovery or readability of earlier ciphertext.
+- **WHEN** an invalid target or unsupported method is rejected before its body
+  is consumed
+- **THEN** the response closes the connection
+- **AND** the unread body is not parsed as another request.
+
+### Requirement: The proxy names no provider
+
+The released payload SHALL name no provider or provider endpoint, and no module
+SHALL branch on an upstream's host or name. Behavior that differs by upstream
+SHALL be keyed by its upstream origin: the scheme, authority and base path,
+never the query. A new upstream SHALL need no release. Log lines and cooldown
+keys SHALL name the upstream origin.
+
+#### Scenario: A client names a new upstream
+
+- **WHEN** a client names an HTTPS upstream that no earlier request named
+- **THEN** the proxy serves it through the existing Responses path without a
+  release, manifest entry, or configuration
+- **AND** its log lines record `upstream=` with the origin and without the query.
+
+#### Scenario: An upstream returns HTTP 477
+
+- **WHEN** an upstream answers a Responses request with HTTP 477
+- **THEN** the proxy relays it like any other client error after one upstream
+  call
+- **AND** it records no cooldown.
