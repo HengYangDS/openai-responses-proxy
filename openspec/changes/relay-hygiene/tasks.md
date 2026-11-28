@@ -36,7 +36,7 @@
 
 ## 5. Release preparation
 
-- [ ] 5.1 Set `VERSION` to 8.0.1 and record the changes under `## [8.0.1]` in `CHANGELOG.md`. Done when the release
+- [x] 5.1 Set `VERSION` to 8.0.1 and record the changes under `## [8.0.1]` in `CHANGELOG.md`. Done when the release
       metadata check passes.
 - [ ] 5.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer.

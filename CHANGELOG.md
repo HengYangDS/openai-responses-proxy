@@ -8,6 +8,8 @@ publication authority.
 
 ## [Unreleased]
 
+## [8.0.1] - 2026-11-28
+
 ### Changed
 
 - Pin the ETHOS release that governs this repository, 0.2.0-beta.12, in the
@@ -18,6 +20,31 @@ publication authority.
   runner downloads and verifies each locked tool once. Commit admission now
   runs the same Mise 2026.11.14 as the other jobs, which is also the oldest
   Mise the repository accepts. The release assets do not change.
+- Route refusals are counted and logged under the error code that the client
+  receives: `upstream_route_invalid` and `upstream_route_method_not_allowed`
+  replace the counters, failure classes and log events
+  `provider_route_rejected` and `provider_route_method_rejected`.
+- `mise run check` stops at its first failing session, so a governance failure
+  ends it in seconds.
+
+### Fixed
+
+- Each upstream has one origin. The proxy writes the authority with a
+  lower-case host, a decimal port without leading zeros, no default port and an
+  IPv6 literal in the form of RFC 5952, so two spellings of one upstream share
+  one cooldown, one set of pooled connections and one name in log lines. It
+  refuses port 0, zone identifiers, IPvFuture, all-numeric hosts that are not
+  four decimal octets (such as `127.1`) and host names that DNS cannot carry,
+  with HTTP 404 `upstream_route_invalid`.
+- Idle upstream connections stay bounded however many origins clients name: at
+  most 8 per address and 32 in all, and the listener closes each one about 30
+  seconds after its last response, whether or not another request follows.
+- A data request from a client that is not local gets HTTP 403 with the JSON
+  error envelope and the code `local_client_required` instead of the standard
+  library's HTML page, and the refusal is logged and counted.
+- A relayed error, stream or model catalog carries the upstream's `Server` and
+  `Date` once each instead of both the proxy's and the upstream's; the proxy
+  adds `Date` only when the upstream sent none.
 
 ## [8.0.0] - 2026-11-27
 
