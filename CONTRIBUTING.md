@@ -109,10 +109,16 @@ The candidate directory must contain one complete current-platform asset set;
 missing or mismatched inputs fail without a source-build fallback. Published
 release acceptance separately requires the current release's signature trust.
 
-A change that alters the payload's shape lists, before its proof, every reader
-of another release's archive, the predecessor fixture of `release_compatibility`
-included, and runs that fixture locally against the published predecessor's
-assets with the command above.
+A change that sets a new `VERSION` or alters the payload's shape makes
+`tests/release/compatibility` prove the journey that the release meets from its
+published predecessor: the handoff upgrade and rollback when the payload's shape
+is unchanged, or the refusal and a fresh installation when it changes. Before
+its proof, the change lists every reader of another release's archive, the
+predecessor fixture of `release_compatibility` included, and runs that fixture's
+admission locally against the published predecessor's assets. The journey
+itself registers a host service, so it runs in the hosted
+`Published release compatibility` jobs, or locally only on a host authorized
+for `mise run native`.
 
 Nox installs a non-editable wheel in isolated environments. Do not add
 `PYTHONPATH`, user-site fallback, or another repository's virtual environment

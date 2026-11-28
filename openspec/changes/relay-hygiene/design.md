@@ -137,10 +137,32 @@ moves it fails that test loudly, which is the signal to adjust it.
 
 ### D7. The rule from 2026-11-27, written down
 
-CONTRIBUTING requires the following before the proof, whenever a change alters the payload's shape:
+CONTRIBUTING requires the following before the proof, whenever a change sets a new `VERSION` or alters the payload's
+shape:
 
+- make `tests/release/compatibility` prove the journey that this release meets from its published predecessor: the
+  handoff upgrade and rollback when the payload's shape is unchanged, or the refusal and a fresh installation when it
+  changes;
 - list every reader of another release's archive, the predecessor fixture of `release_compatibility` included;
-- run that fixture locally against the published predecessor's assets.
+- run that fixture's admission locally against the published predecessor's assets. The journey itself registers a
+  host service, so it runs in the hosted `Published release compatibility` jobs, or locally only on a host authorized
+  for `mise run native`.
+
+The first version of this rule named only a change of the payload's shape. This release changed no shape, but the
+journey changed: the refusal that 8.0.0 proved from 7.0.2 does not happen from 8.0.0, and the hosted jobs of the
+landed head failed on it. The journey follows from every new version, so the rule does too.
+
+### D9. The journey from the published 8.0.0
+
+8.0.0's design (D5) proved the refusal journey from 7.0.2 in place of the handoff upgrade and the cross-release
+disposal test, and left their restoration to the next release, whose predecessor shares its payload shape. This
+Change restores both from 8.0.0's parent commit. The upgrade test installs the published 8.0.0, holds a stream and
+three ordinary requests across the handoff to this release, recovers an interrupted rollback, rolls back to 8.0.0
+under traffic and restores this release. The disposal test leaves residue in a candidate that it rolls back and
+proves that recovery removes only that candidate. Two changes adapt them to 8.x. Requests name the upstream in their
+path, because `--upstream-base-url` is gone. The predecessor fixture proves the published bytes by their signed
+checksums, and the upgrade test admits the archive with this release's own admission, which a predecessor of the
+same shape passes. The refusal test is removed. It stays in Git history for the next release that changes the shape.
 
 ### D8. The small corrections
 

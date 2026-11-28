@@ -34,6 +34,9 @@
       the quality session. Done when the test passes.
 - [x] 4.3 Add the rule of D7 to CONTRIBUTING, and update README, the architecture notes and the capability
       documentation where they describe origins, the pool or refusals. Done when governance and the prose gate pass.
+- [x] 4.4 Restore the published-predecessor upgrade and disposal tests from 8.0.0's parent, adapted to 8.x (D9), and
+      widen D7's rule to every new version. Done when Ruff and ty pass and the predecessor fixture and this release's
+      admission accept the published 8.0.0 macOS arm64 archive locally. Both accepted it on 2026-11-28.
 
 ## 5. Release preparation
 

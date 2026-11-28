@@ -32,8 +32,11 @@ predecessor-fixture failure has not been written down.
   or 304 carries no body.
 - `mise run check` stops at its first failing session, so governance, which takes seconds, fails before the slow
   sessions start.
-- CONTRIBUTING requires a change to the payload's shape to list every reader of another release's archive,
-  test fixtures included, before the proof.
+- CONTRIBUTING requires a change that sets a new version or alters the payload's shape to prove the journey from
+  its published predecessor and to list every reader of another release's archive, test fixtures included, before
+  the proof.
+- The published-predecessor upgrade and disposal tests come back. 8.0.0 left their restoration to this release,
+  whose predecessor shares its payload shape.
 - A docstring that still says "provider manifest" is corrected (M6). The agent-delivery test now compares the
   relayed body with an expected body written out in the test, instead of one computed by the code under test (M7).
 

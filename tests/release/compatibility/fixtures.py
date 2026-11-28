@@ -13,10 +13,15 @@ import pytest
 
 from openai_responses_proxy import product_identity
 from openai_responses_proxy.lifecycle import artifact
+from openai_responses_proxy.lifecycle import control as lifecycle_control
 from openai_responses_proxy.lifecycle import records
+from tests.serving.handoff.fixtures import wait_until
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from concurrent.futures import Future
+
+    from openai_responses_proxy.lifecycle import context as runtime_context
 
 
 def _required_path(variable: str) -> Path:
@@ -46,6 +51,31 @@ def _assert_same_runtime_identity(
         field: observed_runtime.get(field) for field in identity_fields
     }
     assert observed_runtime.get("accepting") is True
+
+
+def _wait_for_successor_admission(
+    future: Future[dict[str, object]],
+    ctx: runtime_context.InstallationContext,
+    *,
+    predecessor_pid: int,
+    successor_release: str,
+    timeout_seconds: float,
+) -> bool:
+    """Release held requests once the handed-off successor admits new ones."""
+
+    def admitting_or_finished() -> bool:
+        runtime = lifecycle_control.read_runtime(ctx)
+        return (
+            isinstance(runtime, dict)
+            and runtime.get("pid") != predecessor_pid
+            and runtime.get("release") == successor_release
+            and runtime.get("accepting") is True
+        ) or future.done()
+
+    reached = wait_until(admitting_or_finished, timeout_seconds)
+    if future.done():
+        future.result()
+    return reached
 
 
 def admitted_predecessor(
