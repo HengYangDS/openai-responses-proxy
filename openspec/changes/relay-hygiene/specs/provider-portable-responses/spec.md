@@ -151,7 +151,8 @@ Responses body included, SHALL carry the proxy's `Server` and `Date` once each.
 ### Requirement: A field that belongs to one connection stays on it
 
 In both directions the proxy SHALL pass on no field that belongs to one connection: `Connection`, every field that
-`Connection` names, `Proxy-Connection`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding` and `Upgrade`.
+`Connection` names, `Proxy-Connection`, `Keep-Alive`, `Transfer-Encoding`, `Upgrade`, `Trailer`, and the field of
+RFC 9110 section 10.1.4 that names the transfer codings a client accepts.
 
 #### Scenario: A field belongs to one connection
 

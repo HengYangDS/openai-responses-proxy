@@ -113,10 +113,11 @@ upstream's identity and clock, which a relay should pass through.
 Three more corrections make the relayed fields HTTP-correct, in the same place:
 
 - `downstream.end_to_end_fields` is the one filter for both directions. It drops the connection-specific fields of
-  RFC 9110 section 7.6.1 (`Connection`, `Proxy-Connection`, `Keep-Alive`, `TE`, `Transfer-Encoding`, `Upgrade`),
-  every field that `Connection` names, the proxy-authentication fields, `Trailer` (the old list spelled it
-  `trailers`; the proxy re-frames a body and sends no trailer), and the fields that each side frames or negotiates
-  itself (`Host`, `Content-Length`, `Accept-Encoding`).
+  RFC 9110 section 7.6.1 (`Connection`, `Proxy-Connection`, `Keep-Alive`, `Transfer-Encoding`, `Upgrade`, and the
+  field of section 10.1.4 that names the transfer codings a client accepts), every field that `Connection` names,
+  the proxy-authentication fields, `Trailer` (the old list spelled it `trailers`; the proxy re-frames a body and
+  sends no trailer), and the fields that each side frames or negotiates itself (`Host`, `Content-Length`,
+  `Accept-Encoding`).
 - A reopened stream is delivered with its own fields: `sse.relay` passes the stream whose first event it writes to
   `send_headers`. Before, the fields of the first, failed attempt went out with the reopened stream's content.
 - A model catalog answered with 204 or 304 is relayed with no body and no chunked framing (RFC 9110 sections
