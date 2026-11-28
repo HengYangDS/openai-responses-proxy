@@ -15,8 +15,9 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Pass `openspec validate --all --strict` with 2.2.0 and ETHOS's readiness proof, which validates and
-      simulates the archive with 2.0.0. Done when both pass on the head that the proof proves.
+- [x] 3.1 Pass `openspec validate --all --strict` with 2.2.0 and ETHOS's readiness proof, which validates and
+      simulates the archive with 2.0.0. Done when both pass on the head that the proof proves. Both passed on
+      `f7d18227`, and the pre-queue checks run them again on the proved head.
 - [x] 3.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer. Reviewed on 2026-11-28 at `fe3c78ea`; its ten findings are answered in this Change's documents and
       `CHANGELOG.md`.
