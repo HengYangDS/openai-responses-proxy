@@ -60,6 +60,12 @@
       "groupName": "Python release runtime"
     },
     {
+      "description": "ETHOS writes its own pin and selects its runtime from it: `ethos lane repair-paradigm --pin`, run from the new release, then `mise lock`. No proposal edits the pin.",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["github:HengYangDS/ethos"],
+      "enabled": false
+    },
+    {
       "description": "uv, its required version and the GitLab images that carry it move together.",
       "matchDepNames": ["uv", "ghcr.io/astral-sh/uv"],
       "groupName": "uv"

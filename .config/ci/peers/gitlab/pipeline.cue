@@ -19,12 +19,14 @@ gitlab: {
 		stage:   "verify"
 		timeout: "15m"
 		image:   #productJobs."source-and-governance".image
-		variables: {
+		variables: _miseData & {
 			GIT_DEPTH:                          "0"
 			MISE_ENABLE_TOOLS:                  #Toolchains.ethos
 			OPENAI_RESPONSES_PROXY_COMMIT_HEAD: "$CI_COMMIT_SHA"
 			OPENAI_RESPONSES_PROXY_COMMIT_PEER: "gitlab"
 		}
+		// Nothing here runs uv, so the job restores only its own Mise installs.
+		cache: [#miseInstalls & {_set: "ethos"}]
 		before_script: [
 			#CommitTrustPreflight,
 			"mise install --locked",
@@ -130,14 +132,15 @@ gitlab: {
 				name: #Toolchains.gitlabMiseImage
 				entrypoint: [""]
 			}
-			variables: {
+			variables: _miseData & {
 				GIT_DEPTH:         "0"
 				MISE_ENABLE_TOOLS: #Toolchains.quality
 			}
+			cache: [default.cache, #miseInstalls & {_set: "quality"}]
 			before_script: [
 				"mise install --locked",
-				"npm ci --ignore-scripts",
-				"npm audit signatures",
+				"mise exec --locked -- npm ci --ignore-scripts",
+				"mise exec --locked -- npm audit signatures",
 				"git fetch --tags --force --prune --prune-tags origin",
 				"mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads",
 			]
@@ -208,6 +211,18 @@ gitlab: {
 			"mise install --locked",
 		], [for command in #compatibilitySteps.before_script {"mise exec --locked -- \(command)"}]])
 		script: [for command in #compatibilitySteps.script {"mise exec --locked -- \(command)"}]
+	}
+
+	// A Linux job in the Mise image keeps its installs in a cache keyed by the lock, one per tool set.
+	// A locked install downloads the archive and, where the lock records provenance, asks GitHub
+	// without a token for its attestation; from the cache, each runner does both once per lock.
+	#miseInstalls: {
+		_set: string
+		key: {
+			files: [".config/mise/mise.lock"]
+			prefix: "mise-\(_set)-$OPENAI_RESPONSES_PROXY_CI_TARGET"
+		}
+		paths: [".cache/mise/data/"]
 	}
 
 	// Mise's installs, download cache and state lie in the project directory, which the job cache

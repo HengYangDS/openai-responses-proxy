@@ -1,5 +1,6 @@
-# The oldest Mise that runs this configuration: the release in graph/toolchains.cue's GitLab image,
-# which GitHub installs as well and the macOS runner supplies (2026.11.14 on 2026-11-28).
+# The oldest Mise that this configuration accepts, never above the Mise that a runner runs: the
+# release of the GitLab image in graph/toolchains.cue, which GitHub installs too, and the macOS
+# runner's own (2026.11.14 on 2026-11-28).
 min_version = "2026.11.14"
 
 [settings]
@@ -50,6 +51,8 @@ cue = "0.17.1"
 "github:rhysd/actionlint" = "1.7.12"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
+
+# Repository governance: ETHOS's own pin, which `ethos lane repair-paradigm --pin` writes
 "github:HengYangDS/ethos" = "0.2.0-beta.12"
 
 [vars]

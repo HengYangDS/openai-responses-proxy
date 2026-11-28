@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -102,6 +103,9 @@ def test_both_peers_install_the_mise_release_of_the_gitlab_image() -> None:
     ]
     assert steps
     assert {str(_mapping(step["with"]).get("version")) for step in steps} == {release.group(1)}
+    # The repository's floor is no newer than the Mise that its runners run.
+    floor = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())["min_version"]
+    assert tuple(map(int, floor.split("."))) <= tuple(map(int, release.group(1).split(".")))
 
 
 def test_gitlab_verification_bootstrap_is_bounded_and_cached() -> None:
@@ -158,15 +162,23 @@ def test_gitlab_source_job_uses_one_locked_toolchain() -> None:
     )
     assert image["entrypoint"] == [""]
     variables = _mapping(source["variables"])
-    assert set(variables) == {"GIT_DEPTH", "MISE_ENABLE_TOOLS", "UV_CONFIG_FILE", "UV_NO_CONFIG"}
+    assert set(variables) == {
+        "GIT_DEPTH",
+        "MISE_ENABLE_TOOLS",
+        "MISE_DATA_DIR",
+        "MISE_CACHE_DIR",
+        "MISE_STATE_DIR",
+        "UV_CONFIG_FILE",
+        "UV_NO_CONFIG",
+    }
     assert variables["UV_CONFIG_FILE"] == ".config/mise/uv.toml"
     assert variables["UV_NO_CONFIG"] == "false"
     assert variables["GIT_DEPTH"] == "0"
     assert set(_string(variables["MISE_ENABLE_TOOLS"]).split(",")) <= toolchain["tools"].keys()
     assert source["before_script"] == [
         "mise install --locked",
-        "npm ci --ignore-scripts",
-        "npm audit signatures",
+        "mise exec --locked -- npm ci --ignore-scripts",
+        "mise exec --locked -- npm audit signatures",
         "git fetch --tags --force --prune --prune-tags origin",
         (
             "mise exec --locked -- uv sync --locked --group quality "
@@ -321,12 +333,22 @@ def test_github_python_quality_installs_its_declared_projection_toolchain() -> N
 ETHOS = "github:HengYangDS/ethos"
 ETHOS_RUN = "mise exec --locked -- ethos "
 ETHOS_LINUX_PACKAGES = {"git", "libatomic1", "openssh-client"}
+# The release's archive for each lock platform; a musl row runs the glibc archive.
+ETHOS_ARCHIVES = {
+    "linux-arm64": "linux-arm64",
+    "linux-arm64-musl": "linux-arm64",
+    "linux-x64": "linux-x64",
+    "linux-x64-musl": "linux-x64",
+    "macos-arm64": "macos-arm64",
+}
+MISE_LOCK = ".config/mise/mise.lock"
+MISE_INSTALLS = ".cache/mise/data/"
 
 
 def test_ethos_release_is_pinned_once_and_locked_with_its_attestations() -> None:
     """One exact ETHOS release is pinned in ETHOS's own form and locked with attested archives."""
     toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())
-    lock = tomllib.loads((ROOT / ".config/mise/mise.lock").read_text())
+    lock = tomllib.loads((ROOT / MISE_LOCK).read_text())
     version = toolchain["tools"][ETHOS]
     assert isinstance(version, str)
     assert re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?", version)
@@ -340,10 +362,14 @@ def test_ethos_release_is_pinned_once_and_locked_with_its_attestations() -> None
         if name.startswith("platforms.")
     }
     assert set(platforms) == set(toolchain["settings"]["lockfile_platforms"])
-    for entry in platforms.values():
-        assert f"/releases/download/v{version}/ethos-{version}-" in entry["url"]
+    assert set(platforms) == set(ETHOS_ARCHIVES)
+    release = f"https://github.com/HengYangDS/ethos/releases/download/v{version}"
+    for platform, entry in platforms.items():
+        assert entry["url"] == f"{release}/ethos-{version}-{ETHOS_ARCHIVES[platform]}.tar.gz"
         assert re.fullmatch(r"sha256:[0-9a-f]{64}", entry["checksum"])
         assert entry["provenance"] == "github-attestations"
+    for platform, archive in ETHOS_ARCHIVES.items():
+        assert platforms[platform]["checksum"] == platforms[archive]["checksum"]
 
 
 def test_commit_admission_runs_the_locked_ethos_release_on_both_peers() -> None:
@@ -369,7 +395,9 @@ def test_commit_admission_runs_the_locked_ethos_release_on_both_peers() -> None:
     assert refresh == "sudo apt-get update -qq"
     assert install.startswith("sudo apt-get install -qq -y --no-install-recommends ")
     assert set(install.split()) >= ETHOS_LINUX_PACKAGES
-    assert steps.index(mise) < next(i for i, step in enumerate(steps) if step.get("run") == refresh)
+    order = [step.get("run", step.get("uses")) for step in steps]
+    assert order.index(preflight) < uses.index("actions/checkout") < steps.index(mise)
+    assert steps.index(mise) < order.index(refresh)
     assert bind == f"{ETHOS_RUN}hook bind-trust --apply --root . --json"
     assert admit.startswith(f"{ETHOS_RUN}hook commit-range ")
     assert "ethos-source" not in yaml.safe_dump(job)
@@ -390,6 +418,47 @@ def test_commit_admission_runs_the_locked_ethos_release_on_both_peers() -> None:
             bind,
         ]
         assert _strings(admission["script"]) == [admit]
+        # Nothing in it runs uv, so it restores only its own Mise installs.
+        (cache,) = _sequence(admission["cache"])
+        assert _mapping(cache)["paths"] == [MISE_INSTALLS]
+
+
+def test_gitlab_mise_jobs_install_each_locked_tool_once_per_runner_and_lock() -> None:
+    """A Mise image job keeps its installs in a cache keyed by the lock, apart from other sets.
+
+    A locked install downloads the archive and asks GitHub, without a token, for its attestation;
+    a cached install does neither until the lock changes.
+    """
+    gitlab = _mapping(_load_yaml(ROOT / ".gitlab-ci.yml"))
+    image = _mapping(_mapping(gitlab["source-and-governance"])["image"])["name"]
+    prefixes: dict[str, set[str]] = {}
+    for name, raw in gitlab.items():
+        if not isinstance(raw, dict) or _mapping(raw.get("image", {})).get("name") != image:
+            continue
+        job = _mapping(raw)
+        variables = _mapping(job["variables"])
+        assert variables["MISE_DATA_DIR"] == "$CI_PROJECT_DIR/.cache/mise/data", name
+        caches = [_mapping(cache) for cache in _sequence(job["cache"])]
+        (mise,) = [cache for cache in caches if cache["paths"] == [MISE_INSTALLS]]
+        key = _mapping(mise["key"])
+        assert key["files"] == [MISE_LOCK], name
+        prefixes.setdefault(_string(variables["MISE_ENABLE_TOOLS"]), set()).add(
+            _string(key["prefix"])
+        )
+    assert len(prefixes) == 2
+    assert all(len(names) == 1 for names in prefixes.values())
+    assert len(set().union(*prefixes.values())) == len(prefixes)
+
+
+def _mise_lines(job: Mapping[str, object]) -> list[str]:
+    """Every GitLab shell line of a job that starts Mise."""
+    return [
+        line
+        for key in ("before_script", "script")
+        for entry in _strings(job.get(key, []))
+        for line in entry.splitlines()
+        if re.match(r"\s*mise\s", line)
+    ]
 
 
 def test_only_commit_admission_installs_ethos() -> None:
@@ -400,10 +469,17 @@ def test_only_commit_admission_installs_ethos() -> None:
         for name, raw in _mapping(_load_yaml(ROOT / workflow)["jobs"]).items():
             job = _mapping(raw)
             steps = tuple(_mapping(step) for step in _sequence(job.get("steps", [])))
-            if any(_string(step.get("uses", "")).startswith(_MISE_ACTION) for step in steps):
+            for step in steps:
+                assert "MISE_ENABLE_TOOLS" not in _mapping(step.get("env", {})), name
+                if _string(step.get("uses", "")).startswith(_MISE_ACTION):
+                    arguments = _string(_mapping(step["with"]).get("install_args", ""))
+                    assert (ETHOS in arguments.split()) == (name == "commit-admission"), name
+            if any("mise " in _string(step.get("run", "")) for step in steps) or any(
+                _string(step.get("uses", "")).startswith(_MISE_ACTION) for step in steps
+            ):
                 enabled[name] = _string(_mapping(job.get("env", {})).get("MISE_ENABLE_TOOLS", ""))
     for name, raw in _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")).items():
-        if isinstance(raw, dict) and "mise install --locked" in raw.get("before_script", []):
+        if isinstance(raw, dict) and _mise_lines(_mapping(raw)):
             variables = _mapping(_mapping(raw).get("variables", {}))
             enabled[f"gitlab:{name}"] = _string(variables.get("MISE_ENABLE_TOOLS", ""))
     assert len(enabled) >= 6

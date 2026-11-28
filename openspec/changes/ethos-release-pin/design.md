@@ -13,8 +13,10 @@
   locked with `mise lock`. ETHOS follows only this form forward when it selects the local runtime. The older
   `[tools."http:ethos"]` table is read only and verifies a checksum only. CI runs `mise exec --locked -- ethos`, and
   `ethos hook bind-trust --apply` binds the operator's commit trust.
-- Inside a repository, every ETHOS command except `hook install` re-executes in the selected runtime, so the
-  successor is selected first with beta.12's `ethos hook install --runtime <path> --reason <text>`.
+- Where a repository has a runtime selection (`<git-common-dir>/ethos/runtime/CURRENT`), every ETHOS command except
+  `hook install` and `release accept` re-executes in the selected runtime, so the successor is selected first with
+  beta.12's `ethos hook install --runtime <path> --reason <text>`. A fresh CI checkout has no selection, so hosted
+  admission runs the console that Mise installs.
 
 Facts measured on 2026-11-28:
 
@@ -23,7 +25,10 @@ Facts measured on 2026-11-28:
   `SHA256SUMS`.
 - `mise install --locked` without a GitHub token downloads the archive by its release URL. It makes one
   unauthenticated attestation request to the GitHub API and verifies the attestation.
-- `locked_verify_provenance` applies to every lock entry that records provenance: actionlint, Python, uv and ETHOS.
+- Without `locked_verify_provenance`, Mise trusts a lock entry that records a checksum and a provenance and does not
+  verify the provenance again at install; with it, every install verifies (Mise 2026.11.14's settings). It applies to
+  every entry that records provenance: actionlint, Python, uv and ETHOS. ETHOS's distribution specification requires
+  it in an adopter's pin.
 - The Linux ARM64 archive is 361,732,204 bytes; this host downloaded it in 21 seconds.
 - The Mise Debian image carries CA roots, curl, Git and `libatomic1`, but no `openssh-client`, and runs as root.
 - Every runner runs Mise 2026.11.14: GitLab's image, GitHub's action, and the macOS runner's own Mise, which its
@@ -65,14 +70,18 @@ variable and the source-tree trust script are removed.
 
 - **GitHub** sets up Mise with the action that the repository already pins. The job passes the ETHOS tool as the
   action's install arguments, which also key its cache apart from the jobs that install the other tools.
-- **GitLab** runs both jobs in the Mise Debian image that `source-and-governance` already pins by digest. The image
-  keeps no Mise cache, like that job: a cache archive of the 651 MB installation would cost the runner more than the
-  21-second download.
+- **GitLab** runs both jobs in the Mise Debian image that `source-and-governance` already pins by digest. Both those
+  jobs keep their Mise installs in the project directory and cache them keyed by the lock, one cache per tool set, so
+  each runner downloads and verifies a locked tool once per lock instead of in every job. Commit admission restores
+  no other cache; `source-and-governance` also keeps its uv cache and runs npm through Mise, because its installs
+  are no longer on the image's `PATH`.
 - **Every other Mise job** enables only the tools it declares, so none downloads ETHOS; GitHub's three Mise jobs
   gain that variable.
+- **Renovate** proposes no change to the ETHOS pin, which moves only as Migration says.
 
 Mise's floor (`min_version`) was held at 2026.10.14 only because ETHOS's source supply ran that Mise. With the supply
-gone it rises to 2026.11.14, the release every runner runs.
+gone it rises to 2026.11.14, the release every runner runs; a test keeps it no newer than the Mise of the GitLab
+image.
 
 ### D3. The local runtime follows the pin
 
@@ -81,16 +90,22 @@ the pin lands on `dev`, ETHOS keeps `CURRENT` on the pinned release.
 
 ## Risks / Trade-offs
 
-- **Download size.** Each uncached job downloads about 362 to 383 MB. GitHub caches the installation per installed
-  set; GitLab downloads it in each commit-admission job, about 21 seconds from this host.
+- **Download size.** An uncached job downloads 362 MB (Linux ARM64) to 383 MB (Linux x64), about 21 seconds from
+  this host. GitHub caches the installation per installed set; GitLab caches it per runner and lock.
 - **GitHub's anonymous API limit.** On GitLab, each install of a tool whose lock records provenance makes one
-  unauthenticated attestation request: one for commit admission, three for `source-and-governance` (actionlint,
-  Python, uv), and two for each uncached macOS job. The guests share this host's address and its limit of 60
-  requests an hour. A job that hits the limit fails closed and passes on a later run. GitHub's jobs use the
-  workflow token.
+  unauthenticated attestation request. With the caches, that happens when a runner first meets a lock: up to four
+  for `source-and-governance` and commit admission together, and two for each macOS job whose cache misses. The
+  guests share this host's address, and so its limit of 60 requests an hour, with every other repository that
+  adopts ETHOS's pin. A job that hits the limit fails closed and passes once the hour resets. A read-only token in
+  GitLab's variables would remove the limit; that is a credential decision for the owner, not taken here. On GitHub
+  the workflow token covers the mise-action step, which is the only one that installs.
+- **Cached installs are trusted.** A runner reuses what an earlier job on the same lock installed, as the macOS job
+  already does; GitLab keeps protected and unprotected caches apart.
 - **A new ETHOS release governs local proofs.** beta.12 changes several gates' behavior (its CHANGELOG). This
   Change's own proof runs under beta.12 and shows whether the repository conforms. Selecting it is Git-common: the
   root checkout and every lane of this repository run beta.12 from the selection on.
+- **Not exercised here.** Tag-push admission under beta.12 runs first at the next release. If GitLab also exports
+  `ETHOS_COMMIT_TRUST_ANCHOR`, `hook bind-trust` refuses two inputs as ambiguous; the first landing shows it.
 
 ## Migration
 

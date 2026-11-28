@@ -10,13 +10,26 @@ source-and-governance:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: python,uv,node,npm,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     UV_CONFIG_FILE: .config/mise/uv.toml
     UV_NO_CONFIG: "false"
+  cache:
+    - key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/uv/
+    - key:
+        files:
+          - .config/mise/mise.lock
+        prefix: mise-quality-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/mise/data/
   before_script:
     - mise install --locked
-    - npm ci --ignore-scripts
-    - npm audit signatures
+    - mise exec --locked -- npm ci --ignore-scripts
+    - mise exec --locked -- npm audit signatures
     - git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
   script:
@@ -104,13 +117,26 @@ source-and-governance-accepted:
     - if: $CI_COMMIT_BRANCH == "dev"
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: python,uv,node,npm,cue,aqua:tamasfe/taplo,github:gitleaks/gitleaks,github:rhysd/actionlint,aqua:koalaman/shellcheck,github:lycheeverse/lychee
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     UV_CONFIG_FILE: .config/mise/uv.toml
     UV_NO_CONFIG: "false"
+  cache:
+    - key: uv-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/uv/
+    - key:
+        files:
+          - .config/mise/mise.lock
+        prefix: mise-quality-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/mise/data/
   before_script:
     - mise install --locked
-    - npm ci --ignore-scripts
-    - npm audit signatures
+    - mise exec --locked -- npm ci --ignore-scripts
+    - mise exec --locked -- npm audit signatures
     - git fetch --tags --force --prune --prune-tags origin
     - mise exec --locked -- uv sync --locked --group quality --python python --no-python-downloads
   script:
@@ -286,9 +312,19 @@ commit-admission:
       - ""
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: github:HengYangDS/ethos
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
     OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
+  cache:
+    - key:
+        files:
+          - .config/mise/mise.lock
+        prefix: mise-ethos-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/mise/data/
   before_script:
     - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
     - mise install --locked
@@ -313,9 +349,19 @@ commit-admission-accepted:
       - ""
   variables:
     GIT_DEPTH: "0"
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.cache/mise/data
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/.cache/mise/cache
     MISE_ENABLE_TOOLS: github:HengYangDS/ethos
+    MISE_STATE_DIR: $CI_PROJECT_DIR/.cache/mise/state
     OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
     OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
+  cache:
+    - key:
+        files:
+          - .config/mise/mise.lock
+        prefix: mise-ethos-$OPENAI_RESPONSES_PROXY_CI_TARGET
+      paths:
+        - .cache/mise/data/
   before_script:
     - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
     - mise install --locked

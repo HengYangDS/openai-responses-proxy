@@ -64,9 +64,10 @@ setup action reads its version requirement from the same file.
 The same configuration pins the ETHOS release that governs this repository, in
 ETHOS's own form: `"github:HengYangDS/ethos"` under `[tools]`, with
 `locked_verify_provenance`, so every install verifies the provenance that the
-lock records. Local governance, proofs and hosted commit admission run that one
-release. Move it with `ethos lane repair-paradigm --pin`, run from the new
-release, and then `mise lock`.
+lock records. Hosted commit admission installs that release. Locally, ETHOS
+follows the pin forward once the release is installed, so governance and proofs
+run it too. Move it with `ethos lane repair-paradigm --pin`, run from the new
+release, and then `mise lock`; Renovate proposes no change to it.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
 GitHub and GitLab use the same repository installation. Mise's

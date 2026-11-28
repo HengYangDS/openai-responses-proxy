@@ -224,3 +224,15 @@ def test_release_age_vulnerability_and_automerge_admission() -> None:
     disabled = [rule["matchManagers"] for rule in python if rule.get("enabled") is False]
     assert disabled == [["pep621"]]
     assert [rule["allowedVersions"] for rule in python if "allowedVersions" in rule] == ["<3.15"]
+
+
+def test_the_ethos_pin_moves_only_through_ethos() -> None:
+    """ETHOS writes its own pin and selects its runtime from it, so no proposal edits the pin."""
+    pinned = tomllib.loads((ROOT / ".config/mise/config.toml").read_text(encoding="utf-8"))
+    assert "github:HengYangDS/ethos" in pinned["tools"]
+    rules = [
+        rule
+        for rule in _rules(_policy(), "packageRules")
+        if "github:HengYangDS/ethos" in rule.get("matchDepNames", [])
+    ]
+    assert [(rule["matchManagers"], rule["enabled"]) for rule in rules] == [(["mise"], False)]

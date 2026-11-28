@@ -132,21 +132,22 @@ class TestVerificationContracts:
             if isinstance(value, dict) and "before_script" in value
         }
         assert job_scripts
+        # Commit admission requires its external trust before it installs anything.
+        github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+        (first, *_) = _mapping(github["commit-admission"])["steps"]
+        preflight = _mapping(first)["run"]
         for scripts, variables in job_scripts.values():
             if "mise install --locked" in scripts:
                 # A Mise job installs its locked tools first; where the runner supplies Mise, the
                 # job first records which Mise ran, and commit admission first requires its
                 # external trust. One that enables the Node tools then installs and audits them.
                 installed = scripts[scripts.index("mise install --locked") :]
-                before = scripts[: -len(installed)]
-                assert before in ((), ("mise --version",)) or (
-                    len(before) == 1 and "ETHOS_COMMIT_ALLOWED_SIGNERS" in before[0]
-                )
+                assert scripts[: -len(installed)] in ((), ("mise --version",), (preflight,))
                 if "npm" in variables["MISE_ENABLE_TOOLS"].split(","):
                     assert installed[:3] == (
                         "mise install --locked",
-                        "npm ci --ignore-scripts",
-                        "npm audit signatures",
+                        "mise exec --locked -- npm ci --ignore-scripts",
+                        "mise exec --locked -- npm audit signatures",
                     )
                 else:
                     assert not any(command.startswith("npm ") for command in scripts)
