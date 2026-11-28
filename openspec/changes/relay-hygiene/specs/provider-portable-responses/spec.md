@@ -3,32 +3,18 @@
 ### Requirement: Upstream addressing admits only exact Responses and model-catalog targets
 
 The listener SHALL accept a data request only at
-`/<scheme>/<authority>/<segment>*/<resource>` with an optional query, where the
-resource is `responses` or `models`, and SHALL forward it to
-`<scheme>://<canonical authority>/<segment>*/<resource>` with that query. The
-scheme SHALL be `https`, or `http` for a loopback authority only. The authority
-SHALL carry no user information, and the quoted path SHALL equal the path. The
-canonical authority SHALL be the normal form of RFC 3986 sections 6.2.2.1 and
-6.2.3: a lower-case host, a decimal port without leading zeros, no port when it
-is empty or the scheme's default, and an IPv6 literal in the form of RFC 5952.
-The proxy SHALL refuse port 0, zone identifiers, IPvFuture, a host whose last
-label is numeric unless the host is four decimal octets, and a host name that is
-not one fully qualified DNS name of 1 to 63 octets per label and at most 253
-in all, without a trailing dot. Cooldown keys, pooled connections and log lines
-SHALL use the canonical origin. A data request SHALL carry a loopback `Host`, no
-`Origin` and no `Sec-Fetch-*` header.
+`/<scheme>/<authority>/<segment>*/<resource>`, where the resource is `responses`
+or `models`, and SHALL forward it, with its query, to
+`<scheme>://<canonical authority>/<segment>*/<resource>`. The scheme SHALL be
+`https`, or `http` for a loopback authority only. The authority SHALL carry no
+user information, and the quoted path SHALL equal the path. A data request
+SHALL carry a loopback `Host`, no `Origin` and no `Sec-Fetch-*` header.
 
 #### Scenario: A client names an HTTPS upstream
 
 - **WHEN** a client sends Responses traffic to `/https/api.example.com/v1/responses`
 - **THEN** the proxy sends it only to `https://api.example.com/v1/responses`
 - **AND** credentials continue to come from that client request.
-
-#### Scenario: Two spellings name one upstream
-
-- **WHEN** clients send to `/https/API.Example.com:443/v1/responses` and to `/https/api.example.com/v1/responses`
-- **THEN** both requests go to `https://api.example.com/v1/responses`
-- **AND** they share one cooldown, one set of pooled connections and one `upstream=` value in log lines.
 
 #### Scenario: A consumer reads a model catalog
 
@@ -45,19 +31,6 @@ SHALL use the canonical origin. A data request SHALL carry a loopback `Host`, no
   fragment, an absolute URL, or a resource other than `responses` or `models`
 - **THEN** the proxy rejects it locally with `upstream_route_invalid`
 - **AND** it performs no remote network request.
-
-#### Scenario: A host is written in a form that resolvers read differently
-
-- **WHEN** a target's host is `127.1`, `0x7f.0.0.1`, `api.example.123` or another host whose last label is numeric and
-  that is not four decimal octets
-- **THEN** the proxy rejects it locally with `upstream_route_invalid`
-- **AND** it performs no remote network request.
-
-#### Scenario: A host is not one fully qualified DNS name
-
-- **WHEN** a target's host has an empty label, a label longer than 63 octets, more than 253 octets in all, or a
-  trailing dot
-- **THEN** the proxy rejects it locally with `upstream_route_invalid`.
 
 #### Scenario: Plain HTTP names a remote host
 
@@ -80,6 +53,34 @@ SHALL use the canonical origin. A data request SHALL carry a loopback `Host`, no
 - **AND** the unread body is not parsed as another request.
 
 ## ADDED Requirements
+
+### Requirement: Every upstream origin has one canonical spelling
+
+The canonical authority SHALL be the normal form of RFC 3986 sections 6.2.2.1
+and 6.2.3: a lower-case host, a decimal port without leading zeros and without
+an empty or default port, and an RFC 5952 IPv6 literal. The proxy SHALL refuse
+port 0, zone identifiers, IPvFuture, a host whose last label is numeric unless
+it is four decimal octets, and a host that is not one fully qualified DNS name.
+Cooldown keys, pooled connections and log lines SHALL use the canonical origin.
+
+#### Scenario: Two spellings name one upstream
+
+- **WHEN** clients send to `/https/API.Example.com:443/v1/responses` and to `/https/api.example.com/v1/responses`
+- **THEN** both requests go to `https://api.example.com/v1/responses`
+- **AND** they share one cooldown, one set of pooled connections and one `upstream=` value in log lines.
+
+#### Scenario: A host is written in a form that resolvers read differently
+
+- **WHEN** a target's host is `127.1`, `0x7f.0.0.1`, `api.example.123` or another host whose last label is numeric and
+  that is not four decimal octets
+- **THEN** the proxy rejects it locally with `upstream_route_invalid`
+- **AND** it performs no remote network request.
+
+#### Scenario: A host is not one fully qualified DNS name
+
+- **WHEN** a target's host has an empty label, a label longer than 63 octets, more than 253 octets in all, or a
+  trailing dot
+- **THEN** the proxy rejects it locally with `upstream_route_invalid`.
 
 ### Requirement: Idle upstream connections stay bounded however many origins clients name
 
