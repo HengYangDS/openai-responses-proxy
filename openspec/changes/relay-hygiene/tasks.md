@@ -44,5 +44,6 @@
       metadata check passes.
 - [x] 5.2 Answer one fresh independent review of the whole Change in code or design. Done when every finding has an
       answer.
-- [ ] 5.3 Pass the ETHOS full proof under a host ticket and land on both Forges' `dev`. Done when both `dev` branches
-      hold the head and their pipelines are green, `Published release compatibility` included.
+- [x] 5.3 Pass the ETHOS full proof under a host ticket and land on both Forges' `dev`. Done when both `dev` branches
+      hold the head and their pipelines are green, `Published release compatibility` included. `8e287f3d`: proof
+      passed; GitHub pull request 234 and the `dev` run passed; GitLab pipeline 18923 passed.
