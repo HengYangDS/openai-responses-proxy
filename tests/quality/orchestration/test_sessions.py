@@ -10,14 +10,20 @@ from pathlib import Path
 from types import ModuleType
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from typing import cast
 
+import nox.tasks
 import pytest
+from nox import _options as nox_command_line
 from nox.command import CommandFailed
+from nox.sessions import Result
+from nox.sessions import Status
 
 from openai_responses_proxy.lifecycle import candidate as payload_candidate
 from tests.quality.fixtures import ROOT
 
 if TYPE_CHECKING:
+    from nox.manifest import Manifest
     from nox.sessions import Session
     from pytest_mock import MockerFixture
 
@@ -183,6 +189,34 @@ def test_full_acceptance_schedules_each_required_environment_once(
         "tests-3.13",
         "tests-3.14",
     ]
+
+
+def test_a_failing_session_ends_the_run_before_the_next_one_starts(
+    mocker: MockerFixture,
+    nox_configuration: ModuleType,
+) -> None:
+    """Under the noxfile's options, Nox's own loop starts nothing after governance fails (D6)."""
+    configuration = nox_command_line.options.parse_args([])
+    nox.tasks.merge_noxfile_options(nox_configuration, configuration)
+    started: list[str] = []
+
+    def planned(name: str, status: Status) -> SimpleNamespace:
+        def execute() -> Result:
+            started.append(name)
+            return Result(mocker.Mock(), status)
+
+        return SimpleNamespace(
+            name=name, friendly_name=name, func=SimpleNamespace(should_warn={}), execute=execute
+        )
+
+    planned_sessions = [
+        planned("governance", Status.FAILED),
+        planned("quality", Status.SUCCESS),
+        planned("coverage", Status.SUCCESS),
+    ]
+    results = nox.tasks.run_manifest(cast("Manifest", planned_sessions), configuration)
+    assert started == ["governance"]
+    assert [result.status for result in results] == [Status.FAILED]
 
 
 @pytest.mark.parametrize("groups", [(), ("quality", "release")])

@@ -270,9 +270,11 @@ only the remaining budget. Native DNS resolution runs on at most four resolver
 threads, and an exchange waits for it only within its budget. Every write to
 the client also spends that budget, so a client that stops reading is cut off
 at the deadline and releases the upstream connection and its admission slot.
-Sequential exchanges to one upstream address reuse one keep-alive connection
-while it has been idle for at most 30 seconds; an older idle connection is
-closed when it is next needed. A request is sent again only when the previous
+Sequential exchanges to one upstream address reuse a keep-alive connection
+while it has been idle for at most 30 seconds. The listener closes an older idle
+connection within about a second, whether or not another request follows, and
+keeps at most 8 idle connections per address and 32 in all; beyond 32 it closes
+the least recently released one. A request is sent again only when the previous
 attempt did not deliver it completely. Once the complete request was sent, a
 lost connection, or a stream that ends before content without
 `response.failed`, returns `502 upstream_outcome_unknown`, because the upstream
@@ -297,14 +299,22 @@ GET  /<upstream>/models
 
 Responses requests receive portable projection and bounded recovery. Model
 catalog success and HTTP errors are relayed once without Responses-specific
-transformations. Catalog headers, body reads and downstream writes share a
+transformations. A relayed error, stream or catalog carries the upstream's
+`Server` and `Date` once each, and the proxy adds `Date` only when the upstream
+sent none; a response that the proxy writes itself, a validated non-stream
+Responses body included, carries the proxy's own. Catalog headers, body reads and downstream writes share a
 30-second deadline and an 8 MiB body limit, independent of inference. Expired
 headers return HTTP 504 `catalog_deadline_exceeded`; a failure after commitment
 keeps the admitted prefix and closes without replay or a successful terminator.
 Local failures close the connection and allow one separate catalog-timeout
 budget to deliver their bounded error, even when upstream time has expired.
 The scheme is `https`, or `http` for a loopback host only; the authority has
-no user information and at most a valid port. Encoded path material, dot
+no user information and at most a valid port. The proxy writes each authority
+in one canonical form: a lower-case host, a decimal port without leading zeros,
+no default port for the scheme, and an IPv6 literal in the form of RFC 5952. So
+two spellings of one upstream share its cooldown, connections and log name. Port
+0, zone identifiers, IPvFuture, all-numeric hosts that are not four decimal
+octets, and host names that DNS cannot carry are refused. Encoded path material, dot
 segments, duplicate separators, absolute targets, fragments, and unrelated
 endpoints are rejected before remote I/O with HTTP 404
 `upstream_route_invalid`, and a method that the named resource does not take
@@ -316,7 +326,9 @@ requests and the lifecycle control request (`/control/handoff`) are accepted
 only from a loopback client whose `Host` is a loopback address and that sends
 no `Origin` and no Fetch Metadata (`Sec-Fetch-Site`, `Sec-Fetch-Mode`, `Sec-Fetch-Dest`). Browsers send these headers, a top-level navigation
 included, so a web page can neither relay through the proxy nor start a
-handoff; a refused request receives HTTP 403. The
+handoff. A refused data request receives HTTP 403 with the JSON error envelope
+and the code `local_client_required`; a refused handoff receives the standard
+library's HTTP 403 error page. The
 [threat model](docs/architecture/threat-model.md) lists the remaining
 accepted risks.
 

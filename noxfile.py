@@ -57,6 +57,8 @@ PYTEST_COMMAND = (
 nox.options.default_venv_backend = "uv"
 nox.options.error_on_missing_interpreters = True
 nox.options.reuse_existing_virtualenvs = False
+# `full` starts governance first, so a check of seconds ends the run before the slow sessions.
+nox.options.stop_on_first_error = True
 
 
 @nox.session(python=MAX_PYTHON)

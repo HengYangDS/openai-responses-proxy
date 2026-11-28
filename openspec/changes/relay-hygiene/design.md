@@ -30,8 +30,9 @@
 the clients, one refusal shape and one name per refusal on the data plane, HTTP-correct relayed header fields, and a
 check that fails in seconds when governance fails.
 
-**Non-Goals:** the lifecycle control endpoint's refusals, which stay plain text for its local controller; the
-`provider_*` names that describe the upstream provider's behavior; Python 3.14, which waits for ETHOS 0.2.0-beta.13.
+**Non-Goals:** the lifecycle control endpoint's refusals, which keep the standard library's error page, since their one
+intended caller is the proxy's own lifecycle controller and not a model client; the `provider_*` names that describe
+the upstream provider's behavior; Python 3.14, which waits for ETHOS 0.2.0-beta.13.
 
 ## Decisions
 
@@ -74,7 +75,7 @@ until evicted).
 A data request that fails the local-client rule gets HTTP 403 with the error envelope: type
 `invalid_request_error`, code `local_client_required`, and the message the HTML page carried. The response
 closes the connection, because the request body is unread. The proxy logs `event=local_client_required` and
-records the counter and failure class of the same name. The control endpoint keeps its plain text.
+records the counter and failure class of the same name. The control endpoint keeps the standard library's error page.
 
 ### D4. One name per refusal
 

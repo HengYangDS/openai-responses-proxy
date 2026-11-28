@@ -91,7 +91,8 @@ mise run check
 
 `quick` is the editing feedback loop. `check` calls Nox's `full` admission and avoids
 rerunning `quick` or the Python 3.12 behavior inventory already exercised by
-strict branch-aware coverage.
+strict branch-aware coverage. Nox stops at the first failing session, and `full`
+starts governance first, so a governance failure ends the check in seconds.
 
 `mise run release` builds and verifies a native release asset without service
 registration. `mise run native` additionally exercises the real host service
@@ -107,6 +108,11 @@ build rather than rebuilding it. To run that session locally, supply
 The candidate directory must contain one complete current-platform asset set;
 missing or mismatched inputs fail without a source-build fallback. Published
 release acceptance separately requires the current release's signature trust.
+
+A change that alters the payload's shape lists, before its proof, every reader
+of another release's archive, the predecessor fixture of `release_compatibility`
+included, and runs that fixture locally against the published predecessor's
+assets with the command above.
 
 Nox installs a non-editable wheel in isolated environments. Do not add
 `PYTHONPATH`, user-site fallback, or another repository's virtual environment

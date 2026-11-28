@@ -29,9 +29,9 @@
 - [x] 4.1 Write the agent-delivery test's expected body out literally, and correct the
       `verify_payload_manifest` docstring (D8). Done when the test fails against a projection that changes the
       collaboration catalog and passes on the product.
-- [ ] 4.2 Set Nox's `stop_on_first_error` (D6), with a test that a failing governance session ends `full` before
+- [x] 4.2 Set Nox's `stop_on_first_error` (D6), with a test that a failing governance session ends `full` before
       the quality session. Done when the test passes.
-- [ ] 4.3 Add the rule of D7 to CONTRIBUTING, and update README, the architecture notes and the capability
+- [x] 4.3 Add the rule of D7 to CONTRIBUTING, and update README, the architecture notes and the capability
       documentation where they describe origins, the pool or refusals. Done when governance and the prose gate pass.
 
 ## 5. Release preparation

@@ -141,10 +141,14 @@ The request path names the upstream; the proxy keeps no registry of upstreams.
   before remote I/O.
 - Headers, bodies, and query parameters cannot select an upstream host.
 - Only a native local client is served: a data request with `Origin`, Fetch
-  Metadata (`Sec-Fetch-*`) or a non-loopback `Host` is refused, as the handoff
-  control request is.
-- The upstream origin, its scheme, authority and base path, keys cooldowns and
-  names the upstream in log lines.
+  Metadata (`Sec-Fetch-*`) or a non-loopback `Host` is refused with the JSON
+  error `local_client_required`; the handoff control request is refused too,
+  with the standard library's error page.
+- The upstream origin, its scheme, canonical authority and base path, keys
+  cooldowns and pooled connections, names the upstream in log lines, and is the
+  URL the proxy sends. Two spellings of one authority are one origin.
+- Idle upstream connections are bounded by the listener: at most 8 per address
+  and 32 in all, each closed about 30 seconds after its last response.
 
 ## Upstream admission
 
