@@ -107,8 +107,10 @@ def _refuse_non_local(handler: BaseHTTPRequestHandler, request_id: int) -> None:
     last failure as it was, and one log line covers each interval with the number refused in it.
     """
     code = "local_client_required"
+    # The refusal is placed in its interval before the client has the answer and can send again.
+    refused = _LOCAL_CLIENT_REFUSAL_LOG.admit()
     _send_refusal(handler, 403, code, "data requests are available only to a local native client")
-    if refused := _LOCAL_CLIENT_REFUSAL_LOG.admit():
+    if refused:
         operational_log.log(
             f"req={request_id} event={code} refused={refused} "
             f"path={operational_log.safe_request_path(handler.path)}"

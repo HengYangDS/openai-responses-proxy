@@ -11,6 +11,7 @@ import pytest
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
 from openai_responses_proxy.relay import telemetry
+from tests.relay.fixtures import MemoryHandler
 from tests.relay.fixtures import json_body
 from tests.relay.fixtures import raw_exchange
 from tests.relay.fixtures import request
@@ -18,9 +19,8 @@ from tests.relay.fixtures import running_proxy
 from tests.relay.fixtures import upstream_path
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
-
     from pytest_mock import MockerFixture
+    from pytest_mock import MockType
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +50,7 @@ def _counters() -> dict[str, object]:
     return {str(name): value for name, value in counters.items()}
 
 
-def _events(log: MagicMock) -> list[str]:
+def _events(log: MockType) -> list[str]:
     return [str(call.args[0]) for call in log.call_args_list]
 
 
@@ -109,15 +109,23 @@ class RefusalNameTests:
         """A web page can repeat this refusal, so it neither floods the log nor hides a fault."""
         telemetry.reset_for_test()
         log = mocker.patch("openai_responses_proxy.relay.operational_log.log")
-        page = {"Origin": "https://evil.example"}
         interval = responses.LOCAL_CLIENT_REFUSAL_LOG_SECONDS
-        with running_proxy([]) as (port, received):
-            for moment in (100.0, 110.0, 120.0, 100.0 + interval):
-                refusal_clock[0] = moment
-                with pytest.raises(urllib.error.HTTPError) as raised:
-                    request(port, json_body({"input": "hello"}), path=upstream_path(), headers=page)
-                raised.value.close()
-            assert received == []
+        answer = responses.downstream.send_payload
+
+        def answer_one_late(*args: object, **kwargs: object) -> None:
+            # A refusal belongs to the interval in which it happened, even when the proxy goes on
+            # after its answer only once a whole interval has passed.
+            answer(*args, **kwargs)  # ty: ignore[invalid-argument-type]
+            if refusal_clock[0] == 120.0:  # the third refusal
+                refusal_clock[0] += interval
+
+        mocker.patch.object(responses.downstream, "send_payload", side_effect=answer_one_late)
+        for moment in (100.0, 110.0, 120.0, 100.0 + interval):
+            refusal_clock[0] = moment
+            handler = MemoryHandler(json_body({"input": "hello"}))
+            handler.headers["Origin"] = "https://evil.example"
+            responses.relay(handler, "POST")
+            assert handler.statuses == [403]
         events = _events(log)
         assert [event.split(" refused=")[1].split(" ")[0] for event in events] == ["1", "3"]
         assert all(" event=local_client_required " in f" {event} " for event in events)
