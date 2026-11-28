@@ -24,6 +24,7 @@ from openai_responses_proxy.relay import admission
 from openai_responses_proxy.relay import downstream
 from openai_responses_proxy.relay import operational_log
 from openai_responses_proxy.relay import responses
+from openai_responses_proxy.relay import upstream
 from openai_responses_proxy.serving import control
 
 type ServerRequest = socket.socket | tuple[bytes, socket.socket]
@@ -60,6 +61,11 @@ class ResilientProxyServer(ThreadingHTTPServer):
             weakref.WeakKeyDictionary()
         )
         super().__init__(server_address, request_handler_class, bind_and_activate)
+
+    @override
+    def service_actions(self) -> None:
+        """Close idle upstream connections on time; `serve_forever` runs this on every poll."""
+        upstream.expire_idle_connections()
 
     @override
     def server_bind(self) -> None:

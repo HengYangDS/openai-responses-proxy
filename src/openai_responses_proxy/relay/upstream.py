@@ -138,6 +138,11 @@ def resolve(host: str, port: int, deadline: float) -> list[_AddressInfo]:
     return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM, 0, socket.AI_NUMERICHOST)
 
 
+def expire_idle_connections() -> None:
+    """Close the upstream connections idle for longer than the pool keeps them."""
+    _POOL.expire()
+
+
 def reset_for_test() -> None:
     """Forget pending lookups and idle connections between isolated tests."""
     _RESOLVER.reset()

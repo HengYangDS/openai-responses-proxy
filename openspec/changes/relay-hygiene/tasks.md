@@ -1,18 +1,18 @@
 ## 1. Canonical origins
 
-- [ ] 1.1 Add tests to `tests/relay/test_addressing.py`: case, a default port, a zero-padded port and an IPv6 literal
+- [x] 1.1 Add tests to `tests/relay/test_addressing.py`: case, a default port, a zero-padded port and an IPv6 literal
       each resolve to the one canonical origin and URL; port 0, a zone identifier, IPvFuture, non-dotted numeric
       hosts, a label over 63 octets, a host over 253 octets, an empty label and a trailing dot are refused; `http`
       to `LOCALHOST` is loopback. Done when they fail before 1.2 and pass after it.
-- [ ] 1.2 Canonicalize the authority in `relay/addressing.resolve` (D1). Done when 1.1's tests and the relay tests
+- [x] 1.2 Canonicalize the authority in `relay/addressing.resolve` (D1). Done when 1.1's tests and the relay tests
       pass.
 
 ## 2. Bounded idle connections
 
-- [ ] 2.1 Add tests to `tests/relay/test_connection_reuse.py`: releases beyond 32 in all close the least recently released
+- [x] 2.1 Add tests to `tests/relay/test_connection_reuse.py`: releases beyond 32 in all close the least recently released
       connection; `Pool.expire` closes connections idle for longer than 30 seconds and leaves no empty address; and
       the listener's `service_actions` expires the pool. Done when they fail before 2.2 and pass after it.
-- [ ] 2.2 Bound the pool and call its expiry from `ResilientProxyServer.service_actions` (D2). Done when 2.1's tests
+- [x] 2.2 Bound the pool and call its expiry from `ResilientProxyServer.service_actions` (D2). Done when 2.1's tests
       and the relay and serving tests pass.
 
 ## 3. Refusals and header fields

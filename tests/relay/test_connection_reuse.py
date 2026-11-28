@@ -329,6 +329,53 @@ class TestConnectionPool:
         pool.release(self.address, connections.Reusable("127.0.0.1", 9))
         assert pool.acquire(self.address) is None
 
+    def test_the_pool_holds_a_bounded_total_across_addresses(self) -> None:
+        """Beyond the total bound, the least recently released connection closes first."""
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        held = [_open_connection() for _ in range(connections.IDLE_TOTAL + 1)]
+        try:
+            for port, (connection, _) in enumerate(held, start=1):
+                pool.release(("https", f"h{port}.example", 443), connection)
+            first, _ = held[0]
+            assert first.sock is None
+            assert all(connection.sock is not None for connection, _ in held[1:])
+            assert sum(pool.idle_for_test().values()) == connections.IDLE_TOTAL
+            assert pool.acquire(("https", "h1.example", 443)) is None
+        finally:
+            _close(held)
+
+    def test_expiry_closes_old_idle_connections_and_forgets_their_addresses(
+        self, *, mocker: MockerFixture
+    ) -> None:
+        pool: connections.Pool[connections.Reusable] = connections.Pool()
+        held = [_open_connection(), _open_connection()]
+        clock = mocker.patch.object(connections.time, "monotonic", return_value=100.0)
+        try:
+            pool.release(("https", "old.example", 443), held[0][0])
+            clock.return_value = 100.0 + connections.IDLE_SECONDS
+            pool.release(("https", "new.example", 443), held[1][0])
+            clock.return_value = 100.0 + connections.IDLE_SECONDS + 0.5
+            pool.expire()
+            assert held[0][0].sock is None
+            assert held[1][0].sock is not None
+            assert pool.idle_for_test() == {("https", "new.example", 443): 1}
+        finally:
+            _close(held)
+
+
+def _open_connection() -> tuple[connections.Reusable, socket.socket]:
+    """Return a connection whose socket stays idle and open, and the socket's peer."""
+    connection = connections.Reusable("127.0.0.1", 9)
+    local, peer = socket.socketpair()
+    connection.sock = local
+    return connection, peer
+
+
+def _close(held: list[tuple[connections.Reusable, socket.socket]]) -> None:
+    for connection, peer in held:
+        connection.close()
+        peer.close()
+
 
 class TestPooledRequestBoundaries:
     def test_a_response_without_a_request_is_refused(self) -> None:

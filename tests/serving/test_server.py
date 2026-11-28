@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from openai_responses_proxy.relay import responses
+from openai_responses_proxy.relay import upstream
 from openai_responses_proxy.serving import control
 from openai_responses_proxy.serving import server
 
@@ -114,3 +115,11 @@ def test_server_tracks_handlers_and_classifies_disconnects(*, mocker: MockerFixt
     mocker.patch.object(server.sys, "exception", return_value=RuntimeError("failed"))
     server.ResilientProxyServer.handle_error(proxy, None, None)
     fallback.assert_called_once()
+
+
+def test_the_serve_loop_expires_idle_upstream_connections(*, mocker: MockerFixture) -> None:
+    """Idle upstream connections close on time even when no request arrives."""
+    expire = mocker.patch.object(upstream, "expire_idle_connections")
+    listener = object.__new__(server.ResilientProxyServer)
+    listener.service_actions()
+    expire.assert_called_once_with()
