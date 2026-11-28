@@ -8,9 +8,10 @@
 
 ## 2. Close the previous Change
 
-- [ ] 2.1 Tick `relay-hygiene` task 5.3 with its evidence and archive the Change with `ethos lane archive-change`.
+- [x] 2.1 Tick `relay-hygiene` task 5.3 with its evidence and archive the Change with `ethos lane archive-change`.
       Depends on `relay-hygiene` having landed on both Forges' `dev` with green pipelines. Done when the archive holds
-      its specifications and `openspec validate --all --strict` passes.
+      its specifications and `openspec validate --all --strict` passes. Archived in `8e8384a2`; 2.2.0 passed 10 of 10
+      items.
 
 ## 3. Verification
 
