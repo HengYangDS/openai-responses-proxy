@@ -135,10 +135,13 @@ class TestVerificationContracts:
         for scripts, variables in job_scripts.values():
             if "mise install --locked" in scripts:
                 # A Mise job installs its locked tools first; where the runner supplies Mise, the
-                # job first records which Mise ran. One that enables the Node tools then installs
-                # and audits them.
+                # job first records which Mise ran, and commit admission first requires its
+                # external trust. One that enables the Node tools then installs and audits them.
                 installed = scripts[scripts.index("mise install --locked") :]
-                assert scripts[: -len(installed)] in ((), ("mise --version",))
+                before = scripts[: -len(installed)]
+                assert before in ((), ("mise --version",)) or (
+                    len(before) == 1 and "ETHOS_COMMIT_ALLOWED_SIGNERS" in before[0]
+                )
                 if "npm" in variables["MISE_ENABLE_TOOLS"].split(","):
                     assert installed[:3] == (
                         "mise install --locked",
@@ -326,6 +329,8 @@ class TestVerificationContracts:
         assert settings == {
             "idiomatic_version_file_enable_tools": [],
             "locked": True,
+            # ETHOS's pin declares it: an install verifies the provenance that the lock records.
+            "locked_verify_provenance": True,
             "not_found_system_fallback": False,
             "use_versions_host": False,
         }

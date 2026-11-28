@@ -1,7 +1,5 @@
 package ci
 
-import "list"
-
 // Source and compatibility jobs share the provider-neutral verification contract.
 #SourceJobs: {
 	"commit-admission": {
@@ -10,11 +8,10 @@ import "list"
 		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
 		env: {
-			ETHOS_COMMIT_ALLOWED_SIGNERS:       "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
-			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "${{ github.workspace }}"
-			PYTHONPATH:                         "${{ github.workspace }}/\(#EthosSupply.root)/src"
+			ETHOS_COMMIT_ALLOWED_SIGNERS: "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
+			MISE_ENABLE_TOOLS:            #Toolchains.ethos
 		}
-		steps: list.Concat([[{
+		steps: [{
 			name: "Require external public commit trust"
 			run:  #CommitTrustPreflight
 		}, {
@@ -25,24 +22,28 @@ import "list"
 				ref:           #Conditions.productSHA
 			}
 		}, {
-			#UvSetup
+			uses: #Toolchains.githubActions.mise
+			with: {
+				version: #Toolchains.miseVersion
+				install: true
+				cache:   true
+				// The installed set keys the cache, apart from the jobs that install the other tools.
+				install_args: #Toolchains.ethos
+			}
 		}, {
 			name: "Refresh native ETHOS Linux prerequisite metadata"
 			run:  "sudo apt-get update -qq"
 		}, {
 			name: "Install native ETHOS Linux prerequisites"
-			run:  "sudo \(#EthosSupply.linuxInstall)"
-		}], [for command in #EthosSupply.checkout {
-			name: "Select the exact native ETHOS source"
-			run:  command
-		}], [for command in #EthosSupply.prepare {
-			name: "Prepare locked native ETHOS supply and external commit trust"
-			run:  command
-		}], [{
+			run:  "sudo \(#EthosRelease.linuxInstall)"
+		}, {
+			name: "Bind the external public commit trust"
+			run:  #EthosRelease.bindTrust
+		}, {
 			name: "Admit the exact introduced commit range"
 			env:  #CommitEvent
 			run:  #CommitAdmission
-		}]])
+		}]
 	}
 	"python-matrix": {
 		name:              "Resolve supported Python versions"
@@ -75,6 +76,7 @@ import "list"
 		if:                #Conditions.productProof
 		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 10
+		env: MISE_ENABLE_TOOLS: #Toolchains.quality
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
 			with: {
@@ -202,6 +204,7 @@ import "list"
 		needs:             "python-matrix"
 		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
+		env: MISE_ENABLE_TOOLS: #Toolchains.quality
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
 			with: {

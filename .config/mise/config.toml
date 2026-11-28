@@ -1,6 +1,6 @@
-# Not above the Mise that ETHOS's CI supply pins and runs in this repository for commit admission
-# (2026.10.14 on 2026-11-24): a higher floor makes that Mise refuse the checkout.
-min_version = "2026.10.14"
+# The oldest Mise that runs this configuration: the release in graph/toolchains.cue's GitLab image,
+# which GitHub installs as well and the macOS runner supplies (2026.11.14 on 2026-11-28).
+min_version = "2026.11.14"
 
 [settings]
 idiomatic_version_file_enable_tools = []
@@ -22,6 +22,7 @@ lockfile_platforms = [
   "linux-x64-musl",
   "macos-arm64",
 ]
+locked_verify_provenance = true
 
 [tool_alias]
 # The package manager that installs the locked Node tools. Mise puts its folder before Node's own
@@ -49,6 +50,7 @@ cue = "0.17.1"
 "github:rhysd/actionlint" = "1.7.12"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
+"github:HengYangDS/ethos" = "0.2.0-beta.12"
 
 [vars]
 # The digest-pinned Renovate release that validates and inspects the dependency proposal policy.

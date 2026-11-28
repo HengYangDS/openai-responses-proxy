@@ -13,6 +13,7 @@ import (
 		needs:             "python-matrix"
 		"runs-on":         #Platforms.linux.github
 		"timeout-minutes": 15
+		env: MISE_ENABLE_TOOLS: #Toolchains.quality
 		steps: [{
 			uses: #Toolchains.githubActions.checkout
 			with: {

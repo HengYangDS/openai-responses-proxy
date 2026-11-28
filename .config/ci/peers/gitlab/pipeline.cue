@@ -13,18 +13,25 @@ gitlab: {
 		if:   "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
 		when: "never"
 	}]
+	// Commit admission runs from the Mise image of the source job and installs only the pinned ETHOS
+	// release; that image carries Git and libatomic1, and the job adds the rest that ETHOS expects.
 	#commitAdmission: {
 		stage:   "verify"
 		timeout: "15m"
+		image:   #productJobs."source-and-governance".image
 		variables: {
 			GIT_DEPTH:                          "0"
-			OPENAI_RESPONSES_PROXY_COMMIT_ROOT: "$CI_PROJECT_DIR"
+			MISE_ENABLE_TOOLS:                  #Toolchains.ethos
 			OPENAI_RESPONSES_PROXY_COMMIT_HEAD: "$CI_COMMIT_SHA"
 			OPENAI_RESPONSES_PROXY_COMMIT_PEER: "gitlab"
-			PYTHONPATH:                         "$CI_PROJECT_DIR/\(#EthosSupply.root)/src"
 		}
-		before_script: list.Concat([[#CommitTrustPreflight], #systemBootstrap,
-			[#EthosSupply.linuxInstall], #EthosSupply.checkout, #EthosSupply.prepare])
+		before_script: [
+			#CommitTrustPreflight,
+			"mise install --locked",
+			"apt-get update -qq",
+			#EthosRelease.linuxInstall,
+			#EthosRelease.bindTrust,
+		]
 		script: [#CommitAdmission]
 		tags: [...string]
 		rules: [...{...}]

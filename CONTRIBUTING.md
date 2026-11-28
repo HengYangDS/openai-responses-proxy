@@ -60,8 +60,13 @@ but Mise reads the operator's global configuration at startup, before it, so
 every tool that the repository runs is selected here, npm included.
 The native uv configuration is `.config/mise/uv.toml`; Mise, Nox and both CUE
 projections select it instead of discovering operator configuration. GitHub's
-setup action reads its version requirement from the same file. External ETHOS
-source preparation retains its own uv configuration, not this product's.
+setup action reads its version requirement from the same file.
+The same configuration pins the ETHOS release that governs this repository, in
+ETHOS's own form: `"github:HengYangDS/ethos"` under `[tools]`, with
+`locked_verify_provenance`, so every install verifies the provenance that the
+lock records. Local governance, proofs and hosted commit admission run that one
+release. Move it with `ethos lane repair-paradigm --pin`, run from the new
+release, and then `mise lock`.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, and their complete
 npm graph. Governance invokes Node tools through `npm exec --offline`, so local,
 GitHub and GitLab use the same repository installation. Mise's

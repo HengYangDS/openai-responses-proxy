@@ -8,6 +8,16 @@ publication authority.
 
 ## [Unreleased]
 
+### Changed
+
+- Pin the ETHOS release that governs this repository, 0.2.0-beta.12, in the
+  Mise configuration and lock, with its attestations verified at install.
+  Hosted commit admission on both forges installs that release through Mise
+  instead of building ETHOS from a source commit, and every other Mise job
+  leaves it out. Commit admission now runs the same Mise 2026.11.14 as the
+  other jobs, which is also the oldest Mise the repository accepts. The
+  release assets do not change.
+
 ## [8.0.0] - 2026-11-27
 
 ### Changed

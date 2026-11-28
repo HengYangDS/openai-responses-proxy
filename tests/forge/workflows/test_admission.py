@@ -280,7 +280,6 @@ def test_gitlab_commit_projection_declares_native_event_values(event: str) -> No
         key: re.sub(r"\$([A-Z_]+)", lambda match: inputs[match[1]], _string(value))
         for key, value in declared.items()
         if key.startswith("OPENAI_RESPONSES_PROXY_COMMIT_")
-        and key != "OPENAI_RESPONSES_PROXY_COMMIT_ROOT"
     }
     assert projected == {
         "OPENAI_RESPONSES_PROXY_COMMIT_BASE": {

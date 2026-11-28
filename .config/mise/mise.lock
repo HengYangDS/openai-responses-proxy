@@ -92,6 +92,41 @@ checksum = "sha256:64921403f012a97f89494c03605db2fbf7d9daa77dc2631819ac4406cb2e8
 url = "https://github.com/cue-lang/cue/releases/download/v0.17.1/cue_v0.17.1_darwin_arm64.tar.gz"
 url_api = "https://api.github.com/repos/cue-lang/cue/releases/assets/479014347"
 
+[[tools."github:HengYangDS/ethos"]]
+version = "0.2.0-beta.12"
+backend = "github:HengYangDS/ethos"
+specifiers = ["0.2.0-beta.12"]
+
+[tools."github:HengYangDS/ethos"."platforms.linux-arm64"]
+checksum = "sha256:b7eb93ada12f82f9c755562429367a5e2792a1a2c96013598382fc08a16c873d"
+url = "https://github.com/HengYangDS/ethos/releases/download/v0.2.0-beta.12/ethos-0.2.0-beta.12-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/HengYangDS/ethos/releases/assets/801374803"
+provenance = "github-attestations"
+
+[tools."github:HengYangDS/ethos"."platforms.linux-arm64-musl"]
+checksum = "sha256:b7eb93ada12f82f9c755562429367a5e2792a1a2c96013598382fc08a16c873d"
+url = "https://github.com/HengYangDS/ethos/releases/download/v0.2.0-beta.12/ethos-0.2.0-beta.12-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/HengYangDS/ethos/releases/assets/801374803"
+provenance = "github-attestations"
+
+[tools."github:HengYangDS/ethos"."platforms.linux-x64"]
+checksum = "sha256:e5e4a390c9a7616067522606160dc0cc63ee8725acd54b30ab3df89b6cf286f0"
+url = "https://github.com/HengYangDS/ethos/releases/download/v0.2.0-beta.12/ethos-0.2.0-beta.12-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/HengYangDS/ethos/releases/assets/801374843"
+provenance = "github-attestations"
+
+[tools."github:HengYangDS/ethos"."platforms.linux-x64-musl"]
+checksum = "sha256:e5e4a390c9a7616067522606160dc0cc63ee8725acd54b30ab3df89b6cf286f0"
+url = "https://github.com/HengYangDS/ethos/releases/download/v0.2.0-beta.12/ethos-0.2.0-beta.12-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/HengYangDS/ethos/releases/assets/801374843"
+provenance = "github-attestations"
+
+[tools."github:HengYangDS/ethos"."platforms.macos-arm64"]
+checksum = "sha256:71929b950100188c39a76026e4ff6a6d2d7a35a8fda608483e1e9b2a18729f59"
+url = "https://github.com/HengYangDS/ethos/releases/download/v0.2.0-beta.12/ethos-0.2.0-beta.12-macos-arm64.tar.gz"
+url_api = "https://api.github.com/repos/HengYangDS/ethos/releases/assets/801374909"
+provenance = "github-attestations"
+
 [[tools."github:gitleaks/gitleaks"]]
 version = "8.30.1"
 backend = "github:gitleaks/gitleaks"

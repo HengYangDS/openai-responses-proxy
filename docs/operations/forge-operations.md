@@ -89,9 +89,9 @@ GitLab supplies it as a project or inherited group environment variable availabl
 to unprotected proposal jobs. It is public trust material, never a private key.
 
 The CUE-owned commit-admission job rejects an absent, empty or whitespace-only
-input before installing tools or fetching the ETHOS supplier. That check proves
-only input presence. The pinned native ETHOS binder and `hook commit-range` then
-validate and use the external trust against the exact introduced Git objects;
+input before installing tools or the ETHOS release. That check proves only input
+presence. The pinned ETHOS release's `hook bind-trust` and `hook commit-range`
+then validate and use the external trust against the exact introduced Git objects;
 product source must not nominate its own trusted key. After provisioning, read
 back the selected peer's variable and compare its complete bytes with the
 approved public source. A successful local signature check does not prove that

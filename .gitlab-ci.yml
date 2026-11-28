@@ -280,30 +280,23 @@ workflow:
 commit-admission:
   stage: verify
   timeout: 15m
+  image:
+    name: ghcr.io/jdx/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120
+    entrypoint:
+      - ""
   variables:
     GIT_DEPTH: "0"
-    OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
+    MISE_ENABLE_TOOLS: github:HengYangDS/ethos
     OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
     OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
-    PYTHONPATH: $CI_PROJECT_DIR/build/runtime/ethos-source/src
   before_script:
     - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
-    - uv tree --frozen --offline --universal --depth 0
-    - uv --version
+    - mise install --locked
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
-    - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
-    - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
-    - git -C build/runtime/ethos-source checkout --detach 92253d2a82560173f5c645cca419e5f302a11718
-    - git -C build/runtime/ethos-source diff --exit-code ed29cbe27e0412ae82f4fe90dd18622cb69d62df HEAD --
-    - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
-    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable --no-build-isolation-package ethos
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
+    - apt-get install -qq -y --no-install-recommends git libatomic1 openssh-client
+    - mise exec --locked -- ethos hook bind-trust --apply --root . --json
   script:
-    - build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
+    - mise exec --locked -- ethos hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
   tags:
     - $OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG
   rules:
@@ -314,30 +307,23 @@ commit-admission:
 commit-admission-accepted:
   stage: verify
   timeout: 15m
+  image:
+    name: ghcr.io/jdx/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120
+    entrypoint:
+      - ""
   variables:
     GIT_DEPTH: "0"
-    OPENAI_RESPONSES_PROXY_COMMIT_ROOT: $CI_PROJECT_DIR
+    MISE_ENABLE_TOOLS: github:HengYangDS/ethos
     OPENAI_RESPONSES_PROXY_COMMIT_HEAD: $CI_COMMIT_SHA
     OPENAI_RESPONSES_PROXY_COMMIT_PEER: gitlab
-    PYTHONPATH: $CI_PROJECT_DIR/build/runtime/ethos-source/src
   before_script:
     - test "${ETHOS_COMMIT_ALLOWED_SIGNERS:-}" != "${ETHOS_COMMIT_ALLOWED_SIGNERS+${ETHOS_COMMIT_ALLOWED_SIGNERS%%[![:space:]]*}}"
-    - uv tree --frozen --offline --universal --depth 0
-    - uv --version
+    - mise install --locked
     - apt-get update -qq
-    - apt-get install -qq -y --no-install-recommends git openssh-client binutils
-    - apt-get install -qq -y --no-install-recommends curl ca-certificates libatomic1
-    - git clone --filter=blob:none --no-checkout https://github.com/HengYangDS/ethos.git build/runtime/ethos-source
-    - git -C build/runtime/ethos-source checkout --detach 92253d2a82560173f5c645cca419e5f302a11718
-    - git -C build/runtime/ethos-source diff --exit-code ed29cbe27e0412ae82f4fe90dd18622cb69d62df HEAD --
-    - uv --directory build/runtime/ethos-source sync --locked --no-install-project --group dev
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.native --root . --mise node vale
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -m tools.ci.toolchain.npm --seed ci --ignore-scripts
-    - uv --directory build/runtime/ethos-source sync --locked --group dev --no-editable --no-build-isolation-package ethos
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -I -m ethos.cli --version
-    - uv --directory build/runtime/ethos-source run --locked --no-sync python -B -c 'import os; from pathlib import Path; from tools.ci.toolchain.environment import bind_commit_trust_material; bind_commit_trust_material(Path(os.environ["OPENAI_RESPONSES_PROXY_COMMIT_ROOT"]), os.environ["ETHOS_COMMIT_ALLOWED_SIGNERS"])'
+    - apt-get install -qq -y --no-install-recommends git libatomic1 openssh-client
+    - mise exec --locked -- ethos hook bind-trust --apply --root . --json
   script:
-    - build/runtime/ethos-source/.venv/bin/python -B -I -m ethos.cli hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
+    - mise exec --locked -- ethos hook commit-range --target-ref "$OPENAI_RESPONSES_PROXY_COMMIT_TARGET" --proposed-head "$OPENAI_RESPONSES_PROXY_COMMIT_HEAD" --remote-head "$OPENAI_RESPONSES_PROXY_COMMIT_BASE" --remote "$OPENAI_RESPONSES_PROXY_COMMIT_PEER" --trusted-baseline refs/remotes/origin/dev --root . --json
   tags:
     - $OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG
   rules:

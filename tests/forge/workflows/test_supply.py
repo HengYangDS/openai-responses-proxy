@@ -127,12 +127,12 @@ def test_gitlab_verification_bootstrap_is_bounded_and_cached() -> None:
 
 
 def test_gitlab_bootstrapped_jobs_install_the_native_packaging_tools() -> None:
-    """Give every apt-bootstrapped GitLab job the binutils whose objdump PyInstaller needs."""
+    """Give every system-bootstrapped GitLab job the binutils whose objdump PyInstaller needs."""
     bootstrapped: dict[str, list[str]] = {}
     for name, raw in _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")).items():
         if isinstance(raw, dict):
             script = _strings(_mapping(raw).get("before_script", []))
-            if "apt-get update -qq" in script:
+            if "uv tree --frozen --offline --universal --depth 0" in script:
                 bootstrapped[name] = script
     expected = {"verify-performance", "verify-performance-accepted", "verify-python-quality"}
     assert expected <= set(bootstrapped)
@@ -318,86 +318,100 @@ def test_github_python_quality_installs_its_declared_projection_toolchain() -> N
     assert _mapping(mise["with"])["cache"] == "true"
 
 
-@pytest.mark.repository_toolchain
-def test_ethos_supplier_prepares_native_wheel_inputs_before_building() -> None:
-    """Prepare native runtime and policy-tool bytes before the noneditable wheel build."""
-    prepare = _strings(yaml.safe_load(render("#EthosSupply.prepare")))
-    root = "build/runtime/ethos-source"
-    native = (
-        f"uv --directory {root} run --locked --no-sync "
-        "python -B -m tools.ci.toolchain.native --root . --mise node vale"
-    )
-    build = (
-        f"uv --directory {root} sync --locked --group dev --no-editable "
-        "--no-build-isolation-package ethos"
-    )
-    assert prepare.count(native) == 1
-    assert prepare.index(native) < prepare.index(build)
+ETHOS = "github:HengYangDS/ethos"
+ETHOS_RUN = "mise exec --locked -- ethos "
+ETHOS_LINUX_PACKAGES = {"git", "libatomic1", "openssh-client"}
 
 
-def test_commit_admission_uses_target_native_locked_ethos_supply() -> None:
-    github = _load_yaml(ROOT / ".github/workflows/verify.yml")
-    job = _mapping(_mapping(github["jobs"])["commit-admission"])
+def test_ethos_release_is_pinned_once_and_locked_with_its_attestations() -> None:
+    """One exact ETHOS release is pinned in ETHOS's own form and locked with attested archives."""
+    toolchain = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())
+    lock = tomllib.loads((ROOT / ".config/mise/mise.lock").read_text())
+    version = toolchain["tools"][ETHOS]
+    assert isinstance(version, str)
+    assert re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?", version)
+    assert not [name for name in toolchain["tools"] if name.endswith(":ethos")]
+    assert toolchain["settings"]["locked_verify_provenance"] is True
+    (locked,) = lock["tools"][ETHOS]
+    assert locked["version"] == version
+    platforms = {
+        name.removeprefix("platforms."): entry
+        for name, entry in locked.items()
+        if name.startswith("platforms.")
+    }
+    assert set(platforms) == set(toolchain["settings"]["lockfile_platforms"])
+    for entry in platforms.values():
+        assert f"/releases/download/v{version}/ethos-{version}-" in entry["url"]
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", entry["checksum"])
+        assert entry["provenance"] == "github-attestations"
+
+
+def test_commit_admission_runs_the_locked_ethos_release_on_both_peers() -> None:
+    """Both peers install only the pinned ETHOS through Mise, then bind trust and admit with it."""
+    github = _mapping(_load_yaml(ROOT / ".github/workflows/verify.yml")["jobs"])
+    job = _mapping(github["commit-admission"])
+    environment = _mapping(job["env"])
+    assert environment == {
+        "ETHOS_COMMIT_ALLOWED_SIGNERS": "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}",
+        "MISE_ENABLE_TOOLS": ETHOS,
+    }
     steps = tuple(_mapping(step) for step in _sequence(job["steps"]))
-    refresh = next(
-        step
-        for step in steps
-        if step.get("name") == "Refresh native ETHOS Linux prerequisite metadata"
-    )
-    assert refresh["run"] == "sudo apt-get update -qq"
-    prerequisites = next(
-        step for step in steps if step.get("name") == "Install native ETHOS Linux prerequisites"
-    )
-    install = _string(prerequisites["run"])
+    uses = [_string(step.get("uses", "")).split("@", 1)[0] for step in steps]
+    assert "astral-sh/setup-uv" not in uses
+    mise = steps[uses.index("jdx/mise-action")]
+    options = _mapping(mise["with"])
+    assert options["install"] == options["cache"] == "true"
+    assert options["install_args"] == ETHOS
+    commands = [_string(step["run"]) for step in steps if "run" in step]
+    preflight, refresh, install, bind, admit = commands
+    assert preflight.startswith("test ")
+    assert "ETHOS_COMMIT_ALLOWED_SIGNERS" in preflight
+    assert refresh == "sudo apt-get update -qq"
     assert install.startswith("sudo apt-get install -qq -y --no-install-recommends ")
-    assert {"curl", "ca-certificates", "libatomic1"} <= set(install.split())
-    checkout = [
-        _string(step["run"])
-        for step in steps
-        if step.get("name") == "Select the exact native ETHOS source"
-    ]
-    root = "build/runtime/ethos-source"
-    assert len(checkout) == 3
-    assert checkout[0].startswith("git clone --filter=blob:none --no-checkout https://")
-    assert checkout[0].endswith(f" {root}")
-    assert re.fullmatch(rf"git -C {root} checkout --detach [0-9a-f]{{40}}", checkout[1])
-    assert re.fullmatch(rf"git -C {root} diff --exit-code [0-9a-f]{{40}} HEAD --", checkout[2])
-    prepare = [
-        _string(step["run"])
-        for step in steps
-        if "Prepare locked native ETHOS" in str(step.get("name", ""))
-    ]
-    prefix = f"uv --directory {root}"
-    assert prepare[:5] == [
-        f"{prefix} sync --locked --no-install-project --group dev",
-        (
-            f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.native "
-            "--root . --mise node vale"
-        ),
-        (
-            f"{prefix} run --locked --no-sync python -B -m tools.ci.toolchain.npm "
-            "--seed ci --ignore-scripts"
-        ),
-        f"{prefix} sync --locked --group dev --no-editable --no-build-isolation-package ethos",
-        f"{prefix} run --locked --no-sync python -B -I -m ethos.cli --version",
-    ]
-    assert len(prepare) == 6
-    assert prepare[-1].startswith(f"{prefix} run --locked --no-sync python -B -c ")
-    assert "bind_commit_trust_material" in prepare[-1]
-    assert _mapping(job["env"])["ETHOS_COMMIT_ALLOWED_SIGNERS"] == (
-        "${{ vars.ETHOS_COMMIT_ALLOWED_SIGNERS }}"
-    )
-    assert ".whl" not in "\n".join((*checkout, *prepare))
+    assert set(install.split()) >= ETHOS_LINUX_PACKAGES
+    assert steps.index(mise) < next(i for i, step in enumerate(steps) if step.get("run") == refresh)
+    assert bind == f"{ETHOS_RUN}hook bind-trust --apply --root . --json"
+    assert admit.startswith(f"{ETHOS_RUN}hook commit-range ")
+    assert "ethos-source" not in yaml.safe_dump(job)
 
     gitlab = _load_yaml(ROOT / ".gitlab-ci.yml")
-    review = _mapping(gitlab["commit-admission"])
-    accepted = _mapping(gitlab["commit-admission-accepted"])
-    assert review["tags"] == ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_REVIEW_RUNNER_TAG"]
-    assert accepted["tags"] == ["$OPENAI_RESPONSES_PROXY_GITLAB_LINUX_RUNNER_TAG"]
-    assert review["before_script"] == accepted["before_script"]
-    before = _strings(review["before_script"])
-    assert install.removeprefix("sudo ") in before
-    assert before[-len(checkout + prepare) :] == checkout + prepare
+    source_image = _mapping(_mapping(gitlab["source-and-governance"])["image"])
+    for name in ("commit-admission", "commit-admission-accepted"):
+        admission = _mapping(gitlab[name])
+        assert _mapping(admission["image"]) == source_image
+        variables = _mapping(admission["variables"])
+        assert variables["MISE_ENABLE_TOOLS"] == ETHOS
+        assert "PYTHONPATH" not in variables
+        assert _strings(admission["before_script"]) == [
+            preflight,
+            "mise install --locked",
+            refresh.removeprefix("sudo "),
+            install.removeprefix("sudo "),
+            bind,
+        ]
+        assert _strings(admission["script"]) == [admit]
+
+
+def test_only_commit_admission_installs_ethos() -> None:
+    """Every other Mise job enables a declared tool set without ETHOS, so none downloads it."""
+    tools = tomllib.loads((ROOT / ".config/mise/config.toml").read_text())["tools"].keys()
+    enabled: dict[str, str] = {}
+    for workflow in (".github/workflows/verify.yml", ".github/workflows/admission.yml"):
+        for name, raw in _mapping(_load_yaml(ROOT / workflow)["jobs"]).items():
+            job = _mapping(raw)
+            steps = tuple(_mapping(step) for step in _sequence(job.get("steps", [])))
+            if any(_string(step.get("uses", "")).startswith(_MISE_ACTION) for step in steps):
+                enabled[name] = _string(_mapping(job.get("env", {})).get("MISE_ENABLE_TOOLS", ""))
+    for name, raw in _mapping(_load_yaml(ROOT / ".gitlab-ci.yml")).items():
+        if isinstance(raw, dict) and "mise install --locked" in raw.get("before_script", []):
+            variables = _mapping(_mapping(raw).get("variables", {}))
+            enabled[f"gitlab:{name}"] = _string(variables.get("MISE_ENABLE_TOOLS", ""))
+    assert len(enabled) >= 6
+    for name, selection in enabled.items():
+        selected = set(selection.split(","))
+        assert selected <= tools, name
+        admission = name.removeprefix("gitlab:").startswith("commit-admission")
+        assert (ETHOS in selected) == admission, name
 
 
 @pytest.mark.repository_toolchain
